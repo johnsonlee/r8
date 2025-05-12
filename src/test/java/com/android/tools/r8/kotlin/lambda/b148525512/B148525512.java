@@ -54,7 +54,7 @@ public class B148525512 extends KotlinTestBase {
   public static Collection<Object[]> data() {
     return buildParameters(
         getTestParameters().withDexRuntimes().withAllApiLevels().build(),
-        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build());
+        getKotlinTestParameters().withAllCompilersAndLambdaGenerations().build());
   }
 
   public B148525512(TestParameters parameters, KotlinTestParameters kotlinParameters) {

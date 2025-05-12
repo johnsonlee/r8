@@ -5,7 +5,6 @@
 package com.android.tools.r8.kotlin.optimize.switches;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertNotEquals;
 
@@ -34,7 +33,7 @@ public class KotlinEnumSwitchTest extends KotlinTestBase {
     return buildParameters(
         BooleanUtils.values(),
         getTestParameters().withAllRuntimesAndApiLevels().build(),
-        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build());
+        getKotlinTestParameters().withAllCompilersAndLambdaGenerations().build());
   }
 
   private static final KotlinCompileMemoizer kotlinJars =

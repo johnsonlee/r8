@@ -84,9 +84,7 @@ public class ContinuousSteppingTest extends DebugTestBase {
                   temp)
               .configure(KotlinCompilerTool::includeRuntime);
       for (KotlinTestParameters kotlinParameter :
-          TestBase.getKotlinTestParameters()
-              .withAllCompilersLambdaGenerationsAndTargetVersions()
-              .build()) {
+          TestBase.getKotlinTestParameters().withAllCompilersAndLambdaGenerations().build()) {
         add(compiledJars.getForConfiguration(kotlinParameter), predicate);
       }
       return this;

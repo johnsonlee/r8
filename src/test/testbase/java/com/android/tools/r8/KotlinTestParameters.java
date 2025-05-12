@@ -92,10 +92,14 @@ public class KotlinTestParameters {
 
   public static class Builder {
 
+    private static Predicate<KotlinLambdaGeneration> defaultLambdaGenerationFilter = t -> false;
+    private static Predicate<KotlinTargetVersion> defaultTargetVersionFilter = t -> false;
+
     private Predicate<KotlinCompilerVersion> compilerFilter = c -> false;
     private Predicate<KotlinCompilerVersion> oldCompilerFilter = c -> true;
-    private Predicate<KotlinTargetVersion> targetVersionFilter = t -> false;
-    private Predicate<KotlinLambdaGeneration> lambdaGenerationFilter = t -> false;
+    private Predicate<KotlinTargetVersion> targetVersionFilter = defaultTargetVersionFilter;
+    private Predicate<KotlinLambdaGeneration> lambdaGenerationFilter =
+        defaultLambdaGenerationFilter;
     private boolean withDevCompiler =
         System.getProperty("com.android.tools.r8.kotlincompilerdev") != null;
     private boolean withOldCompilers =
@@ -138,8 +142,8 @@ public class KotlinTestParameters {
       return this;
     }
 
-    public Builder withAllCompilersLambdaGenerationsAndTargetVersions() {
-      return withAllCompilers().withAllLambdaGenerations().withAllTargetVersions();
+    public Builder withAllCompilersAndLambdaGenerations() {
+      return withAllCompilers().withAllLambdaGenerations();
     }
 
     public Builder withDevCompiler() {
@@ -181,6 +185,15 @@ public class KotlinTestParameters {
       return withTargetVersion(KotlinTargetVersion.NONE);
     }
 
+    public Builder withLatestCompiler() {
+      return withCompiler(KotlinCompilerVersion.MAX_SUPPORTED_VERSION);
+    }
+
+    public Builder withCompiler(KotlinCompilerVersion version) {
+      withCompilerFilter(c -> c.isEqualTo(version));
+      return this;
+    }
+
     public Builder withCompilersStartingFromIncluding(KotlinCompilerVersion version) {
       withCompilerFilter(c -> c.isGreaterThanOrEqualTo(version));
       return this;
@@ -217,7 +230,7 @@ public class KotlinTestParameters {
                 && kotlinVersion.isGreaterThanOrEqualTo(KotlinCompilerVersion.KOTLINC_1_5_0)) {
               continue;
             }
-            // Only test lambda both types of lambda generation with the latest version and the dev
+            // Only test both types of lambda generation with the latest version and the dev
             // version.
             assert KotlinCompilerVersion.KOTLIN_DEV.isGreaterThan(
                 KotlinCompilerVersion.MAX_SUPPORTED_VERSION);
@@ -225,8 +238,12 @@ public class KotlinTestParameters {
                 && kotlinVersion.isLessThan(KotlinCompilerVersion.MAX_SUPPORTED_VERSION)) {
               continue;
             }
-            if (targetVersionFilter.test(targetVersion)) {
-              if (lambdaGenerationFilter.test(lambdaGeneration)) {
+            if (targetVersionFilter.test(targetVersion)
+                || (targetVersionFilter == defaultTargetVersionFilter
+                    && targetVersion.isDefaultForVersion(kotlinVersion))) {
+              if (lambdaGenerationFilter.test(lambdaGeneration)
+                  || (lambdaGenerationFilter == defaultLambdaGenerationFilter
+                      && lambdaGeneration.isDefaultForVersion(kotlinVersion))) {
                 testParameters.add(
                     new KotlinTestParameters(
                         new KotlinCompiler(kotlinVersion),

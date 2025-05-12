@@ -5,7 +5,6 @@
 package com.android.tools.r8.kotlin.metadata;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -29,7 +28,7 @@ public class MetadataPrunedFieldsTest extends KotlinMetadataTestBase {
   public static Collection<Object[]> data() {
     return buildParameters(
         getTestParameters().withAllRuntimesAndApiLevels().build(),
-        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build());
+        getKotlinTestParameters().withAllCompilersAndLambdaGenerations().build());
   }
 
   public MetadataPrunedFieldsTest(

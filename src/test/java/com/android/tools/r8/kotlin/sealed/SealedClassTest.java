@@ -5,7 +5,6 @@
 package com.android.tools.r8.kotlin.sealed;
 
 import static com.android.tools.r8.ToolHelper.getFilesInTestFolderRelativeToClass;
-import static org.hamcrest.CoreMatchers.equalTo;
 
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.KotlinTestBase;
@@ -33,7 +32,7 @@ public class SealedClassTest extends KotlinTestBase {
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters().withAllRuntimesAndApiLevels().build(),
-        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build());
+        getKotlinTestParameters().withAllCompilersAndLambdaGenerations().build());
   }
 
   public SealedClassTest(TestParameters parameters, KotlinTestParameters kotlinParameters) {

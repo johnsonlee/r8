@@ -52,7 +52,7 @@ public class KotlinClassInlinerTest extends AbstractR8KotlinTestBase {
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters().withAllRuntimesAndApiLevels().build(),
-        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build());
+        getKotlinTestParameters().withAllCompilersAndLambdaGenerations().build());
   }
 
   public KotlinClassInlinerTest(TestParameters parameters, KotlinTestParameters kotlinParameters) {

@@ -36,7 +36,7 @@ public class KotlinInlineTest extends KotlinDebugTestBase {
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters().withDexRuntimes().withAllApiLevels().build(),
-        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build());
+        getKotlinTestParameters().withAllCompilersAndLambdaGenerations().build());
   }
 
   public KotlinInlineTest(TestParameters parameters, KotlinTestParameters kotlinParameters) {

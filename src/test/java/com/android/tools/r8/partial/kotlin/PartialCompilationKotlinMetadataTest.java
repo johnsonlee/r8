@@ -44,7 +44,7 @@ public class PartialCompilationKotlinMetadataTest extends KotlinMetadataTestBase
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters().withAllRuntimesAndApiLevels().build(),
-        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build(),
+        getKotlinTestParameters().withAllCompilersAndLambdaGenerations().build(),
         BooleanUtils.values());
   }
 

@@ -18,7 +18,7 @@ public abstract class AssertionConfigurationKotlinDexTestBase
   public static Collection<Object[]> data() {
     return buildParameters(
         getTestParameters().withDexRuntimesAndAllApiLevels().build(),
-        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build());
+        getKotlinTestParameters().withAllCompilersAndLambdaGenerations().build());
   }
 
   public AssertionConfigurationKotlinDexTestBase(

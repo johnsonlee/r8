@@ -30,7 +30,7 @@ public abstract class AssertionConfigurationAssertionHandlerKotlinTestBase exten
   public static Collection<Object[]> data() {
     return buildParameters(
         getTestParameters().withAllRuntimesAndApiLevels().build(),
-        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build(),
+        getKotlinTestParameters().withAllCompilersAndLambdaGenerations().build(),
         BooleanUtils.values(),
         BooleanUtils.values());
   }

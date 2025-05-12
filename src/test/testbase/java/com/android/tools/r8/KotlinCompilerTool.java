@@ -4,6 +4,10 @@
 package com.android.tools.r8;
 
 import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.MAX_SUPPORTED_VERSION;
+import static com.android.tools.r8.KotlinCompilerTool.KotlinLambdaGeneration.CLASS;
+import static com.android.tools.r8.KotlinCompilerTool.KotlinLambdaGeneration.INVOKE_DYNAMIC;
+import static com.android.tools.r8.KotlinCompilerTool.KotlinTargetVersion.JAVA_6;
+import static com.android.tools.r8.KotlinCompilerTool.KotlinTargetVersion.JAVA_8;
 import static com.android.tools.r8.ToolHelper.isWindows;
 import static com.google.common.io.Files.getNameWithoutExtension;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -67,20 +71,26 @@ public class KotlinCompilerTool {
           throw new Unimplemented("JvmTarget not specified for " + this);
       }
     }
+
+    public boolean isDefaultForVersion(KotlinCompilerVersion version) {
+      return this == version.defaultTargetVersion;
+    }
   }
 
   public enum KotlinCompilerVersion implements Ordered<KotlinCompilerVersion> {
-    KOTLINC_1_3_72("kotlin-compiler-1.3.72", KotlinLambdaGeneration.CLASS),
-    KOTLINC_1_4_20("kotlin-compiler-1.4.20", KotlinLambdaGeneration.CLASS),
-    KOTLINC_1_5_0("kotlin-compiler-1.5.0", KotlinLambdaGeneration.CLASS),
-    KOTLINC_1_6_0("kotlin-compiler-1.6.0", KotlinLambdaGeneration.CLASS),
-    KOTLINC_1_7_0("kotlin-compiler-1.7.0", KotlinLambdaGeneration.CLASS),
-    KOTLINC_1_8_0("kotlin-compiler-1.8.0", KotlinLambdaGeneration.CLASS),
-    KOTLINC_1_9_21("kotlin-compiler-1.9.21", KotlinLambdaGeneration.CLASS),
-    KOTLINC_2_0_20("kotlin-compiler-2.0.20", KotlinLambdaGeneration.INVOKE_DYNAMIC),
-    KOTLINC_2_1_10("kotlin-compiler-2.1.10", KotlinLambdaGeneration.INVOKE_DYNAMIC),
-    KOTLINC_2_2_0_Beta2("kotlin-compiler-2.2.0-Beta2", KotlinLambdaGeneration.INVOKE_DYNAMIC),
-    KOTLIN_DEV("kotlin-compiler-dev", KotlinLambdaGeneration.INVOKE_DYNAMIC);
+    KOTLINC_1_3_72("kotlin-compiler-1.3.72", CLASS, JAVA_6),
+    KOTLINC_1_4_20("kotlin-compiler-1.4.20", CLASS, JAVA_6),
+    // JVM target 1,8 default from Kotlin 1.5.0,
+    // https://kotlinlang.org/docs/whatsnew15.html#new-default-jvm-target-1-8
+    KOTLINC_1_5_0("kotlin-compiler-1.5.0", CLASS, JAVA_8),
+    KOTLINC_1_6_0("kotlin-compiler-1.6.0", CLASS, JAVA_8),
+    KOTLINC_1_7_0("kotlin-compiler-1.7.0", CLASS, JAVA_8),
+    KOTLINC_1_8_0("kotlin-compiler-1.8.0", CLASS, JAVA_8),
+    KOTLINC_1_9_21("kotlin-compiler-1.9.21", CLASS, JAVA_8),
+    KOTLINC_2_0_20("kotlin-compiler-2.0.20", INVOKE_DYNAMIC, JAVA_8),
+    KOTLINC_2_1_10("kotlin-compiler-2.1.10", INVOKE_DYNAMIC, JAVA_8),
+    KOTLINC_2_2_0_Beta2("kotlin-compiler-2.2.0-Beta2", INVOKE_DYNAMIC, JAVA_8),
+    KOTLIN_DEV("kotlin-compiler-dev", INVOKE_DYNAMIC, JAVA_8);
 
     public static final KotlinCompilerVersion MIN_SUPPORTED_VERSION = KOTLINC_2_1_10;
     public static final KotlinCompilerVersion MAX_SUPPORTED_VERSION = KOTLINC_2_1_10;
@@ -89,10 +99,15 @@ public class KotlinCompilerTool {
 
     private final String folder;
     private final KotlinLambdaGeneration defaultLambdaGeneration;
+    private final KotlinTargetVersion defaultTargetVersion;
 
-    KotlinCompilerVersion(String folder, KotlinLambdaGeneration defaultLambdaGeneration) {
+    KotlinCompilerVersion(
+        String folder,
+        KotlinLambdaGeneration defaultLambdaGeneration,
+        KotlinTargetVersion defaultTargetVersion) {
       this.folder = folder;
       this.defaultLambdaGeneration = defaultLambdaGeneration;
+      this.defaultTargetVersion = defaultTargetVersion;
     }
 
     public static KotlinCompilerVersion latest() {
@@ -333,17 +348,17 @@ public class KotlinCompilerTool {
 
   // This forces using invokedynamic for Kotlin lambdas.
   public KotlinCompilerTool generateLambdaClasses() {
-    assert !additionalArguments.contains(KotlinLambdaGeneration.CLASS.getKotlincFlag())
-        && !additionalArguments.contains(KotlinLambdaGeneration.INVOKE_DYNAMIC.getKotlincFlag());
-    addArguments(KotlinLambdaGeneration.CLASS.getKotlincFlag());
+    assert !additionalArguments.contains(CLASS.getKotlincFlag())
+        && !additionalArguments.contains(INVOKE_DYNAMIC.getKotlincFlag());
+    addArguments(CLASS.getKotlincFlag());
     return this;
   }
 
   // This forces generation kotlinc of lambda classes for Kotlin lambdas
   public KotlinCompilerTool generateInvokeDynamic() {
-    assert !additionalArguments.contains(KotlinLambdaGeneration.CLASS.getKotlincFlag())
-        && !additionalArguments.contains(KotlinLambdaGeneration.INVOKE_DYNAMIC.getKotlincFlag());
-    addArguments(KotlinLambdaGeneration.INVOKE_DYNAMIC.getKotlincFlag());
+    assert !additionalArguments.contains(CLASS.getKotlincFlag())
+        && !additionalArguments.contains(INVOKE_DYNAMIC.getKotlincFlag());
+    addArguments(INVOKE_DYNAMIC.getKotlincFlag());
     return this;
   }
 

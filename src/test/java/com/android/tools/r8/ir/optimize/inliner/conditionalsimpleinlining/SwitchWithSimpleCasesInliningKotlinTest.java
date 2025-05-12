@@ -46,7 +46,7 @@ public class SwitchWithSimpleCasesInliningKotlinTest extends KotlinTestBase {
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters().withAllRuntimesAndApiLevels().build(),
-        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build());
+        getKotlinTestParameters().withAllCompilersAndLambdaGenerations().build());
   }
 
   public SwitchWithSimpleCasesInliningKotlinTest(

@@ -4,7 +4,6 @@
 package com.android.tools.r8.kotlin.lambda;
 
 import static com.android.tools.r8.ToolHelper.getJava8RuntimeJar;
-import static org.hamcrest.CoreMatchers.equalTo;
 import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.KotlinTestBase;
@@ -26,7 +25,7 @@ public class KotlinLambdaMergerValidationTest extends KotlinTestBase {
   public static Collection<Object[]> data() {
     return buildParameters(
         getTestParameters().withAllRuntimesAndApiLevels().build(),
-        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build());
+        getKotlinTestParameters().withAllCompilersAndLambdaGenerations().build());
   }
 
   public KotlinLambdaMergerValidationTest(

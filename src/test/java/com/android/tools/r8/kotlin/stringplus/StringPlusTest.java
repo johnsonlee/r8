@@ -6,7 +6,6 @@ package com.android.tools.r8.kotlin.stringplus;
 
 import static com.android.tools.r8.ToolHelper.getFilesInTestFolderRelativeToClass;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 
@@ -48,7 +47,7 @@ public class StringPlusTest extends KotlinTestBase {
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters().withAllRuntimesAndApiLevels().build(),
-        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build());
+        getKotlinTestParameters().withAllCompilersAndLambdaGenerations().build());
   }
 
   public StringPlusTest(TestParameters parameters, KotlinTestParameters kotlinParameters) {

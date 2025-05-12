@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.kotlin.metadata;
 
-import static org.hamcrest.CoreMatchers.equalTo;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -30,7 +29,7 @@ public class MetadataRewriteDoNotEmitValuesIfEmptyTest extends KotlinMetadataTes
   public static Collection<Object[]> data() {
     return buildParameters(
         getTestParameters().withCfRuntimes().build(),
-        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build());
+        getKotlinTestParameters().withAllCompilersAndLambdaGenerations().build());
   }
 
   private final TestParameters parameters;

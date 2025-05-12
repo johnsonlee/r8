@@ -44,7 +44,7 @@ public class KotlinLambdaMergingKeepAttributesKotlinStyleTest extends KotlinTest
   public static Collection<Object[]> data() {
     return buildParameters(
         getTestParameters().withAllRuntimesAndApiLevels().build(),
-        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build(),
+        getKotlinTestParameters().withAllCompilersAndLambdaGenerations().build(),
         BooleanUtils.values(),
         ImmutableList.of(
             Collections.emptyList(),
