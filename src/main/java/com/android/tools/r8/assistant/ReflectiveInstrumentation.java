@@ -25,7 +25,7 @@ import com.android.tools.r8.ir.conversion.PrimaryD8L8IRConverter;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
 import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import java.util.Map;
 
 public class ReflectiveInstrumentation {
 
@@ -72,8 +72,8 @@ public class ReflectiveInstrumentation {
 
   // TODO(b/394013779): Do this in parallel.
   public void instrumentClasses() {
-    ImmutableMap<DexMethod, DexMethod> instrumentedMethodsAndTargets =
-        getInstrumentedMethodsAndTargets();
+    Map<DexMethod, DexMethod> instrumentedMethodsAndTargets =
+        new InstrumentedReflectiveMethodList(dexItemFactory).getInstrumentedMethodsAndTargets();
     for (DexProgramClass clazz : appView.appInfo().classes()) {
       clazz.forEachProgramMethodMatching(
           method -> method.hasCode() && method.getCode().isDexCode(),
@@ -107,65 +107,6 @@ public class ReflectiveInstrumentation {
             }
           });
     }
-  }
-
-  private ImmutableMap<DexMethod, DexMethod> getInstrumentedMethodsAndTargets() {
-    return ImmutableMap.of(
-        dexItemFactory.classMethods.newInstance,
-        getMethodReferenceWithClassParameter("onClassNewInstance"),
-        dexItemFactory.classMethods.getDeclaredMethod,
-        getMethodReferenceWithClassMethodNameAndParameters("onClassGetDeclaredMethod"),
-        dexItemFactory.classMethods.forName,
-        getMethodReferenceWithStringParameter("onClassForName"),
-        dexItemFactory.classMethods.getDeclaredField,
-        getMethodReferenceWithClassAndStringParameter("onClassGetDeclaredField"),
-        dexItemFactory.createMethod(
-            dexItemFactory.classType,
-            dexItemFactory.createProto(
-                dexItemFactory.createArrayType(1, dexItemFactory.methodType)),
-            "getDeclaredMethods"),
-        getMethodReferenceWithClassParameter("onClassGetDeclaredMethods"),
-        dexItemFactory.classMethods.getName,
-        getMethodReferenceWithClassParameter("onClassGetName"),
-        dexItemFactory.classMethods.getCanonicalName,
-        getMethodReferenceWithClassParameter("onClassGetCanonicalName"),
-        dexItemFactory.classMethods.getSimpleName,
-        getMethodReferenceWithClassParameter("onClassGetSimpleName"),
-        dexItemFactory.classMethods.getTypeName,
-        getMethodReferenceWithClassParameter("onClassGetTypeName"),
-        dexItemFactory.classMethods.getSuperclass,
-        getMethodReferenceWithClassParameter("onClassGetSuperclass"));
-  }
-
-  private DexMethod getMethodReferenceWithClassParameter(String name) {
-    return getMethodReferenceWithParameterTypes(name, dexItemFactory.classType);
-  }
-
-  private DexMethod getMethodReferenceWithClassAndStringParameter(String name) {
-    return getMethodReferenceWithParameterTypes(
-        name, dexItemFactory.classType, dexItemFactory.stringType);
-  }
-
-  private DexMethod getMethodReferenceWithStringParameter(String name) {
-    return getMethodReferenceWithParameterTypes(name, dexItemFactory.stringType);
-  }
-
-  private DexMethod getMethodReferenceWithParameterTypes(String name, DexType... dexTypes) {
-    return dexItemFactory.createMethod(
-        reflectiveReferences.reflectiveOracleType,
-        dexItemFactory.createProto(dexItemFactory.voidType, dexTypes),
-        name);
-  }
-
-  private DexMethod getMethodReferenceWithClassMethodNameAndParameters(String name) {
-    return dexItemFactory.createMethod(
-        reflectiveReferences.reflectiveOracleType,
-        dexItemFactory.createProto(
-            dexItemFactory.voidType,
-            dexItemFactory.classType,
-            dexItemFactory.stringType,
-            dexItemFactory.classArrayType),
-        name);
   }
 
   private void insertCallToMethod(
