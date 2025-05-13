@@ -199,8 +199,15 @@ public class AutoCloseableRetargeterHelper {
                                 factory.voidType, factory.javaUtilConcurrentExecutorServiceType))
                         .setCode(
                             methodSig ->
-                                BackportedMethods.ExecutorServiceMethods_closeExecutorService(
-                                    factory, methodSig)));
+                                appView
+                                        .options()
+                                        .getMinApiLevel()
+                                        .isGreaterThanOrEqualTo(AndroidApiLevel.N)
+                                    ? BackportedMethods
+                                        .ExecutorServiceMethods_closeExecutorServiceNPlus(
+                                            factory, methodSig)
+                                    : BackportedMethods.ExecutorServiceMethods_closeExecutorService(
+                                        factory, methodSig)));
     eventConsumer.acceptAutoCloseableForwardingMethod(method, context);
     return method.getReference();
   }

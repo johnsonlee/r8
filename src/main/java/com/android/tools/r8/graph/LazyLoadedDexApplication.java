@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -260,7 +261,7 @@ public class LazyLoadedDexApplication extends DexApplication {
     }
     String joined =
         javaLibraryOverride.stream()
-            .sorted()
+            .sorted(Comparator.comparing(DexClass::getType))
             .map(clazz -> clazz.toSourceString() + " (origin: " + clazz.getOrigin() + ")")
             .collect(Collectors.joining(", "));
     String message =
