@@ -311,7 +311,7 @@ public class UseCollector implements UseCollectorEventConsumer {
     return appView.appInfo();
   }
 
-  private boolean isTargetType(DexType type) {
+  protected final boolean isTargetType(DexType type) {
     return targetPredicate.test(type);
   }
 
@@ -428,7 +428,12 @@ public class UseCollector implements UseCollectorEventConsumer {
             dexAnnotation ->
                 registerAnnotation(
                     dexAnnotation, field.getHolder(), referencedFrom, eventConsumer));
+    traceFieldValue(field);
     traceSignature(field, referencedFrom, eventConsumer);
+  }
+
+  protected void traceFieldValue(ProgramField field) {
+    // Intentionally empty. Overridden in R8PartialUseCollector.
   }
 
   private void registerMethod(ProgramMethod method, UseCollectorEventConsumer eventConsumer) {

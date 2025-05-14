@@ -999,7 +999,7 @@ public class TestBase {
                 profileCollectionAdditions,
                 ImmediateAppSubtypingInfo.create(appView),
                 appView.options().getProguardConfiguration().getRules())
-            .build(executor);
+            .evaluateRulesAndBuild(executor);
     appView.setRootSet(rootSet);
     appView.rebuildAppInfo();
     EnqueuerResult enqueuerResult =

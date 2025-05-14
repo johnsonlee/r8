@@ -4598,7 +4598,8 @@ public class Enqueuer {
             amendWithCompanionMethods(rootSet.reprocess),
             rootSet.alwaysClassInline,
             joinIdentifierNameStrings(
-                rootSet.identifierNameStrings, reflectiveIdentification.getIdentifierNameStrings()),
+                rootSet.identifierNameStrings,
+                reflectiveIdentification.getIdentifierNameStringAdditions()),
             emptySet(),
             prunedClasspathTypesBuilder.build(),
             Collections.emptyMap(),

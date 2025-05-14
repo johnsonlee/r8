@@ -16,6 +16,7 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.utils.AndroidApiLevel;
+import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.UnverifiableCfCodeDiagnostic;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -70,7 +71,21 @@ public class ClankDepsTest extends TestBase {
                                 containsString(
                                     "Unverifiable code in `"
                                         + "void zzz.com.facebook.litho.ComponentHost"
-                                        + ".refreshAccessibilityDelegatesIfNeeded(boolean)`"))))
+                                        + ".refreshAccessibilityDelegatesIfNeeded(boolean)`"))),
+                        // Identifier name string warnings.
+                        allOf(
+                            diagnosticType(StringDiagnostic.class),
+                            diagnosticMessage(
+                                containsString(
+                                    "Cannot determine what 'zzz.com.google.common.flogger.backend"
+                                        + ".google.GooglePlatform' refers to"))),
+                        // Same, for 'zzz.com.google.common.flogger.backend.system.DefaultPlatform'.
+                        allOf(
+                            diagnosticType(StringDiagnostic.class),
+                            diagnosticMessage(
+                                containsString(
+                                    "Cannot determine what 'zzz.com.google.common.flogger.backend"
+                                        + ".system.DefaultPlatform' refers to"))))
                     .assertNoErrors());
   }
 }

@@ -88,7 +88,7 @@ public class InlineTest extends IrInjectionTestBase {
                 profileCollectionAdditions,
                 subtypingInfo,
                 ImmutableList.of(ProguardKeepRule.defaultKeepAllRule(unused -> {})))
-            .build(executorService));
+            .evaluateRulesAndBuild(executorService));
     Timing timing = Timing.empty();
     Enqueuer enqueuer =
         EnqueuerFactory.createForInitialTreeShaking(

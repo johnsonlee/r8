@@ -7,10 +7,12 @@ import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.Definition;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramField;
+import com.android.tools.r8.graph.ProgramMember;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.shaking.EnqueuerWorklist;
@@ -215,5 +217,10 @@ public class EnqueuerReflectiveIdentificationEventConsumer
             defaultInitializer, KeepMethodInfo.newEmptyJoiner().disallowOptimization());
       }
     }
+  }
+
+  @Override
+  public void onIdentifierNameString(Definition definition, ProgramMember<?, ?> context) {
+    // Intentionally empty. Items that are used by reflection should be kept.
   }
 }

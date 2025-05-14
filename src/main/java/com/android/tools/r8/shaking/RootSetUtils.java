@@ -242,7 +242,7 @@ public class RootSetUtils {
 
       // Trace references.
       R8PartialUseCollector useCollector =
-          new R8PartialUseCollector(appView) {
+          new R8PartialUseCollector(appView, identifierNameStrings) {
 
             // Map from Reference to canonical ReferencedFromExcludedClassInR8PartialRule.
             private final Map<Object, ReferencedFromExcludedClassInR8PartialRule> canonicalRules =
@@ -545,7 +545,7 @@ public class RootSetUtils {
           });
     }
 
-    public RootSet build(ExecutorService executorService) throws ExecutionException {
+    public RootSetBuilder evaluateRules(ExecutorService executorService) throws ExecutionException {
       application.timing.begin("Build root set...");
       try {
         TaskCollection<?> tasks = new TaskCollection<>(options, executorService);
@@ -582,6 +582,10 @@ public class RootSetUtils {
                       alwaysInline,
                       dependentMinimumKeepInfo)
                   .extendRootSet(dependentMinimumKeepInfo));
+      return this;
+    }
+
+    public RootSet build() {
       return new RootSet(
           dependentMinimumKeepInfo,
           ImmutableList.copyOf(reasonAsked.values()),
@@ -597,6 +601,12 @@ public class RootSetUtils {
           pendingMethodMoveInverse,
           resourceRootIds,
           rootNonProgramTypes);
+    }
+
+    public RootSet evaluateRulesAndBuild(ExecutorService executorService)
+        throws ExecutionException {
+      evaluateRules(executorService);
+      return build();
     }
 
     private void propagateAssumeRules(DexClass clazz) {
@@ -2560,9 +2570,10 @@ public class RootSetUtils {
     }
 
     @Override
-    public MainDexRootSet build(ExecutorService executorService) throws ExecutionException {
+    public MainDexRootSet evaluateRulesAndBuild(ExecutorService executorService)
+        throws ExecutionException {
       // Call the super builder to have if-tests calculated automatically.
-      RootSet rootSet = super.build(executorService);
+      RootSet rootSet = super.evaluateRulesAndBuild(executorService);
       return new MainDexRootSet(
           rootSet.getDependentMinimumKeepInfo(),
           rootSet.reasonAsked,

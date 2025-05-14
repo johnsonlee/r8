@@ -84,7 +84,7 @@ public class GenerateMainDexList {
     MainDexRootSet mainDexRootSet =
         MainDexRootSet.builder(
                 appView, profileCollectionAdditions, subtypingInfo, options.mainDexKeepRules)
-            .build(executor);
+            .evaluateRulesAndBuild(executor);
     appView.setMainDexRootSet(mainDexRootSet);
 
     GraphConsumer graphConsumer = options.mainDexKeptGraphConsumer;

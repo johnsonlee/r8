@@ -3,7 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.naming;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndRenamed;
 import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
@@ -67,12 +69,14 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
         "const-string v0, \"" + BOO + "\"",
         "iput-object v0, p0, LExample;->aClassName:Ljava/lang/String;",
         "return-void");
+    builder.addClass(BOO);
 
     List<String> pgConfigs =
         ImmutableList.of(
             "-identifiernamestring class " + CLASS_NAME + " { java.lang.String aClassName; }",
             "-keep class " + CLASS_NAME + " { void <init>(); }",
             "-keepclassmembers,allowobfuscation class " + CLASS_NAME + " { !static <fields>; }",
+            "-keep,allowobfuscation class " + BOO,
             "-dontoptimize");
     CodeInspector inspector = compileWithR8(builder, pgConfigs).inspector();
 
@@ -81,13 +85,16 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
     DexEncodedMethod method = getMethod(inspector, init);
     assertNotNull(method);
 
+    ClassSubject booClass = inspector.clazz(BOO);
+    assertThat(booClass, isPresentAndRenamed());
+
     DexCode code = method.getCode().asDexCode();
     checkInstructions(
         code,
         ImmutableList.of(
             DexInvokeDirect.class, DexConstString.class, DexIputObject.class, DexReturnVoid.class));
     DexConstString constString = (DexConstString) code.instructions[1];
-    assertEquals(BOO, constString.getString().toString());
+    assertEquals(booClass.getFinalName(), constString.getString().toString());
   }
 
   @Test
@@ -101,12 +108,14 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
         "invoke-virtual {v0, v1}, Ljava/io/PrintStream;->println(Ljava/lang/String;)V",
         "iput-object v1, p0, LExample;->aClassName:Ljava/lang/String;",
         "return-void");
+    builder.addClass(BOO);
 
     List<String> pgConfigs =
         ImmutableList.of(
             "-identifiernamestring class " + CLASS_NAME + " { java.lang.String aClassName; }",
             "-keep class " + CLASS_NAME + " { void <init>(); }",
             "-keepclassmembers,allowobfuscation class " + CLASS_NAME + " { !static <fields>; }",
+            "-keep,allowobfuscation class " + BOO,
             "-dontoptimize");
     CodeInspector inspector = compileWithR8(builder, pgConfigs).inspector();
 
@@ -114,6 +123,9 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
     assertTrue(clazz.isPresent());
     DexEncodedMethod method = getMethod(inspector, init);
     assertNotNull(method);
+
+    ClassSubject booClass = inspector.clazz(BOO);
+    assertThat(booClass, isPresentAndRenamed());
 
     DexCode code = method.getCode().asDexCode();
     checkInstructions(
@@ -123,10 +135,13 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
             DexSgetObject.class,
             DexConstString.class,
             DexInvokeVirtual.class,
+            DexConstString.class,
             DexIputObject.class,
             DexReturnVoid.class));
     DexConstString constString = (DexConstString) code.instructions[2];
     assertEquals(BOO, constString.getString().toString());
+    DexConstString renamedConstString = (DexConstString) code.instructions[4];
+    assertEquals(booClass.getFinalName(), renamedConstString.getString().toString());
   }
 
   @Test
@@ -213,18 +228,26 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
         "invoke-virtual {v0, v1}, Ljava/io/PrintStream;->println(Ljava/lang/String;)V",
         "sput-object v1, LExample;->sClassName:Ljava/lang/String;",
         "return-void");
+    builder.addClass(BOO);
 
-    List<String> pgConfigs = ImmutableList.of(
-        "-identifiernamestring class " + CLASS_NAME + " { static java.lang.String sClassName; }",
-        "-keep class " + CLASS_NAME,
-        "-keepclassmembers,allowobfuscation class " + CLASS_NAME + " { static <fields>; }",
-        "-dontoptimize");
+    List<String> pgConfigs =
+        ImmutableList.of(
+            "-identifiernamestring class "
+                + CLASS_NAME
+                + " { static java.lang.String sClassName; }",
+            "-keep class " + CLASS_NAME,
+            "-keepclassmembers,allowobfuscation class " + CLASS_NAME + " { static <fields>; }",
+            "-keep,allowobfuscation class " + BOO,
+            "-dontoptimize");
     CodeInspector inspector = compileWithR8(builder, pgConfigs).inspector();
 
     ClassSubject clazz = inspector.clazz(CLASS_NAME);
     assertTrue(clazz.isPresent());
     DexEncodedMethod method = getMethod(inspector, clinit);
     assertNotNull(method);
+
+    ClassSubject booClass = inspector.clazz(BOO);
+    assertThat(booClass, isPresentAndRenamed());
 
     DexCode code = method.getCode().asDexCode();
     checkInstructions(
@@ -233,10 +256,13 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
             DexSgetObject.class,
             DexConstString.class,
             DexInvokeVirtual.class,
+            DexConstString.class,
             DexSputObject.class,
             DexReturnVoid.class));
     DexConstString constString = (DexConstString) code.instructions[1];
     assertEquals(BOO, constString.getString().toString());
+    DexConstString renamedConstString = (DexConstString) code.instructions[3];
+    assertEquals(booClass.getFinalName(), renamedConstString.getString().toString());
   }
 
   @Test
@@ -385,6 +411,7 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
         "const-string v1, \"Mixed/form.Boo\"",
         "invoke-static {v0, v1}, LExample;->foo(Ljava/lang/String;Ljava/lang/String;)V",
         "return-void");
+    builder.addClass(BOO);
 
     CodeInspector inspector =
         compileWithR8(
@@ -397,6 +424,7 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
                                 + CLASS_NAME
                                 + " { static void foo(...); }")
                         .addKeepClassAndDefaultConstructor(CLASS_NAME)
+                        .addKeepClassRulesWithAllowObfuscation(BOO)
                         .allowDiagnosticWarningMessages())
             .assertAllWarningMessagesMatch(
                 containsString("Cannot determine what 'Mixed/form.Boo' refers to"))
@@ -407,6 +435,9 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
     DexEncodedMethod method = getMethod(inspector, foo);
     assertNotNull(method);
 
+    ClassSubject booClass = inspector.clazz(BOO);
+    assertThat(booClass, isPresentAndRenamed());
+
     DexCode code = method.getCode().asDexCode();
     checkInstructions(
         code,
@@ -416,9 +447,9 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
             DexConstString.class,
             DexInvokeStatic.class,
             DexReturnVoid.class));
-    String s1 = ((DexConstString) code.instructions[1]).getString().toString();
-    String s2 = ((DexConstString) code.instructions[2]).getString().toString();
-    assertTrue(BOO.equals(s1) || BOO.equals(s2));
+    String s1 = code.instructions[1].asConstString().getString().toString();
+    String s2 = code.instructions[2].asConstString().getString().toString();
+    assertTrue(booClass.getFinalName().equals(s1) || booClass.getFinalName().equals(s2));
     assertTrue("Mixed/form.Boo".equals(s1) || "Mixed/form.Boo".equals(s2));
   }
 
@@ -438,11 +469,13 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
         "invoke-virtual {v0, v1}, Ljava/io/PrintStream;->println(Ljava/lang/String;)V",
         "invoke-static {v1}, LExample;->foo(Ljava/lang/String;)V",
         "return-void");
+    builder.addClass(BOO);
 
     List<String> pgConfigs =
         ImmutableList.of(
             "-identifiernamestring class " + CLASS_NAME + " { static void foo(...); }",
             "-keep class " + CLASS_NAME + " { void <init>(); }",
+            "-keep,allowobfuscation class " + BOO,
             "-dontoptimize");
     CodeInspector inspector = compileWithR8(builder, pgConfigs).inspector();
 
@@ -450,6 +483,9 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
     assertTrue(clazz.isPresent());
     DexEncodedMethod method = getMethod(inspector, foo);
     assertNotNull(method);
+
+    ClassSubject booClass = inspector.clazz(BOO);
+    assertThat(booClass, isPresentAndRenamed());
 
     DexCode code = method.getCode().asDexCode();
     checkInstructions(
@@ -459,10 +495,13 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
             DexSgetObject.class,
             DexConstString.class,
             DexInvokeVirtual.class,
+            DexConstString.class,
             DexInvokeStatic.class,
             DexReturnVoid.class));
     DexConstString constString = (DexConstString) code.instructions[2];
     assertEquals(BOO, constString.getString().toString());
+    DexConstString renamedConstString = (DexConstString) code.instructions[4];
+    assertEquals(booClass.getFinalName(), renamedConstString.getString().toString());
   }
 
   @Test

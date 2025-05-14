@@ -12,10 +12,14 @@ import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndField;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexField;
+import com.android.tools.r8.graph.DexMember;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.DexValue;
+import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.naming.IdentifierNameStringUtils;
 import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration.R8PartialR8SubCompilationConfiguration;
 import com.android.tools.r8.references.PackageReference;
 import com.android.tools.r8.shaking.ProguardClassFilter;
@@ -40,21 +44,30 @@ import java.util.function.Predicate;
 
 public abstract class R8PartialUseCollector extends UseCollector {
 
+  private final Set<DexMember<?, ?>> identifierNameStrings;
   private final ReflectiveIdentification reflectiveIdentification;
 
   private final Set<DexReference> seenAllowObfuscation = ConcurrentHashMap.newKeySet();
   private final Set<DexReference> seenDisallowObfuscation = ConcurrentHashMap.newKeySet();
   private final Set<String> packagesToKeep = ConcurrentHashMap.newKeySet();
 
-  public R8PartialUseCollector(AppView<? extends AppInfoWithClassHierarchy> appView) {
+  public R8PartialUseCollector(
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      Set<DexMember<?, ?>> identifierNameStrings) {
     super(
         appView,
         new MissingReferencesConsumer(),
         new NopDiagnosticsHandler(),
         getTargetPredicate(appView));
+    this.identifierNameStrings = identifierNameStrings;
     this.reflectiveIdentification =
         new ReflectiveIdentification(
-            appView, new KeepAllReflectiveIdentificationEventConsumer(this));
+            appView, new KeepAllReflectiveIdentificationEventConsumer(this), identifierNameStrings);
+  }
+
+  private static Predicate<DexType> getTargetPredicate(
+      AppView<? extends AppInfoWithClassHierarchy> appView) {
+    return type -> appView.definitionFor(type) != null;
   }
 
   @Override
@@ -62,9 +75,21 @@ public abstract class R8PartialUseCollector extends UseCollector {
     return new KeepNativeMethodSignatureEventConsumer();
   }
 
-  public static Predicate<DexType> getTargetPredicate(
-      AppView<? extends AppInfoWithClassHierarchy> appView) {
-    return type -> appView.definitionFor(type) != null;
+  @Override
+  protected void traceFieldValue(ProgramField field) {
+    if (field.getAccessFlags().isStatic()
+        && field.getDefinition().hasExplicitStaticValue()
+        && identifierNameStrings.contains(field.getReference())) {
+      DexValue fieldValue = field.getDefinition().getStaticValue();
+      if (fieldValue.isDexValueString()) {
+        Definition definition =
+            IdentifierNameStringUtils.inferMemberOrTypeFromNameString(
+                appView, fieldValue.asDexValueString().getValue());
+        if (definition != null && isTargetType(definition.getContextType())) {
+          reflectiveIdentification.enqueue(field, definition);
+        }
+      }
+    }
   }
 
   public void run(ExecutorService executorService) throws ExecutionException {

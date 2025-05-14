@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.naming.identifiernamestring;
 
+import com.android.tools.r8.graph.DexClassAndMember;
 import com.android.tools.r8.graph.DexMember;
 
 public class DexMemberBasedConstStringIdentifierNameStringLookupResult
@@ -11,5 +12,9 @@ public class DexMemberBasedConstStringIdentifierNameStringLookupResult
 
   DexMemberBasedConstStringIdentifierNameStringLookupResult(DexMember<?, ?> member) {
     super(member);
+  }
+
+  DexMemberBasedConstStringIdentifierNameStringLookupResult(DexClassAndMember<?, ?> member) {
+    super(member.getReference());
   }
 }

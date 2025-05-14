@@ -4,8 +4,9 @@
 
 package com.android.tools.r8.ir.code;
 
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
-import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.naming.IdentifierNameStringUtils;
@@ -17,7 +18,7 @@ public class ConstantValueUtils {
    * Otherwise returns null. This should only be used for tracing.
    */
   public static DexType getDexTypeRepresentedByValueForTracing(
-      Value value, DexDefinitionSupplier definitions) {
+      Value value, AppView<? extends AppInfoWithClassHierarchy> appView) {
     Value alias =
         value.getAliasedValue(IgnoreDebugLocalWriteAliasedValueConfiguration.getInstance());
     if (alias.isPhi()) {
@@ -30,9 +31,11 @@ public class ConstantValueUtils {
 
     if (alias.definition.isInvokeStatic()) {
       InvokeStatic invoke = alias.definition.asInvokeStatic();
-      if (definitions.dexItemFactory().classMethods
+      if (appView
+          .dexItemFactory()
+          .classMethods
           .isReflectiveClassLookup(invoke.getInvokedMethod())) {
-        return getDexTypeFromClassForName(invoke, definitions);
+        return getDexTypeFromClassForName(invoke, appView);
       }
     }
 
@@ -40,24 +43,23 @@ public class ConstantValueUtils {
   }
 
   public static DexClass getClassFromClassForName(
-      InvokeStatic invoke, DexDefinitionSupplier definitions) {
-    DexType type = getDexTypeFromClassForName(invoke, definitions);
+      InvokeStatic invoke, AppView<? extends AppInfoWithClassHierarchy> appView) {
+    DexType type = getDexTypeFromClassForName(invoke, appView);
     if (type != null && type.isClassType()) {
-      return definitions.definitionFor(type);
+      return appView.definitionFor(type);
     }
     return null;
   }
 
   public static DexType getDexTypeFromClassForName(
-      InvokeStatic invoke, DexDefinitionSupplier definitions) {
-    assert definitions.dexItemFactory().classMethods
-        .isReflectiveClassLookup(invoke.getInvokedMethod());
+      InvokeStatic invoke, AppView<? extends AppInfoWithClassHierarchy> appView) {
+    assert appView.dexItemFactory().classMethods.isReflectiveClassLookup(invoke.getInvokedMethod());
     if (invoke.arguments().size() == 1 || invoke.arguments().size() == 3) {
       Value argument = invoke.arguments().get(0);
       if (argument.isConstString()) {
         ConstString constStringInstruction = argument.getConstInstruction().asConstString();
-        return IdentifierNameStringUtils.inferTypeFromNameString(
-            definitions, constStringInstruction.getValue());
+        return IdentifierNameStringUtils.inferClassTypeFromNameString(
+            appView, constStringInstruction.getValue());
       }
       if (argument.isDexItemBasedConstString()) {
         DexItemBasedConstString constStringInstruction =

@@ -10,6 +10,7 @@ import static com.android.tools.r8.naming.IdentifierNameStringUtils.identifyIden
 
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.Definition;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
@@ -17,6 +18,7 @@ import com.android.tools.r8.graph.DexItemFactory.ClassMethods;
 import com.android.tools.r8.graph.DexMember;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -30,13 +32,16 @@ import com.android.tools.r8.ir.code.NewArrayEmpty;
 import com.android.tools.r8.ir.code.NewArrayFilled;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
+import com.android.tools.r8.naming.IdentifierNameStringUtils;
 import com.android.tools.r8.naming.identifiernamestring.IdentifierNameStringLookupResult;
 import com.android.tools.r8.utils.ListUtils;
+import com.android.tools.r8.utils.collections.ProgramFieldMap;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.Sets;
 import java.lang.reflect.InvocationHandler;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -46,20 +51,30 @@ public class ReflectiveIdentification {
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
   private final DexItemFactory factory;
   private final ReflectiveIdentificationEventConsumer eventConsumer;
+  private final Set<DexMember<?, ?>> identifierNameStrings;
 
-  private final Set<DexMember<?, ?>> identifierNameStrings = Sets.newIdentityHashSet();
+  private final Set<DexMember<?, ?>> identifierNameStringAdditions = Sets.newIdentityHashSet();
+  private final ProgramFieldMap<Definition> fieldReferencesWorklist = ProgramFieldMap.create();
   private final ProgramMethodSet worklist = ProgramMethodSet.create();
 
   public ReflectiveIdentification(
       AppView<? extends AppInfoWithClassHierarchy> appView,
       ReflectiveIdentificationEventConsumer eventConsumer) {
+    this(appView, eventConsumer, Collections.emptySet());
+  }
+
+  public ReflectiveIdentification(
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      ReflectiveIdentificationEventConsumer eventConsumer,
+      Set<DexMember<?, ?>> identifierNameStrings) {
     this.appView = appView;
     this.factory = appView.dexItemFactory();
     this.eventConsumer = eventConsumer;
+    this.identifierNameStrings = identifierNameStrings;
   }
 
-  public Set<DexMember<?, ?>> getIdentifierNameStrings() {
-    return identifierNameStrings;
+  public Set<DexMember<?, ?>> getIdentifierNameStringAdditions() {
+    return identifierNameStringAdditions;
   }
 
   public void scanInvoke(DexMethod invokedMethod, ProgramMethod method) {
@@ -72,7 +87,7 @@ public class ReflectiveIdentification {
       } else if (classMethods.isReflectiveClassLookup(invokedMethod)
           || classMethods.isReflectiveMemberLookup(invokedMethod)) {
         // Implicitly add -identifiernamestring rule for the Java reflection in use.
-        identifierNameStrings.add(invokedMethod);
+        identifierNameStringAdditions.add(invokedMethod);
         enqueue(method);
       }
     } else if (holder.isIdenticalTo(factory.constructorType)) {
@@ -97,27 +112,42 @@ public class ReflectiveIdentification {
       // java.util.concurrent.atomic.AtomicLongFieldUpdater
       // java.util.concurrent.atomic.AtomicReferenceFieldUpdater
       if (factory.atomicFieldUpdaterMethods.isFieldUpdater(invokedMethod)) {
-        identifierNameStrings.add(invokedMethod);
+        identifierNameStringAdditions.add(invokedMethod);
         enqueue(method);
       }
     }
+    if (identifierNameStrings.contains(invokedMethod)) {
+      enqueue(method);
+    }
+  }
+
+  // The given field has a static value that references the given definition. Upon processing the
+  // worklist, emit this to the event consumer.
+  public synchronized void enqueue(ProgramField field, Definition definition) {
+    fieldReferencesWorklist.put(field, definition);
   }
 
   public synchronized void enqueue(ProgramMethod method) {
     worklist.add(method);
   }
 
+  // TODO(b/414944282): Parallelize reflective identification.
   public void processWorklist(Timing timing) {
-    if (worklist.isEmpty()) {
-      return;
-    }
     timing.begin("Reflective identification");
-    // TODO(b/414944282): Parallelize reflective identification.
-    for (ProgramMethod method : worklist) {
-      processMethod(method);
-    }
+
+    // Process fields.
+    fieldReferencesWorklist.forEach(this::processField);
+    fieldReferencesWorklist.clear();
+
+    // Process methods.
+    worklist.forEach(this::processMethod);
     worklist.clear();
+
     timing.end();
+  }
+
+  private void processField(ProgramField field, Definition definition) {
+    eventConsumer.onIdentifierNameString(definition, field);
   }
 
   private void processMethod(ProgramMethod method) {
@@ -200,6 +230,10 @@ public class ReflectiveIdentification {
                     field, method));
         return true;
       }
+    }
+    if (identifierNameStrings.contains(invokedMethod)) {
+      handleIdentifierNameStringMethod(method, invoke);
+      return true;
     }
     return false;
   }
@@ -482,6 +516,19 @@ public class ReflectiveIdentification {
                     : null);
     if (serviceClass != null || !implementationClasses.isEmpty()) {
       eventConsumer.onJavaUtilServiceLoaderLoad(serviceClass, implementationClasses, context);
+    }
+  }
+
+  private void handleIdentifierNameStringMethod(ProgramMethod method, InvokeMethod invoke) {
+    for (Value argument : invoke.arguments()) {
+      DexString string = argument.getConstStringOrNull();
+      if (string != null) {
+        Definition definition =
+            IdentifierNameStringUtils.inferMemberOrTypeFromNameString(appView, string);
+        if (definition != null) {
+          eventConsumer.onIdentifierNameString(definition, method);
+        }
+      }
     }
   }
 }

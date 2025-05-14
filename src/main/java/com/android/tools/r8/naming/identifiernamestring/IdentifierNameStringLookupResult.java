@@ -6,6 +6,7 @@ package com.android.tools.r8.naming.identifiernamestring;
 
 import static com.android.tools.r8.utils.FunctionUtils.applyOrElse;
 
+import com.android.tools.r8.graph.DexClassAndMember;
 import com.android.tools.r8.graph.DexMember;
 import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
@@ -40,7 +41,7 @@ public abstract class IdentifierNameStringLookupResult<R extends DexReference> {
   }
 
   public static UncategorizedMemberIdentifierNameStringLookupResult fromUncategorized(
-      DexMember<?, ?> member) {
+      DexClassAndMember<?, ?> member) {
     return applyOrElse(member, UncategorizedMemberIdentifierNameStringLookupResult::new, null);
   }
 

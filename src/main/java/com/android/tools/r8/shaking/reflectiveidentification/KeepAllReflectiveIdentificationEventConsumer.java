@@ -9,6 +9,7 @@ import com.android.tools.r8.graph.Definition;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramField;
+import com.android.tools.r8.graph.ProgramMember;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.partial.R8PartialUseCollector;
 import java.util.Collection;
@@ -23,7 +24,7 @@ public class KeepAllReflectiveIdentificationEventConsumer
     this.useCollector = useCollector;
   }
 
-  private void keep(Definition definition, ProgramMethod context) {
+  private void keep(Definition definition, ProgramMember<?, ?> context) {
     DefinitionContext referencedFrom = DefinitionContextUtils.create(context);
     useCollector.keep(definition, referencedFrom, false);
   }
@@ -98,5 +99,10 @@ public class KeepAllReflectiveIdentificationEventConsumer
         keep(defaultInitializer, context);
       }
     }
+  }
+
+  @Override
+  public void onIdentifierNameString(Definition definition, ProgramMember<?, ?> context) {
+    keep(definition, context);
   }
 }

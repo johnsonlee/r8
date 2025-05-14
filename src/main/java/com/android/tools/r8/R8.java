@@ -372,8 +372,9 @@ public class R8 {
                     Iterables.concat(
                         options.getProguardConfiguration().getRules(), synthesizedProguardRules))
                 .setAssumeInfoCollectionBuilder(assumeInfoCollectionBuilder)
+                .evaluateRules(executorService)
                 .tracePartialCompilationDexingOutputClasses(executorService)
-                .build(executorService));
+                .build());
         appView.setAssumeInfoCollection(assumeInfoCollectionBuilder.build());
 
         // Compute the main dex rootset that will be the base of first and final main dex tracing
@@ -384,7 +385,7 @@ public class R8 {
           MainDexRootSet mainDexRootSet =
               MainDexRootSet.builder(
                       appView, profileCollectionAdditions, subtypingInfo, options.mainDexKeepRules)
-                  .build(executorService);
+                  .evaluateRulesAndBuild(executorService);
           appView.setMainDexRootSet(mainDexRootSet);
           appView.appInfo().unsetObsolete();
         }

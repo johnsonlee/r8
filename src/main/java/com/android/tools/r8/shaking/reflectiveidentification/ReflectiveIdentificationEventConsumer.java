@@ -3,9 +3,11 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.shaking.reflectiveidentification;
 
+import com.android.tools.r8.graph.Definition;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramField;
+import com.android.tools.r8.graph.ProgramMember;
 import com.android.tools.r8.graph.ProgramMethod;
 import java.util.Collection;
 import java.util.Set;
@@ -37,4 +39,6 @@ public interface ReflectiveIdentificationEventConsumer {
       DexProgramClass serviceClass,
       Collection<DexProgramClass> implementationClasses,
       ProgramMethod context);
+
+  void onIdentifierNameString(Definition definition, ProgramMember<?, ?> context);
 }

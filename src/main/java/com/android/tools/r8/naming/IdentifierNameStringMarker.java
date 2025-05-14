@@ -11,6 +11,7 @@ import static com.android.tools.r8.naming.IdentifierNameStringUtils.isReflection
 
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.Definition;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMember;
@@ -104,10 +105,11 @@ public class IdentifierNameStringMarker extends CodeRewriterPass<AppInfoWithLive
       return;
     }
     DexString original = staticValue.getValue();
-    DexReference itemBasedString = inferMemberOrTypeFromNameString(appView(), original);
+    Definition itemBasedString = inferMemberOrTypeFromNameString(appView(), original);
     if (itemBasedString != null) {
       encodedField.setStaticValue(
-          new DexItemBasedValueString(itemBasedString, ClassNameComputationInfo.none()));
+          new DexItemBasedValueString(
+              itemBasedString.getReference(), ClassNameComputationInfo.none()));
     }
   }
 
@@ -176,13 +178,13 @@ public class IdentifierNameStringMarker extends CodeRewriterPass<AppInfoWithLive
       return null;
     }
     DexString original = in.getConstInstruction().asConstString().getValue();
-    DexReference itemBasedString = inferMemberOrTypeFromNameString(appView(), original);
+    Definition itemBasedString = inferMemberOrTypeFromNameString(appView(), original);
     if (itemBasedString == null) {
       warnUndeterminedIdentifierIfNecessary(
           field, code.context(), fieldPut.asFieldInstruction(), original);
       return null;
     }
-    return itemBasedString;
+    return itemBasedString.getReference();
   }
 
   private InstructionListIterator decoupleIdentifierNameStringForFieldPutInstruction(
@@ -245,7 +247,7 @@ public class IdentifierNameStringMarker extends CodeRewriterPass<AppInfoWithLive
     Value[] changes = new Value[ins.size()];
     if (isReflectionMethod(appView.dexItemFactory(), invokedMethod) || isClassNameComparison) {
       IdentifierNameStringLookupResult<?> identifierLookupResult =
-          identifyIdentifier(invoke, appView, code.context());
+          identifyIdentifier(invoke, appView(), code.context());
       if (identifierLookupResult == null) {
         warnUndeterminedIdentifierIfNecessary(invokedMethod, code.context(), invoke, null);
         return iterator;
@@ -312,12 +314,15 @@ public class IdentifierNameStringMarker extends CodeRewriterPass<AppInfoWithLive
       // For general invoke. Multiple arguments can be string literals to be renamed.
       for (int i = 0; i < ins.size(); i++) {
         Value in = ins.get(i);
+        if (in.getType().isNullType()) {
+          continue;
+        }
         if (!in.isConstString()) {
           warnUndeterminedIdentifierIfNecessary(invokedMethod, code.context(), invoke, null);
           continue;
         }
         DexString original = in.getConstInstruction().asConstString().getValue();
-        DexReference itemBasedString = inferMemberOrTypeFromNameString(appView(), original);
+        Definition itemBasedString = inferMemberOrTypeFromNameString(appView(), original);
         if (itemBasedString == null) {
           warnUndeterminedIdentifierIfNecessary(invokedMethod, code.context(), invoke, original);
           continue;
@@ -328,7 +333,8 @@ public class IdentifierNameStringMarker extends CodeRewriterPass<AppInfoWithLive
         // Prepare $decoupled just before $invoke
         Value newIn = code.createValue(in.getType(), in.getLocalInfo());
         DexItemBasedConstString decoupled =
-            new DexItemBasedConstString(newIn, itemBasedString, ClassNameComputationInfo.none());
+            new DexItemBasedConstString(
+                newIn, itemBasedString.getReference(), ClassNameComputationInfo.none());
         decoupled.setPosition(invoke.getPosition());
         changes[i] = newIn;
         // If the current block has catch handler, split into two blocks.

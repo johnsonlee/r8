@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.naming.identifiernamestring;
 
+import com.android.tools.r8.graph.DexClassAndMember;
 import com.android.tools.r8.graph.DexMember;
 
 public class UncategorizedMemberIdentifierNameStringLookupResult
@@ -11,5 +12,9 @@ public class UncategorizedMemberIdentifierNameStringLookupResult
 
   UncategorizedMemberIdentifierNameStringLookupResult(DexMember<?, ?> member) {
     super(member);
+  }
+
+  UncategorizedMemberIdentifierNameStringLookupResult(DexClassAndMember<?, ?> member) {
+    super(member.getReference());
   }
 }
