@@ -12,7 +12,6 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.naming.retrace.StackTrace.StackTraceLine;
-import com.android.tools.r8.retrace.InvalidMappingFileException;
 import com.android.tools.r8.retrace.ProguardMapProducer;
 import com.android.tools.r8.retrace.ProguardMappingSupplier;
 import com.google.common.collect.ImmutableList;
@@ -37,8 +36,7 @@ public class TwoGigabyteMappingFileRetraceTest extends TestBase {
     return getTestParameters().withNoneRuntime().build();
   }
 
-  // TODO(b/414645291): Should not throw.
-  @Test(expected = InvalidMappingFileException.class)
+  @Test
   public void test() throws Exception {
     Path mappingFile = temp.newFile("mapping-file-larger-than-2GB.txt").toPath();
     Files.write(

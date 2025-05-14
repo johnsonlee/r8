@@ -304,7 +304,7 @@ public abstract class ProguardMapReaderWithFiltering implements LineReader {
     private final long channelSize;
     private final byte[] buffer = new byte[PAGE_SIZE];
 
-    private int currentPosition = 0;
+    private long currentPosition = 0;
     private int temporaryBufferPosition = 0;
 
     public ProguardMapReaderWithFilteringMappedBuffer(
