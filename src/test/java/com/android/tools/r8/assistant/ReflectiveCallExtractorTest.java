@@ -13,6 +13,7 @@ import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Map;
@@ -25,7 +26,7 @@ import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class GsonReflectiveCallExtractorTest extends TestBase {
+public class ReflectiveCallExtractorTest extends TestBase {
 
   @Parameter(0)
   public TestParameters parameters;
@@ -37,9 +38,22 @@ public class GsonReflectiveCallExtractorTest extends TestBase {
 
   @Test
   public void testGson() throws Exception {
+    test(ToolHelper.GSON, 6, 69);
+  }
+
+  @Test
+  public void testGuava() throws Exception {
+    test(ToolHelper.GUAVA_JRE, 6, 99);
+  }
+
+  @Test
+  public void testJacoco() throws Exception {
+    test(ToolHelper.JACOCO_AGENT, 3, 17);
+  }
+
+  private void test(Path jar, int success, int failure) throws Exception {
     DexItemFactory factory = new DexItemFactory();
-    Map<DexType, Collection<DexMethod>> reflectiveMethods =
-        extractReflectiveCalls(ToolHelper.GSON, factory);
+    Map<DexType, Collection<DexMethod>> reflectiveMethods = extractReflectiveCalls(jar, factory);
     Set<DexMethod> instrumentedMethodsForTesting =
         new InstrumentedReflectiveMethodList(factory).getInstrumentedMethodsForTesting();
     int supported = 0;
@@ -57,7 +71,7 @@ public class GsonReflectiveCallExtractorTest extends TestBase {
       }
       methods.removeAll(toRemove);
     }
-    Assert.assertEquals(6, supported);
-    Assert.assertEquals("Missing :\n" + printMethods(reflectiveMethods), 69, unsupported);
+    Assert.assertEquals(success, supported);
+    Assert.assertEquals("Missing :\n" + printMethods(reflectiveMethods), failure, unsupported);
   }
 }

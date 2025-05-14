@@ -58,9 +58,10 @@ public class ReflectiveCallExtractor {
               DexMethod theMethod = cfInvoke.getMethod();
               DexType holderType = theMethod.getHolderType();
               DexClass def = appInfo.definitionFor(holderType);
-              if (!holderType.isArrayType() && def.isLibraryClass()) {
+              if (def != null && def.isLibraryClass()) {
                 if (holderType.toSourceString().startsWith("java.lang.reflect")
-                    || holderType.isIdenticalTo(appInfo.dexItemFactory().classType)) {
+                    || holderType.isIdenticalTo(factory.unsafeType)
+                    || holderType.isIdenticalTo(factory.classType)) {
                   methods
                       .computeIfAbsent(holderType, t -> Sets.newIdentityHashSet())
                       .add(theMethod);
