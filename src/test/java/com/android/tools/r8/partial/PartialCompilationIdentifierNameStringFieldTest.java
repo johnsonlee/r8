@@ -9,8 +9,9 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.StringUtils;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -20,18 +21,16 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class PartialCompilationIdentifierNameStringFieldTest extends TestBase {
 
-  private static final String identifierNameStringRule =
-      StringUtils.lines(
-          "-identifiernamestring class " + ExcludedClass.class.getTypeName() + " {",
-          "  static java.lang.String target;",
-          "}");
-
   @Parameter(0)
   public TestParameters parameters;
 
-  @Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimesAndApiLevels().build();
+  @Parameter(1)
+  public boolean specific;
+
+  @Parameters(name = "{0}, specific:{1}")
+  public static List<Object[]> data() {
+    return buildParameters(
+        getTestParameters().withAllRuntimesAndApiLevels().build(), BooleanUtils.values());
   }
 
   @Test
@@ -40,7 +39,7 @@ public class PartialCompilationIdentifierNameStringFieldTest extends TestBase {
         .addInnerClasses(getClass())
         .addKeepMainRule(ExcludedClass.class)
         .addKeepClassRulesWithAllowObfuscation(IncludedClass.class)
-        .addKeepRules(identifierNameStringRule)
+        .addKeepRules(getIdentifierNameStringRule())
         .compile()
         .inspect(
             inspector -> assertThat(inspector.clazz(IncludedClass.class), isPresentAndRenamed()))
@@ -54,12 +53,20 @@ public class PartialCompilationIdentifierNameStringFieldTest extends TestBase {
         .addR8IncludedClasses(IncludedClass.class)
         .addR8ExcludedClasses(ExcludedClass.class)
         .addKeepClassRulesWithAllowObfuscation(IncludedClass.class)
-        .addKeepRules(identifierNameStringRule)
+        .addKeepRules(getIdentifierNameStringRule())
         .compile()
         .inspect(
             inspector -> assertThat(inspector.clazz(IncludedClass.class), isPresentAndNotRenamed()))
         .run(parameters.getRuntime(), ExcludedClass.class)
         .assertSuccessWithEmptyOutput();
+  }
+
+  private String getIdentifierNameStringRule() {
+    String classNamePattern = specific ? ExcludedClass.class.getTypeName() : "*";
+    return StringUtils.lines(
+        "-identifiernamestring class " + classNamePattern + " {",
+        "  static java.lang.String target;",
+        "}");
   }
 
   static class ExcludedClass {

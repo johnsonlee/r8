@@ -28,6 +28,7 @@ import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndField;
 import com.android.tools.r8.graph.DexClassAndMember;
 import com.android.tools.r8.graph.DexClassAndMethod;
+import com.android.tools.r8.graph.DexClasspathClass;
 import com.android.tools.r8.graph.DexDefinition;
 import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexEncodedField;
@@ -537,7 +538,12 @@ public class RootSetUtils {
                 application.classes(),
                 alwaysTrue(),
                 clazz -> process(clazz, rule, ifRulePreconditionMatch));
-            if (rule.applyToNonProgramClasses()) {
+            if (rule.isApplicableToClasspathClasses()) {
+              for (DexClasspathClass clazz : application.classpathClasses()) {
+                process(clazz, rule, ifRulePreconditionMatch);
+              }
+            }
+            if (rule.isApplicableToLibraryClasses()) {
               for (DexLibraryClass clazz : application.libraryClasses()) {
                 process(clazz, rule, ifRulePreconditionMatch);
               }

@@ -5,8 +5,9 @@ package com.android.tools.r8.partial;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.StringUtils;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -16,18 +17,16 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class PartialCompilationIdentifierNameStringMethodTest extends TestBase {
 
-  private static final String identifierNameStringRule =
-      StringUtils.lines(
-          "-identifiernamestring class " + ExcludedClass.class.getTypeName() + " {",
-          "  static void foo(java.lang.String, java.lang.String);",
-          "}");
-
   @Parameter(0)
   public TestParameters parameters;
 
+  @Parameter(1)
+  public boolean specific;
+
   @Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimesAndApiLevels().build();
+  public static List<Object[]> data() {
+    return buildParameters(
+        getTestParameters().withAllRuntimesAndApiLevels().build(), BooleanUtils.values());
   }
 
   @Test
@@ -36,7 +35,7 @@ public class PartialCompilationIdentifierNameStringMethodTest extends TestBase {
         .addInnerClasses(getClass())
         .addKeepMainRule(ExcludedClass.class)
         .addKeepClassRulesWithAllowObfuscation(IncludedClass.class)
-        .addKeepRules(identifierNameStringRule)
+        .addKeepRules(getIdentifierNameStringRule())
         .run(parameters.getRuntime(), ExcludedClass.class)
         .assertSuccessWithEmptyOutput();
   }
@@ -47,9 +46,17 @@ public class PartialCompilationIdentifierNameStringMethodTest extends TestBase {
         .addR8IncludedClasses(IncludedClass.class)
         .addR8ExcludedClasses(ExcludedClass.class)
         .addKeepClassRulesWithAllowObfuscation(IncludedClass.class)
-        .addKeepRules(identifierNameStringRule)
+        .addKeepRules(getIdentifierNameStringRule())
         .run(parameters.getRuntime(), ExcludedClass.class)
         .assertSuccessWithEmptyOutput();
+  }
+
+  private String getIdentifierNameStringRule() {
+    String classNamePattern = specific ? ExcludedClass.class.getTypeName() : "*";
+    return StringUtils.lines(
+        "-identifiernamestring class " + classNamePattern + " {",
+        "  static void foo(java.lang.String, java.lang.String);",
+        "}");
   }
 
   static class ExcludedClass {

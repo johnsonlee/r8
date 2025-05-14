@@ -156,6 +156,12 @@ public class ProguardKeepRule extends ProguardKeepRuleBase {
   }
 
   @Override
+  public boolean isApplicableToClasspathClasses() {
+    assert !super.isApplicableToClasspathClasses();
+    return getIncludeDescriptorClasses();
+  }
+
+  @Override
   public boolean isProguardKeepRule() {
     return true;
   }

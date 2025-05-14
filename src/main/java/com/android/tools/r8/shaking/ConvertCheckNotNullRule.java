@@ -80,7 +80,12 @@ public class ConvertCheckNotNullRule extends ProguardConfigurationRule {
   }
 
   @Override
-  public boolean applyToNonProgramClasses() {
+  public boolean isApplicableToClasspathClasses() {
+    return true;
+  }
+
+  @Override
+  public boolean isApplicableToLibraryClasses() {
     return true;
   }
 

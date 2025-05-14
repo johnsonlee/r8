@@ -193,7 +193,11 @@ public abstract class ProguardConfigurationRule extends ProguardClassSpecificati
     return null;
   }
 
-  public boolean applyToNonProgramClasses() {
+  public boolean isApplicableToClasspathClasses() {
+    return false;
+  }
+
+  public boolean isApplicableToLibraryClasses() {
     return false;
   }
 

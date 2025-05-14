@@ -75,8 +75,12 @@ public class ProguardIdentifierNameStringRule extends ProguardConfigurationRule 
   }
 
   @Override
+  public boolean isApplicableToClasspathClasses() {
+    return true;
+  }
+
+  @Override
   String typeString() {
     return "identifiernamestring";
   }
-
 }
