@@ -3,8 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.synthesis;
 
-import static com.google.common.base.Predicates.alwaysTrue;
-
 import com.android.tools.r8.features.ClassToFeatureSplitMap;
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
@@ -12,7 +10,6 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedMember;
-import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
@@ -26,9 +23,11 @@ import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.graph.lens.NestedGraphLens;
 import com.android.tools.r8.graph.lens.NonIdentityGraphLens;
 import com.android.tools.r8.ir.code.NumberGenerator;
+import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration.R8PartialR8SubCompilationConfiguration;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.KeepClassInfo;
 import com.android.tools.r8.shaking.KeepInfoCollection;
+import com.android.tools.r8.shaking.KeepMethodInfo.Joiner;
 import com.android.tools.r8.shaking.MainDexInfo;
 import com.android.tools.r8.shaking.SyntheticKeepClassInfo;
 import com.android.tools.r8.synthesis.SyntheticItems.State;
@@ -498,14 +497,24 @@ public class SyntheticFinalization {
           SyntheticMethodDefinition representative = syntheticGroup.getRepresentative();
           assert externalSyntheticClass.getMethodCollection().size() == 1;
           assert externalSyntheticClass.getMethodCollection().hasDirectMethods();
-          DexEncodedMethod syntheticMethodDefinition =
-              externalSyntheticClass.getMethodCollection().getDirectMethod(alwaysTrue());
+          ProgramMethod syntheticMethodDefinition =
+              IterableUtils.first(externalSyntheticClass.directProgramMethods());
           addFinalSyntheticMethod.accept(
               externalSyntheticClass,
               new SyntheticMethodReference(
                   representative.getKind(),
                   representative.getContext(),
                   syntheticMethodDefinition.getReference()));
+
+          // If the synthetic group contains a method that has been synthesized from an excluded
+          // class in R8 partial, then disallow inlining of the shared synthetic method. This
+          // ensures that we do not incorrectly single caller inline the shared synthetic method if
+          // it has a single call site in the included part of R8 partial.
+          if (isSyntheticMethodCalledFromExcludedClassInPartial(appView, syntheticGroup)) {
+            appView
+                .getKeepInfo()
+                .mutate(m -> m.joinMethod(syntheticMethodDefinition, Joiner::disallowInlining));
+          }
         });
     timing.end();
 
@@ -540,6 +549,24 @@ public class SyntheticFinalization {
     }
 
     return application;
+  }
+
+  private static boolean isSyntheticMethodCalledFromExcludedClassInPartial(
+      AppView<?> appView, EquivalenceGroup<SyntheticMethodDefinition> group) {
+    R8PartialR8SubCompilationConfiguration subCompilationConfiguration =
+        appView.options().partialSubCompilationConfiguration != null
+            ? appView.options().partialSubCompilationConfiguration.asR8()
+            : null;
+    if (subCompilationConfiguration != null) {
+      for (SyntheticMethodDefinition member :
+          IterableUtils.append(group.members, group.getRepresentative())) {
+        DexType synthesizingContextType = member.getContext().getSynthesizingContextType();
+        if (subCompilationConfiguration.hasD8DefinitionFor(synthesizingContextType)) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   private static <T extends SyntheticDefinition<?, T, ?>>

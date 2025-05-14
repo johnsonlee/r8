@@ -46,7 +46,8 @@ public class PartialCompilationInlineAfterSyntheticSharingTest extends TestBase 
         .compile()
         .addRunClasspathClasses(Foo.class)
         .run(parameters.getRuntime(), ExcludedClass.class)
-        .assertFailureWithErrorThatThrows(NoSuchMethodError.class);
+        .assertSuccessWithOutputLines(
+            "class " + Foo.class.getTypeName(), "class " + Foo.class.getTypeName());
   }
 
   static class ExcludedClass {
