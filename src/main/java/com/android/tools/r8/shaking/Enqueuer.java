@@ -2362,14 +2362,16 @@ public class Enqueuer {
           unusedInterfaceTypes.computeIfAbsent(current, ignore -> Sets.newIdentityHashSet());
       if (implementors.add(implementer)) {
         for (DexType iface : current.getInterfaces()) {
-          DexProgramClass definition = getProgramClassOrNull(iface, current);
-          if (definition != null) {
-            if (definition.isPublic()
-                || implementer.getType().isSamePackage(definition.getType())) {
-              worklist.addIfNotSeen(definition);
-            } else {
-              markTypeAsLive(current, implementer);
+          DexClass definition = definitionFor(iface, current);
+          if (definition == null) {
+            continue;
+          }
+          if (definition.isPublic() || implementer.getType().isSamePackage(definition.getType())) {
+            if (definition.isProgramClass()) {
+              worklist.addIfNotSeen(definition.asProgramClass());
             }
+          } else {
+            markTypeAsLive(current, implementer);
           }
         }
       }

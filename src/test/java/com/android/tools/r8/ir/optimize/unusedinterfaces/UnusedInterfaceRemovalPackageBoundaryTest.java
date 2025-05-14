@@ -32,7 +32,7 @@ public class UnusedInterfaceRemovalPackageBoundaryTest extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimesAndApiLevels().build();
+    return getTestParameters().withAllRuntimesAndApiLevels().withPartialCompilation().build();
   }
 
   public UnusedInterfaceRemovalPackageBoundaryTest(TestParameters parameters) {
@@ -41,16 +41,16 @@ public class UnusedInterfaceRemovalPackageBoundaryTest extends TestBase {
 
   @Test
   public void test() throws Exception {
-    testForR8(parameters.getBackend())
+    testForR8(parameters)
         .addInnerClasses(getClass(), UnusedInterfaceRemovalPackageBoundaryTestClasses.class)
         .addKeepMainRule(TestClass.class)
         .addKeepClassRules(I_CLASS)
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
         .enableNoVerticalClassMergingAnnotations()
-        .setMinApi(parameters)
         .compile()
-        .inspect(
+        .inspectIf(
+            !parameters.isRandomPartialCompilation(),
             inspector -> {
               ClassSubject iClassSubject = inspector.clazz(I_CLASS);
               assertThat(iClassSubject, isPresent());
@@ -68,6 +68,41 @@ public class UnusedInterfaceRemovalPackageBoundaryTest extends TestBase {
                   jClassSubject.getDexProgramClass().getType(),
                   aClassSubject.getDexProgramClass().getInterfaces().get(0));
             })
+        .run(parameters.getRuntime(), TestClass.class)
+        .assertSuccessWithOutputLines("A");
+  }
+
+  @Test
+  public void testIOnClasspath() throws Exception {
+    testForR8(parameters)
+        .addInnerClasses(getClass())
+        .addProgramClasses(UnusedInterfaceRemovalPackageBoundaryTestClasses.J.class)
+        .addClasspathClasses(UnusedInterfaceRemovalPackageBoundaryTestClasses.getI())
+        .addKeepMainRule(TestClass.class)
+        // TODO(b/410597153): Repackaging does not account for part of a program package being on
+        //  classpath. After fixing this, -dontobfuscate should not be needed.
+        .addDontObfuscate()
+        .enableInliningAnnotations()
+        .enableNeverClassInliningAnnotations()
+        .enableNoVerticalClassMergingAnnotations()
+        .compile()
+        .inspectIf(
+            !parameters.isRandomPartialCompilation(),
+            inspector -> {
+              ClassSubject jClassSubject = inspector.clazz(J_CLASS);
+              assertThat(jClassSubject, isPresent());
+
+              ClassSubject kClassSubject = inspector.clazz(K.class);
+              assertThat(kClassSubject, isAbsent());
+
+              ClassSubject aClassSubject = inspector.clazz(A.class);
+              assertThat(aClassSubject, isPresent());
+              assertEquals(1, aClassSubject.getDexProgramClass().getInterfaces().size());
+              assertEquals(
+                  jClassSubject.getDexProgramClass().getType(),
+                  aClassSubject.getDexProgramClass().getInterfaces().get(0));
+            })
+        .addRunClasspathClasses(UnusedInterfaceRemovalPackageBoundaryTestClasses.getI())
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutputLines("A");
   }
