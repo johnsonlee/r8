@@ -18,6 +18,7 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
+// Regression test for b/415703756.
 @RunWith(Parameterized.class)
 public class PartialCompilationSignatureContextTest extends TestBase {
 
@@ -30,7 +31,24 @@ public class PartialCompilationSignatureContextTest extends TestBase {
   }
 
   @Test
-  public void test() throws Exception {
+  public void testR8() throws Exception {
+    testForR8(Backend.DEX)
+        .addProgramClasses(IncludedClass.class)
+        .addClasspathClasses(ExcludedClass.class)
+        .addLibraryFiles(ToolHelper.getMostRecentAndroidJar())
+        .addKeepAllClassesRule()
+        .addKeepAttributeSignature()
+        .allowDiagnosticInfoMessages()
+        .setMinApi(apiLevelWithNativeMultiDexSupport())
+        // TODO(b/415703756): Should not report invalid signature.
+        .compileWithExpectedDiagnostics(
+            diagnostics ->
+                diagnostics.assertInfosMatch(
+                    diagnosticMessage(containsString("Invalid signature"))));
+  }
+
+  @Test
+  public void testR8Partial() throws Exception {
     testForR8Partial(Backend.DEX)
         .addR8ExcludedClasses(ExcludedClass.class)
         .addR8IncludedClasses(IncludedClass.class)
