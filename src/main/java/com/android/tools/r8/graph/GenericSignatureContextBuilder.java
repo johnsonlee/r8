@@ -142,7 +142,8 @@ public class GenericSignatureContextBuilder {
     }
     Map<DexReference, TypeParameterSubstitutions> formalsInfo = new IdentityHashMap<>();
     Map<DexReference, DexReference> enclosingInfo = new IdentityHashMap<>();
-    programClasses.forEach(
+    WorkList<DexClass> worklist = WorkList.newIdentityWorkList(programClasses);
+    worklist.process(
         clazz -> {
           // Build up a map of type variables to bounds for every reference such that we can
           // lookup the information even after we prune the generic signatures.
@@ -150,7 +151,7 @@ public class GenericSignatureContextBuilder {
             formalsInfo.put(
                 clazz.getReference(),
                 TypeParameterSubstitutions.create(clazz.classSignature.getFormalTypeParameters()));
-            clazz.forEachProgramMethod(
+            clazz.forEachClassMethod(
                 method -> {
                   MethodTypeSignature methodSignature =
                       method.getDefinition().getGenericSignature();
@@ -165,8 +166,15 @@ public class GenericSignatureContextBuilder {
           // Build up an enclosing class context such that the enclosing class can be looked up
           // even after inner class and enclosing method attribute attributes are removed.
           InnerClassAttribute innerClassAttribute = clazz.getInnerClassAttributeForThisClass();
-          if (innerClassAttribute != null) {
+          if (innerClassAttribute != null && innerClassAttribute.getOuter() != null) {
             enclosingInfo.put(clazz.getType(), innerClassAttribute.getOuter());
+            DexClass outerClass =
+                appView
+                    .appInfo()
+                    .definitionForWithoutExistenceAssert(innerClassAttribute.getOuter());
+            if (outerClass != null) {
+              worklist.addIfNotSeen(outerClass);
+            }
           }
           EnclosingMethodAttribute enclosingMethodAttribute = clazz.getEnclosingMethodAttribute();
           if (enclosingMethodAttribute != null) {

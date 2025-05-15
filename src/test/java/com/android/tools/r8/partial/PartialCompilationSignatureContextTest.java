@@ -3,10 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.partial;
 
-import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
-import static org.hamcrest.CoreMatchers.containsString;
-
 import com.android.tools.r8.TestBase;
+import com.android.tools.r8.TestDiagnosticMessages;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
@@ -38,13 +36,8 @@ public class PartialCompilationSignatureContextTest extends TestBase {
         .addLibraryFiles(ToolHelper.getMostRecentAndroidJar())
         .addKeepAllClassesRule()
         .addKeepAttributeSignature()
-        .allowDiagnosticInfoMessages()
         .setMinApi(apiLevelWithNativeMultiDexSupport())
-        // TODO(b/415703756): Should not report invalid signature.
-        .compileWithExpectedDiagnostics(
-            diagnostics ->
-                diagnostics.assertInfosMatch(
-                    diagnosticMessage(containsString("Invalid signature"))));
+        .compileWithExpectedDiagnostics(TestDiagnosticMessages::assertNoMessages);
   }
 
   @Test
@@ -55,13 +48,8 @@ public class PartialCompilationSignatureContextTest extends TestBase {
         .addLibraryFiles(ToolHelper.getMostRecentAndroidJar())
         .addKeepAllClassesRule()
         .addKeepAttributeSignature()
-        .allowDiagnosticInfoMessages()
         .setMinApi(apiLevelWithNativeMultiDexSupport())
-        // TODO(b/415703756): Should not report invalid signature.
-        .compileWithExpectedDiagnostics(
-            diagnostics ->
-                diagnostics.assertInfosMatch(
-                    diagnosticMessage(containsString("Invalid signature"))));
+        .compileWithExpectedDiagnostics(TestDiagnosticMessages::assertNoMessages);
   }
 
   static class ExcludedClass<T> {
