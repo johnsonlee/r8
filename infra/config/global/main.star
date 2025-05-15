@@ -168,7 +168,7 @@ common_test_options = [
 
 default_timeout = time.hour * 6
 
-def get_dimensions(windows = False, internal = False, archive = False):
+def get_dimensions(windows = False, internal = False, archive = False, noble=False):
     # We use the following setup:
     #   windows -> always windows machine
     #   internal -> always internal, single small, machine
@@ -181,7 +181,10 @@ def get_dimensions(windows = False, internal = False, archive = False):
     if windows:
         dimensions["os"] = "Windows-10"
     else:
-        dimensions["os"] = "Ubuntu-20.04"
+        if noble:
+            dimensions["os"] = "Ubuntu-24.04"
+        else:
+            dimensions["os"] = "Ubuntu-20.04"
     if internal:
         dimensions["internal"] = "true"
     elif archive:
@@ -362,6 +365,11 @@ r8_tester_with_default(
     max_concurrent_invocations = 2,
 )
 r8_tester_with_default(
+    "linux-default-noble",
+    ["--runtimes=dex-default", "--command_cache_dir=/tmp/ccache"],
+    dimensions = get_dimensions(noble=True),
+)
+r8_tester_with_default(
     "linux-none",
     ["--runtimes=none", "--command_cache_dir=/tmp/ccache"],
     max_concurrent_invocations = 2,
@@ -409,6 +417,13 @@ r8_tester_with_default(
     "linux-android-7",
     ["--dex_vm=7.0.0", "--all_tests", "--command_cache_dir=/tmp/ccache"],
 )
+
+r8_tester_with_default(
+    "linux-android-7-noble",
+    ["--dex_vm=7.0.0", "--all_tests", "--command_cache_dir=/tmp/ccache"],
+    dimensions = get_dimensions(noble=True),
+)
+
 r8_tester_with_default(
     "linux-android-8",
     ["--dex_vm=8.1.0", "--all_tests", "--command_cache_dir=/tmp/ccache"],
