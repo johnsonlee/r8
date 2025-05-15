@@ -10,6 +10,7 @@ import com.android.tools.r8.graph.GenericSignature.FieldTypeSignature;
 import com.android.tools.r8.graph.GenericSignature.FormalTypeParameter;
 import com.android.tools.r8.graph.GenericSignature.MethodTypeSignature;
 import com.android.tools.r8.utils.WorkList;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import java.util.Collection;
 import java.util.Collections;
@@ -132,18 +133,19 @@ public class GenericSignatureContextBuilder {
   }
 
   public static GenericSignatureContextBuilder create(AppView<?> appView) {
-    return create(appView, appView.appInfo().classes());
+    Iterable<DexClass> classes =
+        Iterables.concat(appView.appInfo().classes(), appView.app().asDirect().classpathClasses());
+    return create(appView, classes);
   }
 
   public static GenericSignatureContextBuilder create(
-      AppView<?> appView, Collection<DexProgramClass> programClasses) {
+      AppView<?> appView, Iterable<? extends DexClass> classes) {
     if (!appView.options().parseSignatureAttribute()) {
       return null;
     }
     Map<DexReference, TypeParameterSubstitutions> formalsInfo = new IdentityHashMap<>();
     Map<DexReference, DexReference> enclosingInfo = new IdentityHashMap<>();
-    WorkList<DexClass> worklist = WorkList.newIdentityWorkList(programClasses);
-    worklist.process(
+    classes.forEach(
         clazz -> {
           // Build up a map of type variables to bounds for every reference such that we can
           // lookup the information even after we prune the generic signatures.
@@ -168,13 +170,6 @@ public class GenericSignatureContextBuilder {
           InnerClassAttribute innerClassAttribute = clazz.getInnerClassAttributeForThisClass();
           if (innerClassAttribute != null && innerClassAttribute.getOuter() != null) {
             enclosingInfo.put(clazz.getType(), innerClassAttribute.getOuter());
-            DexClass outerClass =
-                appView
-                    .appInfo()
-                    .definitionForWithoutExistenceAssert(innerClassAttribute.getOuter());
-            if (outerClass != null) {
-              worklist.addIfNotSeen(outerClass);
-            }
           }
           EnclosingMethodAttribute enclosingMethodAttribute = clazz.getEnclosingMethodAttribute();
           if (enclosingMethodAttribute != null) {
