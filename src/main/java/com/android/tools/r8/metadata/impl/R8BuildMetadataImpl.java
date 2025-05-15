@@ -16,6 +16,7 @@ import com.android.tools.r8.metadata.R8CompilationMetadata;
 import com.android.tools.r8.metadata.R8DexFileMetadata;
 import com.android.tools.r8.metadata.R8FeatureSplitsMetadata;
 import com.android.tools.r8.metadata.R8OptionsMetadata;
+import com.android.tools.r8.metadata.R8PartialCompilationMetadata;
 import com.android.tools.r8.metadata.R8ResourceOptimizationMetadata;
 import com.android.tools.r8.metadata.R8StartupOptimizationMetadata;
 import com.android.tools.r8.metadata.R8StatsMetadata;
@@ -60,6 +61,10 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
   private final R8FeatureSplitsMetadata featureSplitsMetadata;
 
   @Expose
+  @SerializedName("partialCompilation")
+  private final R8PartialCompilationMetadata partialCompilationMetadata;
+
+  @Expose
   @SerializedName("resourceOptimization")
   private final R8ResourceOptimizationMetadata resourceOptimizationMetadata;
 
@@ -78,6 +83,7 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
       List<R8DexFileMetadata> dexFilesMetadata,
       R8StatsMetadata statsMetadata,
       R8FeatureSplitsMetadata featureSplitsMetadata,
+      R8PartialCompilationMetadata partialCompilationMetadata,
       R8ResourceOptimizationMetadata resourceOptimizationMetadata,
       R8StartupOptimizationMetadata startupOptimizationMetadata,
       String version) {
@@ -87,6 +93,7 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
     this.dexFilesMetadata = dexFilesMetadata;
     this.statsMetadata = statsMetadata;
     this.featureSplitsMetadata = featureSplitsMetadata;
+    this.partialCompilationMetadata = partialCompilationMetadata;
     this.resourceOptimizationMetadata = resourceOptimizationMetadata;
     this.startupOptimizationMetadata = startupOptimizationMetadata;
     this.version = version;
@@ -122,6 +129,11 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
   }
 
   @Override
+  public R8PartialCompilationMetadata getPartialCompilationMetadata() {
+    return partialCompilationMetadata;
+  }
+
+  @Override
   public R8ResourceOptimizationMetadata getResourceOptimizationMetadata() {
     return resourceOptimizationMetadata;
   }
@@ -154,6 +166,7 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
     private List<R8DexFileMetadata> dexFilesMetadata;
     private R8StatsMetadata statsMetadata;
     private R8FeatureSplitsMetadata featureSplitsMetadata;
+    private R8PartialCompilationMetadata partialCompilationMetadata;
     private R8ResourceOptimizationMetadata resourceOptimizationOptions;
     private R8StartupOptimizationMetadata startupOptimizationOptions;
     private String version;
@@ -196,6 +209,12 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
       return this;
     }
 
+    public Builder setPartialCompilationMetadata(
+        R8PartialCompilationMetadata partialCompilationMetadata) {
+      this.partialCompilationMetadata = partialCompilationMetadata;
+      return this;
+    }
+
     public Builder setResourceOptimizationOptions(
         R8ResourceOptimizationMetadata resourceOptimizationOptions) {
       this.resourceOptimizationOptions = resourceOptimizationOptions;
@@ -221,6 +240,7 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
           dexFilesMetadata,
           statsMetadata,
           featureSplitsMetadata,
+          partialCompilationMetadata,
           resourceOptimizationOptions,
           startupOptimizationOptions,
           version);

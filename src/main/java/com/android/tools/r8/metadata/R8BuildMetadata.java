@@ -14,6 +14,7 @@ import com.android.tools.r8.metadata.impl.R8FeatureSplitsMetadataImpl;
 import com.android.tools.r8.metadata.impl.R8KeepAttributesMetadataImpl;
 import com.android.tools.r8.metadata.impl.R8LibraryDesugaringMetadataImpl;
 import com.android.tools.r8.metadata.impl.R8OptionsMetadataImpl;
+import com.android.tools.r8.metadata.impl.R8PartialCompilationMetadataImpl;
 import com.android.tools.r8.metadata.impl.R8ResourceOptimizationMetadataImpl;
 import com.android.tools.r8.metadata.impl.R8StartupOptimizationMetadataImpl;
 import com.android.tools.r8.metadata.impl.R8StatsMetadataImpl;
@@ -45,6 +46,9 @@ public interface R8BuildMetadata {
             R8KeepAttributesMetadata.class, deserializeTo(R8KeepAttributesMetadataImpl.class))
         .registerTypeAdapter(
             R8LibraryDesugaringMetadata.class, deserializeTo(R8LibraryDesugaringMetadataImpl.class))
+        .registerTypeAdapter(
+            R8PartialCompilationMetadata.class,
+            deserializeTo(R8PartialCompilationMetadataImpl.class))
         .registerTypeAdapter(
             R8ResourceOptimizationMetadata.class,
             deserializeTo(R8ResourceOptimizationMetadataImpl.class))
@@ -78,6 +82,11 @@ public interface R8BuildMetadata {
    * @return null if not using feature splits.
    */
   R8FeatureSplitsMetadata getFeatureSplitsMetadata();
+
+  /**
+   * @return null if not using partial compilation.
+   */
+  R8PartialCompilationMetadata getPartialCompilationMetadata();
 
   /**
    * @return null if resource optimization is disabled.

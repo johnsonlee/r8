@@ -178,6 +178,7 @@ class R8Partial {
             .addLibraryResourceProvider(
                 new InternalClasspathOrLibraryClassProvider<>(d8Result.getOutputLibraryClasses()))
             .enableLegacyFullModeForKeepRules(true)
+            .setBuildMetadataConsumer(options.r8BuildMetadataConsumer)
             .setEnableExperimentalMissingLibraryApiModeling(
                 options.apiModelingOptions().isApiModelingEnabled())
             .setMinApiLevel(options.getMinApiLevel().getLevel())

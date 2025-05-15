@@ -57,6 +57,7 @@ public class BuildMetadataFactory {
             builder ->
                 builder.setFeatureSplitsMetadata(
                     R8FeatureSplitsMetadataImpl.create(appView, virtualFilesForFeatureSplit)))
+        .setPartialCompilationMetadata(R8PartialCompilationMetadataImpl.create(options))
         .setResourceOptimizationOptions(R8ResourceOptimizationMetadataImpl.create(options))
         .setStartupOptimizationOptions(R8StartupOptimizationMetadataImpl.create(options))
         .setStatsMetadata(R8StatsMetadataImpl.create(appView))

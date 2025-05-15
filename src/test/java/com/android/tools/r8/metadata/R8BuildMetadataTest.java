@@ -12,8 +12,10 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import com.android.tools.r8.KotlinCompilerTool;
 import com.android.tools.r8.LibraryDesugaringTestConfiguration;
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -42,6 +44,12 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class R8BuildMetadataTest extends TestBase {
 
+  private static final ClassReference mainReference = Reference.classFromClass(Main.class);
+  private static final ExternalArtProfile artProfile =
+      ExternalArtProfile.builder().addClassRule(mainReference).build();
+  private static final List<ExternalStartupItem> startupProfile =
+      ImmutableList.of(ExternalStartupClass.builder().setClassReference(mainReference).build());
+
   @Parameter(0)
   public TestParameters parameters;
 
@@ -51,34 +59,15 @@ public class R8BuildMetadataTest extends TestBase {
   }
 
   @Test
-  public void test() throws Exception {
-    ClassReference mainReference = Reference.classFromClass(Main.class);
-    List<ExternalStartupItem> startupProfile =
-        ImmutableList.of(ExternalStartupClass.builder().setClassReference(mainReference).build());
+  public void testR8() throws Exception {
     R8BuildMetadata buildMetadata =
-        testForR8(parameters.getBackend())
-            .addProgramClasses(Main.class, PostStartup.class)
+        testForR8(parameters)
             .addKeepMainRule(Main.class)
-            .addArtProfileForRewriting(
-                ExternalArtProfile.builder().addClassRule(mainReference).build())
+            .apply(this::configure)
             .applyIf(
                 parameters.isDexRuntime(),
-                testBuilder ->
-                    testBuilder
-                        .addLibraryFiles(ToolHelper.getMostRecentAndroidJar())
-                        .addAndroidResources(getTestResources())
-                        .addFeatureSplit(FeatureSplitMain.class)
-                        .addKeepMainRule(FeatureSplitMain.class)
-                        .apply(StartupTestingUtils.addStartupProfile(startupProfile))
-                        .enableCoreLibraryDesugaring(
-                            LibraryDesugaringTestConfiguration.forSpecification(
-                                LibraryDesugaringSpecification.JDK11.getSpecification()))
-                        .enableIsolatedSplits(true)
-                        .enableOptimizedShrinking())
-            .allowDiagnosticInfoMessages(parameters.canUseNativeMultidex())
-            .collectBuildMetadata()
+                testBuilder -> testBuilder.addKeepMainRule(FeatureSplitMain.class))
             .enableInliningAnnotations()
-            .setMinApi(parameters)
             .compileWithExpectedDiagnostics(
                 diagnostics -> {
                   if (parameters.canUseNativeMultidex()) {
@@ -95,14 +84,62 @@ public class R8BuildMetadataTest extends TestBase {
     // property names are unobfuscated when testing with R8lib (!).
     assertThat(json, containsString("\"version\":\"" + Version.LABEL + "\""));
     buildMetadata = R8BuildMetadata.fromJson(json);
-    inspectDeserializedBuildMetadata(buildMetadata);
+    inspectDeserializedBuildMetadata(buildMetadata, false);
+  }
+
+  @Test
+  public void testR8Partial() throws Exception {
+    R8BuildMetadata buildMetadata =
+        testForR8Partial(parameters)
+            .addProgramFiles(KotlinCompilerTool.KotlinCompiler.latest().getKotlinStdlibJar())
+            .setR8PartialConfiguration(
+                builder ->
+                    builder
+                        .addJavaTypeIncludePattern("androidx.**")
+                        .addJavaTypeIncludePattern("kotlin.**")
+                        .addJavaTypeIncludePattern("kotlinx.**"))
+            .apply(this::configure)
+            .compileWithExpectedDiagnostics(
+                diagnostics ->
+                    diagnostics.assertInfosMatch(
+                        diagnosticMessage(containsString("Startup DEX files contains"))))
+            .getBuildMetadata();
+    String json = buildMetadata.toJson();
+    System.out.println(json);
+    // Inspecting the exact contents is not important here, but it *is* important to test that the
+    // property names are unobfuscated when testing with R8lib (!).
+    assertThat(json, containsString("\"version\":\"" + Version.LABEL + "\""));
+    buildMetadata = R8BuildMetadata.fromJson(json);
+    inspectDeserializedBuildMetadata(buildMetadata, true);
+  }
+
+  private void configure(R8TestBuilder<?, ?, ?> builder) {
+    builder
+        .addProgramClasses(Main.class, PostStartup.class)
+        .addArtProfileForRewriting(artProfile)
+        .allowDiagnosticInfoMessages(parameters.canUseNativeMultidex())
+        .applyIf(
+            parameters.isDexRuntime(),
+            testBuilder ->
+                testBuilder
+                    .addLibraryFiles(ToolHelper.getMostRecentAndroidJar())
+                    .addAndroidResources(getTestResources())
+                    .addFeatureSplit(FeatureSplitMain.class)
+                    .apply(StartupTestingUtils.addStartupProfile(startupProfile))
+                    .enableCoreLibraryDesugaring(
+                        LibraryDesugaringTestConfiguration.forSpecification(
+                            LibraryDesugaringSpecification.JDK11.getSpecification()))
+                    .enableIsolatedSplits(true)
+                    .enableOptimizedShrinking())
+        .collectBuildMetadata();
   }
 
   private AndroidTestResource getTestResources() throws IOException {
     return new AndroidTestResourceBuilder().withSimpleManifestAndAppNameString().build(temp);
   }
 
-  private void inspectDeserializedBuildMetadata(R8BuildMetadata buildMetadata) {
+  private void inspectDeserializedBuildMetadata(
+      R8BuildMetadata buildMetadata, boolean isR8Partial) {
     // Baseline profile rewriting metadata.
     assertNotNull(buildMetadata.getBaselineProfileRewritingMetadata());
     // Compilation metadata.
@@ -156,6 +193,12 @@ public class R8BuildMetadataTest extends TestBase {
           libraryDesugaringMetadata.getIdentifier());
     } else {
       assertNull(libraryDesugaringMetadata);
+    }
+    // Partial compilation metadata.
+    if (isR8Partial) {
+      assertNotNull(buildMetadata.getPartialCompilationMetadata());
+    } else {
+      assertNull(buildMetadata.getPartialCompilationMetadata());
     }
     // Resource optimization metadata.
     if (parameters.isDexRuntime()) {

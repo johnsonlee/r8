@@ -39,7 +39,7 @@ public class R8StartupOptimizationMetadataImpl implements R8StartupOptimizationM
 
   public static R8StartupOptimizationMetadataImpl create(InternalOptions options) {
     StartupOptions startupOptions = options.getStartupOptions();
-    if (startupOptions.getStartupProfileProviders().isEmpty()) {
+    if (!startupOptions.hasStartupProfileProviders()) {
       return null;
     }
     return new R8StartupOptimizationMetadataImpl(startupOptions);
