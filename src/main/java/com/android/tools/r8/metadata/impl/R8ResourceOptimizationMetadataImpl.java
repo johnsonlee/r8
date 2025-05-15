@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.metadata.impl;
 
-import com.android.tools.r8.ResourceShrinkerConfiguration;
 import com.android.tools.r8.keepanno.annotations.AnnotationPattern;
 import com.android.tools.r8.keepanno.annotations.FieldAccessFlags;
 import com.android.tools.r8.keepanno.annotations.KeepConstraint;
@@ -27,16 +26,15 @@ public class R8ResourceOptimizationMetadataImpl implements R8ResourceOptimizatio
   @SerializedName("isOptimizedShrinkingEnabled")
   private final boolean isOptimizedShrinkingEnabled;
 
-  private R8ResourceOptimizationMetadataImpl(
-      ResourceShrinkerConfiguration resourceShrinkerConfiguration) {
-    this.isOptimizedShrinkingEnabled = resourceShrinkerConfiguration.isOptimizedShrinking();
+  private R8ResourceOptimizationMetadataImpl(InternalOptions options) {
+    this.isOptimizedShrinkingEnabled = options.isOptimizedResourceShrinking();
   }
 
   public static R8ResourceOptimizationMetadataImpl create(InternalOptions options) {
     if (options.androidResourceProvider == null) {
       return null;
     }
-    return new R8ResourceOptimizationMetadataImpl(options.resourceShrinkerConfiguration);
+    return new R8ResourceOptimizationMetadataImpl(options);
   }
 
   @Override

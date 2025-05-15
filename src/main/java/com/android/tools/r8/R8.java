@@ -880,7 +880,7 @@ public class R8 {
       if (options.androidResourceProvider != null
           && options.androidResourceConsumer != null
           // We trace the dex directly in the enqueuer.
-          && !options.resourceShrinkerConfiguration.isOptimizedShrinking()) {
+          && !options.isOptimizedResourceShrinking()) {
         options.programConsumer =
             wrapConsumerStoreBytesInList(
                 dexFileContent, (DexIndexedConsumer) options.programConsumer, "base");

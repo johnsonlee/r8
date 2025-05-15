@@ -58,7 +58,7 @@ public class LibraryMemberOptimizer implements CodeOptimization {
     register(new StringBuilderMethodOptimizer(appView));
     register(new StringMethodOptimizer(appView));
     if (appView.enableWholeProgramOptimizations()
-        && appView.options().resourceShrinkerConfiguration.isOptimizedShrinking()) {
+        && appView.options().isOptimizedResourceShrinking()) {
       register(new ResourcesMemberOptimizer(appView));
     }
     if (appView.enableWholeProgramOptimizations()) {

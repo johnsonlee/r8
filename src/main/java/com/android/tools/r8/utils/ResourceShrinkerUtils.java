@@ -25,8 +25,7 @@ public class ResourceShrinkerUtils {
             exception -> appView.reporter().fatalError(new ExceptionDiagnostic(exception)),
             shrinkerDebugReporterFromStringConsumer(
                 options.resourceShrinkerConfiguration.getDebugConsumer(), appView.reporter()));
-    if (options.resourceShrinkerConfiguration.isOptimizedShrinking()
-        && options.androidResourceProvider != null) {
+    if (options.isOptimizedResourceShrinking()) {
       try {
         addResources(appView, state, options.androidResourceProvider, FeatureSplit.BASE);
         if (options.hasFeatureSplitConfiguration()) {

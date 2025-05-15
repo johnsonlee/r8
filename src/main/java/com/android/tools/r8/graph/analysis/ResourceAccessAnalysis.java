@@ -89,8 +89,7 @@ public class ResourceAccessAnalysis
 
   private static boolean fieldAccessAnalysisEnabled(
       AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer) {
-    return appView.options().androidResourceProvider != null
-        && appView.options().resourceShrinkerConfiguration.isOptimizedShrinking()
+    return appView.options().isOptimizedResourceShrinking()
         // Only run this in the first round, we explicitly trace the resource values
         // with ResourceConstNumber in the optimizing pipeline.
         && enqueuer.getMode().isInitialTreeShaking();
