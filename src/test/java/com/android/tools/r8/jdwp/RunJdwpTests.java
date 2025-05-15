@@ -70,8 +70,24 @@ public class RunJdwpTests extends TestBase {
     };
   }
 
+  static TestPredicate and(TestPredicate... predicates) {
+    return (vm, tool) -> {
+      for (TestPredicate predicate : predicates) {
+        if (!predicate.test(vm, tool)) {
+          return false;
+        }
+      }
+      return true;
+    };
+  }
+
   static boolean isAndroidKOrAbove(DexVm dexVm, Tool tool) {
     return dexVm.getVersion().isNewerThanOrEqual(Version.V4_4_4);
+  }
+
+  static boolean isAndroidKOrAboveAndNotN(DexVm dexVm, Tool tool) {
+    return dexVm.getVersion().isNewerThanOrEqual(Version.V4_4_4)
+        && dexVm.getVersion() != Version.V7_0_0;
   }
 
   static boolean isAndroidK(DexVm dexVm, Tool tool) {
@@ -96,6 +112,10 @@ public class RunJdwpTests extends TestBase {
 
   static boolean isNotAndroidL(DexVm dexVm, Tool tool) {
     return dexVm.getVersion() != Version.V5_1_1;
+  }
+
+  static boolean isNotAndroidN(DexVm dexVm, Tool tool) {
+    return dexVm.getVersion() != Version.V7_0_0;
   }
 
   static boolean isLatestRuntime(DexVm dexVm, Tool tool) {
@@ -124,7 +144,11 @@ public class RunJdwpTests extends TestBase {
   static final Map<String, TestPredicate> FAILING_TESTS =
       ImmutableMap.<String, TestPredicate>builder()
           // Other failures on various older runtimes.
-          .put("LineTableDuplicatesTest", or(RunJdwpTests::isJava, RunJdwpTests::isAndroidNOrAbove))
+          .put(
+              "LineTableDuplicatesTest",
+              or(
+                  RunJdwpTests::isJava,
+                  and(RunJdwpTests::isAndroidNOrAbove, RunJdwpTests::isNotAndroidN)))
           .put("ArrayReference.GetValuesTest", RunJdwpTests::isAndroidLOrAbove)
           .put("ArrayReference.LengthTest", RunJdwpTests::isAndroidLOrAbove)
           .put("ArrayReference.SetValues003Test", RunJdwpTests::isAndroidNOrAbove)
@@ -166,11 +190,16 @@ public class RunJdwpTests extends TestBase {
           .put("Events.SingleStepTest", RunJdwpTests::isNotAndroidL)
           .put("Events.SingleStepWithPendingExceptionTest", RunJdwpTests::isAndroidNOrAbove)
           .put("EventModifiers.CountModifierTest", RunJdwpTests::isAndroidLOrAbove)
+          .put(
+              "EventModifiers.InstanceOnlyModifierTest",
+              and(RunJdwpTests::isAndroidLOrAbove, RunJdwpTests::isNotAndroidN))
           .put("EventModifiers.ThreadOnlyModifierTest", RunJdwpTests::isAndroidLOrAbove)
           .put("InterfaceType.InvokeMethodTest", RunJdwpTests::isAndroidNOrAbove)
           .put("Method.BytecodesTest", RunJdwpTests::isAndroidLOrAbove)
           .put("Method.IsObsoleteTest", RunJdwpTests::isAndroidNOrAbove)
-          .put("Method.LineTableTest", or(RunJdwpTests::isAndroidKOrAbove, RunJdwpTests::isJava))
+          .put(
+              "Method.LineTableTest",
+              or(RunJdwpTests::isAndroidKOrAboveAndNotN, RunJdwpTests::isJava))
           .put("Method.VariableTableTest", RunJdwpTests::isAndroidOOrAbove)
           .put(
               "Method.VariableTableWithGenericTest",
@@ -199,6 +228,7 @@ public class RunJdwpTests extends TestBase {
           .put("ObjectReference.InvokeMethodWithSuspensionTest", RunJdwpTests::isAndroidMOrAbove)
           .put("ObjectReference.IsCollectedTest", RunJdwpTests::isAndroidLOrAbove)
           .put("ObjectReference.MonitorInfoTest", RunJdwpTests::isAndroidLOrAbove)
+          .put("ObjectReference.ReferringObjectsTest", RunJdwpTests::isNotAndroidN)
           .put("ObjectReference.SetValuesTest", RunJdwpTests::isAndroidLOrAbove)
           .put("ObjectReference.SetValues002Test", RunJdwpTests::isAndroidLOrAbove)
           .put("ObjectReference.SetValues003Test", RunJdwpTests::isAndroidLOrAbove)
@@ -207,16 +237,24 @@ public class RunJdwpTests extends TestBase {
           .put("ReferenceType.GetValues002Test", RunJdwpTests::isAndroidLOrAbove)
           .put("ReferenceType.GetValues004Test", RunJdwpTests::isAndroidLOrAbove)
           .put("ReferenceType.GetValues006Test", RunJdwpTests::isAndroidOOrAbove)
+          .put("ReferenceType.InstancesTest", RunJdwpTests::isNotAndroidN)
           .put("ReferenceType.MethodsTest", RunJdwpTests::isAndroidLOrAbove)
           .put("ReferenceType.ModifiersTest", RunJdwpTests::isAndroidLOrAbove)
           .put("ReferenceType.Signature002Test", RunJdwpTests::isAndroidLOrAbove)
           .put("ReferenceType.SourceDebugExtensionTest", RunJdwpTests::isAndroidLOrAbove)
           .put("ReferenceType.SyntheticFieldsTest", RunJdwpTests::isAndroidLOrAbove)
           .put("ReferenceType.SyntheticMethodsTest", RunJdwpTests::isAndroidLOrAbove)
-          .put("StackFrame.GetValuesTest", RunJdwpTests::isAndroidMOrAbove)
-          .put("StackFrame.ProxyThisObjectTest", RunJdwpTests::isAndroidLOrAbove)
-          .put("StackFrame.SetValuesTest", RunJdwpTests::isAndroidMOrAbove)
-          .put("StackFrame.SetValues002Test", RunJdwpTests::isAndroidMOrAbove)
+          .put(
+              "StackFrame.GetValuesTest",
+              and(RunJdwpTests::isAndroidMOrAbove, RunJdwpTests::isNotAndroidN))
+          .put("StackFrame.GetValues002Test", RunJdwpTests::isNotAndroidN)
+          .put("StackFrame.ProxyThisObjectTest", RunJdwpTests::isAndroidMOrAbove)
+          .put(
+              "StackFrame.SetValuesTest",
+              and(RunJdwpTests::isAndroidMOrAbove, RunJdwpTests::isNotAndroidN))
+          .put(
+              "StackFrame.SetValues002Test",
+              and(RunJdwpTests::isAndroidMOrAbove, RunJdwpTests::isNotAndroidN))
           .put("StackFrame.ThisObjectTest", RunJdwpTests::isAndroidLOrAbove)
           .put("StringReference.ValueTest", RunJdwpTests::isAndroidLOrAbove)
           .put("ThreadGroupReference.ChildrenTest", RunJdwpTests::isAndroidLOrAbove)
@@ -248,6 +286,7 @@ public class RunJdwpTests extends TestBase {
           .put("VirtualMachine.DisposeDuringInvokeTest", RunJdwpTests::isAndroidMOrAbove)
           .put("VirtualMachine.DisposeObjectsTest", RunJdwpTests::isAndroidLOrAbove)
           .put("VirtualMachine.ExitTest", RunJdwpTests::isAndroidLOrAbove)
+          .put("VirtualMachine.InstanceCountsTest", RunJdwpTests::isNotAndroidN)
           .put("VirtualMachine.ResumeTest", RunJdwpTests::isAndroidLOrAbove)
           .build();
 
