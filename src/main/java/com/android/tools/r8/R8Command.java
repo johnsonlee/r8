@@ -786,7 +786,9 @@ public final class R8Command extends BaseCompilerCommand {
       }
       if (androidResourceProvider != null
           && !resourceShrinkerConfiguration.isOptimizedShrinking()) {
-        reporter.error("Partial shrinking only supports optimized resource shrinking");
+        reporter.warning(
+            "Partial shrinking only supports optimized resource shrinking. "
+                + "Optimized resource shrinking will be enabled implicitly.");
       }
     }
 

@@ -233,7 +233,11 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   }
 
   public boolean isOptimizedResourceShrinking() {
-    return androidResourceProvider != null && resourceShrinkerConfiguration.isOptimizedShrinking();
+    if (androidResourceProvider == null) {
+      return false;
+    }
+    return resourceShrinkerConfiguration.isOptimizedShrinking()
+        || partialSubCompilationConfiguration != null;
   }
 
   public ProguardConfiguration getProguardConfiguration() {
