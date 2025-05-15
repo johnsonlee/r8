@@ -7,6 +7,7 @@ import com.android.tools.r8.features.ClassToFeatureSplitMap;
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.Definition;
 import com.android.tools.r8.graph.DexApplicationReadFlags;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClasspathClass;
@@ -303,7 +304,7 @@ public abstract class R8PartialSubCompilationConfiguration {
       }
     }
 
-    public boolean isD8Definition(ProgramDefinition definition) {
+    public boolean isD8Definition(Definition definition) {
       return hasD8DefinitionFor(definition.getReference());
     }
 

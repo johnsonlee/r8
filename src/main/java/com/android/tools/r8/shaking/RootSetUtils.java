@@ -1638,9 +1638,22 @@ public class RootSetUtils {
       if (clazz.isProgramClass()) {
         evaluateCheckDiscardRule(clazz.asProgramClass(), rule.asProguardCheckDiscardRule());
       } else {
+        boolean isR8PartialExcludedClass =
+            clazz.isClasspathClass()
+                && options.partialSubCompilationConfiguration != null
+                && options.partialSubCompilationConfiguration.asR8().isD8Definition(clazz);
         StringDiagnostic warning =
-            new StringDiagnostic("The rule `" + rule + "` matches a class not in the program.");
+            isR8PartialExcludedClass
+                ? new StringDiagnostic(
+                    "The rule `"
+                        + rule
+                        + "` matches a class that is excluded from optimization in R8.")
+                : new StringDiagnostic(
+                    "The rule `" + rule + "` matches a class not in the program.");
         appView.reporter().warning(warning);
+
+        // Mark the rule as used to avoid reporting two diagnostics for the same rule.
+        rule.markAsUsed();
       }
     }
 
