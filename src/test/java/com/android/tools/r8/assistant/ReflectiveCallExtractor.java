@@ -23,7 +23,6 @@ import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.timing.Timing;
-import com.google.common.collect.Sets;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -32,6 +31,7 @@ import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeSet;
 
 public class ReflectiveCallExtractor {
 
@@ -62,20 +62,13 @@ public class ReflectiveCallExtractor {
                 if (holderType.toSourceString().startsWith("java.lang.reflect")
                     || holderType.isIdenticalTo(factory.unsafeType)
                     || holderType.isIdenticalTo(factory.classType)) {
-                  methods
-                      .computeIfAbsent(holderType, t -> Sets.newIdentityHashSet())
-                      .add(theMethod);
+                  methods.computeIfAbsent(holderType, t -> new TreeSet<>()).add(theMethod);
                 }
               }
             }
           }
         }
       }
-    }
-    for (DexType dexType : methods.keySet()) {
-      ArrayList<DexMethod> sorted = new ArrayList<>(methods.get(dexType));
-      sorted.sort(Comparator.naturalOrder());
-      methods.put(dexType, sorted);
     }
     return methods;
   }
