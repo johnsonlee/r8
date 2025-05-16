@@ -9,8 +9,17 @@ import com.android.tools.r8.keepanno.annotations.KeepConstraint;
 import com.android.tools.r8.keepanno.annotations.KeepItemKind;
 import com.android.tools.r8.keepanno.annotations.UsedByReflection;
 import com.android.tools.r8.metadata.R8PartialCompilationMetadata;
+import com.android.tools.r8.metadata.R8PartialCompilationStatsMetadata;
+import com.android.tools.r8.partial.R8PartialCompilationConfiguration;
+import com.android.tools.r8.partial.predicate.R8PartialPredicate;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.ListUtils;
+import com.google.common.collect.ImmutableSet;
+import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 
 @UsedByReflection(
     description = "Keep and preserve @SerializedName for correct (de)serialization",
@@ -21,12 +30,50 @@ import com.google.gson.annotations.SerializedName;
     fieldAnnotatedByClassConstant = SerializedName.class)
 public class R8PartialCompilationMetadataImpl implements R8PartialCompilationMetadata {
 
-  private R8PartialCompilationMetadataImpl() {}
+  @Expose
+  @SerializedName("commonIncludePatterns")
+  private final List<String> commonIncludePatterns;
+
+  @Expose
+  @SerializedName("stats")
+  private final R8PartialCompilationStatsMetadata statsMetadata;
+
+  private R8PartialCompilationMetadataImpl(
+      List<String> commonIncludePatterns, R8PartialCompilationStatsMetadata statsMetadata) {
+    this.commonIncludePatterns = commonIncludePatterns;
+    this.statsMetadata = statsMetadata;
+  }
 
   public static R8PartialCompilationMetadataImpl create(InternalOptions options) {
-    if (options.partialSubCompilationConfiguration == null) {
-      return null;
+    if (options.partialCompilationConfiguration.isEnabled()) {
+      return new R8PartialCompilationMetadataImpl(
+          createCommonIncludePatterns(options.partialCompilationConfiguration),
+          options.getR8PartialR8SubCompilationOptions().getStatsMetadataBuilder().build());
     }
-    return new R8PartialCompilationMetadataImpl();
+    return null;
+  }
+
+  private static List<String> createCommonIncludePatterns(
+      R8PartialCompilationConfiguration partialCompilationConfiguration) {
+    Set<String> commonIncludePatterns = ImmutableSet.of("androidx.**", "kotlin.**", "kotlinx.**");
+    List<String> result = new ArrayList<>();
+    for (R8PartialPredicate includePredicate :
+        partialCompilationConfiguration.getIncludePredicates()) {
+      String includePattern = includePredicate.serializeToString();
+      if (commonIncludePatterns.contains(includePattern)) {
+        result.add(includePattern);
+      }
+    }
+    return ListUtils.sort(result, String::compareTo);
+  }
+
+  @Override
+  public List<String> getCommonIncludePatterns() {
+    return commonIncludePatterns;
+  }
+
+  @Override
+  public R8PartialCompilationStatsMetadata getStatsMetadata() {
+    return statsMetadata;
   }
 }

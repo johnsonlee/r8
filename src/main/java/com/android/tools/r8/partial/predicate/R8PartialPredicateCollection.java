@@ -9,9 +9,10 @@ import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexString;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
-public class R8PartialPredicateCollection {
+public class R8PartialPredicateCollection implements Iterable<R8PartialPredicate> {
 
   private final List<R8PartialPredicate> predicates = new ArrayList<>();
 
@@ -21,6 +22,11 @@ public class R8PartialPredicateCollection {
 
   public boolean isEmpty() {
     return predicates.isEmpty();
+  }
+
+  @Override
+  public Iterator<R8PartialPredicate> iterator() {
+    return predicates.iterator();
   }
 
   public boolean test(DexProgramClass clazz) {

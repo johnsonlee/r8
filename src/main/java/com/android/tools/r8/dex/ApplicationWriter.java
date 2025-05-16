@@ -53,6 +53,7 @@ import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.naming.ProguardMapSupplier.ProguardMapId;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration.R8PartialR8SubCompilationConfiguration;
+import com.android.tools.r8.partial.R8PartialUtils;
 import com.android.tools.r8.profile.startup.StartupCompleteness;
 import com.android.tools.r8.profile.startup.profile.StartupProfile;
 import com.android.tools.r8.shaking.MainDexInfo;
@@ -445,6 +446,18 @@ public class ApplicationWriter {
         forcedStrings.add(lazyDexString.compute());
       }
       timing.end();
+
+      // Finalize the R8 partial compilation build metadata stats. This must be done before writing
+      // the virtual files, since the writing of the virtual files unsets the code object of each
+      // method.
+      if (options.r8BuildMetadataConsumer != null) {
+        R8PartialUtils.acceptR8PartialR8SubCompilationConfiguration(
+            appView,
+            configuration ->
+                configuration
+                    .getStatsMetadataBuilder()
+                    .finalizeStats(appView.withClassHierarchy()));
+      }
 
       // Write the actual dex code.
       writeVirtualFiles(executorService, virtualFiles, forcedStrings, timing);

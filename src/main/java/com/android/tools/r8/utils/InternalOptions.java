@@ -86,6 +86,8 @@ import com.android.tools.r8.optimize.singlecaller.SingleCallerInlinerOptions;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.partial.R8PartialCompilationConfiguration;
 import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration;
+import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration.R8PartialD8SubCompilationConfiguration;
+import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration.R8PartialR8SubCompilationConfiguration;
 import com.android.tools.r8.position.Position;
 import com.android.tools.r8.profile.art.ArtProfileOptions;
 import com.android.tools.r8.profile.startup.StartupOptions;
@@ -1085,6 +1087,18 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   public LibraryDesugaringOptions getLibraryDesugaringOptions() {
     return libraryDesugaringOptions;
+  }
+
+  public R8PartialD8SubCompilationConfiguration getR8PartialD8SubCompilationOptions() {
+    return partialSubCompilationConfiguration != null && partialSubCompilationConfiguration.isD8()
+        ? partialSubCompilationConfiguration.asD8()
+        : null;
+  }
+
+  public R8PartialR8SubCompilationConfiguration getR8PartialR8SubCompilationOptions() {
+    return partialSubCompilationConfiguration != null && partialSubCompilationConfiguration.isR8()
+        ? partialSubCompilationConfiguration.asR8()
+        : null;
   }
 
   /**

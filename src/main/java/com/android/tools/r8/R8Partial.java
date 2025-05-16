@@ -11,7 +11,7 @@ import com.android.tools.r8.graph.DexClasspathClass;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.graph.LazyLoadedDexApplication;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
-import com.android.tools.r8.partial.R8PartialCompilationConfiguration;
+import com.android.tools.r8.metadata.impl.R8PartialCompilationStatsMetadataBuilder;
 import com.android.tools.r8.partial.R8PartialD8Input;
 import com.android.tools.r8.partial.R8PartialD8Result;
 import com.android.tools.r8.partial.R8PartialProgramPartitioning;
@@ -72,6 +72,9 @@ class R8Partial {
     timing.begin("Process input");
     R8PartialD8Input input = runProcessInputStep(app, executor);
 
+    R8PartialCompilationStatsMetadataBuilder statsMetadataBuilder =
+        R8PartialCompilationStatsMetadataBuilder.create(input, options);
+
     timing.end().begin("Run D8");
     R8PartialD8Result d8Result = runD8Step(input, executor);
     timing.end();
@@ -80,7 +83,7 @@ class R8Partial {
     lockFeatureSplitProgramResourceProviders();
 
     timing.begin("Run R8");
-    runR8Step(app, d8Result, executor);
+    runR8Step(app, d8Result, statsMetadataBuilder, executor);
     timing.end();
 
     if (options.isPrintTimesReportingEnabled()) {
@@ -150,7 +153,11 @@ class R8Partial {
         subCompilationConfiguration.getStartupProfile());
   }
 
-  private void runR8Step(AndroidApp app, R8PartialD8Result d8Result, ExecutorService executor)
+  private void runR8Step(
+      AndroidApp app,
+      R8PartialD8Result d8Result,
+      R8PartialCompilationStatsMetadataBuilder statsMetadataBuilder,
+      ExecutorService executor)
       throws IOException {
     // Compile R8 input with R8 using the keep rules from trace references.
     DiagnosticsHandler r8DiagnosticsHandler =
@@ -183,8 +190,7 @@ class R8Partial {
                 options.apiModelingOptions().isApiModelingEnabled())
             .setMinApiLevel(options.getMinApiLevel().getLevel())
             .setMode(options.getCompilationMode())
-            .setPartialCompilationConfiguration(
-                R8PartialCompilationConfiguration.disabledConfiguration())
+            .setPartialCompilationConfiguration(options.partialCompilationConfiguration)
             .setProgramConsumer(options.programConsumer);
     // The program input that R8 must compile is provided above using an
     // InternalProgramClassProvider. This passes in the data resources that we must either rewrite
@@ -228,6 +234,7 @@ class R8Partial {
             d8Result.getFlags(),
             d8Result.getKeepDeclarations(),
             d8Result.getStartupProfile(),
+            statsMetadataBuilder,
             timing);
     r8Options.setArtProfileOptions(
         new ArtProfileOptions(r8Options, options.getArtProfileOptions()));

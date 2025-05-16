@@ -22,6 +22,7 @@ import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.Target;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.LibraryDesugaringOptions;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
+import com.android.tools.r8.metadata.impl.R8PartialCompilationStatsMetadataBuilder;
 import com.android.tools.r8.profile.art.ArtProfile;
 import com.android.tools.r8.profile.art.ArtProfileCollection;
 import com.android.tools.r8.profile.art.ArtProfileMethodRule;
@@ -198,6 +199,7 @@ public abstract class R8PartialSubCompilationConfiguration {
     private Map<DexType, DexProgramClass> dexingOutputClasses;
     private List<KeepDeclaration> keepDeclarations;
     private StartupProfile startupProfile;
+    private R8PartialCompilationStatsMetadataBuilder statsMetadataBuilder;
 
     // Stores the missing class references from the D8 compilation unit in R8 partial.
     // We use this to ensure that calling AppInfoWithLiveness#definitionFor does not fail
@@ -214,6 +216,7 @@ public abstract class R8PartialSubCompilationConfiguration {
         DexApplicationReadFlags flags,
         List<KeepDeclaration> keepDeclarations,
         StartupProfile startupProfile,
+        R8PartialCompilationStatsMetadataBuilder statsMetadataBuilder,
         Timing timing) {
       super(flags, timing);
       this.artProfiles = artProfiles;
@@ -222,6 +225,7 @@ public abstract class R8PartialSubCompilationConfiguration {
           MapUtils.transform(dexingOutputClasses, IdentityHashMap::new, DexClass::getType);
       this.keepDeclarations = keepDeclarations;
       this.startupProfile = startupProfile;
+      this.statsMetadataBuilder = statsMetadataBuilder;
     }
 
     public ArtProfileCollection getArtProfiles() {
@@ -247,6 +251,10 @@ public abstract class R8PartialSubCompilationConfiguration {
     public StartupProfile getStartupProfile() {
       assert startupProfile != null;
       return startupProfile;
+    }
+
+    public R8PartialCompilationStatsMetadataBuilder getStatsMetadataBuilder() {
+      return statsMetadataBuilder;
     }
 
     public void amendCompleteArtProfile(ArtProfile.Builder artProfileBuilder) {
@@ -306,6 +314,10 @@ public abstract class R8PartialSubCompilationConfiguration {
 
     public boolean isD8Definition(Definition definition) {
       return hasD8DefinitionFor(definition.getReference());
+    }
+
+    public boolean isR8Definition(Definition definition) {
+      return !isD8Definition(definition);
     }
 
     @Override

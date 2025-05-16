@@ -31,6 +31,7 @@ import com.android.tools.r8.startup.profile.ExternalStartupClass;
 import com.android.tools.r8.startup.profile.ExternalStartupItem;
 import com.android.tools.r8.startup.utils.StartupTestingUtils;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
@@ -195,10 +196,24 @@ public class R8BuildMetadataTest extends TestBase {
       assertNull(libraryDesugaringMetadata);
     }
     // Partial compilation metadata.
+    R8PartialCompilationMetadata partialCompilationMetadata =
+        buildMetadata.getPartialCompilationMetadata();
     if (isR8Partial) {
-      assertNotNull(buildMetadata.getPartialCompilationMetadata());
+      assertNotNull(partialCompilationMetadata);
+      assertEquals(
+          Lists.newArrayList("androidx.**", "kotlin.**", "kotlinx.**"),
+          partialCompilationMetadata.getCommonIncludePatterns());
+
+      R8PartialCompilationStatsMetadata partialCompilationStatsMetadata =
+          partialCompilationMetadata.getStatsMetadata();
+      assertNotNull(partialCompilationStatsMetadata);
+      assertTrue(partialCompilationStatsMetadata.getDexCodeSizeOfExcludedClassesInBytes() > 50);
+      assertEquals(0, partialCompilationStatsMetadata.getDexCodeSizeOfIncludedClassesInBytes());
+      assertEquals(4, partialCompilationStatsMetadata.getNumberOfExcludedClassesInInput());
+      assertEquals(934, partialCompilationStatsMetadata.getNumberOfIncludedClassesInInput());
+      assertEquals(0, partialCompilationStatsMetadata.getNumberOfIncludedClassesInOutput());
     } else {
-      assertNull(buildMetadata.getPartialCompilationMetadata());
+      assertNull(partialCompilationMetadata);
     }
     // Resource optimization metadata.
     if (parameters.isDexRuntime()) {

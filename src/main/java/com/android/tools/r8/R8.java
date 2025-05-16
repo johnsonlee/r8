@@ -250,7 +250,8 @@ public class R8 {
 
   static void runInternal(AndroidApp app, InternalOptions options, ExecutorService executor)
       throws IOException {
-    if (options.partialCompilationConfiguration.isEnabled()) {
+    if (options.partialCompilationConfiguration.isEnabled()
+        && options.partialSubCompilationConfiguration == null) {
       try {
         new R8Partial(options).runInternal(app, executor);
       } catch (ResourceException e) {

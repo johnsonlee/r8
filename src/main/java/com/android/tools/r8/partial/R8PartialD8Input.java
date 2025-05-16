@@ -57,10 +57,18 @@ public class R8PartialD8Input {
         .addLibraryResourceProvider(new InternalClasspathOrLibraryClassProvider<>(libraryClasses));
   }
 
+  public Collection<DexProgramClass> getD8Classes() {
+    return d8Classes;
+  }
+
   public Set<DexType> getD8Types() {
     // Intentionally not returning d8Classes.keySet(). This allows clearing the map after providing
     // the classes to the D8 compilation.
     return SetUtils.mapIdentityHashSet(d8Classes, DexClass::getType);
+  }
+
+  public Collection<DexProgramClass> getR8Classes() {
+    return r8Classes;
   }
 
   public Set<DexType> getR8Types() {

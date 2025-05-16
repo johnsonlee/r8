@@ -13,6 +13,13 @@ public class AssertionUtils {
     return true;
   }
 
+  public static int checkNotNegative(int i) {
+    if (i < 0) {
+      throw new AssertionError("Expected integer value to be non-negative");
+    }
+    return i;
+  }
+
   public static boolean forTesting(InternalOptions options, Supplier<Boolean> test) {
     return options.testing.enableTestAssertions ? test.get() : true;
   }

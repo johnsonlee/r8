@@ -15,6 +15,7 @@ import com.android.tools.r8.metadata.impl.R8KeepAttributesMetadataImpl;
 import com.android.tools.r8.metadata.impl.R8LibraryDesugaringMetadataImpl;
 import com.android.tools.r8.metadata.impl.R8OptionsMetadataImpl;
 import com.android.tools.r8.metadata.impl.R8PartialCompilationMetadataImpl;
+import com.android.tools.r8.metadata.impl.R8PartialCompilationStatsMetadataImpl;
 import com.android.tools.r8.metadata.impl.R8ResourceOptimizationMetadataImpl;
 import com.android.tools.r8.metadata.impl.R8StartupOptimizationMetadataImpl;
 import com.android.tools.r8.metadata.impl.R8StatsMetadataImpl;
@@ -49,6 +50,9 @@ public interface R8BuildMetadata {
         .registerTypeAdapter(
             R8PartialCompilationMetadata.class,
             deserializeTo(R8PartialCompilationMetadataImpl.class))
+        .registerTypeAdapter(
+            R8PartialCompilationStatsMetadata.class,
+            deserializeTo(R8PartialCompilationStatsMetadataImpl.class))
         .registerTypeAdapter(
             R8ResourceOptimizationMetadata.class,
             deserializeTo(R8ResourceOptimizationMetadataImpl.class))
