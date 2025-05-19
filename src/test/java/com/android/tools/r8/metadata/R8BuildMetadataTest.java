@@ -203,6 +203,8 @@ public class R8BuildMetadataTest extends TestBase {
       assertEquals(
           Lists.newArrayList("androidx.**", "kotlin.**", "kotlinx.**"),
           partialCompilationMetadata.getCommonIncludePatterns());
+      assertEquals(0, partialCompilationMetadata.getNumberOfExcludePatterns());
+      assertEquals(3, partialCompilationMetadata.getNumberOfIncludePatterns());
 
       R8PartialCompilationStatsMetadata partialCompilationStatsMetadata =
           partialCompilationMetadata.getStatsMetadata();

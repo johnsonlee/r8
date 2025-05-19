@@ -35,12 +35,25 @@ public class R8PartialCompilationMetadataImpl implements R8PartialCompilationMet
   private final List<String> commonIncludePatterns;
 
   @Expose
+  @SerializedName("numberOfExcludePatterns")
+  private final int numberOfExcludePatterns;
+
+  @Expose
+  @SerializedName("numberOfIncludePatterns")
+  private final int numberOfIncludePatterns;
+
+  @Expose
   @SerializedName("stats")
   private final R8PartialCompilationStatsMetadata statsMetadata;
 
   private R8PartialCompilationMetadataImpl(
-      List<String> commonIncludePatterns, R8PartialCompilationStatsMetadata statsMetadata) {
+      List<String> commonIncludePatterns,
+      int numberOfExcludePatterns,
+      int numberOfIncludePatterns,
+      R8PartialCompilationStatsMetadata statsMetadata) {
     this.commonIncludePatterns = commonIncludePatterns;
+    this.numberOfExcludePatterns = numberOfExcludePatterns;
+    this.numberOfIncludePatterns = numberOfIncludePatterns;
     this.statsMetadata = statsMetadata;
   }
 
@@ -48,6 +61,8 @@ public class R8PartialCompilationMetadataImpl implements R8PartialCompilationMet
     if (options.partialCompilationConfiguration.isEnabled()) {
       return new R8PartialCompilationMetadataImpl(
           createCommonIncludePatterns(options.partialCompilationConfiguration),
+          options.partialCompilationConfiguration.getExcludePredicates().size(),
+          options.partialCompilationConfiguration.getIncludePredicates().size(),
           options.getR8PartialR8SubCompilationOptions().getStatsMetadataBuilder().build());
     }
     return null;
@@ -70,6 +85,16 @@ public class R8PartialCompilationMetadataImpl implements R8PartialCompilationMet
   @Override
   public List<String> getCommonIncludePatterns() {
     return commonIncludePatterns;
+  }
+
+  @Override
+  public int getNumberOfExcludePatterns() {
+    return numberOfExcludePatterns;
+  }
+
+  @Override
+  public int getNumberOfIncludePatterns() {
+    return numberOfIncludePatterns;
   }
 
   @Override

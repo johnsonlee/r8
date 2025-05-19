@@ -29,6 +29,10 @@ public class R8PartialPredicateCollection implements Iterable<R8PartialPredicate
     return predicates.iterator();
   }
 
+  public int size() {
+    return predicates.size();
+  }
+
   public boolean test(DexProgramClass clazz) {
     DexString descriptor = clazz.getType().getDescriptor();
     for (R8PartialPredicate predicate : predicates) {

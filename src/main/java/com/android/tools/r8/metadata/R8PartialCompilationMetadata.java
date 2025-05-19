@@ -9,5 +9,9 @@ public interface R8PartialCompilationMetadata {
 
   List<String> getCommonIncludePatterns();
 
+  int getNumberOfExcludePatterns();
+
+  int getNumberOfIncludePatterns();
+
   R8PartialCompilationStatsMetadata getStatsMetadata();
 }
