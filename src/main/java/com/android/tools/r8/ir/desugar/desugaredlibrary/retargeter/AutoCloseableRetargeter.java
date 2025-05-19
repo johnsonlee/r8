@@ -70,11 +70,14 @@ public class AutoCloseableRetargeter implements CfInstructionDesugaring {
     AppInfoWithClassHierarchy appInfo = appView.appInfoForDesugaring();
     MethodResolutionResult resolutionResult =
         appInfo.resolveMethodLegacy(invokedMethod, cfInvoke.isInterface());
-    if (!resolutionResult.isSingleResolution()) {
-      return DesugarDescription.nothing();
+    DexMethod reference;
+    if (resolutionResult.isSingleResolution()) {
+      reference = resolutionResult.asSingleResolution().getResolvedMethod().getReference();
+    } else {
+      // If resolution fails, we use the invokedMethod as the result to desugar most cases if the
+      // library is not present to be backward compatible to what the BakportedMethodRewriter does.
+      reference = invokedMethod;
     }
-    assert resolutionResult.getSingleTarget() != null;
-    DexMethod reference = resolutionResult.getSingleTarget().getReference();
     if (data.shouldEmulateMethod(reference)) {
       return computeNewTarget(reference, cfInvoke.isInvokeSuper(context.getHolderType()), context);
     }
