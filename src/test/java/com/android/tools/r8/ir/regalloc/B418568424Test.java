@@ -6,8 +6,6 @@ package com.android.tools.r8.ir.regalloc;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.utils.AndroidApiLevel;
-import com.android.tools.r8.utils.codeinspector.AssertUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -27,16 +25,12 @@ public class B418568424Test extends TestBase {
 
   @Test
   public void test() throws Exception {
-    AssertUtils.assertFailsCompilationIf(
-        parameters.isDexRuntime()
-            && parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.M),
-        () ->
-            testForR8(parameters)
-                .addInnerClasses(getClass())
-                .addKeepClassAndMembersRules(Main.class)
-                .compile()
-                .run(parameters.getRuntime(), Main.class)
-                .assertSuccess());
+    testForR8(parameters)
+        .addInnerClasses(getClass())
+        .addKeepClassAndMembersRules(Main.class)
+        .compile()
+        .run(parameters.getRuntime(), Main.class)
+        .assertSuccess();
   }
 
   static class Main {

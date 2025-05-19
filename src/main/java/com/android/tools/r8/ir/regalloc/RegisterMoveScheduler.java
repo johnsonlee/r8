@@ -258,17 +258,19 @@ public class RegisterMoveScheduler {
       assert move.isDestUsedAsTemporaryForSelf(this);
       return;
     }
-    assert verifyMovesHaveDifferentSources(movesWithSrc);
+    IntSet seenSrcs = new IntArraySet();
     for (RegisterMove moveWithSrc : movesWithSrc) {
       // TODO(b/375147902): Maybe seed the move scheduler with a set of registers known to be free
       //  at this point.
-      int register = takeFreeRegister(moveWithSrc.isWide());
-      Value to = new FixedRegisterValue(moveWithSrc.type, register);
-      Value from = new FixedRegisterValue(moveWithSrc.type, valueMap.get(moveWithSrc.src));
-      Move instruction = new Move(to, from);
-      instruction.setPosition(position);
-      insertAt.add(instruction);
-      valueMap.put(moveWithSrc.src, register);
+      if (seenSrcs.add(moveWithSrc.src)) {
+        int register = takeFreeRegister(moveWithSrc.isWide());
+        Value to = new FixedRegisterValue(moveWithSrc.type, register);
+        Value from = new FixedRegisterValue(moveWithSrc.type, valueMap.get(moveWithSrc.src));
+        Move instruction = new Move(to, from);
+        instruction.setPosition(position);
+        insertAt.add(instruction);
+        valueMap.put(moveWithSrc.src, register);
+      }
     }
   }
 
@@ -376,14 +378,6 @@ public class RegisterMoveScheduler {
 
   private int allocateExtraRegister() {
     return nextTempRegister++;
-  }
-
-  private boolean verifyMovesHaveDifferentSources(List<RegisterMove> movesWithSrc) {
-    IntSet seen = new IntOpenHashSet();
-    for (RegisterMove move : movesWithSrc) {
-      assert seen.add(move.src);
-    }
-    return true;
   }
 
   private RegisterMove pickMoveToUnblock(TreeSet<RegisterMove> moves) {

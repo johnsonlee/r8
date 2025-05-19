@@ -616,6 +616,30 @@ public class RegisterMoveSchedulerTest extends TestBase {
     assertEquals(2, scheduler.getUsedTempRegisters());
   }
 
+  /**
+   * Regression test for the assertion error in b/417403930. In this test the parallel move set
+   * contains two moves to different destination registers for the same value. This can happen when
+   * a value flows into a phi meanwhile the value dominates the phi itself.
+   */
+  @Test
+  public void reproDifferentMovesWithSameSources() {
+    CollectMovesIterator moves = new CollectMovesIterator();
+    int temp = 42;
+    RegisterMoveScheduler scheduler = new RegisterMoveScheduler(moves, temp);
+    scheduler.addMove(new RegisterMove(2, 3, TypeElement.getLong()));
+    scheduler.addMove(new RegisterMove(4, 7, TypeElement.getInt()));
+    scheduler.addMove(new RegisterMove(6, 3, TypeElement.getLong()));
+    scheduler.schedule();
+    assertEquals(4, moves.size());
+    // We unblock the move 4 <- 7 by moving the long in register 3 to a temporary register. We then
+    // emit 4 <- 7 and the remaining moves which are now unblocked.
+    assertEquals("42 <- 3", toString(moves.get(0)));
+    assertEquals("4 <- 7", toString(moves.get(1)));
+    assertEquals("2 <- 42", toString(moves.get(2)));
+    assertEquals("6 <- 2", toString(moves.get(3)));
+    assertEquals(2, scheduler.getUsedTempRegisters());
+  }
+
   // Debugging aid.
   private void printMoves(List<Instruction> moves) {
     System.out.println("Generated moves:");
