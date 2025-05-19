@@ -397,18 +397,8 @@ r8_tester_with_default(
     max_concurrent_invocations = 2,
 )
 r8_tester_with_default(
-    "linux-android-4.0-noble",
-    ["--dex_vm=4.0.4", "--all_tests", "--command_cache_dir=/tmp/ccache"],
-     dimensions = get_dimensions(noble=True),
-)
-r8_tester_with_default(
     "linux-android-4.4",
     ["--dex_vm=4.4.4", "--all_tests", "--command_cache_dir=/tmp/ccache"],
-)
-r8_tester_with_default(
-    "linux-android-4.4-noble",
-    ["--dex_vm=4.4.4", "--all_tests", "--command_cache_dir=/tmp/ccache"],
-    dimensions = get_dimensions(noble=True),
 )
 
 r8_tester_with_default(
@@ -416,8 +406,19 @@ r8_tester_with_default(
     ["--dex_vm=5.1.1", "--all_tests", "--command_cache_dir=/tmp/ccache"],
 )
 r8_tester_with_default(
+    "linux-android-5-noble",
+    ["--dex_vm=5.1.1", "--all_tests", "--command_cache_dir=/tmp/ccache"],
+     dimensions = get_dimensions(noble=True),
+)
+
+r8_tester_with_default(
     "linux-android-6",
     ["--dex_vm=6.0.1", "--all_tests", "--command_cache_dir=/tmp/ccache"],
+)
+r8_tester_with_default(
+    "linux-android-6-noble",
+    ["--dex_vm=6.0.1", "--all_tests", "--command_cache_dir=/tmp/ccache"],
+    dimensions = get_dimensions(noble=True),
 )
 r8_tester_with_default(
     "linux-android-7",
@@ -430,6 +431,11 @@ r8_tester_with_default(
     ["--dex_vm=8.1.0", "--all_tests", "--command_cache_dir=/tmp/ccache"],
 )
 r8_tester_with_default(
+    "linux-android-8-noble",
+    ["--dex_vm=8.1.0", "--all_tests", "--command_cache_dir=/tmp/ccache"],
+    dimensions = get_dimensions(noble=True),
+)
+r8_tester_with_default(
     "linux-android-9",
     ["--dex_vm=9.0.0", "--all_tests", "--command_cache_dir=/tmp/ccache"],
 )
@@ -438,8 +444,18 @@ r8_tester_with_default(
     ["--dex_vm=10.0.0", "--all_tests", "--command_cache_dir=/tmp/ccache"],
 )
 r8_tester_with_default(
+    "linux-android-10-noble",
+    ["--dex_vm=10.0.0", "--all_tests", "--command_cache_dir=/tmp/ccache"],
+    dimensions = get_dimensions(noble=True),
+)
+r8_tester_with_default(
     "linux-android-12",
     ["--dex_vm=12.0.0", "--all_tests", "--command_cache_dir=/tmp/ccache"],
+)
+r8_tester_with_default(
+    "linux-android-12-noble",
+    ["--dex_vm=12.0.0", "--all_tests", "--command_cache_dir=/tmp/ccache"],
+    dimensions = get_dimensions(noble=True),
 )
 r8_tester_with_default(
     "linux-android-13",
