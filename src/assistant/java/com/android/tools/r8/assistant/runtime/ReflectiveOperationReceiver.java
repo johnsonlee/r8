@@ -27,6 +27,24 @@ public interface ReflectiveOperationReceiver {
 
   void onClassGetSuperclass(Stack stack, Class<?> clazz);
 
+  void onClassFlag(Stack stack, Class<?> clazz, ClassFlag classFlag);
+
+  @KeepForApi
+  enum ClassFlag {
+    ANNOTATION,
+    ANONYMOUS_CLASS,
+    ARRAY,
+    ENUM,
+    HIDDEN,
+    INTERFACE,
+    LOCAL_CLASS,
+    MEMBER_CLASS,
+    PRIMITIVE,
+    RECORD,
+    SEALED,
+    SYNTHETIC
+  }
+
   @KeepForApi
   enum NameLookupType {
     NAME,

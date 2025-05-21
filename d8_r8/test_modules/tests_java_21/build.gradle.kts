@@ -23,12 +23,14 @@ java {
 val testbaseJavaCompileTask = projectTask("testbase", "compileJava")
 val testbaseDepsJarTask = projectTask("testbase", "depsJar")
 val mainCompileTask = projectTask("main", "compileJava")
+val assistantCompileTask = projectTask("assistant", "compileJava")
 
 dependencies {
   implementation(files(testbaseDepsJarTask.outputs.files.getSingleFile()))
   implementation(testbaseJavaCompileTask.outputs.files)
   implementation(mainCompileTask.outputs.files)
   implementation(projectTask("main", "processResources").outputs.files)
+  implementation(assistantCompileTask.outputs.files)
 }
 
 tasks {
@@ -48,6 +50,11 @@ tasks {
                    layout.buildDirectory.dir("classes/java/test").get().toString())
     systemProperty("TESTBASE_DATA_LOCATION",
                    testbaseJavaCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0])
+    systemProperty(
+      "BUILD_PROP_R8_RUNTIME_PATH",
+      mainCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0] +
+        File.pathSeparator + getRoot().resolveAll("src", "main", "resources") +
+        File.pathSeparator + assistantCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0])
   }
 
   val testJar by registering(Jar::class) {

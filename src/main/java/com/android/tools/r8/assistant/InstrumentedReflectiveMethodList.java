@@ -5,6 +5,7 @@ package com.android.tools.r8.assistant;
 
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
 import com.google.common.collect.ImmutableMap;
 import java.util.Map;
@@ -25,30 +26,79 @@ public class InstrumentedReflectiveMethodList {
   }
 
   Map<DexMethod, DexMethod> getInstrumentedMethodsAndTargets() {
-    return ImmutableMap.of(
+    ImmutableMap.Builder<DexMethod, DexMethod> builder = ImmutableMap.builder();
+
+    builder.put(
         factory.classMethods.newInstance,
-        getMethodReferenceWithClassParameter("onClassNewInstance"),
+        getMethodReferenceWithClassParameter("onClassNewInstance"));
+    builder.put(
         factory.classMethods.getDeclaredMethod,
-        getMethodReferenceWithClassMethodNameAndParameters("onClassGetDeclaredMethod"),
-        factory.classMethods.forName,
-        getMethodReferenceWithStringParameter("onClassForName"),
+        getMethodReferenceWithClassMethodNameAndParameters("onClassGetDeclaredMethod"));
+    builder.put(
+        factory.classMethods.forName, getMethodReferenceWithStringParameter("onClassForName"));
+    builder.put(
         factory.classMethods.getDeclaredField,
-        getMethodReferenceWithClassAndStringParameter("onClassGetDeclaredField"),
+        getMethodReferenceWithClassAndStringParameter("onClassGetDeclaredField"));
+    builder.put(
         factory.createMethod(
             factory.classType,
             factory.createProto(factory.createArrayType(1, factory.methodType)),
             "getDeclaredMethods"),
-        getMethodReferenceWithClassParameter("onClassGetDeclaredMethods"),
-        factory.classMethods.getName,
-        getMethodReferenceWithClassParameter("onClassGetName"),
+        getMethodReferenceWithClassParameter("onClassGetDeclaredMethods"));
+    builder.put(
+        factory.classMethods.getName, getMethodReferenceWithClassParameter("onClassGetName"));
+    builder.put(
         factory.classMethods.getCanonicalName,
-        getMethodReferenceWithClassParameter("onClassGetCanonicalName"),
+        getMethodReferenceWithClassParameter("onClassGetCanonicalName"));
+    builder.put(
         factory.classMethods.getSimpleName,
-        getMethodReferenceWithClassParameter("onClassGetSimpleName"),
+        getMethodReferenceWithClassParameter("onClassGetSimpleName"));
+    builder.put(
         factory.classMethods.getTypeName,
-        getMethodReferenceWithClassParameter("onClassGetTypeName"),
+        getMethodReferenceWithClassParameter("onClassGetTypeName"));
+    builder.put(
         factory.classMethods.getSuperclass,
         getMethodReferenceWithClassParameter("onClassGetSuperclass"));
+
+    DexProto toBoolean = factory.createProto(factory.booleanType);
+    builder.put(
+        factory.createMethod(factory.classType, toBoolean, "isAnnotation"),
+        getMethodReferenceWithClassParameter("onClassIsAnnotation"));
+    builder.put(
+        factory.createMethod(factory.classType, toBoolean, "isAnonymousClass"),
+        getMethodReferenceWithClassParameter("onClassIsAnonymousClass"));
+    builder.put(
+        factory.createMethod(factory.classType, toBoolean, "isArray"),
+        getMethodReferenceWithClassParameter("onClassIsArray"));
+    builder.put(
+        factory.createMethod(factory.classType, toBoolean, "isEnum"),
+        getMethodReferenceWithClassParameter("onClassIsEnum"));
+    builder.put(
+        factory.createMethod(factory.classType, toBoolean, "isHidden"),
+        getMethodReferenceWithClassParameter("onClassIsHidden"));
+    builder.put(
+        factory.createMethod(factory.classType, toBoolean, "isInterface"),
+        getMethodReferenceWithClassParameter("onClassIsInterface"));
+    builder.put(
+        factory.createMethod(factory.classType, toBoolean, "isLocalClass"),
+        getMethodReferenceWithClassParameter("onClassIsLocalClass"));
+    builder.put(
+        factory.createMethod(factory.classType, toBoolean, "isMemberClass"),
+        getMethodReferenceWithClassParameter("onClassIsMemberClass"));
+    builder.put(
+        factory.createMethod(factory.classType, toBoolean, "isPrimitive"),
+        getMethodReferenceWithClassParameter("onClassIsPrimitive"));
+    builder.put(
+        factory.createMethod(factory.classType, toBoolean, "isRecord"),
+        getMethodReferenceWithClassParameter("onClassIsRecord"));
+    builder.put(
+        factory.createMethod(factory.classType, toBoolean, "isSealed"),
+        getMethodReferenceWithClassParameter("onClassIsSealed"));
+    builder.put(
+        factory.createMethod(factory.classType, toBoolean, "isSynthetic"),
+        getMethodReferenceWithClassParameter("onClassIsSynthetic"));
+
+    return builder.build();
   }
 
   private DexMethod getMethodReferenceWithClassParameter(String name) {

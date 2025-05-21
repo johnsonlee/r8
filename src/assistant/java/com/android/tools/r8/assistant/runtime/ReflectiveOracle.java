@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.assistant.runtime;
 
+import com.android.tools.r8.assistant.runtime.ReflectiveOperationReceiver.ClassFlag;
 import com.android.tools.r8.assistant.runtime.ReflectiveOperationReceiver.NameLookupType;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
 import java.util.Arrays;
@@ -105,48 +106,51 @@ public class ReflectiveOracle {
     getInstance().onClassGetSuperclass(Stack.createStack(), clazz);
   }
 
-  @KeepForApi
-  public static class ReflectiveOperationLogger implements ReflectiveOperationReceiver {
-    @Override
-    public void onClassNewInstance(Stack stack, Class<?> clazz) {
-      System.out.println("Reflectively created new instance of " + clazz.getName());
-    }
+  public static void onClassIsAnnotation(Class<?> clazz) {
+    getInstance().onClassFlag(Stack.createStack(), clazz, ClassFlag.ANNOTATION);
+  }
 
-    @Override
-    public void onClassGetDeclaredMethod(
-        Stack stack, Class<?> clazz, String method, Class<?>... parameters) {
-      System.out.println("Reflectively got declared method " + method + " on " + clazz.getName());
-    }
+  public static void onClassIsAnonymousClass(Class<?> clazz) {
+    getInstance().onClassFlag(Stack.createStack(), clazz, ClassFlag.ANONYMOUS_CLASS);
+  }
 
-    @Override
-    public void onClassGetDeclaredField(Stack stack, Class<?> clazz, String fieldName) {
-      System.out.println("Reflectively got declared field " + fieldName + " on " + clazz.getName());
-    }
+  public static void onClassIsArray(Class<?> clazz) {
+    getInstance().onClassFlag(Stack.createStack(), clazz, ClassFlag.ARRAY);
+  }
 
-    @Override
-    public void onClassGetDeclaredMethods(Stack stack, Class<?> clazz) {
-      System.out.println("Reflectively got declared methods on " + clazz.getName());
-    }
+  public static void onClassIsEnum(Class<?> clazz) {
+    getInstance().onClassFlag(Stack.createStack(), clazz, ClassFlag.ENUM);
+  }
 
-    @Override
-    public void onClassGetName(Stack stack, Class<?> clazz, NameLookupType lookupType) {
-      System.out.println(
-          "Reflectively got name on " + clazz.getName() + "(" + lookupType.toString() + ")");
-    }
+  public static void onClassIsHidden(Class<?> clazz) {
+    getInstance().onClassFlag(Stack.createStack(), clazz, ClassFlag.HIDDEN);
+  }
 
-    @Override
-    public void onClassForName(Stack stack, String className) {
-      System.out.println("Reflectively called Class.forName on " + className);
-    }
+  public static void onClassIsInterface(Class<?> clazz) {
+    getInstance().onClassFlag(Stack.createStack(), clazz, ClassFlag.INTERFACE);
+  }
 
-    @Override
-    public void onClassGetSuperclass(Stack stack, Class<?> clazz) {
-      System.out.println("Reflectively called Class.getSuperclass on " + clazz.getName());
-    }
+  public static void onClassIsLocalClass(Class<?> clazz) {
+    getInstance().onClassFlag(Stack.createStack(), clazz, ClassFlag.LOCAL_CLASS);
+  }
 
-    @Override
-    public boolean requiresStackInformation() {
-      return true;
-    }
+  public static void onClassIsMemberClass(Class<?> clazz) {
+    getInstance().onClassFlag(Stack.createStack(), clazz, ClassFlag.MEMBER_CLASS);
+  }
+
+  public static void onClassIsPrimitive(Class<?> clazz) {
+    getInstance().onClassFlag(Stack.createStack(), clazz, ClassFlag.PRIMITIVE);
+  }
+
+  public static void onClassIsRecord(Class<?> clazz) {
+    getInstance().onClassFlag(Stack.createStack(), clazz, ClassFlag.RECORD);
+  }
+
+  public static void onClassIsSealed(Class<?> clazz) {
+    getInstance().onClassFlag(Stack.createStack(), clazz, ClassFlag.SEALED);
+  }
+
+  public static void onClassIsSynthetic(Class<?> clazz) {
+    getInstance().onClassFlag(Stack.createStack(), clazz, ClassFlag.SYNTHETIC);
   }
 }

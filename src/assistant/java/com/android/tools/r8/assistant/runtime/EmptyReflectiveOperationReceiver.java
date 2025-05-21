@@ -30,4 +30,7 @@ public class EmptyReflectiveOperationReceiver implements ReflectiveOperationRece
 
   @Override
   public void onClassGetSuperclass(Stack stack, Class<?> clazz) {}
+
+  @Override
+  public void onClassFlag(Stack stack, Class<?> clazz, ClassFlag classFlag) {}
 }

@@ -5,9 +5,9 @@ package com.android.tools.r8;
 
 import com.android.tools.r8.assistant.ClassInjectionHelper;
 import com.android.tools.r8.assistant.runtime.EmptyReflectiveOperationReceiver;
+import com.android.tools.r8.assistant.runtime.ReflectiveOperationLogger;
 import com.android.tools.r8.assistant.runtime.ReflectiveOperationReceiver;
 import com.android.tools.r8.assistant.runtime.ReflectiveOracle;
-import com.android.tools.r8.assistant.runtime.ReflectiveOracle.ReflectiveOperationLogger;
 import com.android.tools.r8.assistant.runtime.ReflectiveOracle.Stack;
 import com.android.tools.r8.dex.Marker;
 import com.android.tools.r8.dex.Marker.Backend;
@@ -150,6 +150,7 @@ public class R8AssistantCommand extends BaseCompilerCommand {
           EmptyReflectiveOperationReceiver.class,
           ReflectiveOperationLogger.class,
           ReflectiveOperationReceiver.NameLookupType.class,
+          ReflectiveOperationReceiver.ClassFlag.class,
           ReflectiveOperationReceiver.class,
           ReflectiveOracle.class,
           Stack.class);

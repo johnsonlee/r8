@@ -25,5 +25,6 @@ rootProject.name = "tests_java_21"
 val root = rootProject.projectDir.parentFile.parentFile
 
 includeBuild(root.resolve("shared"))
+includeBuild(root.resolve("assistant"))
 includeBuild(root.resolve("main"))
 includeBuild(root.resolve("test_modules").resolve("testbase"))
