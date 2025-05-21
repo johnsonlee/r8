@@ -168,7 +168,7 @@ common_test_options = [
 
 default_timeout = time.hour * 6
 
-def get_dimensions(windows = False, internal = False, archive = False, noble=False):
+def get_dimensions(windows = False, internal = False, archive = False, noble=True):
     # We use the following setup:
     #   windows -> always windows machine
     #   internal -> always internal, single small, machine
@@ -404,6 +404,7 @@ r8_tester_with_default(
 r8_tester_with_default(
     "linux-android-5",
     ["--dex_vm=5.1.1", "--all_tests", "--command_cache_dir=/tmp/ccache"],
+    dimensions = get_dimensions(noble=False),
 )
 
 r8_tester_with_default(
@@ -413,7 +414,6 @@ r8_tester_with_default(
 r8_tester_with_default(
     "linux-android-7",
     ["--dex_vm=7.0.0", "--all_tests", "--command_cache_dir=/tmp/ccache"],
-    dimensions = get_dimensions(noble=True),
 )
 
 r8_tester_with_default(
