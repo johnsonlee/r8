@@ -32,6 +32,7 @@ import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.ThreadUtils;
+import com.android.tools.r8.utils.timing.Timing;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
@@ -83,7 +84,7 @@ public class R8PartialApplicationWriter {
       rewriteDexCodeWithLens(code.asDexCode(), method);
     } else if (code.isLirCode()) {
       LirConverter.rewriteLirMethodWithLens(
-          method, appView, appView.graphLens(), LensCodeRewriterUtils.empty());
+          method, appView, appView.graphLens(), LensCodeRewriterUtils.empty(), Timing.empty());
     } else if (code.isThrowExceptionCode()) {
       assert verifyThrowExceptionCodeIsUpToDate(method, code.asThrowExceptionCode());
     } else {

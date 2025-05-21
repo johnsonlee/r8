@@ -20,7 +20,9 @@ public abstract class IRFinalizer<C extends Code> {
 
   public C finalizeCode(
       IRCode code, BytecodeMetadataProvider bytecodeMetadataProvider, Timing timing) {
-    return finalizeCode(code, bytecodeMetadataProvider, timing, "");
+    try (Timing t0 = timing.begin("Finalize code")) {
+      return finalizeCode(code, bytecodeMetadataProvider, timing, "");
+    }
   }
 
   public abstract C finalizeCode(

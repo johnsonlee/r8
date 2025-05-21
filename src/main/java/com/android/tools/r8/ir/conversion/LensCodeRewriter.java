@@ -114,6 +114,7 @@ import com.android.tools.r8.optimize.argumentpropagation.lenscoderewriter.NullCh
 import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.LazyBox;
+import com.android.tools.r8.utils.timing.Timing;
 import com.android.tools.r8.verticalclassmerging.InterfaceTypeToClassTypeLensCodeRewriterHelper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
@@ -219,6 +220,18 @@ public class LensCodeRewriter {
           prototypeChanges);
     }
     assert code.hasNoMergedClasses(appView);
+  }
+
+  public void rewrite(
+      IRCode code,
+      ProgramMethod method,
+      MethodProcessor methodProcessor,
+      GraphLens graphLens,
+      GraphLens codeLens,
+      Timing timing) {
+    timing.begin("Lens code rewriter");
+    rewrite(code, method, methodProcessor, graphLens, codeLens);
+    timing.end();
   }
 
   private void rewritePartial(

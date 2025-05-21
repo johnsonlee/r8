@@ -37,6 +37,9 @@ import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.android.tools.r8.utils.collections.ProgramMethodSet.ConcurrentProgramMethodSet;
 import com.android.tools.r8.utils.timing.Timing;
+import com.android.tools.r8.utils.timing.TimingMerger;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -77,26 +80,27 @@ public class R8LibraryDesugaring {
 
     // In R8 partial, commit the D8 classes to the app so that they will also be subject to library
     // desugaring.
-    partialSubCompilationSetup();
+    partialSubCompilationSetup(timing);
 
     // Apply library desugaring.
     ProfileCollectionAdditions profileCollectionAdditions =
         ProfileCollectionAdditions.create(appView);
     ConcurrentProgramMethodSet synthesizedMethods = ProgramMethodSet.createConcurrent();
-    runInstructionDesugaring(profileCollectionAdditions, synthesizedMethods, executorService);
+    runInstructionDesugaring(
+        profileCollectionAdditions, synthesizedMethods, executorService, timing);
     runPostProcessingDesugaring(
         profileCollectionAdditions, synthesizedMethods, executorService, timing);
 
     // Commit profile updates and convert synthesized methods to DEX.
-    profileCollectionAdditions.commit(appView);
-    processSynthesizedMethods(synthesizedMethods, executorService);
+    profileCollectionAdditions.commit(appView, timing);
+    processSynthesizedMethods(synthesizedMethods, executorService, timing);
 
     // Commit pending synthetics.
-    appView.rebuildAppInfo();
+    timing.time("Commit pending synthetics", () -> appView.rebuildAppInfo());
 
     // In R8 partial, uncommit the D8 classes from the app so that they will not be subject to whole
     // program optimizations.
-    partialSubCompilationTearDown();
+    partialSubCompilationTearDown(timing);
 
     assert !appView.getSyntheticItems().hasPendingSyntheticClasses();
   }
@@ -104,8 +108,11 @@ public class R8LibraryDesugaring {
   private void runInstructionDesugaring(
       ProfileCollectionAdditions profileCollectionAdditions,
       ConcurrentProgramMethodSet synthesizedMethods,
-      ExecutorService executorService)
+      ExecutorService executorService,
+      Timing timing)
       throws ExecutionException {
+    timing.begin("Lir-to-lir desugaring");
+    timing.begin("Prelude");
     CfInstructionDesugaringEventConsumer eventConsumer =
         CfInstructionDesugaringEventConsumer.createForR8LibraryDesugaring(
             appView, profileCollectionAdditions, synthesizedMethods);
@@ -125,34 +132,50 @@ public class R8LibraryDesugaring {
             appView, eventConsumer, interfaceMethodRewriter);
     ProcessorContext processorContext = appView.createProcessorContext();
     LensCodeRewriterUtils emptyRewriterUtils = LensCodeRewriterUtils.empty();
-    ThreadUtils.processItems(
-        appView.appInfo().classes(),
-        clazz ->
-            clazz.forEachProgramMethodMatching(
-                method -> method.hasCode() && method.getCode().isLirCode(),
-                method -> {
-                  MethodProcessingContext methodProcessingContext =
-                      processorContext.createMethodProcessingContext(method);
-                  R8LibraryDesugaringGraphLens libraryDesugaringGraphLens =
-                      new R8LibraryDesugaringGraphLens(
-                          appView,
-                          apiOutliner,
-                          desugaredLibraryApiConverter,
-                          desugaredLibraryDisableDesugarer,
-                          desugaredLibraryLibRewriter,
-                          desugaredLibraryRetargeter,
-                          interfaceMethodRewriter,
-                          eventConsumer,
-                          method,
-                          methodProcessingContext);
-                  LirConverter.rewriteLirMethodWithLens(
-                      method, appView, libraryDesugaringGraphLens, emptyRewriterUtils);
-                }),
-        options.getThreadingModule(),
-        executorService);
+    timing.end();
+    TimingMerger merger = timing.beginMerger("Lir-to-lir desugaring", executorService);
+    Collection<Collection<Timing>> timings =
+        ThreadUtils.processItemsWithResults(
+            appView.appInfo().classes(),
+            clazz -> {
+              Collection<Timing> threadTimings = new ArrayList<>();
+              clazz.forEachProgramMethodMatching(
+                  method -> method.hasCode() && method.getCode().isLirCode(),
+                  method -> {
+                    Timing threadTiming =
+                        Timing.create(method.toSourceString(), options).begin("Desugar");
+                    MethodProcessingContext methodProcessingContext =
+                        processorContext.createMethodProcessingContext(method);
+                    R8LibraryDesugaringGraphLens libraryDesugaringGraphLens =
+                        new R8LibraryDesugaringGraphLens(
+                            appView,
+                            apiOutliner,
+                            desugaredLibraryApiConverter,
+                            desugaredLibraryDisableDesugarer,
+                            desugaredLibraryLibRewriter,
+                            desugaredLibraryRetargeter,
+                            interfaceMethodRewriter,
+                            eventConsumer,
+                            method,
+                            methodProcessingContext);
+                    LirConverter.rewriteLirMethodWithLens(
+                        method,
+                        appView,
+                        libraryDesugaringGraphLens,
+                        emptyRewriterUtils,
+                        threadTiming);
+                    threadTimings.add(threadTiming.end().end());
+                  });
+              return threadTimings;
+            },
+            options.getThreadingModule(),
+            executorService);
+    timings.forEach(merger::add);
+    merger.end();
     appView.dexItemFactory().clearTypeElementsCache();
 
     // Move the pending methods and mark them live and ready for tracing.
+    timing.begin("Postlude");
     List<ProgramMethod> needsProcessing = eventConsumer.finalizeDesugaring();
     assert needsProcessing.isEmpty();
 
@@ -163,6 +186,7 @@ public class R8LibraryDesugaring {
     // Commit pending synthetics.
     appView.rebuildAppInfo();
     assert !appView.getSyntheticItems().hasPendingSyntheticClasses();
+    timing.end().end();
   }
 
   private void runPostProcessingDesugaring(
@@ -171,20 +195,23 @@ public class R8LibraryDesugaring {
       ExecutorService executorService,
       Timing timing)
       throws ExecutionException {
-    CfPostProcessingDesugaringEventConsumer eventConsumer =
-        CfPostProcessingDesugaringEventConsumer.createForR8LirToLirLibraryDesugaring(
-            appView, profileCollectionAdditions, synthesizedMethods);
-    InterfaceMethodProcessorFacade interfaceDesugaring =
-        InterfaceMethodProcessorFacade.createForR8LirToLirLibraryDesugaring(appView);
-    CfPostProcessingDesugaringCollection.createForR8LirToLirLibraryDesugaring(
-            appView, interfaceDesugaring)
-        .postProcessingDesugaring(
-            appView.appInfo().classes(), eventConsumer, executorService, timing);
+    try (Timing t0 = timing.begin("Post processing desugaring")) {
+      CfPostProcessingDesugaringEventConsumer eventConsumer =
+          CfPostProcessingDesugaringEventConsumer.createForR8LirToLirLibraryDesugaring(
+              appView, profileCollectionAdditions, synthesizedMethods);
+      InterfaceMethodProcessorFacade interfaceDesugaring =
+          InterfaceMethodProcessorFacade.createForR8LirToLirLibraryDesugaring(appView);
+      CfPostProcessingDesugaringCollection.createForR8LirToLirLibraryDesugaring(
+              appView, interfaceDesugaring)
+          .postProcessingDesugaring(
+              appView.appInfo().classes(), eventConsumer, executorService, timing);
+    }
   }
 
   private void processSynthesizedMethods(
-      ProgramMethodSet synthesizedMethods, ExecutorService executorService)
+      ProgramMethodSet synthesizedMethods, ExecutorService executorService, Timing timing)
       throws ExecutionException {
+    timing.begin("Process synthesized methods");
     ThreadUtils.processItems(
         synthesizedMethods,
         method -> {
@@ -198,17 +225,22 @@ public class R8LibraryDesugaring {
         },
         options.getThreadingModule(),
         executorService);
+    timing.end();
   }
 
-  private void partialSubCompilationSetup() {
+  private void partialSubCompilationSetup(Timing timing) {
     if (options.partialSubCompilationConfiguration != null) {
+      timing.begin("Partial sub compilation setup");
       options.partialSubCompilationConfiguration.asR8().commitDexingOutputClasses(appView);
+      timing.end();
     }
   }
 
-  private void partialSubCompilationTearDown() {
+  private void partialSubCompilationTearDown(Timing timing) {
     if (options.partialSubCompilationConfiguration != null) {
+      timing.begin("Partial sub compilation tear down");
       options.partialSubCompilationConfiguration.asR8().uncommitDexingOutputClasses(appView);
+      timing.end();
     }
   }
 }

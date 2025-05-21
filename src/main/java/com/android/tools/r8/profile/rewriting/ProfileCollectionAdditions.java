@@ -10,6 +10,7 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.profile.art.ArtProfileCollection;
 import com.android.tools.r8.profile.rewriting.ProfileAdditions.ProfileAdditionsBuilder;
 import com.android.tools.r8.profile.startup.profile.StartupProfile;
+import com.android.tools.r8.utils.timing.Timing;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -44,6 +45,12 @@ public abstract class ProfileCollectionAdditions {
       DexMethod context, Consumer<ProfileAdditionsBuilder> builderConsumer);
 
   public abstract void commit(AppView<?> appView);
+
+  public final void commit(AppView<?> appView, Timing timing) {
+    timing.begin("Commit profile additions");
+    commit(appView);
+    timing.end();
+  }
 
   public boolean isNop() {
     return false;

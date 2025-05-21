@@ -45,6 +45,7 @@ import com.android.tools.r8.utils.structural.StructuralAcceptor;
 import com.android.tools.r8.utils.structural.StructuralItem;
 import com.android.tools.r8.utils.structural.StructuralMapping;
 import com.android.tools.r8.utils.structural.StructuralSpecification;
+import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
@@ -836,7 +837,8 @@ public class LirCode<EV> extends Code
       ProgramMethod context,
       AppView<?> appView,
       GraphLens graphLens,
-      LensCodeRewriterUtils rewriterUtils) {
+      LensCodeRewriterUtils rewriterUtils,
+      Timing timing) {
     assert graphLens.isNonIdentityLens();
     if (graphLens.isMemberRebindingIdentityLens()) {
       return this;
@@ -844,7 +846,7 @@ public class LirCode<EV> extends Code
 
     LirLensCodeRewriter<EV> rewriter =
         new LirLensCodeRewriter<>(appView, this, context, graphLens, rewriterUtils);
-    return rewriter.rewrite();
+    return rewriter.rewrite(timing);
   }
 
   public LirCode<EV> copyWithNewConstantsAndInstructions(

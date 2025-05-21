@@ -455,33 +455,34 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
     return false;
   }
 
-  public LirCode<EV> rewrite() {
-    if (getCode().hasExplicitCodeLens()) {
-      // Only happens when the code is already rewritten, so simply clear the code lens and return.
-      assert getCode().getCodeLens(appView) == graphLens;
-      LirCode<EV> rewritten = new LirCode<>(getCode());
+  public LirCode<EV> rewrite(Timing timing) {
+    try (Timing t0 = timing.begin("Rewrite lir")) {
+      if (getCode().hasExplicitCodeLens()) {
+        // Only happens when the code is already rewritten, so simply clear the code lens and
+        // return.
+        assert getCode().getCodeLens(appView) == graphLens;
+        LirCode<EV> rewritten = new LirCode<>(getCode());
+        assert !rewritten.hasExplicitCodeLens();
+        return rewritten;
+      }
+      if (hasNonTrivialMethodChanges()) {
+        return rewriteWithLensCodeRewriter(timing);
+      }
+      assert !hasNonTrivialRewritings;
+      LirCode<EV> rewritten = rewriteConstantPoolAndScanForTypeChanges(getCode(), timing);
+      if (hasNonTrivialRewritings
+          || fieldInstructionsToRewrite != NO_FIELD_INSTRUCTIONS_TO_REWRITE
+          || typeInstructionsToRewrite != NO_TYPE_INSTRUCTIONS_TO_REWRITE) {
+        return rewriteWithLensCodeRewriter(timing);
+      }
+      rewritten = rewriteInstructionsWithInvokeTypeChanges(rewritten, timing);
+      rewritten = rewriteTryCatchTable(rewritten, timing);
+      // In the unusual case where a catch handler has been eliminated as a result of class merging
+      // we remove the unreachable blocks.
+      rewritten = removeUnreachableBlocks(rewritten, timing);
       assert !rewritten.hasExplicitCodeLens();
       return rewritten;
     }
-    if (hasNonTrivialMethodChanges()) {
-      return rewriteWithLensCodeRewriter();
-    }
-    assert !hasNonTrivialRewritings;
-    LirCode<EV> rewritten = rewriteConstantPoolAndScanForTypeChanges(getCode());
-    if (hasNonTrivialRewritings
-        || fieldInstructionsToRewrite != NO_FIELD_INSTRUCTIONS_TO_REWRITE
-        || typeInstructionsToRewrite != NO_TYPE_INSTRUCTIONS_TO_REWRITE) {
-      return rewriteWithLensCodeRewriter();
-    }
-    rewritten = rewriteInstructionsWithInvokeTypeChanges(rewritten);
-    rewritten = rewriteTryCatchTable(rewritten);
-    // In the unusual case where a catch handler has been eliminated as a result of class merging
-    // we remove the unreachable blocks.
-    if (hasPrunedCatchHandlers(rewritten)) {
-      rewritten = removeUnreachableBlocks(rewritten);
-    }
-    assert !rewritten.hasExplicitCodeLens();
-    return rewritten;
   }
 
   private boolean hasNonTrivialMethodChanges() {
@@ -532,99 +533,117 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
   }
 
   @SuppressWarnings("unchecked")
-  private LirCode<EV> removeUnreachableBlocks(LirCode<EV> rewritten) {
-    IRCode code = rewritten.buildIR(context, appView, MethodConversionOptions.forLirPhase(appView));
-    AffectedValues affectedValues = code.removeUnreachableBlocks();
-    affectedValues.narrowingWithAssumeRemoval(appView, code);
-    new DeadCodeRemover(appView).run(code, Timing.empty());
-    LirCode<Integer> result =
-        new IRToLirFinalizer(appView)
-            .finalizeCode(code, BytecodeMetadataProvider.empty(), Timing.empty());
-    return (LirCode<EV>) result;
+  private LirCode<EV> removeUnreachableBlocks(LirCode<EV> rewritten, Timing timing) {
+    try (Timing t0 = timing.begin("Remove unreachable blocks")) {
+      if (!hasPrunedCatchHandlers(rewritten)) {
+        return rewritten;
+      }
+      IRCode code =
+          rewritten.buildIR(context, appView, MethodConversionOptions.forLirPhase(appView));
+      AffectedValues affectedValues = code.removeUnreachableBlocks();
+      affectedValues.narrowingWithAssumeRemoval(appView, code);
+      new DeadCodeRemover(appView).run(code, timing);
+      LirCode<Integer> result =
+          new IRToLirFinalizer(appView)
+              .finalizeCode(code, BytecodeMetadataProvider.empty(), timing);
+      return (LirCode<EV>) result;
+    }
   }
 
   @SuppressWarnings("unchecked")
-  private LirCode<EV> rewriteWithLensCodeRewriter() {
+  private LirCode<EV> rewriteWithLensCodeRewriter(Timing timing) {
+    timing.begin("Fallback to IR lens code rewriter");
     assert appView.hasClassHierarchy();
     AppView<? extends AppInfoWithClassHierarchy> appViewWithClassHierarchy =
         appView.withClassHierarchy();
+    timing.begin("Build IR");
     IRCode code =
         context.buildIR(
             appView,
             MethodConversionOptions.forLirPhase(appView)
                 .setFinalizeAfterLensCodeRewriter());
+    timing.end();
     // MethodProcessor argument is only used by unboxing lenses.
     MethodProcessor methodProcessor = null;
     new LensCodeRewriter(appViewWithClassHierarchy)
-        .rewrite(code, context, methodProcessor, graphLens, codeLens);
+        .rewrite(code, context, methodProcessor, graphLens, codeLens, timing);
     IRToLirFinalizer finalizer = new IRToLirFinalizer(appView);
-    LirCode<?> rewritten =
-        finalizer.finalizeCode(code, BytecodeMetadataProvider.empty(), Timing.empty());
+    LirCode<?> rewritten = finalizer.finalizeCode(code, BytecodeMetadataProvider.empty(), timing);
+    timing.end();
     return (LirCode<EV>) rewritten;
   }
 
-  private LirCode<EV> rewriteConstantPoolAndScanForTypeChanges(LirCode<EV> code) {
-    // The code may need to be rewritten by the lens.
-    // First pass scans just the constant pool to see if any types change or if there are any
-    // fields/methods that need to be examined.
-    boolean hasDexItemBasedConstString = false;
-    boolean hasFieldReference = false;
-    boolean hasPotentialRewrittenMethod = false;
-    boolean hasTypeReference = false;
-    for (LirConstant constant : code.getConstantPool()) {
-      if (constant instanceof DexType) {
-        onTypeReference((DexType) constant);
-        hasTypeReference = true;
-      } else if (constant instanceof DexField) {
-        onFieldReference((DexField) constant);
-        hasFieldReference = true;
-      } else if (constant instanceof DexCallSite) {
-        onCallSiteReference((DexCallSite) constant);
-      } else if (constant instanceof NameComputationPayload) {
-        onNameComputationPayload((NameComputationPayload) constant);
-        hasDexItemBasedConstString = true;
-      } else if (constant instanceof DexMethodHandle) {
-        onMethodHandleReference((DexMethodHandle) constant);
-      } else if (constant instanceof DexProto) {
-        onProtoReference((DexProto) constant);
-      } else if (!hasPotentialRewrittenMethod && constant instanceof DexMethod) {
-        // We might be able to still fast-case this if we can guarantee the method is never
-        // rewritten. Say it is an java.lang.Object reference or if the lens can fast-check it.
-        hasPotentialRewrittenMethod = true;
-      }
-    }
-
-    // If there are potential method rewritings then we need to iterate the instructions as the
-    // rewriting is instruction-sensitive (i.e., may be dependent on the invoke type).
-    boolean hasPotentialRewrittenFieldInstruction =
-        hasFieldReference
-            && (graphLens.isClassMergerLens() || graphLens.isLirToLirDesugaringLens());
-    boolean hasPotentialRewrittenTypeInstruction =
-        hasTypeReference && graphLens.isLirToLirDesugaringLens();
-    if (hasDexItemBasedConstString
-        || hasPotentialRewrittenFieldInstruction
-        || hasPotentialRewrittenMethod
-        || hasPotentialRewrittenTypeInstruction) {
-      for (LirInstructionView view : code) {
-        view.accept(this);
-        if (hasNonTrivialRewritings) {
-          return null;
+  private LirCode<EV> rewriteConstantPoolAndScanForTypeChanges(LirCode<EV> code, Timing timing) {
+    try (Timing t0 = timing.begin("Rewrite constant pool and scan for type changes")) {
+      // The code may need to be rewritten by the lens.
+      // First pass scans just the constant pool to see if any types change or if there are any
+      // fields/methods that need to be examined.
+      boolean hasDexItemBasedConstString = false;
+      boolean hasFieldReference = false;
+      boolean hasPotentialRewrittenMethod = false;
+      boolean hasTypeReference = false;
+      try (Timing t1 = timing.begin("Process constant pool")) {
+        for (LirConstant constant : code.getConstantPool()) {
+          if (constant instanceof DexType) {
+            onTypeReference((DexType) constant);
+            hasTypeReference = true;
+          } else if (constant instanceof DexField) {
+            onFieldReference((DexField) constant);
+            hasFieldReference = true;
+          } else if (constant instanceof DexCallSite) {
+            onCallSiteReference((DexCallSite) constant);
+          } else if (constant instanceof NameComputationPayload) {
+            onNameComputationPayload((NameComputationPayload) constant);
+            hasDexItemBasedConstString = true;
+          } else if (constant instanceof DexMethodHandle) {
+            onMethodHandleReference((DexMethodHandle) constant);
+          } else if (constant instanceof DexProto) {
+            onProtoReference((DexProto) constant);
+          } else if (!hasPotentialRewrittenMethod && constant instanceof DexMethod) {
+            // We might be able to still fast-case this if we can guarantee the method is never
+            // rewritten. Say it is an java.lang.Object reference or if the lens can fast-check it.
+            hasPotentialRewrittenMethod = true;
+          }
         }
       }
-    }
 
-    if (constantPoolMapping == null) {
-      return code;
-    }
+      // If there are potential method rewritings then we need to iterate the instructions as the
+      // rewriting is instruction-sensitive (i.e., may be dependent on the invoke type).
+      try (Timing t1 = timing.begin("Process instructions")) {
+        boolean hasPotentialRewrittenFieldInstruction =
+            hasFieldReference
+                && (graphLens.isClassMergerLens() || graphLens.isLirToLirDesugaringLens());
+        boolean hasPotentialRewrittenTypeInstruction =
+            hasTypeReference && graphLens.isLirToLirDesugaringLens();
+        if (hasDexItemBasedConstString
+            || hasPotentialRewrittenFieldInstruction
+            || hasPotentialRewrittenMethod
+            || hasPotentialRewrittenTypeInstruction) {
+          for (LirInstructionView view : code) {
+            view.accept(this);
+            if (hasNonTrivialRewritings) {
+              return null;
+            }
+          }
+        }
+      }
 
-    return code.newCodeWithRewrittenConstantPool(
-        item -> constantPoolMapping.getOrDefault(item, item));
+      if (constantPoolMapping == null) {
+        return code;
+      }
+
+      return code.newCodeWithRewrittenConstantPool(
+          item -> constantPoolMapping.getOrDefault(item, item));
+    }
   }
 
-  private LirCode<EV> rewriteInstructionsWithInvokeTypeChanges(LirCode<EV> code) {
+  private LirCode<EV> rewriteInstructionsWithInvokeTypeChanges(LirCode<EV> code, Timing timing) {
     if (numberOfInvokeOpcodeChanges == 0 && invokeInstructionsToRewrite.isEmpty()) {
       return code;
     }
+
+    timing.begin("Rewrite instructions");
+
     // Build a small map from method refs to index in case the type-dependent methods are already
     // in the constant pool.
     Reference2IntMap<DexMethod> methodIndices = new Reference2IntOpenHashMap<>();
@@ -690,9 +709,12 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
     // Note that since we assume 'null' in the mapping is identity this may end up with a stale
     // reference to a no longer used method. That is not an issue as it will be pruned when
     // building IR again, it is just a small and size overhead.
-    return code.copyWithNewConstantsAndInstructions(
-        ArrayUtils.appendElements(code.getConstantPool(), methodsToAppend),
-        byteWriter.toByteArray());
+    LirCode<EV> result =
+        code.copyWithNewConstantsAndInstructions(
+            ArrayUtils.appendElements(code.getConstantPool(), methodsToAppend),
+            byteWriter.toByteArray());
+    timing.end();
+    return result;
   }
 
   // TODO(b/157111832): This should be part of the graph lens lookup result.
@@ -719,12 +741,14 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
     return getInterfaceBitFromInvokeOpcode(opcode);
   }
 
-  private LirCode<EV> rewriteTryCatchTable(LirCode<EV> code) {
-    TryCatchTable tryCatchTable = code.getTryCatchTable();
-    if (tryCatchTable == null) {
-      return code;
+  private LirCode<EV> rewriteTryCatchTable(LirCode<EV> code, Timing timing) {
+    try (Timing t0 = timing.begin("Rewrite try catch table")) {
+      TryCatchTable tryCatchTable = code.getTryCatchTable();
+      if (tryCatchTable == null) {
+        return code;
+      }
+      TryCatchTable newTryCatchTable = tryCatchTable.rewriteWithLens(graphLens, codeLens);
+      return code.newCodeWithRewrittenTryCatchTable(newTryCatchTable);
     }
-    TryCatchTable newTryCatchTable = tryCatchTable.rewriteWithLens(graphLens, codeLens);
-    return code.newCodeWithRewrittenTryCatchTable(newTryCatchTable);
   }
 }

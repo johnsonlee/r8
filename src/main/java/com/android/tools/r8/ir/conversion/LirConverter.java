@@ -43,7 +43,10 @@ import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.ThrowingAction;
 import com.android.tools.r8.utils.timing.Timing;
+import com.android.tools.r8.utils.timing.TimingMerger;
 import com.android.tools.r8.verticalclassmerging.IncompleteVerticalClassMergerBridgeCode;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
@@ -156,7 +159,9 @@ public class LirConverter {
         clazz ->
             clazz.forEachProgramMethodMatching(
                 m -> m.hasCode() && m.getCode().isLirCode(),
-                m -> rewriteLirMethodWithLens(m, appView, appView.graphLens(), rewriterUtils)),
+                m ->
+                    rewriteLirMethodWithLens(
+                        m, appView, appView.graphLens(), rewriterUtils, Timing.empty())),
         appView.options().getThreadingModule(),
         executorService);
 
@@ -168,10 +173,11 @@ public class LirConverter {
       ProgramMethod method,
       AppView<?> appView,
       GraphLens graphLens,
-      LensCodeRewriterUtils rewriterUtils) {
+      LensCodeRewriterUtils rewriterUtils,
+      Timing timing) {
     LirCode<Integer> lirCode = method.getDefinition().getCode().asLirCode();
     LirCode<Integer> rewrittenLirCode =
-        lirCode.rewriteWithLens(method, appView, graphLens, rewriterUtils);
+        lirCode.rewriteWithLens(method, appView, graphLens, rewriterUtils, timing);
     if (ObjectUtils.notIdentical(lirCode, rewrittenLirCode)) {
       method.setCode(rewrittenLirCode, appView);
     }
@@ -202,15 +208,26 @@ public class LirConverter {
             new InitClassRemover(appView),
             new RecordInvokeDynamicInvokeCustomRewriter(appView),
             new FilledNewArrayRewriter(appView));
-    ThreadUtils.processItems(
-        appView.appInfo().classes(),
-        clazz ->
-            clazz.forEachProgramMethod(
-                m ->
+    TimingMerger merger = timing.beginMerger("LirToOutputFormatConverter", executorService);
+    Collection<Collection<Timing>> timings =
+        ThreadUtils.processItemsWithResults(
+            appView.appInfo().classes(),
+            clazz -> {
+              Collection<Timing> threadTimings = new ArrayList<>();
+              clazz.forEachProgramMethodMatching(
+                  DexEncodedMethod::hasCode,
+                  m -> {
+                    Timing threadTiming = Timing.create(m.toSourceString(), appView.options());
                     finalizeLirMethodToOutputFormat(
-                        m, deadCodeRemover, appView, codeRewriterPassCollection)),
-        appView.options().getThreadingModule(),
-        executorService);
+                        m, deadCodeRemover, appView, codeRewriterPassCollection, threadTiming);
+                    threadTimings.add(threadTiming.end());
+                  });
+              return threadTimings;
+            },
+            appView.options().getThreadingModule(),
+            executorService);
+    timings.forEach(merger::add);
+    merger.end();
     timing.end();
     // Clear the reference type cache after conversion to reduce memory pressure.
     appView.dexItemFactory().clearTypeElementsCache();
@@ -223,19 +240,19 @@ public class LirConverter {
       ProgramMethod method,
       DeadCodeRemover deadCodeRemover,
       AppView<? extends AppInfoWithClassHierarchy> appView,
-      CodeRewriterPassCollection codeRewriterPassCollection) {
+      CodeRewriterPassCollection codeRewriterPassCollection,
+      Timing threadTiming) {
     Code code = method.getDefinition().getCode();
     if (!(code instanceof LirCode)) {
       return;
     }
     IRConverter.printMethod(method, "LIR before output format", appView.options());
-    Timing onThreadTiming = Timing.empty();
     IRCode irCode = method.buildIR(appView, MethodConversionOptions.forPostLirPhase(appView));
     assert irCode.verifyInvokeInterface(appView);
     String previous = IRConverter.printMethodIR(irCode, "IR from LIR", "", appView.options());
     Pair<Boolean, String> result =
         codeRewriterPassCollection.run(
-            irCode, null, null, onThreadTiming, previous, appView.options());
+            irCode, null, null, threadTiming, previous, appView.options());
     boolean changed = result.getFirst();
     previous = result.getSecond();
     if (appView.options().isGeneratingDex()) {
@@ -244,17 +261,17 @@ public class LirConverter {
       if (changed) {
         constantCanonicalizer.canonicalize();
       }
-      new DexConstantOptimizer(appView, constantCanonicalizer).run(irCode, onThreadTiming);
+      new DexConstantOptimizer(appView, constantCanonicalizer).run(irCode, threadTiming);
     }
     // During processing optimization info may cause previously live code to become dead.
     // E.g., we may now have knowledge that an invoke does not have side effects.
     // Thus, we re-run the dead-code remover now as it is assumed complete by CF/DEX finalization.
-    deadCodeRemover.run(irCode, onThreadTiming);
+    deadCodeRemover.run(irCode, threadTiming);
     previous = IRConverter.printMethodIR(irCode, "IR before finalize", previous, appView.options());
     MethodConversionOptions conversionOptions = irCode.getConversionOptions();
     assert !conversionOptions.isGeneratingLir();
     IRFinalizer<?> finalizer = conversionOptions.getFinalizer(deadCodeRemover, appView);
-    method.setCode(finalizer.finalizeCode(irCode, noMetadata, onThreadTiming, previous), appView);
+    method.setCode(finalizer.finalizeCode(irCode, noMetadata, threadTiming, previous), appView);
     IRConverter.printMethod(method, "Finalized output format", appView.options());
   }
 
