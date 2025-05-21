@@ -77,7 +77,7 @@ public abstract class DesugaredLibraryAPIConverter {
       InterfaceMethodRewriter interfaceMethodRewriter) {
     LibraryDesugaringOptions libraryDesugaringOptions =
         appView.options().getLibraryDesugaringOptions();
-    if (libraryDesugaringOptions.isCfToCfLibraryDesugaringEnabled()
+    if (libraryDesugaringOptions.isCfToCfLibraryDesugaringEnabled(appView)
         && libraryDesugaringOptions.hasTypeRewriter()) {
       return new CfToCfDesugaredLibraryApiConverter(
           appView, interfaceMethodRewriter, precedingDesugarings);
@@ -91,7 +91,7 @@ public abstract class DesugaredLibraryAPIConverter {
       InterfaceMethodRewriter interfaceMethodRewriter) {
     LibraryDesugaringOptions libraryDesugaringOptions =
         appView.options().getLibraryDesugaringOptions();
-    if (libraryDesugaringOptions.isLirToLirLibraryDesugaringEnabled()
+    if (libraryDesugaringOptions.isLirToLirLibraryDesugaringEnabled(appView)
         && libraryDesugaringOptions.hasTypeRewriter()) {
       return new LirToLirDesugaredLibraryApiConverter(
           appView, eventConsumer, interfaceMethodRewriter);

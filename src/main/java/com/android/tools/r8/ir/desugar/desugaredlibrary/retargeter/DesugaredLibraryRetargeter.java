@@ -49,7 +49,7 @@ public abstract class DesugaredLibraryRetargeter {
   public static CfToCfDesugaredLibraryRetargeter createCfToCf(AppView<?> appView) {
     LibraryDesugaringOptions libraryDesugaringOptions =
         appView.options().getLibraryDesugaringOptions();
-    if (libraryDesugaringOptions.isCfToCfLibraryDesugaringEnabled()
+    if (libraryDesugaringOptions.isCfToCfLibraryDesugaringEnabled(appView)
         && libraryDesugaringOptions.getMachineDesugaredLibrarySpecification().hasRetargeting()) {
       return new CfToCfDesugaredLibraryRetargeter(appView);
     }
@@ -60,7 +60,7 @@ public abstract class DesugaredLibraryRetargeter {
       AppView<?> appView, CfInstructionDesugaringEventConsumer eventConsumer) {
     LibraryDesugaringOptions libraryDesugaringOptions =
         appView.options().getLibraryDesugaringOptions();
-    if (libraryDesugaringOptions.isLirToLirLibraryDesugaringEnabled()
+    if (libraryDesugaringOptions.isLirToLirLibraryDesugaringEnabled(appView)
         && libraryDesugaringOptions.getMachineDesugaredLibrarySpecification().hasRetargeting()) {
       return new LirToLirDesugaredLibraryRetargeter(appView, eventConsumer);
     }

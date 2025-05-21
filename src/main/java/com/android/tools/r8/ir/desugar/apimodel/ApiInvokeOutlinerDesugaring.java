@@ -59,7 +59,7 @@ public abstract class ApiInvokeOutlinerDesugaring {
 
   public static CfToCfApiInvokeOutlinerDesugaring createCfToCf(
       AppView<?> appView, AndroidApiLevelCompute apiLevelCompute) {
-    if (appView.options().apiModelingOptions().isCfToCfApiOutliningEnabled()) {
+    if (appView.options().apiModelingOptions().isCfToCfApiOutliningEnabled(appView)) {
       return new CfToCfApiInvokeOutlinerDesugaring(appView, apiLevelCompute);
     }
     return null;
@@ -69,7 +69,7 @@ public abstract class ApiInvokeOutlinerDesugaring {
       AppView<?> appView,
       AndroidApiLevelCompute apiLevelCompute,
       CfInstructionDesugaringEventConsumer eventConsumer) {
-    if (appView.options().apiModelingOptions().isLirToLirApiOutliningEnabled()) {
+    if (appView.options().apiModelingOptions().isLirToLirApiOutliningEnabled(appView)) {
       return new LirToLirApiInvokeOutlinerDesugaring(appView, apiLevelCompute, eventConsumer);
     }
     return null;

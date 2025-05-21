@@ -101,13 +101,8 @@ public abstract class InterfaceMethodRewriter {
     this.options = appView.options();
     this.factory = appView.dexItemFactory();
     this.helper = new InterfaceDesugaringSyntheticHelper(appView, desugaringMode);
-    if (options.partialSubCompilationConfiguration != null
-        && options.partialSubCompilationConfiguration.isD8()) {
-      this.subCompilationHelper =
-          InterfaceDesugaringSyntheticHelper.createSubCompilationHelper(appView, desugaringMode);
-    } else {
-      this.subCompilationHelper = null;
-    }
+    this.subCompilationHelper =
+        InterfaceDesugaringSyntheticHelper.createSubCompilationHelper(appView, desugaringMode);
 
     if (desugaringMode.isLibraryDesugaring()) {
       initializeEmulatedInterfaceVariables();
@@ -120,7 +115,7 @@ public abstract class InterfaceMethodRewriter {
       Set<CfInstructionDesugaring> precedingDesugaringsForInvokeDynamic) {
     return create(
         appView,
-        InterfaceMethodDesugaringMode.createCfToCf(appView.options()),
+        InterfaceMethodDesugaringMode.createCfToCf(appView),
         precedingDesugaringsForInvoke,
         precedingDesugaringsForInvokeDynamic);
   }
@@ -128,7 +123,7 @@ public abstract class InterfaceMethodRewriter {
   public static LirToLirInterfaceMethodRewriter createLirToLir(
       AppView<?> appView, CfInstructionDesugaringEventConsumer eventConsumer) {
     InterfaceMethodDesugaringMode desugaringMode =
-        InterfaceMethodDesugaringMode.createLirToLir(appView.options());
+        InterfaceMethodDesugaringMode.createLirToLir(appView);
     return desugaringMode.isSome()
         ? new LirToLirInterfaceMethodRewriter(appView, desugaringMode, eventConsumer)
         : null;
@@ -283,6 +278,12 @@ public abstract class InterfaceMethodRewriter {
     // TODO(b/199135051): This should not be needed. Targeted synthetics should be in place.
     if (appView.getSyntheticItems().isPendingSynthetic(invokedMethod.getHolderType())) {
       // We did not create this code yet, but it will not require rewriting.
+      return RetargetMethodSupplier.none();
+    }
+    if (holder.isLibraryClass()
+        && subCompilationHelper != null
+        && subCompilationHelper.isInDesugaredLibrary(holder)) {
+      // Defer desugaring of this invoke-static to lir-to-lir library desugaring.
       return RetargetMethodSupplier.none();
     }
     if (isNonDesugaredLibraryClass(holder)) {

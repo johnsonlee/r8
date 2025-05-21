@@ -14,14 +14,11 @@ import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.NoVerticalClassMerging;
-import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification;
 import com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification;
-import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.StringUtils;
-import com.android.tools.r8.utils.codeinspector.CheckCastInstructionSubject;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
@@ -98,7 +95,6 @@ public class JavaTimeTest extends DesugaredLibraryTestBase {
   private void checkRewrittenInvokes(CodeInspector inspector) {
     Set<String> expectedInvokeHolders;
     Set<String> expectedCatchGuards;
-    Set<String> expectedCheckCastType;
     String expectedInstanceOfTypes;
     boolean isR8 = compilationSpecification.isProgramShrink();
     if (!libraryDesugaringSpecification.hasTimeDesugaring(parameters)) {
@@ -108,7 +104,6 @@ public class JavaTimeTest extends DesugaredLibraryTestBase {
         expectedInvokeHolders.add("java.time.ZoneOffset");
       }
       expectedCatchGuards = ImmutableSet.of("java.time.format.DateTimeParseException");
-      expectedCheckCastType = ImmutableSet.of("java.time.ZoneId");
       expectedInstanceOfTypes = "java.time.ZoneOffset";
     } else {
       expectedInvokeHolders =
@@ -117,7 +112,6 @@ public class JavaTimeTest extends DesugaredLibraryTestBase {
         expectedInvokeHolders.add("j$.time.ZoneOffset");
       }
       expectedCatchGuards = ImmutableSet.of("j$.time.format.DateTimeParseException");
-      expectedCheckCastType = ImmutableSet.of("j$.time.ZoneId");
       expectedInstanceOfTypes = "j$.time.ZoneOffset";
     }
     ClassSubject classSubject = inspector.clazz(TestClass.class);
@@ -132,13 +126,6 @@ public class JavaTimeTest extends DesugaredLibraryTestBase {
             .filter(holder -> holder.startsWith("j$.time.") || holder.startsWith("java.time."))
             .collect(Collectors.toSet());
     assertEquals(expectedInvokeHolders, foundInvokeHolders);
-    main.streamInstructions()
-        .filter(InstructionSubject::isCheckCast)
-        .map(InstructionSubject::asCheckCast)
-        .map(CheckCastInstructionSubject::getType)
-        .map(DexType::toSourceString)
-        .collect(Collectors.toSet())
-        .equals(expectedCheckCastType);
     assertEquals(
         1,
         main.streamInstructions().filter(io -> io.isInstanceOf(expectedInstanceOfTypes)).count());
@@ -149,10 +136,7 @@ public class JavaTimeTest extends DesugaredLibraryTestBase {
             .map(TypeSubject::toString)
             .collect(Collectors.toSet());
     assertEquals(expectedCatchGuards, foundCatchGuards);
-    if (parameters
-            .getApiLevel()
-            .isGreaterThanOrEqualTo(TestBase.apiLevelWithDefaultInterfaceMethodsSupport())
-        && isR8) {
+    if (parameters.canUseDefaultAndStaticInterfaceMethodsWhenDesugaring() && isR8) {
       String holder =
           libraryDesugaringSpecification.hasTimeDesugaring(parameters)
               ? "j$.time.temporal.TemporalAccessor"
@@ -160,23 +144,17 @@ public class JavaTimeTest extends DesugaredLibraryTestBase {
       assertThat(
           inspector.clazz(TemporalAccessorImplSub.class).uniqueMethodWithFinalName("query"),
           invokesMethod(null, holder, "query", null));
+    } else if (!parameters.canUseDefaultAndStaticInterfaceMethodsWhenDesugaring() && isR8) {
+      assertThat(
+          inspector.clazz(TemporalAccessorImplSub.class).uniqueMethodWithFinalName("query"),
+          invokesMethod(null, "j$.time.temporal.TemporalAccessor$-CC", "$default$query", null));
     } else {
-      if (!parameters
-              .getApiLevel()
-              .isGreaterThanOrEqualTo(TestBase.apiLevelWithDefaultInterfaceMethodsSupport())
-          && isR8) {
-        assertThat(
-            inspector.clazz(TemporalAccessorImplSub.class).uniqueMethodWithFinalName("query"),
-            invokesMethod(null, "j$.time.temporal.TemporalAccessor$-CC", "$default$query", null));
-      } else {
-        assertThat(
-            inspector.clazz(TemporalAccessorImplSub.class).uniqueMethodWithFinalName("query"),
-            invokesMethod(
-                null, inspector.clazz(TemporalAccessorImpl.class).getFinalName(), "query", null));
-      }
+      assertThat(
+          inspector.clazz(TemporalAccessorImplSub.class).uniqueMethodWithFinalName("query"),
+          invokesMethod(
+              null, inspector.clazz(TemporalAccessorImpl.class).getFinalName(), "query", null));
     }
-    if (parameters.canUseDefaultAndStaticInterfaceMethodsWhenDesugaring()
-        || (isR8 && !compilationSpecification.isProgramShrinkWithPartial())) {
+    if (parameters.canUseDefaultAndStaticInterfaceMethodsWhenDesugaring()) {
       assertThat(
           inspector.clazz(TemporalAccessorImpl.class).uniqueMethodWithOriginalName("query"),
           isAbsent());

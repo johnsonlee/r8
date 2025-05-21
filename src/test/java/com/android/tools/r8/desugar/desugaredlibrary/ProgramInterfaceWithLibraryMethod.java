@@ -34,7 +34,7 @@ public class ProgramInterfaceWithLibraryMethod extends DesugaredLibraryTestBase 
   @Parameters(name = "{0}, spec: {1}, {2}")
   public static List<Object[]> data() {
     return buildParameters(
-        getTestParameters().withDexRuntimes().withAllApiLevels().build(),
+        getTestParameters().withDexRuntimesAndAllApiLevels().build(),
         getJdk8Jdk11(),
         SPECIFICATIONS_WITH_CF2CF);
   }
@@ -59,17 +59,13 @@ public class ProgramInterfaceWithLibraryMethod extends DesugaredLibraryTestBase 
         .applyIf(
             !libraryDesugaringSpecification.hasJDollarFunction(parameters)
                 || parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.N)
-                || (compilationSpecification.isProgramShrinkWithPartial()
+                || (compilationSpecification.isProgramShrink()
                     && (parameters.getDexRuntimeVersion().isNewerThanOrEqual(Version.V7_0_0)
                         || libraryDesugaringSpecification == JDK11)),
             r -> r.assertSuccessWithOutput(EXPECTED_RESULT),
             r -> {
               if (compilationSpecification.isProgramShrink()) {
-                if (compilationSpecification.isProgramShrinkWithPartial()) {
-                  r.assertFailureWithErrorThatThrows(NoClassDefFoundError.class);
-                } else {
-                  r.assertFailureWithErrorThatThrows(NoSuchMethodError.class);
-                }
+                r.assertFailureWithErrorThatThrows(NoClassDefFoundError.class);
               } else {
                 r.assertFailureWithErrorThatThrows(AbstractMethodError.class);
               }

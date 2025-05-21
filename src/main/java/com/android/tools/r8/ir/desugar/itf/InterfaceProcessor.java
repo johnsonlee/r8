@@ -65,13 +65,13 @@ public final class InterfaceProcessor {
 
   public static InterfaceProcessor createCfToCf(AppView<?> appView) {
     InterfaceMethodDesugaringMode desugaringMode =
-        InterfaceMethodDesugaringMode.createCfToCf(appView.options());
+        InterfaceMethodDesugaringMode.createCfToCf(appView);
     return create(appView, desugaringMode);
   }
 
   public static InterfaceProcessor createLirToLir(AppView<?> appView) {
     InterfaceMethodDesugaringMode desugaringMode =
-        InterfaceMethodDesugaringMode.createLirToLir(appView.options());
+        InterfaceMethodDesugaringMode.createLirToLir(appView);
     return create(appView, desugaringMode);
   }
 

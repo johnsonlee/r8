@@ -28,14 +28,20 @@ public class DesugaredLibraryDisableDesugarer {
 
   public static CfToCfDesugaredLibraryDisableDesugarer createCfToCf(AppView<?> appView) {
     return DesugaredLibraryDisableDesugarerHelper.shouldCreate(appView)
-            && appView.options().getLibraryDesugaringOptions().isCfToCfLibraryDesugaringEnabled()
+            && appView
+                .options()
+                .getLibraryDesugaringOptions()
+                .isCfToCfLibraryDesugaringEnabled(appView)
         ? new CfToCfDesugaredLibraryDisableDesugarer(appView)
         : null;
   }
 
   public static LirToLirDesugaredLibraryDisableDesugarer createLirToLir(AppView<?> appView) {
     return DesugaredLibraryDisableDesugarerHelper.shouldCreate(appView)
-            && appView.options().getLibraryDesugaringOptions().isLirToLirLibraryDesugaringEnabled()
+            && appView
+                .options()
+                .getLibraryDesugaringOptions()
+                .isLirToLirLibraryDesugaringEnabled(appView)
         ? new LirToLirDesugaredLibraryDisableDesugarer(appView)
         : null;
   }

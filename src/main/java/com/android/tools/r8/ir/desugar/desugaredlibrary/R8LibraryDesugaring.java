@@ -58,12 +58,15 @@ public class R8LibraryDesugaring {
       throws ExecutionException {
     InternalOptions options = appView.options();
     if (options.isDesugaring()) {
-      if (options.getLibraryDesugaringOptions().isEnabled()
-          && options.getLibraryDesugaringOptions().isLirToLirLibraryDesugaringEnabled()
-          && options.isGeneratingDex()) {
+      boolean needsApiModeling =
+          options.apiModelingOptions().isApiModelingEnabled()
+              && options.apiModelingOptions().isLirToLirApiOutliningEnabled(appView);
+      boolean needsLibraryDesugaring =
+          options.getLibraryDesugaringOptions().isEnabled()
+              && options.getLibraryDesugaringOptions().isLirToLirLibraryDesugaringEnabled(appView);
+      if (needsApiModeling || needsLibraryDesugaring) {
+        assert options.isGeneratingDex();
         new R8LibraryDesugaring(appView).run(executorService, timing);
-      } else {
-        assert !appView.options().apiModelingOptions().isLirToLirApiOutliningEnabled();
       }
     }
   }

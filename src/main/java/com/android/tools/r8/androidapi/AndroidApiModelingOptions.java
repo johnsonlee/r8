@@ -6,6 +6,7 @@ package com.android.tools.r8.androidapi;
 import static com.android.tools.r8.utils.CfUtils.extractClassDescriptor;
 
 import com.android.tools.r8.errors.CompilationError;
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.references.ClassReference;
@@ -126,18 +127,26 @@ public class AndroidApiModelingOptions {
     return isApiModelingEnabled() && options.isGeneratingDex() && enableOutliningOfMethods;
   }
 
-  public boolean isCfToCfApiOutliningEnabled() {
+  public boolean isCfToCfApiOutliningEnabled(AppView<?> appView) {
     if (isOutliningOfMethodsEnabled()) {
-      // Enable cf-to-cf when running normal D8/R8. When running R8 partial, enable cf-to-cf
-      // desugaring when there is no library desugaring.
-      return options.partialSubCompilationConfiguration == null
-          || !options.getSubCompilationLibraryDesugaringOptions().isEnabled();
+      if (options.partialSubCompilationConfiguration != null) {
+        // When running R8 partial, enable cf-to-cf desugaring when there is no library desugaring.
+        return !options.getSubCompilationLibraryDesugaringOptions().isEnabled();
+      }
+      if (appView.enableWholeProgramOptimizations()) {
+        // When running R8, for consistency with R8 partial, enable cf-to-cf desugaring when there
+        // is no library desugaring.
+        return !options.getLibraryDesugaringOptions().isEnabled();
+      } else {
+        // Always use cf-to-cf desugaring in D8.
+        return true;
+      }
     }
     return false;
   }
 
-  public boolean isLirToLirApiOutliningEnabled() {
-    return isOutliningOfMethodsEnabled() && !isCfToCfApiOutliningEnabled();
+  public boolean isLirToLirApiOutliningEnabled(AppView<?> appView) {
+    return isOutliningOfMethodsEnabled() && !isCfToCfApiOutliningEnabled(appView);
   }
 
   public boolean isCheckAllApiReferencesAreSet() {

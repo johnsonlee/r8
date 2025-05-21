@@ -140,7 +140,7 @@ public class ProgramRewritingTest extends DesugaredLibraryTestBase {
   }
 
   private void checkRewrittenInvokes(CodeInspector inspector) {
-    if (parameters.getApiLevel().getLevel() >= AndroidApiLevel.N.getLevel()) {
+    if (parameters.canUseDefaultAndStaticInterfaceMethods()) {
       return;
     }
     ClassSubject classSubject = inspector.clazz(TEST_CLASS);

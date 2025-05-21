@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.desugar.itf;
 
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.utils.InternalOptions;
 
 public enum InterfaceMethodDesugaringMode {
@@ -18,14 +19,20 @@ public enum InterfaceMethodDesugaringMode {
   // Desugaring is disabled.
   NONE;
 
-  public static InterfaceMethodDesugaringMode createCfToCf(InternalOptions options) {
+  public static InterfaceMethodDesugaringMode createCfToCf(AppView<?> appView) {
+    InternalOptions options = appView.options();
     return create(
-        options, true, options.getLibraryDesugaringOptions().isCfToCfLibraryDesugaringEnabled());
+        options,
+        true,
+        options.getLibraryDesugaringOptions().isCfToCfLibraryDesugaringEnabled(appView));
   }
 
-  public static InterfaceMethodDesugaringMode createLirToLir(InternalOptions options) {
+  public static InterfaceMethodDesugaringMode createLirToLir(AppView<?> appView) {
+    InternalOptions options = appView.options();
     return create(
-        options, false, options.getLibraryDesugaringOptions().isLirToLirLibraryDesugaringEnabled());
+        options,
+        false,
+        options.getLibraryDesugaringOptions().isLirToLirLibraryDesugaringEnabled(appView));
   }
 
   public static InterfaceMethodDesugaringMode createForInterfaceMethodDesugaringInRootSetBuilder(

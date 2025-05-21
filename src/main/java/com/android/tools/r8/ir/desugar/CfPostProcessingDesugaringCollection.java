@@ -128,15 +128,15 @@ public abstract class CfPostProcessingDesugaringCollection {
       }
       if (appView.enableWholeProgramOptimizations()) {
         if (enqueuer != null) {
-          return libraryDesugaringOptions.isCfToCfLibraryDesugaringEnabled();
+          return libraryDesugaringOptions.isCfToCfLibraryDesugaringEnabled(appView);
         } else {
           // We only reach here if we are running lir-to-lir library desugaring.
-          assert libraryDesugaringOptions.isLirToLirLibraryDesugaringEnabled();
+          assert libraryDesugaringOptions.isLirToLirLibraryDesugaringEnabled(appView);
           return true;
         }
       } else {
         // Library desugaring is cf-to-cf in D8.
-        assert libraryDesugaringOptions.isCfToCfLibraryDesugaringEnabled();
+        assert libraryDesugaringOptions.isCfToCfLibraryDesugaringEnabled(appView);
         return true;
       }
     }

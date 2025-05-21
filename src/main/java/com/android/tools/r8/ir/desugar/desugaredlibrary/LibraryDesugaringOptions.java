@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.desugar.desugaredlibrary;
 
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
@@ -131,14 +132,14 @@ public class LibraryDesugaringOptions {
     return !synthesizedClassPrefix.isEmpty();
   }
 
-  public boolean isCfToCfLibraryDesugaringEnabled() {
-    return isEnabled() && !isLirToLirLibraryDesugaringEnabled();
+  public boolean isCfToCfLibraryDesugaringEnabled(AppView<?> appView) {
+    // Cf-to-cf library desugaring is always enabled in D8.
+    return isEnabled() && !appView.enableWholeProgramOptimizations();
   }
 
-  public boolean isLirToLirLibraryDesugaringEnabled() {
-    return isEnabled()
-        && options.partialSubCompilationConfiguration != null
-        && options.partialSubCompilationConfiguration.isR8();
+  public boolean isLirToLirLibraryDesugaringEnabled(AppView<?> appView) {
+    // Lir-to-lir library desugaring is always enabled in R8 and R8 partial.
+    return isEnabled() && appView.enableWholeProgramOptimizations();
   }
 
   public void resetDesugaredLibrarySpecificationForTesting() {

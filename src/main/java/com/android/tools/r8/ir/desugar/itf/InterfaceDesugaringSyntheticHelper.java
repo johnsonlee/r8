@@ -46,6 +46,7 @@ import com.android.tools.r8.synthesis.SyntheticClassBuilder;
 import com.android.tools.r8.synthesis.SyntheticItems.SyntheticKindSelector;
 import com.android.tools.r8.synthesis.SyntheticMethodBuilder;
 import com.android.tools.r8.synthesis.SyntheticNaming.SyntheticKind;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.structural.Ordered;
 import com.google.common.collect.ImmutableList;
 import java.util.function.Predicate;
@@ -97,6 +98,22 @@ public class InterfaceDesugaringSyntheticHelper {
 
   static InterfaceDesugaringSyntheticHelper createSubCompilationHelper(
       AppView<?> appView, InterfaceMethodDesugaringMode desugaringMode) {
+    if (desugaringMode.isLibraryDesugaring()) {
+      // Don't create a sub compilation helper when library desugaring is already enabled.
+      // The sub compilation helper is only needed to tweak interface method desugaring when
+      // library desugaring is performed lir-to-lir.
+      return null;
+    }
+    InternalOptions options = appView.options();
+    if (!appView.enableWholeProgramOptimizations()
+        && options.partialSubCompilationConfiguration == null) {
+      // In D8 all desugaring runs cf-to-cf and we do not need to do anything.
+      return null;
+    }
+    // This is an R8 build or the D8 build of an R8 partial build. In this case, we tweak interface
+    // method desugaring using the library desugaring options.
+    assert options.partialSubCompilationConfiguration == null
+        || options.partialSubCompilationConfiguration.isD8();
     LibraryDesugaringOptions libraryDesugaringOptions =
         appView.options().getSubCompilationLibraryDesugaringOptions();
     return new InterfaceDesugaringSyntheticHelper(
