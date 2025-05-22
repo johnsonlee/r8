@@ -33,6 +33,10 @@ Additionally, for attributes describing a relationship such as `InnerClass` and
 rewritten to `SourceFile` unless `-renamesourcefileattribute` is used in which
 case the provided value is used. The original source file name is in the mapping
 file and when optimizing or minifying a mapping file is always produced.
+- Access modification is enabled by default when optimizations are enabled
+(`-allowaccessmodification`). When compiling a library to class files, access
+modification will protect the API surface of the library by *not* changing the
+visibility of fields and methods on kept classes and their super classes.
 
 ## Stack traces and retracing
 When compiling with R8, a mapping file can be produced to support mapping stack
