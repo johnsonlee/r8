@@ -644,7 +644,8 @@ public class Inliner {
         InvokeDirect invokeDirect = invoke.asInvokeDirect();
         Value receiver = invokeDirect.getReceiver();
         if (shouldEnsureStoreStoreFenceCauses != null
-            && receiver.isDefinedByInstructionSatisfying(Instruction::isNewInstance)) {
+            && receiver.isDefinedByInstructionSatisfying(Instruction::isNewInstance)
+            && !options.inlinerOptions().skipStoreStoreFenceInConstructorInlining) {
           synthesizeStoreStoreFence(appView, code, invokeDirect);
         }
       }

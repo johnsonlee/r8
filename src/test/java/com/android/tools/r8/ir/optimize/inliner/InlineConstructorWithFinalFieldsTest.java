@@ -7,19 +7,21 @@ import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMetho
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsentIf;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isFinal;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static com.android.tools.r8.utils.codeinspector.Matchers.notIf;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.AlwaysInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.references.Reference;
+import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.MethodReferenceUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.FieldSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -32,9 +34,13 @@ public class InlineConstructorWithFinalFieldsTest extends TestBase {
   @Parameter(0)
   public TestParameters parameters;
 
-  @Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimesAndApiLevels().build();
+  @Parameter(1)
+  public boolean skipStoreStoreFenceInConstructorInlining;
+
+  @Parameters(name = "{0}, skip: {1}")
+  public static List<Object[]> data() {
+    return buildParameters(
+        getTestParameters().withAllRuntimesAndApiLevels().build(), BooleanUtils.values());
   }
 
   @Test
@@ -46,6 +52,10 @@ public class InlineConstructorWithFinalFieldsTest extends TestBase {
             parameters.isDexRuntime(),
             testBuilder -> testBuilder.addLibraryFiles(ToolHelper.getMostRecentAndroidJar()))
         .addKeepMainRule(Main.class)
+        .addOptionsModification(
+            options ->
+                options.inlinerOptions().skipStoreStoreFenceInConstructorInlining =
+                    skipStoreStoreFenceInConstructorInlining)
         .enableAlwaysInliningAnnotations()
         .setMinApi(parameters)
         .compile()
@@ -63,7 +73,10 @@ public class InlineConstructorWithFinalFieldsTest extends TestBase {
               MethodSubject initMethodSubject = mainClassSubject.init("int", "int");
               assertThat(
                   initMethodSubject,
-                  isAbsentIf(parameters.canUseJavaLangInvokeVarHandleStoreStoreFence()));
+                  isAbsentIf(
+                      parameters.canUseJavaLangInvokeVarHandleStoreStoreFence()
+                          || (parameters.canInitNewInstanceUsingSuperclassConstructor()
+                              && skipStoreStoreFenceInConstructorInlining)));
 
               MethodSubject mainMethodSubject = mainClassSubject.mainMethod();
               assertThat(mainMethodSubject, isPresent());
@@ -78,9 +91,11 @@ public class InlineConstructorWithFinalFieldsTest extends TestBase {
                     invokesMethod(MethodReferenceUtils.instanceConstructor(Object.class)));
                 assertThat(
                     mainMethodSubject,
-                    invokesMethod(
-                        Reference.methodFromDescriptor(
-                            "Ljava/lang/invoke/VarHandle;", "storeStoreFence", "()V")));
+                    notIf(
+                        invokesMethod(
+                            Reference.methodFromDescriptor(
+                                "Ljava/lang/invoke/VarHandle;", "storeStoreFence", "()V")),
+                        skipStoreStoreFenceInConstructorInlining));
                 assertThat(xFieldSubject, not(isFinal()));
                 assertThat(yFieldSubject, not(isFinal()));
               }
