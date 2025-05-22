@@ -157,6 +157,10 @@ public class BridgeAnalyzer {
     if (invoke.arguments().size() <= argumentIndex) {
       return false;
     }
+    // The cast value must be used in the same argument position.
+    if (invoke.getArgument(argumentIndex) != castValue) {
+      return false;
+    }
     int parameterIndex = argumentIndex - BooleanUtils.intValue(invoke.isInvokeMethodWithReceiver());
     // It is not allowed to cast the receiver.
     if (parameterIndex == -1) {
@@ -196,27 +200,40 @@ public class BridgeAnalyzer {
     // All of the forwarded arguments of the enclosing method must be in the same argument position.
     for (int argumentIndex = 0; argumentIndex < invoke.arguments().size(); argumentIndex++) {
       Value argument = invoke.getArgument(argumentIndex).getAliasedValue();
-      if (argument.isPhi()
-          || (argument.isArgument()
-              && argumentIndex != argument.getDefinition().asArgument().getIndex())) {
+      if (argument.isPhi()) {
         return false;
-      } else {
-        // Validate that besides argument values only check-cast of argument values are allowed at
-        // their argument position.
-        assert argument.isArgument()
-            || (argument.getDefinition().isCheckCast()
-                && invoke
-                    .getArgument(argumentIndex)
-                    .getAliasedValue(AssumeAndCheckCastAliasedValueConfiguration.getInstance())
-                    .isArgument()
-                && invoke
-                        .getArgument(argumentIndex)
-                        .getAliasedValue(AssumeAndCheckCastAliasedValueConfiguration.getInstance())
-                        .getDefinition()
-                        .asArgument()
-                        .getIndex()
-                    == argumentIndex);
+      } else if (argument.isArgument()
+          && argumentIndex != argument.getDefinition().asArgument().getIndex()) {
+        return false;
+      } else if (argument.getDefinition().isCheckCast()) {
+        int expectedArgumentIndex =
+            argument
+                .getDefinition()
+                .asCheckCast()
+                .object()
+                .getAliasedValue()
+                .getDefinition()
+                .asArgument()
+                .getIndex();
+        if (argumentIndex != expectedArgumentIndex) {
+          return false;
+        }
       }
+      // Validate that besides argument values only check-cast of argument values are allowed at
+      // their argument position.
+      assert argument.isArgument()
+          || (argument.getDefinition().isCheckCast()
+              && invoke
+                  .getArgument(argumentIndex)
+                  .getAliasedValue(AssumeAndCheckCastAliasedValueConfiguration.getInstance())
+                  .isArgument()
+              && invoke
+                      .getArgument(argumentIndex)
+                      .getAliasedValue(AssumeAndCheckCastAliasedValueConfiguration.getInstance())
+                      .getDefinition()
+                      .asArgument()
+                      .getIndex()
+                  == argumentIndex);
     }
     return true;
   }
