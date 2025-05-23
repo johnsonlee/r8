@@ -3,12 +3,13 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.classmerging.horizontal;
 
+import static org.junit.Assert.assertEquals;
+
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.utils.codeinspector.HorizontallyMergedClassesInspector;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -31,10 +32,21 @@ public class HorizontalClassMergerSafeCheckCastPromotionTest extends TestBase {
     testForR8(parameters)
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
-        .addHorizontallyMergedClassesInspector(
-            HorizontallyMergedClassesInspector::assertNoClassesMerged)
+        .addHorizontallyMergedClassesInspectorIf(
+            !parameters.isRandomPartialCompilation(),
+            i -> {
+              if (parameters.getPartialCompilationTestParameters().isExcludeAll()) {
+                i.assertNoClassesMerged();
+              } else {
+                i.assertIsCompleteMergeGroup(A.class, B.class).assertNoOtherClassesMerged();
+              }
+            })
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
+        .compile()
+        .inspectIf(
+            !parameters.isRandomPartialCompilation(),
+            inspector -> assertEquals(2, inspector.allClasses().size()))
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("A", "A");
   }

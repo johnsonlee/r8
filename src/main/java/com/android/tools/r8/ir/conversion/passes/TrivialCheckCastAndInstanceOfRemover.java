@@ -24,6 +24,7 @@ import com.android.tools.r8.ir.code.InstanceOf;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.InvokeStatic;
+import com.android.tools.r8.ir.code.SafeCheckCast;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.conversion.passes.result.CodeRewriterResult;
@@ -272,6 +273,20 @@ public class TrivialCheckCastAndInstanceOfRemover extends CodeRewriterPass<AppIn
         return RemoveCheckCastInstructionIfTrivialResult.REMOVED_CAST_DO_NARROW;
       }
       return RemoveCheckCastInstructionIfTrivialResult.REMOVED_CAST_DO_PROPAGATE;
+    }
+
+    // Promote the current CheckCast instruction to a SafeCheckCast if it cannot fail.
+    if (!checkCast.isSafeCheckCast()
+        && !checkCast.instructionInstanceCanThrow(appViewWithLiveness, context)) {
+      CheckCast replacement =
+          SafeCheckCast.builder()
+              .setCastType(castType)
+              .setObject(checkCast.object())
+              .setOutValue(checkCast.outValue())
+              .setPosition(checkCast)
+              .build();
+      it.replaceCurrentInstruction(replacement);
+      checkCast = replacement;
     }
 
     // If the cast is guaranteed to succeed and only there to ensure the program type checks, then
