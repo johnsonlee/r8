@@ -841,6 +841,8 @@ public class DexItemFactory {
   public final DexType annotationThrows = createStaticallyKnownType("Ldalvik/annotation/Throws;");
   public final DexType annotationSynthesizedClass =
       createStaticallyKnownType("Lcom/android/tools/r8/annotations/SynthesizedClassV2;");
+  public final DexType lambdaMethodAnnotation =
+      createStaticallyKnownType("Lcom/android/tools/r8/annotations/LambdaMethod;");
 
   public final String annotationReachabilitySensitiveDesc =
       "Ldalvik/annotation/optimization/ReachabilitySensitive;";
@@ -2124,6 +2126,11 @@ public class DexItemFactory {
     public final DexField CLASS =
         createField(
             javaLangAnnotationRetentionPolicyType, javaLangAnnotationRetentionPolicyType, "CLASS");
+    public final DexField RUNTIME =
+        createField(
+            javaLangAnnotationRetentionPolicyType,
+            javaLangAnnotationRetentionPolicyType,
+            "RUNTIME");
 
     private JavaLangAnnotationRetentionPolicyMembers() {}
   }

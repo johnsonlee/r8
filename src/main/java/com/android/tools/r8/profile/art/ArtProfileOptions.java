@@ -114,6 +114,12 @@ public class ArtProfileOptions {
     return enableCompletenessCheckForTesting;
   }
 
+  public boolean isIncludingLambdaMethodAnnotation() {
+    // We only include the LambdaMethod annotaiton in the residual ART profiles for completeness
+    // testing. It is an annotation which is not relevant for runtime performance.
+    return enableCompletenessCheckForTesting;
+  }
+
   public ArtProfileOptions setAllowReadingEmptyArtProfileProvidersMultipleTimesForTesting(
       boolean allowReadingEmptyArtProfileProvidersMultipleTimesForTesting) {
     this.allowReadingEmptyArtProfileProvidersMultipleTimesForTesting =

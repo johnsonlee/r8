@@ -147,6 +147,8 @@ public class LambdaInstructionDesugaring implements CfInstructionDesugaring {
     }
 
     eventConsumer.acceptLambdaClass(lambdaClass, context);
+    LambdaClass.ensureLambdaMethodAnnotationClass(
+        appView, eventConsumer, ImmutableList.of(lambdaClass.getLambdaProgramClass()));
 
     if (lambdaClass.hasFactoryMethod()) {
       return ImmutableList.of(

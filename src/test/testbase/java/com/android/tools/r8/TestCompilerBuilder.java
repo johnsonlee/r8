@@ -697,7 +697,7 @@ public abstract class TestCompilerBuilder<
     return minApiLevel -> {
       ImmutableSet.Builder<String> builder = ImmutableSet.builder();
       GlobalSyntheticsGeneratorVerifier.forEachExpectedClass(
-          options.dexItemFactory(), minApiLevel, type -> builder.add(type.toDescriptorString()));
+          options, type -> builder.add(type.toDescriptorString()));
       return builder.build();
     };
   }

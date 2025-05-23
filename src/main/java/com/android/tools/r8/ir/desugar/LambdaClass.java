@@ -4,13 +4,18 @@
 
 package com.android.tools.r8.ir.desugar;
 
+import static com.android.tools.r8.graph.DexAnnotation.VISIBILITY_RUNTIME;
 import static com.android.tools.r8.utils.DesugarUtils.appendFullyQualifiedHolderToMethodName;
 
 import com.android.tools.r8.dex.Constants;
+import com.android.tools.r8.errors.MissingGlobalSyntheticsConsumerDiagnostic;
 import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.Code;
+import com.android.tools.r8.graph.DexAnnotation;
+import com.android.tools.r8.graph.DexAnnotationElement;
+import com.android.tools.r8.graph.DexEncodedAnnotation;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
@@ -22,18 +27,24 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.DexValue.DexValueEnum;
+import com.android.tools.r8.graph.DexValue.DexValueString;
 import com.android.tools.r8.graph.FieldAccessFlags;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
+import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.desugar.lambda.ForcefullyMovedLambdaMethodConsumer;
+import com.android.tools.r8.ir.desugar.lambda.LambdaDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.lambda.LambdaInstructionDesugaring;
 import com.android.tools.r8.ir.desugar.lambda.LambdaInstructionDesugaring.DesugarInvoke;
 import com.android.tools.r8.ir.desugar.lambda.SyntheticLambdaAccessorMethodConsumer;
 import com.android.tools.r8.synthesis.SyntheticProgramClassBuilder;
+import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -131,6 +142,7 @@ public final class LambdaClass {
     synthesizeInstanceFields(builder);
     synthesizeDirectMethods(builder);
     synthesizeVirtualMethods(builder, desugarInvoke);
+    synthesizeAnnotations(builder);
   }
 
   final DexField getCaptureField(int index) {
@@ -241,6 +253,109 @@ public final class LambdaClass {
               .build());
     }
     builder.setInstanceFields(fields);
+  }
+
+  private void synthesizeAnnotations(SyntheticProgramClassBuilder builder) {
+    if (appView.options().emitLambdaMethodAnnotations) {
+      builder.addAnnotation(target.getLambdaMethodAnnotation(builder.getFactory()));
+    }
+  }
+
+  public static void ensureLambdaMethodAnnotationClass(
+      AppView<?> appView,
+      LambdaDesugaringEventConsumer eventConsumer,
+      Collection<? extends ProgramDefinition> contexts) {
+    if (!appView.options().emitLambdaMethodAnnotations) {
+      return;
+    }
+    DexType lambdaClassAnnotationType = appView.dexItemFactory().lambdaMethodAnnotation;
+    assert contexts.stream()
+        .allMatch(
+            context ->
+                context.isClass()
+                    && context.getContextType().isNotIdenticalTo(lambdaClassAnnotationType));
+    DexProgramClass clazz =
+        appView
+            .getSyntheticItems()
+            .ensureGlobalClass(
+                () ->
+                    new MissingGlobalSyntheticsConsumerDiagnostic(
+                        "Lambda desugaring emitting the annotation "
+                            + lambdaClassAnnotationType.toSourceString()),
+                kinds -> kinds.LAMBDA_METHOD_ANNOTATION,
+                lambdaClassAnnotationType,
+                contexts,
+                appView,
+                builder ->
+                    generateLambdaMethodAnnotationClass(
+                        builder, lambdaClassAnnotationType, appView.dexItemFactory()),
+                eventConsumer::acceptLambdaMethodAnnotationDesugaringClass);
+    for (ProgramDefinition context : contexts) {
+      eventConsumer.acceptLambdaMethodAnnotationDesugaringClassContext(clazz, context);
+    }
+  }
+
+  public static void generateLambdaMethodAnnotationClass(
+      SyntheticProgramClassBuilder builder,
+      DexType lambdaClassAnnitationType,
+      DexItemFactory factory) {
+    DexProto protoNoArgsReturnsString = factory.createProto(factory.stringType);
+    MethodAccessFlags publicAbstract =
+        MethodAccessFlags.builder().setPublic().setAbstract().build();
+
+    List<DexEncodedMethod> methods =
+        ImmutableList.of(
+            DexEncodedMethod.syntheticBuilder()
+                .setMethod(
+                    factory.createMethod(
+                        lambdaClassAnnitationType, protoNoArgsReturnsString, "holder"))
+                .setAccessFlags(publicAbstract)
+                .build(),
+            DexEncodedMethod.syntheticBuilder()
+                .setMethod(
+                    factory.createMethod(
+                        lambdaClassAnnitationType, protoNoArgsReturnsString, "method"))
+                .setAccessFlags(publicAbstract)
+                .build(),
+            DexEncodedMethod.syntheticBuilder()
+                .setMethod(
+                    factory.createMethod(
+                        lambdaClassAnnitationType, protoNoArgsReturnsString, "proto"))
+                .setAccessFlags(publicAbstract)
+                .build());
+
+    DexAnnotation target =
+        new DexAnnotation(
+            VISIBILITY_RUNTIME,
+            new DexEncodedAnnotation(
+                factory.createType("Ljava/lang/annotation/Target;"),
+                new DexAnnotationElement[] {
+                  new DexAnnotationElement(
+                      factory.createString("value"),
+                      new DexValueEnum(
+                          factory.createField(
+                              factory.createType("Ljava/lang/annotation/ElementType;"),
+                              factory.createType("Ljava/lang/annotation/ElementType;"),
+                              factory.createString("TYPE"))))
+                }));
+
+    DexAnnotation retention =
+        new DexAnnotation(
+            VISIBILITY_RUNTIME,
+            new DexEncodedAnnotation(
+                factory.retentionType,
+                new DexAnnotationElement[] {
+                  new DexAnnotationElement(
+                      factory.createString("value"),
+                      new DexValueEnum(factory.javaLangAnnotationRetentionPolicyMembers.RUNTIME))
+                }));
+    builder
+        .setAnnotation()
+        .addAnnotation(target)
+        .addAnnotation(retention)
+        .setInterfaces(ImmutableList.of(factory.annotationType))
+        .setVirtualMethods(methods)
+        .build();
   }
 
   // Creates a delegation target for this particular lambda class. Note that we
@@ -512,6 +627,24 @@ public final class LambdaClass {
 
     public boolean isInterface() {
       return isInterface;
+    }
+
+    public DexAnnotation getLambdaMethodAnnotation(DexItemFactory factory) {
+      return new DexAnnotation(
+          VISIBILITY_RUNTIME,
+          new DexEncodedAnnotation(
+              factory.lambdaMethodAnnotation,
+              new DexAnnotationElement[] {
+                new DexAnnotationElement(
+                    factory.createString("holder"),
+                    new DexValueString(callTarget.getHolderType().descriptor)),
+                new DexAnnotationElement(
+                    factory.createString("method"), new DexValueString(callTarget.getName())),
+                new DexAnnotationElement(
+                    factory.createString("proto"),
+                    new DexValueString(
+                        factory.createString(callTarget.getProto().toDescriptorString())))
+              }));
     }
   }
 

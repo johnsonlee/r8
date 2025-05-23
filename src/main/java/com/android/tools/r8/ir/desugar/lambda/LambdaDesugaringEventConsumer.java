@@ -4,10 +4,17 @@
 
 package com.android.tools.r8.ir.desugar.lambda;
 
+import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.desugar.LambdaClass;
 
 public interface LambdaDesugaringEventConsumer {
 
   void acceptLambdaClass(LambdaClass lambdaClass, ProgramMethod context);
+
+  void acceptLambdaMethodAnnotationDesugaringClass(DexProgramClass clazz);
+
+  void acceptLambdaMethodAnnotationDesugaringClassContext(
+      DexProgramClass clazz, ProgramDefinition context);
 }

@@ -202,6 +202,20 @@ public class ProfileRewritingCfInstructionDesugaringEventConsumer
     parent.acceptLambdaClass(lambdaClass, context);
   }
 
+  @Override
+  public void acceptLambdaMethodAnnotationDesugaringClass(DexProgramClass clazz) {
+    parent.acceptLambdaMethodAnnotationDesugaringClass(clazz);
+  }
+
+  @Override
+  public void acceptLambdaMethodAnnotationDesugaringClassContext(
+      DexProgramClass clazz, ProgramDefinition context) {
+    ProfileRewritingLambdaMethodAnnotationDesugaringEventConsumerUtils
+        .handleLambdaMethodAnnotationDesugaringClassContext(
+            clazz, context, additionsCollection, appView.options().getArtProfileOptions());
+    parent.acceptLambdaMethodAnnotationDesugaringClassContext(clazz, context);
+  }
+
   private void addLambdaClassAndInstanceInitializersIfSynthesizingContextIsInProfile(
       LambdaClass lambdaClass, ProgramMethod context) {
     additionsCollection.applyIfContextIsInProfile(

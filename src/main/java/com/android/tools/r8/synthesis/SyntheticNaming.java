@@ -30,6 +30,7 @@ public class SyntheticNaming {
   public final SyntheticKind API_MODEL_STUB = generator.forGlobalClass();
   public final SyntheticKind METHOD_HANDLES_LOOKUP = generator.forGlobalClass();
   public final SyntheticKind VAR_HANDLE = generator.forGlobalClass();
+  public final SyntheticKind LAMBDA_METHOD_ANNOTATION = generator.forGlobalClass();
 
   // Classpath only synthetics in the global type namespace.
   public final SyntheticKind GENERIC_API_CONVERSION_STUB = generator.forGlobalClasspathClass();

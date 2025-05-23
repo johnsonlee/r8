@@ -13,6 +13,7 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexClasspathClass;
+import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexReference;
@@ -46,6 +47,7 @@ import com.android.tools.r8.profile.rewriting.ProfileRewritingCfInstructionDesug
 import com.android.tools.r8.shaking.Enqueuer.SyntheticAdditions;
 import com.android.tools.r8.shaking.KeepMethodInfo.Joiner;
 import com.android.tools.r8.utils.collections.ProgramMethodSet.ConcurrentProgramMethodSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -302,6 +304,17 @@ public abstract class CfInstructionDesugaringEventConsumer
       synchronized (synthesizedLambdaClasses) {
         synthesizedLambdaClasses.add(lambdaClass);
       }
+    }
+
+    @Override
+    public void acceptLambdaMethodAnnotationDesugaringClass(DexProgramClass clazz) {
+      assert Iterables.isEmpty(clazz.methods(DexEncodedMethod::hasCode));
+    }
+
+    @Override
+    public void acceptLambdaMethodAnnotationDesugaringClassContext(
+        DexProgramClass clazz, ProgramDefinition context) {
+      // Intentionally empty.
     }
 
     @Override
@@ -766,6 +779,17 @@ public abstract class CfInstructionDesugaringEventConsumer
     }
 
     @Override
+    public void acceptLambdaMethodAnnotationDesugaringClass(DexProgramClass clazz) {
+      // Intentionally empty.
+    }
+
+    @Override
+    public void acceptLambdaMethodAnnotationDesugaringClassContext(
+        DexProgramClass clazz, ProgramDefinition context) {
+      // Intentionally empty.
+    }
+
+    @Override
     public void acceptConstantDynamicClass(
         ConstantDynamicClass constantDynamicClass, ProgramMethod context) {
       synchronized (synthesizedConstantDynamicClasses) {
@@ -1026,6 +1050,17 @@ public abstract class CfInstructionDesugaringEventConsumer
 
     @Override
     public void acceptLambdaClass(LambdaClass lambdaClass, ProgramMethod context) {
+      assert false;
+    }
+
+    @Override
+    public void acceptLambdaMethodAnnotationDesugaringClass(DexProgramClass clazz) {
+      assert false;
+    }
+
+    @Override
+    public void acceptLambdaMethodAnnotationDesugaringClassContext(
+        DexProgramClass clazz, ProgramDefinition context) {
       assert false;
     }
 

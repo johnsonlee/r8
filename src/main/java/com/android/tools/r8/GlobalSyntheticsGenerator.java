@@ -31,8 +31,12 @@ import com.android.tools.r8.graph.FieldCollection.FieldCollectionFactory;
 import com.android.tools.r8.graph.GenericSignature.ClassSignature;
 import com.android.tools.r8.graph.MethodCollection.MethodCollectionFactory;
 import com.android.tools.r8.graph.NestHostClassAttribute;
+import com.android.tools.r8.graph.ProgramDefinition;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.ThrowExceptionCode;
 import com.android.tools.r8.ir.conversion.PrimaryD8L8IRConverter;
+import com.android.tools.r8.ir.desugar.LambdaClass;
+import com.android.tools.r8.ir.desugar.lambda.LambdaDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.records.RecordDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.records.RecordTagSynthesizer;
 import com.android.tools.r8.ir.desugar.varhandle.VarHandleDesugaring;
@@ -76,7 +80,8 @@ public class GlobalSyntheticsGenerator {
           || kind.equals(naming.RECORD_TAG)
           || kind.equals(naming.API_MODEL_STUB)
           || kind.equals(naming.METHOD_HANDLES_LOOKUP)
-          || kind.equals(naming.VAR_HANDLE);
+          || kind.equals(naming.VAR_HANDLE)
+          || kind.equals(naming.LAMBDA_METHOD_ANNOTATION);
     }
     return true;
   }
@@ -186,6 +191,25 @@ public class GlobalSyntheticsGenerator {
     // Add global synthetic class for method handles lookup.
     VarHandleDesugaring.ensureMethodHandlesLookupClass(
         appView, varHandleEventConsumer, synthesizingContext);
+
+    // Add global synthetic class for annotating lambda classes.
+    LambdaDesugaringEventConsumer emptyLambdaDesugaringEventConsumer =
+        new LambdaDesugaringEventConsumer() {
+          @Override
+          public void acceptLambdaClass(LambdaClass lambdaClass, ProgramMethod context) {
+            assert false;
+          }
+
+          @Override
+          public void acceptLambdaMethodAnnotationDesugaringClass(DexProgramClass clazz) {}
+
+          @Override
+          public void acceptLambdaMethodAnnotationDesugaringClassContext(
+              DexProgramClass clazz, ProgramDefinition context) {}
+        };
+
+    LambdaClass.ensureLambdaMethodAnnotationClass(
+        appView, emptyLambdaDesugaringEventConsumer, synthesizingContext);
 
     // Commit all the synthetics to the program and then convert as per D8.
     // We must run proper D8 conversion as the global synthetics may give rise to additional

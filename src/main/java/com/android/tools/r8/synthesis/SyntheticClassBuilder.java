@@ -8,6 +8,7 @@ import com.android.tools.r8.ProgramResource.Kind;
 import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.graph.ClassAccessFlags;
 import com.android.tools.r8.graph.ClassKind;
+import com.android.tools.r8.graph.DexAnnotation;
 import com.android.tools.r8.graph.DexAnnotationSet;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedField;
@@ -45,6 +46,7 @@ public abstract class SyntheticClassBuilder<
   private boolean isAbstract = false;
   private boolean isFinal = true;
   private boolean isInterface = false;
+  private boolean isAnnotation = false;
   private Kind originKind;
   private DexType superType;
   private DexTypeList interfaces = DexTypeList.empty();
@@ -56,6 +58,7 @@ public abstract class SyntheticClassBuilder<
   private List<DexEncodedMethod> virtualMethods = new ArrayList<>();
   private List<SyntheticMethodBuilder> methods = new ArrayList<>();
   private ClassSignature signature = ClassSignature.noSignature();
+  private DexAnnotationSet annotations = DexAnnotationSet.empty();
 
   SyntheticClassBuilder(
       DexType type,
@@ -107,6 +110,13 @@ public abstract class SyntheticClassBuilder<
   public B setInterface() {
     setAbstract();
     isInterface = true;
+    return self();
+  }
+
+  public B setAnnotation() {
+    setAbstract();
+    isInterface = true;
+    isAnnotation = true;
     return self();
   }
 
@@ -166,14 +176,25 @@ public abstract class SyntheticClassBuilder<
     return self();
   }
 
+  public B addAnnotation(DexAnnotation annotation) {
+    annotations = annotations.getWithAddedOrReplaced(annotation);
+    return self();
+  }
+
   public C build() {
     int abstractFlag = isAbstract ? Constants.ACC_ABSTRACT : 0;
     int finalFlag = isFinal ? Constants.ACC_FINAL : 0;
     int itfFlag = isInterface ? Constants.ACC_INTERFACE : 0;
+    int annotationFlag = isAnnotation ? Constants.ACC_ANNOTATION : 0;
     assert !isInterface || isAbstract;
     ClassAccessFlags accessFlags =
         ClassAccessFlags.fromSharedAccessFlags(
-            abstractFlag | finalFlag | itfFlag | Constants.ACC_PUBLIC | Constants.ACC_SYNTHETIC);
+            abstractFlag
+                | finalFlag
+                | itfFlag
+                | annotationFlag
+                | Constants.ACC_PUBLIC
+                | Constants.ACC_SYNTHETIC);
     NestHostClassAttribute nestHost = null;
     List<NestMemberClassAttribute> nestMembers = Collections.emptyList();
     List<PermittedSubclassAttribute> permittedSubclasses = Collections.emptyList();
@@ -205,7 +226,7 @@ public abstract class SyntheticClassBuilder<
                 enclosingMembers,
                 innerClasses,
                 signature,
-                DexAnnotationSet.empty(),
+                annotations,
                 staticFields.toArray(DexEncodedField.EMPTY_ARRAY),
                 instanceFields.toArray(DexEncodedField.EMPTY_ARRAY),
                 DexEncodedMethod.EMPTY_ARRAY,
