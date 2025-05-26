@@ -4,6 +4,7 @@
 package com.android.tools.r8.assistant;
 
 import java.io.InputStream;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 // Top level file since the getXName methods relies on nest members being available for lookup.
@@ -33,6 +34,11 @@ public class JavaLangClassTestClass {
       Package pack = clazz2.getPackage();
       InputStream resStream = clazz2.getResourceAsStream("res");
       boolean ass = clazz2.isAssignableFrom(Object.class);
+
+      Class<?> barClass = Bar.class;
+      Method[] methods = barClass.getMethods();
+      Method bar = barClass.getMethod("bar");
+      Field i = barClass.getField("i");
     } catch (ClassNotFoundException | NoSuchFieldException | NoSuchMethodException e) {
       throw new RuntimeException(e);
     }
@@ -47,5 +53,13 @@ public class JavaLangClassTestClass {
     public void foo() {}
 
     public abstract void fooBar();
+  }
+
+  public static class Bar {
+    public int i;
+
+    public int bar() {
+      return 11;
+    }
   }
 }

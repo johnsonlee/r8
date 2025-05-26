@@ -6,6 +6,7 @@ package com.android.tools.r8.assistant;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.assistant.JavaLangClassTestClass.Bar;
 import com.android.tools.r8.assistant.JavaLangClassTestClass.Foo;
 import com.android.tools.r8.assistant.runtime.EmptyReflectiveOperationReceiver;
 import com.android.tools.r8.assistant.runtime.ReflectiveOracle.Stack;
@@ -29,14 +30,15 @@ public class JavaLangClassTest extends TestBase {
   @Test
   public void testInstrumentationWithCustomOracle() throws Exception {
     testForAssistant()
-        .addProgramClasses(JavaLangClassTestClass.class, Foo.class)
+        .addProgramClasses(JavaLangClassTestClass.class, Foo.class, Bar.class)
         .addInstrumentationClasses(Instrumentation.class)
         .setCustomReflectiveOperationReceiver(Instrumentation.class)
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), JavaLangClassTestClass.class)
         .assertSuccessWithOutputLines(
-            "5", "1", "9", "2", "3", "3", "4", "5", "6", "7", "8", "5", "1", "12", "13", "15");
+            "5", "1", "9", "2", "3", "3", "4", "5", "6", "7", "8", "5", "1", "12", "13", "15", "22",
+            "20", "21");
   }
 
   public static class Instrumentation extends EmptyReflectiveOperationReceiver {
@@ -111,6 +113,22 @@ public class JavaLangClassTest extends TestBase {
     @Override
     public void onClassGetSuperclass(Stack stack, Class<?> clazz) {
       printNumIfTrue(clazz.getName().endsWith("Foo"), 9);
+    }
+
+    @Override
+    public void onClassGetMethod(
+        Stack stack, Class<?> clazz, String method, Class<?>... parameters) {
+      printNumIfTrue(clazz.getName().endsWith("Bar"), 20);
+    }
+
+    @Override
+    public void onClassGetField(Stack stack, Class<?> clazz, String fieldName) {
+      printNumIfTrue(clazz.getName().endsWith("Bar"), 21);
+    }
+
+    @Override
+    public void onClassGetMethods(Stack stack, Class<?> clazz) {
+      printNumIfTrue(clazz.getName().endsWith("Bar"), 22);
     }
   }
 }

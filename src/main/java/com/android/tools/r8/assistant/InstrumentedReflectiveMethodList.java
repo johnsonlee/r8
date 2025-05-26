@@ -28,6 +28,8 @@ public class InstrumentedReflectiveMethodList {
   Map<DexMethod, DexMethod> getInstrumentedMethodsAndTargets() {
     ImmutableMap.Builder<DexMethod, DexMethod> builder = ImmutableMap.builder();
 
+    // java.lang.Class methods
+
     builder.put(
         factory.classMethods.newInstance,
         getMethodReferenceWithClassParameter("onClassNewInstance"));
@@ -76,7 +78,6 @@ public class InstrumentedReflectiveMethodList {
             "isAssignableFrom"),
         getMethodReferenceWithParameterTypes(
             "onClassIsAssignableFrom", factory.classType, factory.classType));
-
     DexProto toBoolean = factory.createProto(factory.booleanType);
     builder.put(
         factory.createMethod(factory.classType, toBoolean, "isAnnotation"),
@@ -114,6 +115,20 @@ public class InstrumentedReflectiveMethodList {
     builder.put(
         factory.createMethod(factory.classType, toBoolean, "isSynthetic"),
         getMethodReferenceWithClassParameter("onClassIsSynthetic"));
+    builder.put(
+        factory.classMethods.getMethod,
+        getMethodReferenceWithParameterTypes(
+            "onClassGetMethod", factory.classType, factory.stringType, factory.classArrayType));
+    builder.put(
+        factory.classMethods.getField,
+        getMethodReferenceWithParameterTypes(
+            "onClassGetField", factory.classType, factory.stringType));
+    builder.put(
+        factory.createMethod(
+            factory.classType,
+            factory.createProto(factory.createArrayType(1, factory.methodType)),
+            "getMethods"),
+        getMethodReferenceWithClassParameter("onClassGetMethods"));
 
     return builder.build();
   }

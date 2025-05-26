@@ -23,6 +23,12 @@ public interface ReflectiveOperationReceiver {
 
   void onClassGetDeclaredMethods(Stack stack, Class<?> clazz);
 
+  void onClassGetMethod(Stack stack, Class<?> clazz, String method, Class<?>... parameters);
+
+  void onClassGetField(Stack stack, Class<?> clazz, String fieldName);
+
+  void onClassGetMethods(Stack stack, Class<?> clazz);
+
   void onClassGetName(Stack stack, Class<?> clazz, NameLookupType lookupType);
 
   void onClassGetSuperclass(Stack stack, Class<?> clazz);

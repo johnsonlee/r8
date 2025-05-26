@@ -36,6 +36,16 @@ public class EmptyReflectiveOperationReceiver implements ReflectiveOperationRece
   public void onClassGetDeclaredMethods(Stack stack, Class<?> clazz) {}
 
   @Override
+  public void onClassGetMethod(
+      Stack stack, Class<?> clazz, String method, Class<?>... parameters) {}
+
+  @Override
+  public void onClassGetField(Stack stack, Class<?> clazz, String fieldName) {}
+
+  @Override
+  public void onClassGetMethods(Stack stack, Class<?> clazz) {}
+
+  @Override
   public void onClassGetName(Stack stack, Class<?> clazz, NameLookupType lookupType) {}
 
   @Override

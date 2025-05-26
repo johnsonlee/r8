@@ -38,17 +38,17 @@ public class ReflectiveCallExtractorTest extends TestBase {
 
   @Test
   public void testGson() throws Exception {
-    test(ToolHelper.GSON, 15, 17);
+    test(ToolHelper.GSON, 16, 16);
   }
 
   @Test
   public void testGuava() throws Exception {
-    test(ToolHelper.GUAVA_JRE, 15, 25);
+    test(ToolHelper.GUAVA_JRE, 18, 22);
   }
 
   @Test
   public void testJacoco() throws Exception {
-    test(ToolHelper.JACOCO_AGENT, 10, 2);
+    test(ToolHelper.JACOCO_AGENT, 12, 0);
   }
 
   private void test(Path jar, int success, int failure) throws Exception {

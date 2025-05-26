@@ -32,6 +32,21 @@ public class ReflectiveOperationLogger implements ReflectiveOperationReceiver {
   }
 
   @Override
+  public void onClassGetMethod(Stack stack, Class<?> clazz, String method, Class<?>... parameters) {
+    System.out.println("Reflectively got method " + method + " on " + clazz.getName());
+  }
+
+  @Override
+  public void onClassGetField(Stack stack, Class<?> clazz, String fieldName) {
+    System.out.println("Reflectively got field " + fieldName + " on " + clazz.getName());
+  }
+
+  @Override
+  public void onClassGetMethods(Stack stack, Class<?> clazz) {
+    System.out.println("Reflectively got methods on " + clazz.getName());
+  }
+
+  @Override
   public void onClassGetName(Stack stack, Class<?> clazz, NameLookupType lookupType) {
     System.out.println(
         "Reflectively got name on " + clazz.getName() + "(" + lookupType.toString() + ")");

@@ -170,4 +170,16 @@ public class ReflectiveOracle {
   public static void onClassIsSynthetic(Class<?> clazz) {
     getInstance().onClassFlag(Stack.createStack(), clazz, ClassFlag.SYNTHETIC);
   }
+
+  public static void onClassGetMethods(Class<?> clazz) {
+    getInstance().onClassGetMethods(Stack.createStack(), clazz);
+  }
+
+  public static void onClassGetMethod(Class<?> clazz, String name, Class<?>[] parameterTypes) {
+    getInstance().onClassGetMethod(Stack.createStack(), clazz, name, parameterTypes);
+  }
+
+  public static void onClassGetField(Class<?> clazz, String name) {
+    getInstance().onClassGetField(Stack.createStack(), clazz, name);
+  }
 }

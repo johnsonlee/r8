@@ -70,7 +70,6 @@ public class ReflectiveCallExtractor {
     }
     return methods;
   }
-
   private static boolean isReflective(DexMethod method, DexItemFactory factory) {
     DexType type = method.getHolderType();
     if (type.isIdenticalTo(factory.classType)) {
