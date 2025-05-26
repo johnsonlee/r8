@@ -151,7 +151,12 @@ public interface MethodOptimizationFeedback {
 
   default void unsetOptimizationInfoForThrowNullMethod(AppView<?> appView, ProgramMethod method) {
     if (!appView.hasClassHierarchy() || appView.getKeepInfo(method).isPinned(appView.options())) {
-      assert method.getOptimizationInfo().isDefault();
+      // There should be no optimization info for the method. We may have set the
+      // return-value-has-been-propagated bit, however, if the return type is never instantiated.
+      assert method.getOptimizationInfo().isDefault()
+          || (appView.hasLiveness()
+              && method.getReturnType().isAlwaysNull(appView.withLiveness())
+              && method.getOptimizationInfo().returnValueHasBeenPropagated());
     } else {
       unsetOptimizationInfoForAbstractMethod(method);
       methodNeverReturnsNormally(method);
