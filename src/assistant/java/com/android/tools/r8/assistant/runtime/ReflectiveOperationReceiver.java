@@ -13,7 +13,7 @@ public interface ReflectiveOperationReceiver {
     return false;
   }
 
-  void onClassForName(Stack stack, String className);
+  void onClassForName(Stack stack, String className, boolean initialize, ClassLoader classLoader);
 
   void onClassNewInstance(Stack stack, Class<?> clazz);
 
@@ -28,6 +28,12 @@ public interface ReflectiveOperationReceiver {
   void onClassGetSuperclass(Stack stack, Class<?> clazz);
 
   void onClassFlag(Stack stack, Class<?> clazz, ClassFlag classFlag);
+
+  void onClassGetComponentType(Stack stack, Class<?> clazz);
+
+  void onClassGetPackage(Stack stack, Class<?> clazz);
+
+  void onClassIsAssignableFrom(Stack stack, Class<?> clazz, Class<?> sup);
 
   @KeepForApi
   enum ClassFlag {

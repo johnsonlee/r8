@@ -35,7 +35,8 @@ public class JavaLangClassTest extends TestBase {
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), JavaLangClassTestClass.class)
-        .assertSuccessWithOutputLines("5", "1", "9", "2", "3", "3", "4", "5", "6", "7", "8");
+        .assertSuccessWithOutputLines(
+            "5", "1", "9", "2", "3", "3", "4", "5", "6", "7", "8", "5", "1", "12", "13", "15");
   }
 
   public static class Instrumentation extends EmptyReflectiveOperationReceiver {
@@ -49,8 +50,24 @@ public class JavaLangClassTest extends TestBase {
     }
 
     @Override
-    public void onClassForName(Stack stack, String className) {
+    public void onClassForName(
+        Stack stack, String className, boolean initialize, ClassLoader classLoader) {
       printNumIfTrue(className.endsWith("Foo"), 1);
+    }
+
+    @Override
+    public void onClassGetComponentType(Stack stack, Class<?> clazz) {
+      printNumIfTrue(clazz.toString().endsWith("Foo"), 12);
+    }
+
+    @Override
+    public void onClassGetPackage(Stack stack, Class<?> clazz) {
+      printNumIfTrue(clazz.toString().endsWith("Foo"), 13);
+    }
+
+    @Override
+    public void onClassIsAssignableFrom(Stack stack, Class<?> clazz, Class<?> sup) {
+      printNumIfTrue(clazz.toString().endsWith("Foo"), 15);
     }
 
     @Override

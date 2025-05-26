@@ -38,8 +38,24 @@ public class ReflectiveOperationLogger implements ReflectiveOperationReceiver {
   }
 
   @Override
-  public void onClassForName(Stack stack, String className) {
+  public void onClassForName(
+      Stack stack, String className, boolean initialize, ClassLoader classLoader) {
     System.out.println("Reflectively called Class.forName on " + className);
+  }
+
+  @Override
+  public void onClassGetComponentType(Stack stack, Class<?> clazz) {
+    System.out.println("Reflectively called Class.getComponentType on " + clazz);
+  }
+
+  @Override
+  public void onClassGetPackage(Stack stack, Class<?> clazz) {
+    System.out.println("Reflectively called Class.getPackage on " + clazz);
+  }
+
+  @Override
+  public void onClassIsAssignableFrom(Stack stack, Class<?> clazz, Class<?> sup) {
+    System.out.println("Reflectively called Class.isAssignableFrom on " + clazz + " with " + sup);
   }
 
   @Override

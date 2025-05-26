@@ -59,6 +59,23 @@ public class InstrumentedReflectiveMethodList {
     builder.put(
         factory.classMethods.getSuperclass,
         getMethodReferenceWithClassParameter("onClassGetSuperclass"));
+    builder.put(
+        factory.classMethods.forName3,
+        getMethodReferenceWithParameterTypes(
+            "onClassForName", factory.stringType, factory.booleanType, factory.classLoaderType));
+    builder.put(
+        factory.createMethod(
+            factory.classType, factory.createProto(factory.classType), "getComponentType"),
+        getMethodReferenceWithClassParameter("onClassGetComponentType"));
+    builder.put(
+        factory.classMethods.getPackage, getMethodReferenceWithClassParameter("onClassGetPackage"));
+    builder.put(
+        factory.createMethod(
+            factory.classType,
+            factory.createProto(factory.booleanType, factory.classType),
+            "isAssignableFrom"),
+        getMethodReferenceWithParameterTypes(
+            "onClassIsAssignableFrom", factory.classType, factory.classType));
 
     DexProto toBoolean = factory.createProto(factory.booleanType);
     builder.put(

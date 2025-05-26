@@ -79,7 +79,12 @@ public class ReflectiveOracle {
   }
 
   public static void onClassForName(String className) {
-    getInstance().onClassForName(Stack.createStack(), className);
+    // The last parameter is implicitly the caller's holder class class loader.
+    getInstance().onClassForName(Stack.createStack(), className, true, null);
+  }
+
+  public static void onClassForName(String className, boolean initialize, ClassLoader classLoader) {
+    getInstance().onClassForName(Stack.createStack(), className, initialize, classLoader);
   }
 
   public static void onClassGetDeclaredField(Class<?> clazz, String fieldName) {
@@ -104,6 +109,18 @@ public class ReflectiveOracle {
 
   public static void onClassGetSuperclass(Class<?> clazz) {
     getInstance().onClassGetSuperclass(Stack.createStack(), clazz);
+  }
+
+  public static void onClassGetComponentType(Class<?> clazz) {
+    getInstance().onClassGetComponentType(Stack.createStack(), clazz);
+  }
+
+  public static void onClassGetPackage(Class<?> clazz) {
+    getInstance().onClassGetPackage(Stack.createStack(), clazz);
+  }
+
+  public static void onClassIsAssignableFrom(Class<?> clazz, Class<?> sup) {
+    getInstance().onClassIsAssignableFrom(Stack.createStack(), clazz, sup);
   }
 
   public static void onClassIsAnnotation(Class<?> clazz) {

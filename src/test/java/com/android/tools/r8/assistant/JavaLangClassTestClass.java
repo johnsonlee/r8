@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.assistant;
 
+import java.io.InputStream;
 import java.lang.reflect.Method;
 
 // Top level file since the getXName methods relies on nest members being available for lookup.
@@ -27,6 +28,11 @@ public class JavaLangClassTestClass {
           throw new RuntimeException(e);
         }
       }
+      Class<?> clazz2 = Class.forName(Foo.class.getName(), true, Foo.class.getClassLoader());
+      Class<?> component = clazz2.getComponentType();
+      Package pack = clazz2.getPackage();
+      InputStream resStream = clazz2.getResourceAsStream("res");
+      boolean ass = clazz2.isAssignableFrom(Object.class);
     } catch (ClassNotFoundException | NoSuchFieldException | NoSuchMethodException e) {
       throw new RuntimeException(e);
     }

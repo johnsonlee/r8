@@ -114,7 +114,8 @@ public class R8AssistentReflectiveInstrumentationTest extends TestBase {
     int lineNumberOfNewInstance = -1;
 
     @Override
-    public void onClassForName(Stack stack, String className) {
+    public void onClassForName(
+        Stack stack, String className, boolean initialize, ClassLoader loader) {
       if (!className.equals(Bar.class.getName())) {
         throw new RuntimeException("Wrong class name passed");
       }
@@ -187,7 +188,8 @@ public class R8AssistentReflectiveInstrumentationTest extends TestBase {
 
   public static class InstrumentationClass extends EmptyReflectiveOperationReceiver {
     @Override
-    public void onClassForName(Stack stack, String className) {
+    public void onClassForName(
+        Stack stack, String className, boolean initialize, ClassLoader classLoader) {
       System.out.println("Custom receiver classForName " + className);
     }
 

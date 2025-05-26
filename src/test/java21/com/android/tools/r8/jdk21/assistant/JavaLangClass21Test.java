@@ -110,7 +110,8 @@ public class JavaLangClass21Test extends TestBase {
     }
 
     @Override
-    public void onClassForName(Stack stack, String className) {
+    public void onClassForName(
+        Stack stack, String className, boolean initialize, ClassLoader classLoader) {
       printNumIfTrue(className.endsWith("Foo"), 1);
     }
 
