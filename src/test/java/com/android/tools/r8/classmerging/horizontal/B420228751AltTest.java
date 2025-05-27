@@ -50,11 +50,7 @@ public class B420228751AltTest extends TestBase {
         .enableNoVerticalClassMergingAnnotations()
         .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
-        // TODO(b/420228751): Disallow horizontal class merging.
-        .applyIf(
-            parameters.canUseDefaultAndStaticInterfaceMethods(),
-            rr -> rr.assertSuccessWithOutputLines("A", "J", "J"),
-            rr -> rr.assertSuccessWithOutputLines("A", "I", "J"));
+        .assertSuccessWithOutputLines("A", "I", "J");
   }
 
   static class Main {

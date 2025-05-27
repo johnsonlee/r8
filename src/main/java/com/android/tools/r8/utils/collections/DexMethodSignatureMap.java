@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import java.util.function.BiPredicate;
 import java.util.function.Function;
 
 public class DexMethodSignatureMap<T> implements Map<DexMethodSignature, T> {
@@ -68,6 +69,10 @@ public class DexMethodSignatureMap<T> implements Map<DexMethodSignature, T> {
   @Override
   public Set<DexMethodSignature> keySet() {
     return backing.keySet();
+  }
+
+  public DexMethodSignatureSet keySignatureSet() {
+    return DexMethodSignatureSet.create(this);
   }
 
   @Override
@@ -256,6 +261,10 @@ public class DexMethodSignatureMap<T> implements Map<DexMethodSignature, T> {
 
   public T remove(DexEncodedMethod method) {
     return remove(method.getSignature());
+  }
+
+  public boolean removeIf(BiPredicate<DexMethodSignature, T> predicate) {
+    return backing.entrySet().removeIf(entry -> predicate.test(entry.getKey(), entry.getValue()));
   }
 
   @Override

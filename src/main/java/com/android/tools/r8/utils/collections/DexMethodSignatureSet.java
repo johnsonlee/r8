@@ -33,6 +33,10 @@ public class DexMethodSignatureSet implements Collection<DexMethodSignature> {
     return new DexMethodSignatureSet(new HashSet<>());
   }
 
+  public static DexMethodSignatureSet create(DexMethodSignatureMap<?> map) {
+    return new DexMethodSignatureSet(map.keySet());
+  }
+
   public static DexMethodSignatureSet create(DexMethodSignatureSet collection) {
     return new DexMethodSignatureSet(new HashSet<>(collection.backing));
   }
