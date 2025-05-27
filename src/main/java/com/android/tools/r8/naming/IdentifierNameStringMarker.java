@@ -10,6 +10,7 @@ import static com.android.tools.r8.naming.IdentifierNameStringUtils.isClassNameC
 import static com.android.tools.r8.naming.IdentifierNameStringUtils.isReflectionMethod;
 
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
+import com.android.tools.r8.errors.dontwarn.DontWarnConfiguration;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.Definition;
 import com.android.tools.r8.graph.DexEncodedField;
@@ -43,6 +44,7 @@ import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.TextPosition;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.ArrayUtils;
+import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.google.common.collect.Streams;
@@ -411,6 +413,19 @@ public class IdentifierNameStringMarker extends CodeRewriterPass<AppInfoWithLive
     // Undetermined identifiers matter only if minification is enabled.
     if (!appView.options().isMinifying()) {
       return;
+    }
+    // Don't raise warning if there is a -dontwarn.
+    DontWarnConfiguration dontWarnConfiguration = appView.getDontWarnConfiguration();
+    if (dontWarnConfiguration.matches(method)) {
+      return;
+    }
+    if (original != null) {
+      String descriptor = DescriptorUtils.javaTypeToDescriptorIfValidJavaType(original.toString());
+      if (descriptor != null) {
+        if (dontWarnConfiguration.matches(dexItemFactory.createType(descriptor))) {
+          return;
+        }
+      }
     }
     Origin origin = method.getOrigin();
     String kind = member.isDexField() ? "field" : "method";
