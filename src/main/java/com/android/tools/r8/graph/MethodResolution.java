@@ -184,7 +184,7 @@ public class MethodResolution {
           initialResolutionHolder, clazz, result);
     }
     // Pt 2: Find a method that matches the descriptor.
-    result = clazz.lookupMethod(methodProto, methodName);
+    result = lookupMethod(clazz, methodProto, methodName);
     if (result != null) {
       // If the resolved method is private, then it can only be accessed if the symbolic reference
       // that initiated the resolution was the type at which the method resolved on. If that is not
@@ -450,7 +450,7 @@ public class MethodResolution {
               builder.addTypeWithMultipleDefinitions(iface);
             }
             assert definition.isInterface();
-            DexEncodedMethod result = definition.lookupMethod(methodProto, methodName);
+            DexEncodedMethod result = lookupMethod(definition, methodProto, methodName);
             if (isMaximallySpecificCandidate(result)) {
               // The candidate is added and doing so will prohibit shadowed methods from being
               // in the set.
@@ -499,7 +499,7 @@ public class MethodResolution {
    * from also contribute with a candidate to the type. That is not determined by this method.
    */
   private boolean isMaximallySpecificCandidate(DexEncodedMethod method) {
-    return method != null && !method.accessFlags.isPrivate() && !method.accessFlags.isStatic();
+    return method != null && !method.isPrivate() && !method.isStatic();
   }
 
   /**
@@ -538,7 +538,7 @@ public class MethodResolution {
       DexClass definition, DexProto methodProto, DexString methodName) {
     assert definition.isInterface();
     // Step 2: Look for exact method on interface.
-    DexEncodedMethod result = definition.lookupMethod(methodProto, methodName);
+    DexEncodedMethod result = lookupMethod(definition, methodProto, methodName);
     if (result != null) {
       return MethodResolutionResult.createSingleResolutionResult(definition, definition, result);
     }
@@ -547,10 +547,8 @@ public class MethodResolution {
     definitionFor(factory.objectType)
         .forEachClassResolutionResult(
             objectClass -> {
-              DexEncodedMethod objectResult = objectClass.lookupMethod(methodProto, methodName);
-              if (objectResult != null
-                  && objectResult.accessFlags.isPublic()
-                  && !objectResult.accessFlags.isAbstract()) {
+              DexEncodedMethod objectResult = lookupMethod(objectClass, methodProto, methodName);
+              if (objectResult != null && objectResult.isPublic() && !objectResult.isAbstract()) {
                 builder.addResolutionResult(
                     MethodResolutionResult.createSingleResolutionResult(
                         definition, objectClass, objectResult));
@@ -738,6 +736,11 @@ public class MethodResolution {
 
   protected DexTypeList getInterfaces(DexClass clazz) {
     return clazz.getInterfaces();
+  }
+
+  protected DexEncodedMethod lookupMethod(
+      DexClass clazz, DexProto methodProto, DexString methodName) {
+    return clazz.lookupMethod(methodProto, methodName);
   }
 
   private static SingleResolutionResult<?> singleResultHelper(

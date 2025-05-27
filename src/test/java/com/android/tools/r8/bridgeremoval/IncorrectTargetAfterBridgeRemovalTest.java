@@ -44,11 +44,7 @@ public class IncorrectTargetAfterBridgeRemovalTest extends TestBase {
         .enableNeverClassInliningAnnotations()
         .enableNoVerticalClassMergingAnnotations()
         .run(parameters.getRuntime(), Main.class)
-        .applyIf(
-            parameters.canUseDefaultAndStaticInterfaceMethods(),
-            // TODO(b/419464490): Should succeed with expected output.
-            rr -> rr.assertSuccessWithOutputLines("A", "A"),
-            rr -> rr.assertSuccessWithOutputLines("A", "I"));
+        .assertSuccessWithOutputLines("A", "I");
   }
 
   static class Main {

@@ -3,8 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.bridgeremoval;
 
-import static com.android.tools.r8.utils.codeinspector.AssertUtils.assertFailsCompilationIf;
-
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.NoHorizontalClassMerging;
@@ -31,20 +29,16 @@ public class B419464490Test extends TestBase {
 
   @Test
   public void test() throws Exception {
-    // TODO(b/419464490): Should succeed with expected output.
-    assertFailsCompilationIf(
-        parameters.canUseDefaultAndStaticInterfaceMethods(),
-        () ->
-            testForR8(parameters)
-                .addInnerClasses(getClass())
-                .addKeepMainRule(Main.class)
-                .enableInliningAnnotations()
-                .enableNeverClassInliningAnnotations()
-                .enableNoHorizontalClassMergingAnnotations()
-                .enableNoVerticalClassMergingAnnotations()
-                .compile()
-                .run(parameters.getRuntime(), Main.class)
-                .assertSuccessWithOutputLines("I", "J"));
+    testForR8(parameters)
+        .addInnerClasses(getClass())
+        .addKeepMainRule(Main.class)
+        .enableInliningAnnotations()
+        .enableNeverClassInliningAnnotations()
+        .enableNoHorizontalClassMergingAnnotations()
+        .enableNoVerticalClassMergingAnnotations()
+        .compile()
+        .run(parameters.getRuntime(), Main.class)
+        .assertSuccessWithOutputLines("I", "J");
   }
 
   static class Main {

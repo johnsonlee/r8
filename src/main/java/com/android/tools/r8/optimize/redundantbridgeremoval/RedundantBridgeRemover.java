@@ -13,9 +13,12 @@ import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexProto;
+import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.graph.MethodAccessFlags;
+import com.android.tools.r8.graph.MethodResolution;
 import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.MethodResolutionResult.FailedResolutionResult;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleLibraryResolutionResult;
@@ -104,6 +107,18 @@ public class RedundantBridgeRemover extends MemberRebindingHelper {
             .getHolder()
             .classInitializationMayHaveSideEffectsInContext(appView, targetMethod)) {
       return null;
+    }
+    if (targetMethod.getHolder().isInterface()) {
+      MethodResolution methodResolver = new MethodResolutionWithoutBridge(appView, method);
+      MethodResolutionResult resolutionResult =
+          method.getHolder().isInterface()
+              ? methodResolver.resolveMethodOnInterface(
+                  method.getHolder(), method.getProto(), method.getName())
+              : methodResolver.resolveMethodOnClass(
+                  method.getHolder(), method.getProto(), method.getName());
+      if (!targetMethod.isStructurallyEqualTo(resolutionResult.getResolutionPair())) {
+        return null;
+      }
     }
     return targetMethod;
   }
@@ -206,14 +221,13 @@ public class RedundantBridgeRemover extends MemberRebindingHelper {
     return traversal.getRemovedBridges();
   }
 
-  @SuppressWarnings("ReferenceEquality")
   private DexClassAndMethod getTargetForRedundantAbstractBridge(ProgramMethod method) {
-    if (!method.getAccessFlags().isAbstract() || method.getDefinition().getCode() != null) {
+    if (!method.getAccessFlags().isAbstract() || method.getDefinition().hasCode()) {
       return null;
     }
     DexProgramClass holder = method.getHolder();
-    if (holder.getSuperType() == null) {
-      assert holder.getType() == appView.dexItemFactory().objectType;
+    if (!holder.hasSuperType()) {
+      assert holder.getType().isIdenticalTo(appView.dexItemFactory().objectType);
       return null;
     }
     MethodResolutionResult superTypeResolution =
@@ -415,6 +429,27 @@ public class RedundantBridgeRemover extends MemberRebindingHelper {
         worklist.addIfNotSeen(immediateSubtypingInfo.getSubclasses(clazz));
       }
       return superTargets;
+    }
+  }
+
+  private static class MethodResolutionWithoutBridge extends MethodResolution {
+
+    private final ProgramMethod bridge;
+
+    private MethodResolutionWithoutBridge(
+        AppView<? extends AppInfoWithClassHierarchy> appView, ProgramMethod bridge) {
+      super(
+          appView.appInfo()::contextIndependentDefinitionForWithResolutionResult,
+          appView.dexItemFactory());
+      this.bridge = bridge;
+    }
+
+    @Override
+    protected DexEncodedMethod lookupMethod(
+        DexClass clazz, DexProto methodProto, DexString methodName) {
+      return clazz == bridge.getHolder() && bridge.getReference().match(methodProto, methodName)
+          ? null
+          : super.lookupMethod(clazz, methodProto, methodName);
     }
   }
 }
