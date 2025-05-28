@@ -287,7 +287,6 @@ public class SyntheticFinalization {
             State.FINALIZED,
             application,
             new CommittedSyntheticsCollection(
-                synthetics.getNaming(),
                 finalMethods,
                 finalClasses,
                 committed.getGlobalContexts(),

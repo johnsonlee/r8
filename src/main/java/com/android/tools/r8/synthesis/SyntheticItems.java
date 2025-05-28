@@ -264,23 +264,28 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
     return new CommittedItems(
         State.OPEN,
         application,
-        CommittedSyntheticsCollection.empty(application.dexItemFactory().getSyntheticNaming()),
+        CommittedSyntheticsCollection.empty(),
         ImmutableList.of(),
         globalSyntheticsStrategy);
   }
 
   // Only for conversion to a mutable synthetic items collection.
   SyntheticItems(CommittedItems commit) {
-    this(commit.state, commit.committed, commit.globalSyntheticsStrategy);
+    this(
+        commit.state,
+        commit.committed,
+        commit.globalSyntheticsStrategy,
+        commit.getApplication().dexItemFactory().getSyntheticNaming());
   }
 
   private SyntheticItems(
       State state,
       CommittedSyntheticsCollection committed,
-      GlobalSyntheticsStrategy globalSyntheticsStrategy) {
+      GlobalSyntheticsStrategy globalSyntheticsStrategy,
+      SyntheticNaming naming) {
     this.state = state;
     this.committed = committed;
-    this.naming = committed.getNaming();
+    this.naming = naming;
     this.globalContexts = globalSyntheticsStrategy.getStrategy();
     this.globalSyntheticsStrategy = globalSyntheticsStrategy;
   }
