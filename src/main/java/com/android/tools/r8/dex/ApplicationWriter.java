@@ -51,7 +51,6 @@ import com.android.tools.r8.metadata.impl.BuildMetadataFactory;
 import com.android.tools.r8.naming.KotlinModuleSynthesizer;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.naming.ProguardMapSupplier.ProguardMapId;
-import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration.R8PartialR8SubCompilationConfiguration;
 import com.android.tools.r8.partial.R8PartialUtils;
 import com.android.tools.r8.profile.startup.StartupCompleteness;
@@ -74,7 +73,6 @@ import com.android.tools.r8.utils.OriginalSourceFiles;
 import com.android.tools.r8.utils.PredicateUtils;
 import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.StringDiagnostic;
-import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.timing.Timing;
 import com.android.tools.r8.utils.timing.TimingMerger;
@@ -83,7 +81,6 @@ import com.google.common.collect.ObjectArrays;
 import it.unimi.dsi.fastutil.objects.Reference2LongMap;
 import it.unimi.dsi.fastutil.objects.Reference2LongOpenHashMap;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -93,13 +90,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 public class ApplicationWriter {
 
@@ -719,7 +714,7 @@ public class ApplicationWriter {
           resourceAdapter,
           kotlinModuleSynthesizer);
 
-      addServiceResources(FeatureSplit.BASE, appView, reporter, dataResourceConsumer);
+      appView.appServices().write(appView, FeatureSplit.BASE, dataResourceConsumer);
       // Rewrite/synthesize kotlin_module files
       kotlinModuleSynthesizer
           .synthesizeKotlinModuleFiles()
@@ -731,7 +726,7 @@ public class ApplicationWriter {
           options.getFeatureSplitConfiguration().getDataResourceProvidersAndConsumers()) {
         adaptAndPassDataResources(
             options, entry.consumer, entry.providers, resourceAdapter, kotlinModuleSynthesizer);
-        addServiceResources(entry.featureSplit, appView, reporter, entry.consumer);
+        appView.appServices().write(appView, entry.featureSplit, entry.consumer);
       }
     }
 
@@ -745,42 +740,6 @@ public class ApplicationWriter {
       assert appView.hasClassHierarchy();
       options.r8BuildMetadataConsumer.accept(
           BuildMetadataFactory.create(appView.withClassHierarchy(), executorService, virtualFiles));
-    }
-  }
-
-  private static void addServiceResources(
-      FeatureSplit featureSplit,
-      AppView<?> appView,
-      Reporter reporter,
-      DataResourceConsumer dataResourceConsumer) {
-    // Write the META-INF/services resources. Sort on service names and keep the order from
-    // the input for the implementation lines for deterministic output.
-    NamingLens namingLens = appView.getNamingLens();
-    TreeMap<String, String> servicesFiles = new TreeMap<>();
-    appView
-        .appServices()
-        .visit(
-            featureSplit,
-            (DexType service, List<DexType> implementations) -> {
-              String serviceName =
-                  DescriptorUtils.descriptorToJavaType(
-                      namingLens.lookupDescriptor(service).toString());
-              servicesFiles.put(
-                  serviceName,
-                  StringUtils.lines(
-                      implementations.stream()
-                          .map(namingLens::lookupDescriptor)
-                          .map(DexString::toString)
-                          .map(DescriptorUtils::descriptorToJavaType)
-                          .collect(Collectors.toList())));
-            });
-    for (var entry : servicesFiles.entrySet()) {
-      dataResourceConsumer.accept(
-          DataEntryResource.fromBytes(
-              entry.getValue().getBytes(StandardCharsets.UTF_8),
-              AppServices.SERVICE_DIRECTORY_NAME + entry.getKey(),
-              Origin.unknown()),
-          reporter);
     }
   }
 

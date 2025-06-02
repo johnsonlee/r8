@@ -6,6 +6,7 @@ package com.android.tools.r8.graph;
 
 import com.android.tools.r8.DataDirectoryResource;
 import com.android.tools.r8.DataEntryResource;
+import com.android.tools.r8.DataResourceConsumer;
 import com.android.tools.r8.DataResourceProvider;
 import com.android.tools.r8.DataResourceProvider.Visitor;
 import com.android.tools.r8.FeatureSplit;
@@ -13,6 +14,7 @@ import com.android.tools.r8.ProgramResourceProvider;
 import com.android.tools.r8.ResourceException;
 import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.graph.lens.GraphLens;
+import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.InternalOptions;
@@ -25,13 +27,16 @@ import com.google.common.collect.Sets;
 import com.google.common.io.ByteStreams;
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
 
 /** A description of the services and their implementations found in META-INF/services/. */
 public class AppServices {
@@ -172,6 +177,35 @@ public class AppServices {
             consumer.accept(type, implsInSplit);
           }
         });
+  }
+
+  public void write(AppView<?> appView, FeatureSplit featureSplit, DataResourceConsumer consumer) {
+    // Write the META-INF/services resources. Sort on service names and keep the order from
+    // the input for the implementation lines to preserve runtime behavior.
+    NamingLens namingLens = appView.getNamingLens();
+    TreeMap<String, String> servicesFiles = new TreeMap<>();
+    visit(
+        featureSplit,
+        (service, implementations) -> {
+          String serviceName =
+              DescriptorUtils.descriptorToJavaType(namingLens.lookupDescriptor(service).toString());
+          servicesFiles.put(
+              serviceName,
+              StringUtils.lines(
+                  implementations.stream()
+                      .map(namingLens::lookupDescriptor)
+                      .map(DexString::toString)
+                      .map(DescriptorUtils::descriptorToJavaType)
+                      .collect(Collectors.toList())));
+        });
+    for (var entry : servicesFiles.entrySet()) {
+      consumer.accept(
+          DataEntryResource.fromBytes(
+              entry.getValue().getBytes(StandardCharsets.UTF_8),
+              SERVICE_DIRECTORY_NAME + entry.getKey(),
+              Origin.unknown()),
+          appView.reporter());
+    }
   }
 
   public static Builder builder(AppView<?> appView) {
