@@ -124,6 +124,10 @@ public class R8ResourceShrinkerState {
     }
   }
 
+  public boolean hasResourceId(int resourceId) {
+    return getR8ResourceShrinkerModel().getResourceStore().getResource(resourceId) != null;
+  }
+
   public void traceKeepXmlAndManifest() {
     // We start by building the root set of all keep/discard rules to find those pinned resources
     // before marking additional resources in the trace.

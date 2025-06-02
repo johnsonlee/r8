@@ -328,7 +328,9 @@ public class RootSetUtils {
             new R8PartialResourceUseCollector(appView) {
               @Override
               protected void keep(int resourceId) {
-                resourceRootIds.add(resourceId);
+                if (appView.getResourceShrinkerState().hasResourceId(resourceId)) {
+                  resourceRootIds.add(resourceId);
+                }
               }
             };
         resourceUseCollector.run();
