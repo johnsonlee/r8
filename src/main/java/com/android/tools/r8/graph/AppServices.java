@@ -191,7 +191,7 @@ public class AppServices {
               DescriptorUtils.descriptorToJavaType(namingLens.lookupDescriptor(service).toString());
           servicesFiles.put(
               serviceName,
-              StringUtils.lines(
+              StringUtils.unixLines(
                   implementations.stream()
                       .map(namingLens::lookupDescriptor)
                       .map(DexString::toString)
