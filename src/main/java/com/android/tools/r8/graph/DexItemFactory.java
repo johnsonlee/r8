@@ -3472,10 +3472,11 @@ public class DexItemFactory {
     return method.name == classConstructorMethodName;
   }
 
-  public void clearTypeElementsCache() {
+  public DexItemFactory clearTypeElementsCache() {
     referenceTypes.clear();
     classTypeInterfaces.clear();
     leastUpperBoundOfInterfacesTable.clear();
+    return this;
   }
 
   public boolean verifyNoCachedTypeElements() {
