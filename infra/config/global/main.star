@@ -182,7 +182,7 @@ def get_dimensions(windows = False, internal = False, archive = False, noble=Tru
         dimensions["os"] = "Windows-10"
     else:
         if noble:
-            dimensions["os"] = "Ubuntu-24.04"
+            dimensions["os"] = "Ubuntu-22.04"
         else:
             dimensions["os"] = "Ubuntu-20.04"
     if internal:
