@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.utils;
 
+import static com.android.tools.r8.utils.StringUtils.UNIX_LINE_SEPARATOR;
 import static org.junit.Assert.assertFalse;
 
 import com.android.tools.r8.DataDirectoryResource;
@@ -42,7 +43,7 @@ public class DataResourceConsumerForTesting implements DataResourceConsumer {
     try {
       byte[] bytes = ByteStreams.toByteArray(file.getByteStream());
       String contents = new String(bytes, Charset.defaultCharset());
-      resources.put(file.getName(), ImmutableList.copyOf(contents.split(System.lineSeparator())));
+      resources.put(file.getName(), ImmutableList.copyOf(contents.split(UNIX_LINE_SEPARATOR)));
     } catch (Exception e) {
       throw new RuntimeException(e);
     }

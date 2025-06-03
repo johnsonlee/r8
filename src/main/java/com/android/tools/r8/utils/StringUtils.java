@@ -28,6 +28,7 @@ public class StringUtils {
   public static char[] EMPTY_CHAR_ARRAY = {};
   public static final String[] EMPTY_ARRAY = {};
   public static final String LINE_SEPARATOR = System.getProperty("line.separator");
+  public static final String UNIX_LINE_SEPARATOR = "\n";
   public static final char BOM = '\uFEFF';
 
   public enum BraceType {
@@ -255,7 +256,7 @@ public class StringUtils {
   }
 
   public static String unixLines(List<String> lines) {
-    return lines(lines, "\n");
+    return lines(lines, UNIX_LINE_SEPARATOR);
   }
 
   public static String withNativeLineSeparator(String s) {
