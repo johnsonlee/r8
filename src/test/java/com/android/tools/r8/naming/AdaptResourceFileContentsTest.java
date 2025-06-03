@@ -4,38 +4,25 @@
 
 package com.android.tools.r8.naming;
 
+import static com.android.tools.r8.utils.StringUtils.UNIX_LINE_SEPARATOR;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.CompilationFailedException;
-import com.android.tools.r8.DataDirectoryResource;
 import com.android.tools.r8.DataEntryResource;
 import com.android.tools.r8.DataResourceConsumer;
-import com.android.tools.r8.DataResourceProvider.Visitor;
 import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.shaking.forceproguardcompatibility.ProguardCompatibilityTestBase;
 import com.android.tools.r8.utils.AndroidApiLevel;
-import com.android.tools.r8.utils.ArchiveResourceProvider;
 import com.android.tools.r8.utils.DataResourceConsumerForTesting;
-import com.android.tools.r8.utils.FileUtils;
-import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.ByteStreams;
-import java.io.File;
-import java.nio.charset.Charset;
-import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -120,7 +107,7 @@ public class AdaptResourceFileContentsTest extends ProguardCompatibilityTestBase
       adaptResourceFileContentsRule = "";
     }
     return String.join(
-        System.lineSeparator(),
+        UNIX_LINE_SEPARATOR,
         adaptResourceFileContentsRule,
         "-keep class " + AdaptResourceFileContentsTestClass.class.getName() + " {",
         "  public static void main(...);",
@@ -130,7 +117,7 @@ public class AdaptResourceFileContentsTest extends ProguardCompatibilityTestBase
   private static String getProguardConfigWithNeverInline(
       boolean enableAdaptResourceFileContents, String adaptResourceFileContentsPathFilter) {
     return String.join(
-        System.lineSeparator(),
+        UNIX_LINE_SEPARATOR,
         getProguardConfig(enableAdaptResourceFileContents, adaptResourceFileContentsPathFilter),
         "-neverinline class com.android.tools.r8.naming.AdaptResourceFileContentsTestClass$B {",
         "  public void method();",
@@ -240,27 +227,27 @@ public class AdaptResourceFileContentsTest extends ProguardCompatibilityTestBase
   private List<DataEntryResource> getDataResources() {
     return ImmutableList.of(
         DataEntryResource.fromBytes(
-            String.join(System.lineSeparator(), originalAllChangedResource).getBytes(),
+            String.join(UNIX_LINE_SEPARATOR, originalAllChangedResource).getBytes(),
             "resource-all-changed.class",
             Origin.unknown()),
         DataEntryResource.fromBytes(
-            String.join(System.lineSeparator(), originalAllChangedResource).getBytes(),
+            String.join(UNIX_LINE_SEPARATOR, originalAllChangedResource).getBytes(),
             "resource-all-changed.cLaSs",
             Origin.unknown()),
         DataEntryResource.fromBytes(
-            String.join(System.lineSeparator(), originalAllChangedResource).getBytes(),
+            String.join(UNIX_LINE_SEPARATOR, originalAllChangedResource).getBytes(),
             "resource-all-changed.md",
             Origin.unknown()),
         DataEntryResource.fromBytes(
-            String.join(System.lineSeparator(), originalAllChangedResource).getBytes(),
+            String.join(UNIX_LINE_SEPARATOR, originalAllChangedResource).getBytes(),
             "resource-all-changed.txt",
             Origin.unknown()),
         DataEntryResource.fromBytes(
-            String.join(System.lineSeparator(), originalAllPresentResource).getBytes(),
+            String.join(UNIX_LINE_SEPARATOR, originalAllPresentResource).getBytes(),
             "resource-all-present.txt",
             Origin.unknown()),
         DataEntryResource.fromBytes(
-            String.join(System.lineSeparator(), originalAllUnchangedResource).getBytes(),
+            String.join(UNIX_LINE_SEPARATOR, originalAllUnchangedResource).getBytes(),
             "resource-all-unchanged.txt",
             Origin.unknown()));
   }
