@@ -161,6 +161,8 @@ public final class R8Command extends BaseCompilerCommand {
         ResourceShrinkerConfiguration.DEFAULT_CONFIGURATION;
     private R8PartialCompilationConfiguration partialCompilationConfiguration =
         R8PartialCompilationConfiguration.fromSystemProperties();
+    private final List<PartialOptimizationConfigurationProvider>
+        partialOptimizationConfigurationProviders = new ArrayList<>();
 
     private final ProguardConfigurationParserOptions.Builder parserOptionsBuilder =
         ProguardConfigurationParserOptions.builder().readEnvironment();
@@ -653,6 +655,20 @@ public final class R8Command extends BaseCompilerCommand {
     }
 
     /**
+     * Add {@link PartialOptimizationConfigurationProvider}s to enable R8 optimizations on a part of
+     * the program only. The {@link PartialOptimizationConfigurationProvider}s specifies exactly
+     * which classes R8 can optimize.
+     *
+     * @param providers instances implementing {@link PartialOptimizationConfigurationProvider} to
+     *     provide the partial compilation configuration.
+     */
+    public Builder addPartialOptimizationConfigurationProviders(
+        PartialOptimizationConfigurationProvider... providers) {
+      partialOptimizationConfigurationProviders.addAll(Arrays.asList(providers));
+      return this;
+    }
+
+    /**
      * Add a collection of startup profile providers that should be used for distributing the
      * program classes in DEX. The given startup profiles are also used to disallow optimizations
      * across the startup and post-startup boundary.
@@ -767,14 +783,28 @@ public final class R8Command extends BaseCompilerCommand {
       if (hasDesugaredLibraryConfiguration() && getDisableDesugaring()) {
         reporter.error("Using desugared library configuration requires desugaring to be enabled");
       }
-      if (partialCompilationConfiguration.isEnabled()) {
-        validateR8Partial();
-      }
+      buildAndValidateR8Partial();
       super.validate();
     }
 
-    private void validateR8Partial() {
+    private void buildAndValidateR8Partial() {
+      if (!partialCompilationConfiguration.isEnabled()
+          && partialOptimizationConfigurationProviders.isEmpty()) {
+        return;
+      }
       Reporter reporter = getReporter();
+      if (partialCompilationConfiguration.isEnabled()
+          && !partialOptimizationConfigurationProviders.isEmpty()) {
+        reporter.error("Cannot mix experimental partial compilation with partial optimization");
+      }
+      if (!partialOptimizationConfigurationProviders.isEmpty()) {
+        assert !partialCompilationConfiguration.isEnabled();
+        R8PartialCompilationConfiguration.Builder configurationBuilder =
+            R8PartialCompilationConfiguration.builder();
+        partialOptimizationConfigurationProviders.forEach(
+            provider -> provider.getPartialOptimizationConfiguration(configurationBuilder));
+        partialCompilationConfiguration = configurationBuilder.build();
+      }
       if (!(getProgramConsumer() instanceof DexIndexedConsumer)) {
         reporter.error("Partial shrinking does not support generating class files");
       }

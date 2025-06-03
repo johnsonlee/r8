@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.partial;
 
+import com.android.tools.r8.PartialOptimizationConfigurationBuilder;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.partial.predicate.AllClassesMatcher;
@@ -13,6 +14,8 @@ import com.android.tools.r8.partial.predicate.PackagePrefixMatcher;
 import com.android.tools.r8.partial.predicate.R8PartialPredicate;
 import com.android.tools.r8.partial.predicate.R8PartialPredicateCollection;
 import com.android.tools.r8.partial.predicate.UnnamedPackageMatcher;
+import com.android.tools.r8.references.ClassReference;
+import com.android.tools.r8.references.PackageReference;
 import com.android.tools.r8.utils.ConsumerUtils;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.InternalOptions;
@@ -154,14 +157,12 @@ public class R8PartialCompilationConfiguration {
     return randomizeForTesting != null;
   }
 
-  public static class Builder {
+  public static class Builder implements PartialOptimizationConfigurationBuilder {
     private final R8PartialPredicateCollection includePredicates =
         new R8PartialPredicateCollection();
     private final R8PartialPredicateCollection excludePredicates =
         new R8PartialPredicateCollection();
     private Random randomizeForTesting;
-
-    private Builder() {}
 
     public R8PartialCompilationConfiguration build() {
       return new R8PartialCompilationConfiguration(
@@ -264,6 +265,18 @@ public class R8PartialCompilationConfiguration {
                 + descriptorPrefixWithoutWildcards);
       }
       return descriptorPrefixWithoutWildcards;
+    }
+
+    @Override
+    public PartialOptimizationConfigurationBuilder addClass(ClassReference classReference) {
+      includePredicates.add(createPredicate("L" + classReference.getBinaryName()));
+      return this;
+    }
+
+    @Override
+    public PartialOptimizationConfigurationBuilder addPackage(PackageReference packageReference) {
+      includePredicates.add(createPredicate("L" + packageReference.getPackageBinaryName() + "/*"));
+      return this;
     }
   }
 }

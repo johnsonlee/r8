@@ -38,6 +38,7 @@ import com.android.tools.r8.compilerapi.syntheticscontexts.SyntheticContextsCons
 import com.android.tools.r8.compilerapi.testsetup.ApiTestingSetUpTest;
 import com.android.tools.r8.compilerapi.wrappers.CommandLineParserTest;
 import com.android.tools.r8.compilerapi.wrappers.EnableMissingLibraryApiModelingTest;
+import com.android.tools.r8.partial.PartialOptimizationApiTest;
 import com.android.tools.r8.partial.PartialShrinkingPreviewApiTest;
 import com.google.common.collect.ImmutableList;
 import java.nio.file.Path;
@@ -83,7 +84,8 @@ public class CompilerApiTestCollection extends BinaryCompatibilityTestCollection
           ProtectApiSurfaceTest.ApiTest.class);
 
   private static final List<Class<? extends CompilerApiTest>> CLASSES_PENDING_BINARY_COMPATIBILITY =
-      ImmutableList.of(PartialShrinkingPreviewApiTest.ApiTest.class);
+      ImmutableList.of(
+          PartialOptimizationApiTest.ApiTest.class, PartialShrinkingPreviewApiTest.ApiTest.class);
 
   private final TemporaryFolder temp;
 
@@ -118,7 +120,9 @@ public class CompilerApiTestCollection extends BinaryCompatibilityTestCollection
 
   @Override
   public List<Class<?>> getPendingAdditionalClassesForTests() {
-    return ImmutableList.of();
+    return ImmutableList.of(
+        PartialOptimizationApiTest.ProviderUsingClass.class,
+        PartialOptimizationApiTest.ProviderUsingPackage.class);
   }
 
   @Override
