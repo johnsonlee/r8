@@ -386,6 +386,9 @@ public final class LambdaClass {
   }
 
   private boolean doesNotNeedAccessor(ProgramMethod accessedFrom) {
+    if (appView.testing().forceLambdaAccessorInD8) {
+      return false;
+    }
     return canAccessModifyLambdaImplMethod()
         || isPrivateOrStaticInterfaceMethodInvokeThatWillBeDesugared()
         || !descriptor.needsAccessor(accessedFrom);

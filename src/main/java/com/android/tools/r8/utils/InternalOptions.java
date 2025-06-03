@@ -2493,6 +2493,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     // Used by unit tests.
     public boolean listIterationRewritingRewriteCustomIterators =
         listIterationRewritingRewriteInterfaces;
+    // Testing flag to always generate D8 lambda accessors.
+    public boolean forceLambdaAccessorInD8 = false;
   }
 
   public MapVersion getMapFileVersion() {
