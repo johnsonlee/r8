@@ -640,13 +640,15 @@ public final class LambdaClass {
               new DexAnnotationElement[] {
                 new DexAnnotationElement(
                     factory.createString("holder"),
-                    new DexValueString(callTarget.getHolderType().descriptor)),
+                    new DexValueString(getImplementationMethod().getHolderType().descriptor)),
                 new DexAnnotationElement(
-                    factory.createString("method"), new DexValueString(callTarget.getName())),
+                    factory.createString("method"),
+                    new DexValueString(getImplementationMethod().getName())),
                 new DexAnnotationElement(
                     factory.createString("proto"),
                     new DexValueString(
-                        factory.createString(callTarget.getProto().toDescriptorString())))
+                        factory.createString(
+                            getImplementationMethod().getProto().toDescriptorString())))
               }));
     }
   }

@@ -48,21 +48,7 @@ public class LambdaCallTargetAnnotationTest extends TestBase {
     assertEquals(name, encodedAnnotation.getElement(index).getName().toString());
     DexValue elementValue = encodedAnnotation.getElement(index).getValue();
     assertTrue(elementValue.isDexValueString());
-    if (!forceLambdaAccessor) {
-      assertEquals(value, elementValue.asDexValueString().getValue().toString());
-    } else {
-      // Only check method names for reproduction of wrong annotation values.
-      if (!name.equals("method")) {
-        return;
-      }
-      if (value.equals("methodReturningJ")
-          || value.equals("methodReturningI")
-          || value.equals("<init>")) {
-        assertTrue(elementValue.asDexValueString().getValue().toString().startsWith("$r8$lambda"));
-      } else {
-        assertEquals(value, elementValue.asDexValueString().getValue().toString());
-      }
-    }
+    assertEquals(value, elementValue.asDexValueString().getValue().toString());
   }
 
   private void checkAnnotation(
