@@ -298,7 +298,11 @@ public class TimingImpl extends Timing {
   }
 
   private static long durationInMs(long value) {
-    return value / 1000000;
+    return value / 1_000_000;
+  }
+
+  private static long durationInS(long value) {
+    return value / 1_000_000_000;
   }
 
   private static long percentage(long part, long total) {
@@ -310,7 +314,20 @@ public class TimingImpl extends Timing {
   }
 
   private static String prettyTime(long value) {
-    return durationInMs(value) + "ms";
+    long seconds = durationInS(value);
+    long HH = seconds / 3600;
+    long MM = (seconds % 3600) / 60;
+    long SS = seconds % 60;
+    if (HH > 0) {
+      return String.format("%sms (%sh%sm%ss)", durationInMs(value), HH, MM, SS);
+    }
+    if (MM > 0) {
+      return String.format("%sms (%sm%ss)", durationInMs(value), MM, SS);
+    }
+    if (SS > 0) {
+      return String.format("%sms (%ss)", durationInMs(value), SS);
+    }
+    return String.format("%sms", durationInMs(value));
   }
 
   private static String prettySize(long value) {
