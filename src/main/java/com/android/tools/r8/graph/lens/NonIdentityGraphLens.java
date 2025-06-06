@@ -220,4 +220,13 @@ public abstract class NonIdentityGraphLens extends GraphLens {
   public final NonIdentityGraphLens asNonIdentityLens() {
     return this;
   }
+
+  @Override
+  public GraphLens removeLenses(Predicate<NonIdentityGraphLens> predicate) {
+    if (predicate.test(this)) {
+      return previousLens.removeLenses(predicate);
+    }
+    setPrevious(previousLens.removeLenses(predicate));
+    return this;
+  }
 }

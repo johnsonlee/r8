@@ -11,6 +11,7 @@ import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
 import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.OptionalBool;
+import java.util.function.Predicate;
 
 final class IdentityGraphLens extends GraphLens {
 
@@ -103,5 +104,10 @@ final class IdentityGraphLens extends GraphLens {
   @Override
   public boolean hasCodeRewritings() {
     return false;
+  }
+
+  @Override
+  public GraphLens removeLenses(Predicate<NonIdentityGraphLens> predicate) {
+    return this;
   }
 }

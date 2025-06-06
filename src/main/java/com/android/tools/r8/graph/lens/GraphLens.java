@@ -518,6 +518,8 @@ public abstract class GraphLens {
     return true;
   }
 
+  public abstract GraphLens removeLenses(Predicate<NonIdentityGraphLens> predicate);
+
   public Map<DexCallSite, ProgramMethodSet> rewriteCallSites(
       Map<DexCallSite, ProgramMethodSet> callSites,
       DexDefinitionSupplier definitions,

@@ -18,7 +18,11 @@ import com.android.tools.r8.utils.OptionalBool;
 public class ClearCodeRewritingGraphLens extends DefaultNonIdentityGraphLens {
 
   public ClearCodeRewritingGraphLens(AppView<? extends AppInfoWithClassHierarchy> appView) {
-    super(appView);
+    super(
+        appView,
+        appView
+            .graphLens()
+            .removeLenses(l -> l.isClearCodeRewritingLens() || l.isMemberRebindingIdentityLens()));
   }
 
   @Override
