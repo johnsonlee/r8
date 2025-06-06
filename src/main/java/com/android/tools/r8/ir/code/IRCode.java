@@ -1339,55 +1339,81 @@ public class IRCode implements IRControlFlowGraph, ValueFactory {
   }
 
   private boolean isBlockWithRedundantSuccessorBlockInDebug(BasicBlock block) {
-    return block.hasUniqueSuccessorWithUniquePredecessor()
-        && block.getInstructions().size() == 1
-        && block.exit().isGoto()
-        && block.exit().getDebugValues().isEmpty()
-        && !block.isEntry();
+    if (!block.hasUniqueNormalSuccessorWithUniquePredecessor()) {
+      return false;
+    }
+    if (block.hasCatchHandlers()) {
+      // Non-jump instructions are generally not allowed after a throwing instruction in a block
+      // with catch handlers.
+      if (!block.getUniqueNormalSuccessor().entry().isJumpInstruction()) {
+        return false;
+      }
+    } else {
+      assert block.hasUniqueSuccessorWithUniquePredecessor();
+    }
+    return block.entry().isGoto() && block.entry().getDebugValues().isEmpty() && !block.isEntry();
   }
 
   public void removeRedundantBlocks() {
     // See b/237567012.
     assert verifyNoStackInstructions();
-    Set<BasicBlock> blocksToRemove = Sets.newIdentityHashSet();
-    // Run over all blocks while merging successor blocks into the current block.
-    for (BasicBlock block : blocks) {
-      if (blocksToRemove.contains(block)) {
-        continue;
-      }
-      while (isBlockWithRedundantSuccessorBlock(block)) {
-        // Let the current block consume the successor.;
-        BasicBlock successor = block.getUniqueSuccessor();
-        assert !successor.hasCatchHandlers() || !block.canThrow();
-        assert !successor.hasPhis();
-        Instruction instruction = successor.entry();
-        while (instruction != null) {
-          Instruction next = instruction.getNext();
-          if (instruction.isJumpInstruction()) {
-            block.replaceLastInstruction(instruction);
-          } else {
-            block.getInstructions().addBefore(instruction, block.exit());
+    while (true) {
+      Set<BasicBlock> blocksToRemove = Sets.newIdentityHashSet();
+      boolean hasUnreachableCatchHandlers = false;
+      // Run over all blocks while merging successor blocks into the current block.
+      for (BasicBlock block : blocks) {
+        if (blocksToRemove.contains(block)) {
+          continue;
+        }
+        while (isBlockWithRedundantSuccessorBlock(block)) {
+          // Let the current block consume the successor.
+          BasicBlock successor = block.getUniqueNormalSuccessor();
+          assert !successor.hasCatchHandlers() || !block.canThrow();
+          assert !successor.hasPhis();
+          Instruction instruction = successor.entry();
+          boolean successorCanThrow = false;
+          while (instruction != null) {
+            Instruction next = instruction.getNext();
+            if (instruction.isJumpInstruction()) {
+              block.replaceLastInstruction(instruction);
+            } else {
+              block.getInstructions().addBefore(instruction, block.exit());
+            }
+            successorCanThrow |= instruction.instructionTypeCanThrow();
+            instruction = next;
           }
-          instruction = next;
-        }
 
-        // Unlink successor block.
-        block.getMutableSuccessors().clear();
-        if (successor.hasCatchHandlers()) {
-          block.moveCatchHandlers(successor);
-        }
-        block.getMutableSuccessors().addAll(successor.getSuccessors());
-        block.forEachNormalSuccessor(
-            successorOfSuccessor -> successorOfSuccessor.replacePredecessor(successor, block));
+          // Unlink successor block.
+          ListUtils.removeLast(block.getMutableSuccessors());
+          if (successor.hasCatchHandlers()) {
+            if (successorCanThrow) {
+              assert !block.hasCatchHandlers();
+              block.moveCatchHandlers(successor);
+            } else {
+              for (BasicBlock catchHandler : successor.getCatchHandlers().getUniqueTargets()) {
+                catchHandler.unlinkCatchHandler();
+              }
+              hasUnreachableCatchHandlers = true;
+            }
+          }
+          block.getMutableSuccessors().addAll(successor.getSuccessors());
+          block.forEachNormalSuccessor(
+              successorOfSuccessor -> successorOfSuccessor.replacePredecessor(successor, block));
 
-        // Clean successor block and record for removal.
-        successor.getInstructions().clear();
-        successor.getMutablePredecessors().clear();
-        successor.getMutableSuccessors().clear();
-        blocksToRemove.add(successor);
+          // Clean successor block and record for removal.
+          successor.getInstructions().clear();
+          successor.getMutablePredecessors().clear();
+          successor.getMutableSuccessors().clear();
+          blocksToRemove.add(successor);
+        }
+      }
+      blocks.removeAll(blocksToRemove);
+      if (hasUnreachableCatchHandlers) {
+        removeUnreachableBlocks();
+      } else {
+        break;
       }
     }
-    blocks.removeAll(blocksToRemove);
     assert noRedundantBlocks();
   }
 

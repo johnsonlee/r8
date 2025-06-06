@@ -1190,7 +1190,6 @@ public class BasicBlock {
   public boolean consistentCatchHandlers() {
     // Check that catch handlers are always the first successors of a block.
     if (hasCatchHandlers()) {
-      assert exit().isGoto() || exit().isReturn() || exit().isThrow();
       CatchHandlers<Integer> catchHandlers = getCatchHandlersWithSuccessorIndexes();
       // Check that guards are unique.
       assert catchHandlers.getGuards().size()
@@ -1209,9 +1208,9 @@ public class BasicBlock {
       int lastIndex = sortedHandlerIndices.get(sortedHandlerIndices.size() - 1);
       assert firstIndex == 0;
       assert lastIndex < sortedHandlerIndices.size();
-      int lastSuccessorIndex = getSuccessors().size() - 1;
-      assert lastIndex == lastSuccessorIndex // All successors are catch successors.
-          || lastIndex == lastSuccessorIndex - 1; // All but one successors are catch successors.
+      int lastExceptionalSuccessorIndex = catchHandlers.getUniqueTargets().size() - 1;
+      int lastSuccessorIndex = successors.size() - 1;
+      assert lastIndex == lastExceptionalSuccessorIndex;
       assert lastIndex == lastSuccessorIndex || !exit().isThrow();
     }
     return true;
