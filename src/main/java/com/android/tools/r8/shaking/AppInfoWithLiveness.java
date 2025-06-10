@@ -33,13 +33,14 @@ import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.graph.DispatchTargetLookupResult;
 import com.android.tools.r8.graph.FieldAccessInfo;
 import com.android.tools.r8.graph.FieldAccessInfoCollection;
-import com.android.tools.r8.graph.FieldAccessInfoCollectionImpl;
 import com.android.tools.r8.graph.FieldResolutionResult;
 import com.android.tools.r8.graph.InstantiatedSubTypeInfo;
 import com.android.tools.r8.graph.LookupMethodTarget;
 import com.android.tools.r8.graph.LookupResult.LookupResultSuccess;
 import com.android.tools.r8.graph.LookupTarget;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
+import com.android.tools.r8.graph.MutableFieldAccessInfo;
+import com.android.tools.r8.graph.MutableFieldAccessInfoCollection;
 import com.android.tools.r8.graph.ObjectAllocationInfoCollection;
 import com.android.tools.r8.graph.ObjectAllocationInfoCollectionImpl;
 import com.android.tools.r8.graph.ProgramField;
@@ -132,7 +133,8 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
    * a given field is read/written by the program, and it also includes all indirect accesses to
    * each field. The latter is used, for example, during member rebinding.
    */
-  private final FieldAccessInfoCollectionImpl fieldAccessInfoCollection;
+  private final MutableFieldAccessInfoCollection<?, ? extends MutableFieldAccessInfo>
+      fieldAccessInfoCollection;
 
   /** Information about instantiated classes and their allocation sites. */
   private final ObjectAllocationInfoCollectionImpl objectAllocationInfoCollection;
@@ -202,7 +204,8 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
       Set<DexMethod> bootstrapMethods,
       Set<DexMethod> virtualMethodsTargetedByInvokeDirect,
       Set<DexMethod> liveMethods,
-      FieldAccessInfoCollectionImpl fieldAccessInfoCollection,
+      MutableFieldAccessInfoCollection<?, ? extends MutableFieldAccessInfo>
+          fieldAccessInfoCollection,
       ObjectAllocationInfoCollectionImpl objectAllocationInfoCollection,
       Map<DexCallSite, ProgramMethodSet> callSites,
       KeepInfoCollection keepInfo,
@@ -399,10 +402,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
           });
     }
     return map;
-  }
-
-  public void notifyMemberRebindingFinished(AppView<AppInfoWithLiveness> appView) {
-    getFieldAccessInfoCollection().restrictToProgram(appView);
   }
 
   @Override
@@ -745,7 +744,8 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     return fieldAccessInfoCollection;
   }
 
-  FieldAccessInfoCollectionImpl getMutableFieldAccessInfoCollection() {
+  public MutableFieldAccessInfoCollection<?, ? extends MutableFieldAccessInfo>
+      getMutableFieldAccessInfoCollection() {
     return fieldAccessInfoCollection;
   }
 

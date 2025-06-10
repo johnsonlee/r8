@@ -1228,20 +1228,10 @@ public class Enqueuer {
       return false;
     }
     if (isReflective) {
-      if (isRead) {
-        if (!info.hasReflectiveRead()) {
-          info.setHasReflectiveRead();
-          return true;
-        }
-      } else {
-        if (!info.hasReflectiveWrite()) {
-          info.setHasReflectiveWrite();
-          return true;
-        }
-      }
-      return false;
+      return isRead ? info.setHasReflectiveRead() : info.setHasReflectiveWrite();
+    } else {
+      return isRead ? info.recordRead(field, context) : info.recordWrite(field, context);
     }
-    return isRead ? info.recordRead(field, context) : info.recordWrite(field, context);
   }
 
   void traceCallSite(

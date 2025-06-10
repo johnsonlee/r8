@@ -6,8 +6,8 @@ package com.android.tools.r8.shaking;
 
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexProgramClass;
-import com.android.tools.r8.graph.FieldAccessInfoCollectionImpl;
-import com.android.tools.r8.graph.FieldAccessInfoImpl;
+import com.android.tools.r8.graph.MutableFieldAccessInfo;
+import com.android.tools.r8.graph.MutableFieldAccessInfoCollection;
 import com.android.tools.r8.utils.SetUtils;
 import java.util.Set;
 
@@ -37,11 +37,11 @@ public class AppInfoWithLivenessModifier {
     appInfo.mutateObjectAllocationInfoCollection(
         mutator -> noLongerInstantiatedClasses.forEach(mutator::markNoLongerInstantiated));
     // Written fields.
-    FieldAccessInfoCollectionImpl fieldAccessInfoCollection =
-        appInfo.getMutableFieldAccessInfoCollection();
+    MutableFieldAccessInfoCollection<?, ? extends MutableFieldAccessInfo>
+        fieldAccessInfoCollection = appInfo.getMutableFieldAccessInfoCollection();
     noLongerWrittenFields.forEach(
         field -> {
-          FieldAccessInfoImpl fieldAccessInfo = fieldAccessInfoCollection.get(field);
+          MutableFieldAccessInfo fieldAccessInfo = fieldAccessInfoCollection.get(field);
           if (fieldAccessInfo != null) {
             fieldAccessInfo.clearWrites();
           }

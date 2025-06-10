@@ -8,8 +8,9 @@ import com.android.tools.r8.graph.AbstractAccessContexts;
 import com.android.tools.r8.graph.AbstractAccessContexts.ConcreteAccessContexts;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexField;
-import com.android.tools.r8.graph.FieldAccessInfoCollectionImpl;
 import com.android.tools.r8.graph.FieldAccessInfoImpl;
+import com.android.tools.r8.graph.MutableFieldAccessInfo;
+import com.android.tools.r8.graph.MutableFieldAccessInfoCollection;
 import com.android.tools.r8.graph.ProgramMethod;
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -66,13 +67,14 @@ public class FieldAccessInfoCollectionModifier {
   }
 
   public void modify(AppView<AppInfoWithLiveness> appView) {
-    FieldAccessInfoCollectionImpl impl = appView.appInfo().getMutableFieldAccessInfoCollection();
+    MutableFieldAccessInfoCollection<?, ? extends MutableFieldAccessInfo>
+        mutableFieldAccessInfoCollection = appView.appInfo().getMutableFieldAccessInfoCollection();
     newFieldAccessContexts.forEach(
         (field, accessContexts) -> {
           FieldAccessInfoImpl fieldAccessInfo = new FieldAccessInfoImpl(field);
           fieldAccessInfo.setReadsWithContexts(accessContexts.readsWithContexts);
           fieldAccessInfo.setWritesWithContexts(accessContexts.writesWithContexts);
-          impl.extend(field, fieldAccessInfo);
+          mutableFieldAccessInfoCollection.extend(field, fieldAccessInfo);
         });
   }
 

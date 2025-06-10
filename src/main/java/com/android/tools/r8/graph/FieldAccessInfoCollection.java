@@ -4,23 +4,16 @@
 
 package com.android.tools.r8.graph;
 
-import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 
 /** Provides immutable access to {@link FieldAccessInfoCollectionImpl}. */
 public interface FieldAccessInfoCollection<T extends FieldAccessInfo> {
 
-  void destroyAccessContexts();
-
-  void flattenAccessContexts();
-
-  boolean contains(DexField field);
+  default boolean contains(DexField field) {
+    return get(field) != null;
+  }
 
   T get(DexField field);
 
   void forEach(Consumer<T> consumer);
-
-  void removeIf(BiPredicate<DexField, FieldAccessInfoImpl> predicate);
-
-  void restrictToProgram(DexDefinitionSupplier definitions);
 }

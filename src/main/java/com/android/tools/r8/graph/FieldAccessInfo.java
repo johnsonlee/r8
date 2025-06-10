@@ -4,21 +4,16 @@
 
 package com.android.tools.r8.graph;
 
+import com.android.tools.r8.ir.analysis.proto.ProtoReferences;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 /** Provides immutable access to {@link FieldAccessInfoImpl}. */
 public interface FieldAccessInfo {
 
-  FieldAccessInfoImpl asMutable();
-
   DexField getField();
 
   int getNumberOfWriteContexts();
-
-  AbstractAccessContexts getReadsWithContexts();
-
-  AbstractAccessContexts getWritesWithContexts();
 
   boolean hasKnownReadContexts();
 
@@ -31,8 +26,6 @@ public interface FieldAccessInfo {
   void forEachWriteContext(Consumer<ProgramMethod> consumer);
 
   boolean hasReflectiveAccess();
-
-  boolean hasReflectiveRead();
 
   boolean hasReflectiveWrite();
 
@@ -48,13 +41,11 @@ public interface FieldAccessInfo {
 
   boolean isReadFromMethodHandle();
 
-  boolean isReadOnlyInMethodSatisfying(Predicate<ProgramMethod> predicate);
+  boolean isReadOnlyInFindLiteExtensionByNumberMethod(ProtoReferences references);
 
   boolean isWritten();
 
   boolean isWrittenFromMethodHandle();
-
-  boolean isWrittenInMethodSatisfying(Predicate<ProgramMethod> predicate);
 
   boolean isWrittenOnlyInMethodSatisfying(Predicate<ProgramMethod> predicate);
 

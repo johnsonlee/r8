@@ -360,11 +360,9 @@ public class MemberRebindingAnalysis extends MemberRebindingHelper {
   }
 
   public void run(ExecutorService executorService) throws ExecutionException {
-    AppInfoWithLiveness appInfo = appView.appInfo();
     Map<InvokeType, NonReboundMethodAccessCollection> nonReboundMethodAccessCollections =
         computeNonReboundMethodAccessCollections(executorService);
     computeMethodRebinding(nonReboundMethodAccessCollections);
-    appInfo.getFieldAccessInfoCollection().flattenAccessContexts();
     MemberRebindingLens memberRebindingLens = lensBuilder.build();
     appView.setGraphLens(memberRebindingLens);
     eventConsumer.finished(appView, memberRebindingLens);

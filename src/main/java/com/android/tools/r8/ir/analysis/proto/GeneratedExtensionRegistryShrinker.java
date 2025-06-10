@@ -103,7 +103,10 @@ public class GeneratedExtensionRegistryShrinker {
    */
   public TreePrunerConfiguration run(Enqueuer.Mode mode) {
     forEachDeadProtoExtensionField(field -> recordDeadProtoExtensionField(field, mode));
-    appView.appInfo().getFieldAccessInfoCollection().removeIf((field, info) -> wasRemoved(field));
+    appView
+        .appInfo()
+        .getMutableFieldAccessInfoCollection()
+        .removeIf((field, info) -> wasRemoved(field));
     return createTreePrunerConfiguration(mode);
   }
 
@@ -274,8 +277,7 @@ public class GeneratedExtensionRegistryShrinker {
     }
 
     // Multiple GeneratedExtensionRegistries exist in Chrome; 1 per feature split.
-    return fieldAccessInfo.isReadOnlyInMethodSatisfying(
-        references::isFindLiteExtensionByNumberMethod);
+    return fieldAccessInfo.isReadOnlyInFindLiteExtensionByNumberMethod(references);
   }
 
   private void forEachDeadProtoExtensionField(Consumer<DexField> consumer) {

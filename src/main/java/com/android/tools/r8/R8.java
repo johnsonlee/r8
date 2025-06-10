@@ -506,10 +506,12 @@ public class R8 {
 
       if (options.getTestingOptions().enableMemberRebindingAnalysis) {
         new MemberRebindingAnalysis(appViewWithLiveness).run(executorService);
-      } else {
-        appViewWithLiveness.appInfo().getFieldAccessInfoCollection().flattenAccessContexts();
       }
-      appViewWithLiveness.appInfo().notifyMemberRebindingFinished(appViewWithLiveness);
+      appViewWithLiveness.appInfo().getMutableFieldAccessInfoCollection().flattenAccessContexts();
+      appViewWithLiveness
+          .appInfo()
+          .getMutableFieldAccessInfoCollection()
+          .restrictToProgram(appView);
 
       assert ArtProfileCompletenessChecker.verify(appView);
 

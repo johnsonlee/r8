@@ -17,7 +17,8 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 public class FieldAccessInfoCollectionImpl
-    implements FieldAccessInfoCollection<FieldAccessInfoImpl> {
+    implements MutableFieldAccessInfoCollection<
+        FieldAccessInfoCollectionImpl, FieldAccessInfoImpl> {
 
   private final Map<DexField, FieldAccessInfoImpl> infos;
 
@@ -45,15 +46,11 @@ public class FieldAccessInfoCollectionImpl
   }
 
   @Override
-  public boolean contains(DexField field) {
-    return infos.containsKey(field);
-  }
-
-  @Override
   public FieldAccessInfoImpl get(DexField field) {
     return infos.get(field);
   }
 
+  @Override
   public FieldAccessInfoImpl extend(DexField field, FieldAccessInfoImpl info) {
     assert !infos.containsKey(field);
     infos.put(field, info);
@@ -81,6 +78,7 @@ public class FieldAccessInfoCollectionImpl
     removeIf((field, info) -> !definitions.definitionForHolder(field).isProgramClass());
   }
 
+  @Override
   public FieldAccessInfoCollectionImpl rewrittenWithLens(
       DexDefinitionSupplier definitions, GraphLens lens, Timing timing) {
     timing.begin("Rewrite FieldAccessInfoCollectionImpl");
@@ -105,6 +103,7 @@ public class FieldAccessInfoCollectionImpl
     return true;
   }
 
+  @Override
   public FieldAccessInfoCollectionImpl withoutPrunedItems(PrunedItems prunedItems) {
     Iterator<Entry<DexField, FieldAccessInfoImpl>> iterator = infos.entrySet().iterator();
     while (iterator.hasNext()) {

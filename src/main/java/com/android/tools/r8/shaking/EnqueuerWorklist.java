@@ -12,6 +12,7 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.FieldAccessInfo;
+import com.android.tools.r8.graph.FieldAccessInfoImpl;
 import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -843,7 +844,7 @@ public abstract class EnqueuerWorklist {
 
     @Override
     public void enqueueTraceReflectiveFieldAccessAction(ProgramField field, ProgramMethod context) {
-      FieldAccessInfo info = enqueuer.getFieldAccessInfoCollection().get(field.getReference());
+      FieldAccessInfoImpl info = enqueuer.getFieldAccessInfoCollection().get(field.getReference());
       if (info == null || !info.hasReflectiveRead() || !info.hasReflectiveWrite()) {
         queue.add(new TraceReflectiveFieldAccessAction(field, context));
       }
@@ -851,7 +852,7 @@ public abstract class EnqueuerWorklist {
 
     @Override
     public void enqueueTraceReflectiveFieldReadAction(ProgramField field, ProgramMethod context) {
-      FieldAccessInfo info = enqueuer.getFieldAccessInfoCollection().get(field.getReference());
+      FieldAccessInfoImpl info = enqueuer.getFieldAccessInfoCollection().get(field.getReference());
       if (info == null || !info.hasReflectiveRead()) {
         queue.add(
             new TraceReflectiveFieldAccessAction(

@@ -24,6 +24,7 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.FieldAccessInfo;
 import com.android.tools.r8.graph.FieldAccessInfoCollection;
 import com.android.tools.r8.graph.FieldResolutionResult;
+import com.android.tools.r8.graph.MutableFieldAccessInfoCollection;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.bytecodemetadata.BytecodeInstructionMetadata;
@@ -169,15 +170,16 @@ public final class TrivialFieldAccessReprocessor {
   }
 
   private void clearReadsAndWritesFromFieldsOfInterest(AppInfoWithLiveness appInfo) {
-    FieldAccessInfoCollection<?> fieldAccessInfoCollection = appInfo.getFieldAccessInfoCollection();
+    MutableFieldAccessInfoCollection<?, ?> fieldAccessInfoCollection =
+        appInfo.getMutableFieldAccessInfoCollection();
     for (DexEncodedField field : constantFields) {
-      fieldAccessInfoCollection.get(field.getReference()).asMutable().clearReads();
+      fieldAccessInfoCollection.get(field.getReference()).clearReads();
     }
     for (DexEncodedField field : readFields.keySet()) {
-      fieldAccessInfoCollection.get(field.getReference()).asMutable().clearWrites();
+      fieldAccessInfoCollection.get(field.getReference()).clearWrites();
     }
     for (DexEncodedField field : writtenFields.keySet()) {
-      fieldAccessInfoCollection.get(field.getReference()).asMutable().clearReads();
+      fieldAccessInfoCollection.get(field.getReference()).clearReads();
     }
   }
 
@@ -242,7 +244,8 @@ public final class TrivialFieldAccessReprocessor {
   }
 
   private void processFieldsNeverRead(AppInfoWithLiveness appInfo) {
-    FieldAccessInfoCollection<?> fieldAccessInfoCollection = appInfo.getFieldAccessInfoCollection();
+    MutableFieldAccessInfoCollection<?, ?> fieldAccessInfoCollection =
+        appInfo.getMutableFieldAccessInfoCollection();
     writtenFields
         .entrySet()
         .removeIf(
@@ -253,7 +256,7 @@ public final class TrivialFieldAccessReprocessor {
     writtenFields.forEach(
         (field, contexts) -> {
           assert !readFields.containsKey(field);
-          fieldAccessInfoCollection.get(field.getReference()).asMutable().clearReads();
+          fieldAccessInfoCollection.get(field.getReference()).clearReads();
           methodsToReprocess.addAll(
               contexts.asConcrete().getAccessesWithContexts().values().iterator().next());
           methodsToReprocess.addAll(dependencies.getOrDefault(field, ProgramMethodSet.empty()));
