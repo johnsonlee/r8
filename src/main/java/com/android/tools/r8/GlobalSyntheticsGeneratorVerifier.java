@@ -6,7 +6,6 @@ package com.android.tools.r8;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.ir.desugar.LambdaClass;
 import com.android.tools.r8.utils.InternalOptions;
 import java.util.function.Consumer;
 
@@ -18,7 +17,7 @@ public class GlobalSyntheticsGeneratorVerifier {
     consumer.accept(dexItemFactory.methodHandlesLookupType);
     consumer.accept(dexItemFactory.recordType);
     consumer.accept(dexItemFactory.varHandleType);
-    if (LambdaClass.isEmitLambdaMethodAnnotations(options)) {
+    if (options.emitLambdaMethodAnnotations) {
       consumer.accept(dexItemFactory.lambdaMethodAnnotation);
     }
   }

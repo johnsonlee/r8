@@ -42,7 +42,6 @@ import com.android.tools.r8.ir.desugar.lambda.LambdaInstructionDesugaring;
 import com.android.tools.r8.ir.desugar.lambda.LambdaInstructionDesugaring.DesugarInvoke;
 import com.android.tools.r8.ir.desugar.lambda.SyntheticLambdaAccessorMethodConsumer;
 import com.android.tools.r8.synthesis.SyntheticProgramClassBuilder;
-import com.android.tools.r8.utils.InternalOptions;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -256,13 +255,8 @@ public final class LambdaClass {
     builder.setInstanceFields(fields);
   }
 
-  public static boolean isEmitLambdaMethodAnnotations(InternalOptions options) {
-    return options.emitLambdaMethodAnnotations
-        || (options.debug && (!options.intermediate || options.hasGlobalSyntheticsConsumer()));
-  }
-
   private void synthesizeAnnotations(SyntheticProgramClassBuilder builder) {
-    if (isEmitLambdaMethodAnnotations(appView.options())) {
+    if (appView.options().emitLambdaMethodAnnotations) {
       builder.addAnnotation(target.getLambdaMethodAnnotation(builder.getFactory()));
     }
   }
@@ -271,7 +265,7 @@ public final class LambdaClass {
       AppView<?> appView,
       LambdaDesugaringEventConsumer eventConsumer,
       Collection<? extends ProgramDefinition> contexts) {
-    if (!isEmitLambdaMethodAnnotations(appView.options())) {
+    if (!appView.options().emitLambdaMethodAnnotations) {
       return;
     }
     DexType lambdaClassAnnotationType = appView.dexItemFactory().lambdaMethodAnnotation;
