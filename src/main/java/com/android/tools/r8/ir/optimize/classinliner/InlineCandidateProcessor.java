@@ -538,16 +538,20 @@ final class InlineCandidateProcessor {
             throw new IllegalClassInlinerStateException();
           }
 
-          ProgramMethod singleTarget =
-              dispatchTargetLookupResult
-                  .asSingleResult()
-                  .getSingleDispatchTarget()
-                  .asProgramMethod();
-          if (singleTarget == null || !indirectMethodCallsOnInstance.contains(singleTarget)) {
+          DexClassAndMethod singleTarget =
+              dispatchTargetLookupResult.asSingleResult().getSingleDispatchTarget();
+          if (singleTarget.isLibraryMethod()) {
+            // Library calls (e.g., calls to Object.getClass) are handled in removeMiscUsages.
+            continue;
+          }
+
+          ProgramMethod singleProgramTarget = singleTarget.asProgramMethod();
+          if (singleProgramTarget == null
+              || !indirectMethodCallsOnInstance.contains(singleProgramTarget)) {
             throw new IllegalClassInlinerStateException();
           }
 
-          methodCallsOnInstance.put(invoke, new InliningInfo(singleTarget, null));
+          methodCallsOnInstance.put(invoke, new InliningInfo(singleProgramTarget, null));
         }
       }
       currentUsers = indirectOutValueUsers;
