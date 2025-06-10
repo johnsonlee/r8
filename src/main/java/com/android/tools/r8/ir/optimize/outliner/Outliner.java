@@ -12,6 +12,7 @@ import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackDelayed;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.timing.Timing;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
@@ -56,6 +57,11 @@ public abstract class Outliner {
       public void rewriteWithLens() {
         // Intentionally empty.
       }
+
+      @Override
+      public Outliner updateAppliedLens(List<GraphLens> prunedGraphLenses) {
+        return this;
+      }
     };
   }
 
@@ -76,4 +82,6 @@ public abstract class Outliner {
       throws ExecutionException;
 
   public abstract void rewriteWithLens();
+
+  public abstract Outliner updateAppliedLens(List<GraphLens> prunedGraphLenses);
 }

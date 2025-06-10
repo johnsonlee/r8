@@ -80,6 +80,15 @@ public class OutlineCollection {
     return ListUtils.mapOrElse(outlines, outline -> outline.rewrittenWithLens(currentGraphLens));
   }
 
+  public void updateAppliedLens(List<GraphLens> prunedGraphLenses) {
+    if (prunedGraphLenses.contains(appliedGraphLens)) {
+      appliedGraphLens =
+          appliedGraphLens
+              .asNonIdentityLens()
+              .find(l -> !l.isClearCodeRewritingLens() && !l.isMemberRebindingIdentityLens());
+    }
+  }
+
   public ProgramMethodSet computeMethodsSubjectToOutlining(AppView<AppInfoWithLiveness> appView) {
     ProgramMethodSet result = ProgramMethodSet.create();
     Map<Outline, List<ProgramMethod>> methodsPerOutline = computeMethodsPerOutline(appView);

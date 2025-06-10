@@ -17,12 +17,9 @@ import com.android.tools.r8.utils.OptionalBool;
 // relies on the previous lens for names (getRenamed/Original methods).
 public class ClearCodeRewritingGraphLens extends DefaultNonIdentityGraphLens {
 
-  public ClearCodeRewritingGraphLens(AppView<? extends AppInfoWithClassHierarchy> appView) {
-    super(
-        appView,
-        appView
-            .graphLens()
-            .removeLenses(l -> l.isClearCodeRewritingLens() || l.isMemberRebindingIdentityLens()));
+  public ClearCodeRewritingGraphLens(
+      AppView<? extends AppInfoWithClassHierarchy> appView, GraphLens previousLens) {
+    super(appView, previousLens);
   }
 
   @Override

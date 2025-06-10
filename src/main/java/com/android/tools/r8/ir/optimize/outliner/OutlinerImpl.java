@@ -1467,6 +1467,12 @@ public class OutlinerImpl extends Outliner {
   }
 
   @Override
+  public Outliner updateAppliedLens(List<GraphLens> prunedGraphLenses) {
+    outlineCollection.updateAppliedLens(prunedGraphLenses);
+    return this;
+  }
+
+  @Override
   public void collectOutlineSites(IRCode code, Timing timing) {
     if (outlineCollection == null) {
       return;

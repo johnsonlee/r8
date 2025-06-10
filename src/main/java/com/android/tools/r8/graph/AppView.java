@@ -74,7 +74,9 @@ import com.android.tools.r8.verticalclassmerging.VerticallyMergedClasses;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -426,15 +428,28 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
     allCodeProcessed = true;
   }
 
-  public void clearCodeRewritings(ExecutorService executorService, Timing timing)
+  public List<GraphLens> clearCodeRewritings(ExecutorService executorService, Timing timing)
       throws ExecutionException {
     timing.begin("Clear code rewritings");
-    setGraphLens(new ClearCodeRewritingGraphLens(withClassHierarchy()));
+    List<GraphLens> prunedGraphLenses = new ArrayList<>();
+    GraphLens optimizedGraphLens =
+        graphLens()
+            .removeLenses(
+                l -> {
+                  if (l.isClearCodeRewritingLens() || l.isMemberRebindingIdentityLens()) {
+                    prunedGraphLenses.add(l);
+                    return true;
+                  }
+                  return false;
+                });
+    setGraphLens(new ClearCodeRewritingGraphLens(withClassHierarchy(), optimizedGraphLens));
 
     MemberRebindingIdentityLens memberRebindingIdentityLens =
         MemberRebindingIdentityLensFactory.create(withClassHierarchy(), executorService);
     setGraphLens(memberRebindingIdentityLens);
     timing.end();
+
+    return prunedGraphLenses;
   }
 
   public void flattenGraphLenses() {
