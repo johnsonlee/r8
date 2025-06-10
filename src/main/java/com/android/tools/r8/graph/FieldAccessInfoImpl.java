@@ -8,13 +8,9 @@ import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AbstractAccessContexts.ConcreteAccessContexts;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.shaking.Enqueuer.FieldAccessKind;
-import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.Sets;
-import java.util.IdentityHashMap;
-import java.util.Map;
 import java.util.Set;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
@@ -35,7 +31,7 @@ public class FieldAccessInfoImpl implements FieldAccessInfo {
   public static final int FLAG_IS_READ_FROM_RECORD_INVOKE_DYNAMIC = 1 << 5;
 
   // A direct reference to the definition of the field.
-  private DexField field;
+  private final DexField field;
 
   // If this field is accessed from a method handle or has a reflective access.
   private int flags;
@@ -106,20 +102,8 @@ public class FieldAccessInfoImpl implements FieldAccessInfo {
   }
 
   @Override
-  public int getNumberOfReadContexts() {
-    return readsWithContexts.getNumberOfAccessContexts();
-  }
-
-  @Override
   public int getNumberOfWriteContexts() {
     return writesWithContexts.getNumberOfAccessContexts();
-  }
-
-  @Override
-  public ProgramMethod getUniqueReadContext() {
-    return readsWithContexts.isConcrete()
-        ? readsWithContexts.asConcrete().getUniqueAccessContext()
-        : null;
   }
 
   @Override
@@ -159,51 +143,12 @@ public class FieldAccessInfoImpl implements FieldAccessInfo {
   }
 
   @Override
-  @SuppressWarnings("ReferenceEquality")
-  public void forEachIndirectAccessWithContexts(BiConsumer<DexField, ProgramMethodSet> consumer) {
-    Map<DexField, ProgramMethodSet> indirectAccessesWithContexts = new IdentityHashMap<>();
-    addAccessesWithContextsToMap(
-        readsWithContexts, access -> access != field, indirectAccessesWithContexts);
-    addAccessesWithContextsToMap(
-        writesWithContexts, access -> access != field, indirectAccessesWithContexts);
-    indirectAccessesWithContexts.forEach(consumer);
-  }
-
-  private static void addAccessesWithContextsToMap(
-      AbstractAccessContexts accessesWithContexts,
-      Predicate<DexField> predicate,
-      Map<DexField, ProgramMethodSet> out) {
-    if (accessesWithContexts.isBottom()) {
-      return;
-    }
-    if (accessesWithContexts.isConcrete()) {
-      extendAccessesWithContexts(
-          accessesWithContexts.asConcrete().getAccessesWithContexts(), predicate, out);
-      return;
-    }
-    throw new Unreachable("Should never be iterating the indirect accesses when they are unknown");
-  }
-
-  private static void extendAccessesWithContexts(
-      Map<DexField, ProgramMethodSet> accessesWithContexts,
-      Predicate<DexField> predicate,
-      Map<DexField, ProgramMethodSet> out) {
-    accessesWithContexts.forEach(
-        (access, contexts) -> {
-          if (predicate.test(access)) {
-            out.computeIfAbsent(access, ignore -> ProgramMethodSet.create()).addAll(contexts);
-          }
-        });
-  }
-
-  @Override
   public void forEachAccessContext(Consumer<ProgramMethod> consumer) {
     forEachReadContext(consumer);
     forEachWriteContext(consumer);
   }
 
-  @Override
-  public void forEachReadContext(Consumer<ProgramMethod> consumer) {
+  private void forEachReadContext(Consumer<ProgramMethod> consumer) {
     readsWithContexts.forEachAccessContext(consumer);
   }
 

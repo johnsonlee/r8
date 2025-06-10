@@ -4,8 +4,6 @@
 
 package com.android.tools.r8.graph;
 
-import com.android.tools.r8.utils.collections.ProgramMethodSet;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
@@ -16,15 +14,11 @@ public interface FieldAccessInfo {
 
   DexField getField();
 
-  int getNumberOfReadContexts();
-
   int getNumberOfWriteContexts();
 
   AbstractAccessContexts getReadsWithContexts();
 
   AbstractAccessContexts getWritesWithContexts();
-
-  ProgramMethod getUniqueReadContext();
 
   boolean hasKnownReadContexts();
 
@@ -32,11 +26,7 @@ public interface FieldAccessInfo {
 
   void forEachIndirectAccess(Consumer<DexField> consumer);
 
-  void forEachIndirectAccessWithContexts(BiConsumer<DexField, ProgramMethodSet> consumer);
-
   void forEachAccessContext(Consumer<ProgramMethod> consumer);
-
-  void forEachReadContext(Consumer<ProgramMethod> consumer);
 
   void forEachWriteContext(Consumer<ProgramMethod> consumer);
 

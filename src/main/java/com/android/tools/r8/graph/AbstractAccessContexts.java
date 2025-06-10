@@ -218,25 +218,14 @@ public abstract class AbstractAccessContexts {
           "Should only be querying the number of access contexts after flattening");
     }
 
-    ProgramMethod getUniqueAccessContext() {
-      if (accessesWithContexts != null && accessesWithContexts.size() == 1) {
-        ProgramMethodSet contexts = accessesWithContexts.values().iterator().next();
-        if (contexts.size() == 1) {
-          return contexts.iterator().next();
-        }
-      }
-      return null;
-    }
-
     @Override
-    @SuppressWarnings("ReferenceEquality")
     void flattenAccessContexts(DexField field) {
       if (accessesWithContexts != null) {
         ProgramMethodSet flattenedAccessContexts =
             accessesWithContexts.computeIfAbsent(field, ignore -> ProgramMethodSet.create());
         accessesWithContexts.forEach(
             (access, contexts) -> {
-              if (access != field) {
+              if (access.isNotIdenticalTo(field)) {
                 flattenedAccessContexts.addAll(contexts);
               }
             });
@@ -244,7 +233,6 @@ public abstract class AbstractAccessContexts {
         if (!flattenedAccessContexts.isEmpty()) {
           accessesWithContexts.put(field, flattenedAccessContexts);
         }
-        assert accessesWithContexts.size() <= 1;
       }
     }
 
@@ -283,7 +271,6 @@ public abstract class AbstractAccessContexts {
      * Returns true if this field is written by a method in the program other than {@param method}.
      */
     @Override
-    @SuppressWarnings("ReferenceEquality")
     public boolean isAccessedOutside(DexEncodedMethod method) {
       for (ProgramMethodSet encodedWriteContexts : accessesWithContexts.values()) {
         for (ProgramMethod encodedWriteContext : encodedWriteContexts) {
@@ -317,7 +304,6 @@ public abstract class AbstractAccessContexts {
     }
 
     @Override
-    @SuppressWarnings("ReferenceEquality")
     ConcreteAccessContexts rewrittenWithLens(DexDefinitionSupplier definitions, GraphLens lens) {
       Map<DexField, ProgramMethodSet> rewrittenAccessesWithContexts = null;
       for (Entry<DexField, ProgramMethodSet> entry : accessesWithContexts.entrySet()) {
@@ -327,7 +313,7 @@ public abstract class AbstractAccessContexts {
         ProgramMethodSet contexts = entry.getValue();
         ProgramMethodSet rewrittenContexts = contexts.rewrittenWithLens(definitions, lens);
 
-        if (rewrittenField == field && rewrittenContexts == contexts) {
+        if (rewrittenField.isIdenticalTo(field) && rewrittenContexts == contexts) {
           if (rewrittenAccessesWithContexts == null) {
             continue;
           }
