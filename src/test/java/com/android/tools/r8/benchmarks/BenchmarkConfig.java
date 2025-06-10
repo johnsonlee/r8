@@ -107,10 +107,6 @@ public class BenchmarkConfig {
       if (suite == null) {
         throw new BenchmarkConfigError("Benchmark must have a suite");
       }
-      if (fromRevision < 0) {
-        throw new BenchmarkConfigError(
-            "Benchmark must specify from which golem revision it is valid");
-      }
       if (!metrics.isEmpty()) {
         if (subBenchmarks.containsKey(name)) {
           throw new BenchmarkConfigError(

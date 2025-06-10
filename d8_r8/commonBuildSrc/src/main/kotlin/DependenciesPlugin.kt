@@ -472,6 +472,15 @@ object ThirdPartyDeps {
       Paths.get("third_party", "aapt2").toFile(),
       Paths.get("third_party", "aapt2.tar.gz.sha1").toFile(),
     )
+  val agsa =
+    ThirdPartyDependency(
+      "agsa",
+      Paths.get("third_party", "closedsource-apps", "agsa", "20250412-v16.14.47").toFile(),
+      Paths.get("third_party", "closedsource-apps", "agsa", "20250412-v16.14.47.tar.gz.sha1")
+        .toFile(),
+      testOnly = true,
+      type = DependencyType.X20,
+    )
   val androidJars = getThirdPartyAndroidJars()
   val androidVMs = getThirdPartyAndroidVms()
   val apiDatabase =

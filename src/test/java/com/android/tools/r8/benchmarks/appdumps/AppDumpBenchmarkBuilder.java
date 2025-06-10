@@ -69,6 +69,7 @@ public class AppDumpBenchmarkBuilder {
   private boolean enableLibraryDesugaring = true;
   private boolean enableResourceShrinking = false;
   private boolean runtimeOnly = false;
+  private int warmupIterations = 1;
   private final List<String> programPackages = new ArrayList<>();
 
   public void verify() {
@@ -77,9 +78,6 @@ public class AppDumpBenchmarkBuilder {
     }
     if (dumpDependency == null) {
       throw new BenchmarkConfigError("Missing dump");
-    }
-    if (fromRevision < 0) {
-      throw new BenchmarkConfigError("Missing from-revision");
     }
   }
 
@@ -123,6 +121,11 @@ public class AppDumpBenchmarkBuilder {
 
   public AppDumpBenchmarkBuilder setRuntimeOnly() {
     this.runtimeOnly = true;
+    return this;
+  }
+
+  public AppDumpBenchmarkBuilder setWarmupIterations(int warmupIterations) {
+    this.warmupIterations = warmupIterations;
     return this;
   }
 
@@ -347,7 +350,7 @@ public class AppDumpBenchmarkBuilder {
       ThrowableConsumer<? super R8FullTestBuilder> configuration) {
     return environment ->
         BenchmarkBase.runner(environment)
-            .setWarmupIterations(1)
+            .setWarmupIterations(builder.warmupIterations)
             .run(
                 results -> {
                   CompilerDump dump = builder.getExtractedDump(environment);
@@ -406,7 +409,7 @@ public class AppDumpBenchmarkBuilder {
       ThrowableConsumer<? super R8PartialTestCompileResult> compileResultConsumer) {
     return environment ->
         BenchmarkBase.runner(environment)
-            .setWarmupIterations(1)
+            .setWarmupIterations(builder.warmupIterations)
             .run(
                 results -> {
                   CompilerDump dump = builder.getExtractedDump(environment);
@@ -473,7 +476,7 @@ public class AppDumpBenchmarkBuilder {
     assert builder.compilationMode != null;
     return environment ->
         BenchmarkBase.runner(environment)
-            .setWarmupIterations(1)
+            .setWarmupIterations(builder.warmupIterations)
             .run(
                 results -> {
                   CompilerDump dump = builder.getExtractedDump(environment);
@@ -493,7 +496,7 @@ public class AppDumpBenchmarkBuilder {
     assert builder.compilationMode.isDebug();
     return environment ->
         BenchmarkBase.runner(environment)
-            .setWarmupIterations(1)
+            .setWarmupIterations(builder.warmupIterations)
             .reportResultSum()
             .run(
                 results -> {
