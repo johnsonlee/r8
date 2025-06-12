@@ -97,7 +97,7 @@ def GetReleaseCommits():
                 (major, minor), git_title):
                 continue
             release_commits.append(historic_run.git_commit_from_hash(git_hash))
-    release_commits.sort(key=functools.cmp_to_key(CmpVersions))
+    release_commits.sort(key=functools.cmp_to_key(CmpVersions), reverse=True)
     return release_commits
 
 
@@ -177,7 +177,7 @@ def run_bucket():
     # Get the N most recent commits sorted by newest first.
     main_commits = GetMainCommits()
 
-    # Get all release commits from 8.9 and onwards.
+    # Get all release commits from 8.9 and onwards sorted by newest first.
     release_commits = GetReleaseCommits()
 
     # Download all benchmark data from the cloud bucket to a temp folder.
