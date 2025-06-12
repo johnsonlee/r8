@@ -11,7 +11,6 @@ import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
-import com.android.tools.r8.graph.FieldAccessInfo;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.lens.DefaultNonIdentityGraphLens;
 import com.android.tools.r8.graph.lens.FieldLookupResult;
@@ -198,12 +197,6 @@ public class MemberRebindingIdentityLens extends DefaultNonIdentityGraphLens {
       this.previousLens = previousLens;
       this.nonReboundFieldReferenceToDefinitionMap = nonReboundFieldReferenceToDefinitionMap;
       this.nonReboundMethodReferenceToDefinitionMap = nonReboundMethodReferenceToDefinitionMap;
-    }
-
-    void recordNonReboundFieldAccesses(FieldAccessInfo fieldAccessInfo) {
-      fieldAccessInfo.forEachIndirectAccess(
-          nonReboundFieldReference ->
-              recordNonReboundFieldAccess(nonReboundFieldReference, fieldAccessInfo.getField()));
     }
 
     private void recordNonReboundFieldAccess(

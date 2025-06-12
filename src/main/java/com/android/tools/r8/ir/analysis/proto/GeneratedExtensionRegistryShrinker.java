@@ -272,12 +272,9 @@ public class GeneratedExtensionRegistryShrinker {
     }
 
     FieldAccessInfo fieldAccessInfo = fieldAccessInfoCollection.get(field.getReference());
-    if (fieldAccessInfo == null) {
-      return false;
-    }
-
-    // Multiple GeneratedExtensionRegistries exist in Chrome; 1 per feature split.
-    return fieldAccessInfo.isReadOnlyInFindLiteExtensionByNumberMethod(references);
+    return fieldAccessInfo != null
+        && !fieldAccessInfo.isReadIndirectly()
+        && fieldAccessInfo.isReadOnlyFromFindLiteExtensionByNumberMethod();
   }
 
   private void forEachDeadProtoExtensionField(Consumer<DexField> consumer) {

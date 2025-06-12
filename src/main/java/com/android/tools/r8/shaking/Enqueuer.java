@@ -1230,7 +1230,21 @@ public class Enqueuer {
     if (isReflective) {
       return isRead ? info.setHasReflectiveRead() : info.setHasReflectiveWrite();
     } else {
-      return isRead ? info.recordRead(field, context) : info.recordWrite(field, context);
+      if (isRead) {
+        if (appView.options().protoShrinking().enableGeneratedExtensionRegistryShrinking) {
+          if (appView
+              .protoShrinker()
+              .getProtoReferences()
+              .isFindLiteExtensionByNumberMethod(context)) {
+            info.setReadFromFindLiteExtensionByNumberMethod();
+          } else {
+            info.setReadFromNonFindLiteExtensionByNumberMethod();
+          }
+        }
+        return info.recordRead(field, context);
+      } else {
+        return info.recordWrite(field, context);
+      }
     }
   }
 
@@ -4465,7 +4479,13 @@ public class Enqueuer {
     // and verify that the mapping is then one-to-one.
     timing.begin("Prune field access mappings");
     fieldAccessInfoCollection.removeIf(
-        (field, info) -> field != info.getField() || info == MISSING_FIELD_ACCESS_INFO);
+        (field, info) -> {
+          if (field != info.getField() || info == MISSING_FIELD_ACCESS_INFO) {
+            return true;
+          }
+          info.destroyReadAccessContexts();
+          return false;
+        });
     assert fieldAccessInfoCollection.verifyMappingIsOneToOne();
     timing.end();
 

@@ -32,7 +32,6 @@ public class ProgramField extends DexClassAndField
 
   @Override
   public boolean isEffectivelyFinal(AppView<AppInfoWithLiveness> appView) {
-    FieldAccessFlags accessFlags = getAccessFlags();
     FieldAccessInfo accessInfo =
         appView.appInfo().getFieldAccessInfoCollection().get(getReference());
     KeepFieldInfo keepInfo = appView.getKeepInfo(this);
@@ -41,14 +40,9 @@ public class ProgramField extends DexClassAndField
         && keepInfo.isShrinkingAllowed(options)
         && !accessInfo.hasReflectiveWrite()
         && !accessInfo.isWrittenFromMethodHandle()
-        && accessInfo.isWrittenOnlyInMethodSatisfying(
-            method ->
-                method.getDefinition().isInitializer()
-                    && method.getAccessFlags().isStatic() == accessFlags.isStatic()
-                    && method.getHolder() == getHolder());
+        && accessInfo.isEffectivelyFinal(this);
   }
 
-  @SuppressWarnings("ReferenceEquality")
   public boolean isStructurallyEqualTo(ProgramField other) {
     return getDefinition() == other.getDefinition() && getHolder() == other.getHolder();
   }

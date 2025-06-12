@@ -97,7 +97,7 @@ public class StaticFieldValueAnalysis extends FieldValueAnalysis {
     classInitializerDefaultsResult.forEachOptimizedField(
         (field, value) -> {
           if (putsPerField.containsKey(field)
-              || !appView.appInfo().isFieldOnlyWrittenInMethod(field, context.getDefinition())
+              || !appView.appInfo().isFieldOnlyWrittenInMethod(field, context)
               || !appView.getKeepInfo(field).isValuePropagationAllowed(appView, field)) {
             return;
           }
@@ -119,7 +119,7 @@ public class StaticFieldValueAnalysis extends FieldValueAnalysis {
   boolean isSubjectToOptimization(DexClassAndField field) {
     return field.getAccessFlags().isStatic()
         && field.getHolderType() == context.getHolderType()
-        && appView.appInfo().isFieldOnlyWrittenInMethod(field, context.getDefinition());
+        && appView.appInfo().isFieldOnlyWrittenInMethod(field, context);
   }
 
   @Override
@@ -127,9 +127,7 @@ public class StaticFieldValueAnalysis extends FieldValueAnalysis {
   boolean isSubjectToOptimizationIgnoringPinning(DexClassAndField field) {
     return field.getAccessFlags().isStatic()
         && field.getHolderType() == context.getHolderType()
-        && appView
-            .appInfo()
-            .isFieldOnlyWrittenInMethodIgnoringPinning(field, context.getDefinition());
+        && appView.appInfo().isFieldOnlyWrittenInMethodIgnoringPinning(field, context);
   }
 
   @Override

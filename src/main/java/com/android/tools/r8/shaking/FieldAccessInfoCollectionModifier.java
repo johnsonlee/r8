@@ -19,24 +19,7 @@ public class FieldAccessInfoCollectionModifier {
 
   private static class FieldAccessContexts {
 
-    private AbstractAccessContexts readsWithContexts = AbstractAccessContexts.empty();
     private AbstractAccessContexts writesWithContexts = AbstractAccessContexts.empty();
-
-    void addReadContext(DexField field, ProgramMethod context) {
-      if (readsWithContexts.isBottom()) {
-        ConcreteAccessContexts concreteReadContexts = new ConcreteAccessContexts();
-        concreteReadContexts.recordAccess(field, context);
-        readsWithContexts = concreteReadContexts;
-      } else if (readsWithContexts.isConcrete()) {
-        readsWithContexts.asConcrete().recordAccess(field, context);
-      } else {
-        assert readsWithContexts.isTop();
-      }
-    }
-
-    void recordReadInUnknownContext() {
-      readsWithContexts = AbstractAccessContexts.unknown();
-    }
 
     void addWriteContext(DexField field, ProgramMethod context) {
       if (writesWithContexts.isBottom()) {
@@ -72,7 +55,8 @@ public class FieldAccessInfoCollectionModifier {
     newFieldAccessContexts.forEach(
         (field, accessContexts) -> {
           FieldAccessInfoImpl fieldAccessInfo = new FieldAccessInfoImpl(field);
-          fieldAccessInfo.setReadsWithContexts(accessContexts.readsWithContexts);
+          fieldAccessInfo.setReadDirectly();
+          fieldAccessInfo.setReadsWithContexts(AbstractAccessContexts.unknown());
           fieldAccessInfo.setWritesWithContexts(accessContexts.writesWithContexts);
           mutableFieldAccessInfoCollection.extend(field, fieldAccessInfo);
         });
@@ -87,15 +71,6 @@ public class FieldAccessInfoCollectionModifier {
 
     private FieldAccessContexts getFieldAccessContexts(DexField field) {
       return newFieldAccessContexts.computeIfAbsent(field, ignore -> new FieldAccessContexts());
-    }
-
-    public void recordFieldReadInContext(DexField field, ProgramMethod context) {
-      getFieldAccessContexts(field).addReadContext(field, context);
-    }
-
-    public Builder recordFieldReadInUnknownContext(DexField field) {
-      getFieldAccessContexts(field).recordReadInUnknownContext();
-      return this;
     }
 
     public void recordFieldWrittenInContext(DexField field, ProgramMethod context) {

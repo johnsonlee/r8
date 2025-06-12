@@ -78,9 +78,11 @@ public class IRProcessingCallGraphUseRegistry<N extends NodeBase<N>> extends Inv
     }
 
     FieldAccessInfo fieldAccessInfo = fieldAccessInfoCollection.get(field.getReference());
-    if (fieldAccessInfo != null && fieldAccessInfo.hasKnownWriteContexts()) {
-      if (fieldAccessInfo.getNumberOfWriteContexts() == 1) {
-        fieldAccessInfo.forEachWriteContext(this::addFieldReadEdge);
+    if (fieldAccessInfo != null) {
+      ProgramMethod uniqueWriteContext =
+          fieldAccessInfo.getUniqueWriteContextForCallGraphConstruction();
+      if (uniqueWriteContext != null) {
+        addFieldReadEdge(uniqueWriteContext);
       }
     }
   }

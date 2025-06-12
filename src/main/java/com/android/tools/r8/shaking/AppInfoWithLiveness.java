@@ -678,7 +678,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
    * @param callSite Call site to resolve.
    * @return Methods implemented by the lambda expression that created the {@code callSite}.
    */
-  @SuppressWarnings("ReferenceEquality")
   public DexClassAndMethodSet lookupLambdaImplementedMethods(
       DexCallSite callSite, AppView<AppInfoWithLiveness> appView) {
     assert checkIfObsolete();
@@ -822,7 +821,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     return !field.isProgramField();
   }
 
-  public boolean isFieldOnlyWrittenInMethod(DexClassAndField field, DexEncodedMethod method) {
+  public boolean isFieldOnlyWrittenInMethod(DexClassAndField field, ProgramMethod method) {
     assert checkIfObsolete();
     assert isFieldWritten(field) : "Expected field `" + field.toSourceString() + "` to be written";
     if (isPinned(field)) {
@@ -832,37 +831,38 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
   }
 
   public boolean isFieldOnlyWrittenInMethodIgnoringPinning(
-      DexClassAndField field, DexEncodedMethod method) {
+      DexClassAndField field, ProgramMethod method) {
     assert checkIfObsolete();
     assert isFieldWritten(field) : "Expected field `" + field.toSourceString() + "` to be written";
     FieldAccessInfo fieldAccessInfo = getFieldAccessInfoCollection().get(field.getReference());
-    return fieldAccessInfo != null
-        && fieldAccessInfo.isWritten()
-        && !fieldAccessInfo.isWrittenOutside(method);
+    if (fieldAccessInfo == null) {
+      return false;
+    }
+    ProgramMethod uniqueWriteContext = fieldAccessInfo.getUniqueWriteContextForFieldValueAnalysis();
+    return uniqueWriteContext != null
+        && uniqueWriteContext.getReference().isIdenticalTo(method.getReference());
   }
 
-  @SuppressWarnings("ReferenceEquality")
   public boolean isInstanceFieldWrittenOnlyInInstanceInitializers(DexClassAndField field) {
     assert checkIfObsolete();
     assert isFieldWritten(field) : "Expected field `" + field.toSourceString() + "` to be written";
-    if (isPinned(field)) {
+    if (field.getAccessFlags().isFinal()) {
+      return true;
+    }
+    if (!field.isProgramField() || isPinned(field)) {
       return false;
     }
     FieldAccessInfo fieldAccessInfo = getFieldAccessInfoCollection().get(field.getReference());
-    if (fieldAccessInfo == null || !fieldAccessInfo.isWritten()) {
-      return false;
-    }
-    DexType holder = field.getHolderType();
-    return fieldAccessInfo.isWrittenOnlyInMethodSatisfying(
-        method ->
-            method.getHolderType() == holder && method.getDefinition().isInstanceInitializer());
+    return fieldAccessInfo != null
+        && fieldAccessInfo.isWritten()
+        && fieldAccessInfo.isEffectivelyFinal(field.asProgramField());
   }
 
   public boolean isStaticFieldWrittenOnlyInEnclosingStaticInitializer(DexClassAndField field) {
     assert checkIfObsolete();
     assert isFieldWritten(field) : "Expected field `" + field.toSourceString() + "` to be written";
-    DexEncodedMethod staticInitializer =
-        definitionFor(field.getHolderType()).asProgramClass().getClassInitializer();
+    ProgramMethod staticInitializer =
+        definitionFor(field.getHolderType()).asProgramClass().getProgramClassInitializer();
     return staticInitializer != null && isFieldOnlyWrittenInMethod(field, staticInitializer);
   }
 
@@ -1242,7 +1242,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     return singleMethodTarget;
   }
 
-  @SuppressWarnings("ReferenceEquality")
   private DispatchTargetLookupResult getMethodTargetFromExactRuntimeInformation(
       DexType refinedReceiverType,
       ClassTypeElement receiverLowerBoundType,
@@ -1252,7 +1251,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     // runtime type information. In this case, the invoke will dispatch to the resolution result
     // from the runtime type of the receiver.
     if (receiverLowerBoundType != null
-        && receiverLowerBoundType.getClassType() == refinedReceiverType) {
+        && receiverLowerBoundType.getClassType().isIdenticalTo(refinedReceiverType)) {
       if (refinedReceiverClass.isProgramClass()) {
         LookupMethodTarget methodTarget =
             resolution.lookupVirtualDispatchTarget(refinedReceiverClass.asProgramClass(), this);

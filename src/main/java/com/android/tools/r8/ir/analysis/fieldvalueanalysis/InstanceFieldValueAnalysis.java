@@ -248,7 +248,7 @@ public class InstanceFieldValueAnalysis extends FieldValueAnalysis {
       return true;
     }
 
-    if (appView.appInfo().isFieldOnlyWrittenInMethod(field, context.getDefinition())) {
+    if (appView.appInfo().isFieldOnlyWrittenInMethod(field, context)) {
       return true;
     }
 
@@ -306,7 +306,10 @@ public class InstanceFieldValueAnalysis extends FieldValueAnalysis {
     if (field.isFinalOrEffectivelyFinal(appView)) {
       return true;
     }
-    if (appView.appInfo().isFieldOnlyWrittenInMethod(field, parentConstructor.getDefinition())) {
+    if (parentConstructor.isProgramMethod()
+        && appView
+            .appInfo()
+            .isFieldOnlyWrittenInMethod(field, parentConstructor.asProgramMethod())) {
       return true;
     }
     // Otherwise, conservatively return false.

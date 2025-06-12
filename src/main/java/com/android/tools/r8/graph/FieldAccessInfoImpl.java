@@ -7,10 +7,12 @@ package com.android.tools.r8.graph;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AbstractAccessContexts.ConcreteAccessContexts;
 import com.android.tools.r8.graph.lens.GraphLens;
-import com.android.tools.r8.ir.analysis.proto.ProtoReferences;
 import com.android.tools.r8.shaking.Enqueuer.FieldAccessKind;
+import com.android.tools.r8.utils.BitUtils;
+import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.Sets;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -29,7 +31,10 @@ public class FieldAccessInfoImpl implements MutableFieldAccessInfo {
   public static final int FLAG_IS_WRITTEN_FROM_METHOD_HANDLE = 1 << 2;
   public static final int FLAG_HAS_REFLECTIVE_READ = 1 << 3;
   public static final int FLAG_HAS_REFLECTIVE_WRITE = 1 << 4;
-  public static final int FLAG_IS_READ_FROM_RECORD_INVOKE_DYNAMIC = 1 << 5;
+  public static final int FLAG_IS_READ_DIRECTLY = 1 << 5;
+  public static final int FLAG_IS_READ_FROM_RECORD_INVOKE_DYNAMIC = 1 << 6;
+  public static final int FLAG_IS_READ_FROM_FIND_LITE_EXTENSION_BY_NUMBER_METHOD = 1 << 7;
+  public static final int FLAG_IS_READ_FROM_NON_FIND_LITE_EXTENSION_BY_NUMBER_METHOD = 1 << 8;
 
   // A direct reference to the definition of the field.
   private final DexField field;
@@ -61,8 +66,12 @@ public class FieldAccessInfoImpl implements MutableFieldAccessInfo {
   }
 
   void destroyAccessContexts() {
-    readsWithContexts = AbstractAccessContexts.unknown();
+    destroyReadAccessContexts();
     writesWithContexts = AbstractAccessContexts.unknown();
+  }
+
+  public void destroyReadAccessContexts() {
+    readsWithContexts = AbstractAccessContexts.unknown();
   }
 
   void flattenAccessContexts() {
@@ -95,22 +104,35 @@ public class FieldAccessInfoImpl implements MutableFieldAccessInfo {
     this.writesWithContexts = writesWithContexts;
   }
 
-  @Override
-  public int getNumberOfWriteContexts() {
-    return writesWithContexts.getNumberOfAccessContexts();
+  public ProgramMethod getUniqueWriteContext() {
+    if (hasKnownWriteContexts()
+        && writesWithContexts.getNumberOfAccessContexts() == 1
+        && !isWrittenIndirectly()) {
+      Map<DexField, ProgramMethodSet> accessesWithContexts =
+          writesWithContexts.asConcrete().getAccessesWithContexts();
+      return accessesWithContexts.values().iterator().next().iterator().next();
+    }
+    return null;
   }
 
   @Override
+  public ProgramMethod getUniqueWriteContextForCallGraphConstruction() {
+    return getUniqueWriteContext();
+  }
+
+  @Override
+  public ProgramMethod getUniqueWriteContextForFieldValueAnalysis() {
+    return getUniqueWriteContext();
+  }
+
   public boolean hasKnownReadContexts() {
     return !readsWithContexts.isTop();
   }
 
-  @Override
   public boolean hasKnownWriteContexts() {
     return !writesWithContexts.isTop();
   }
 
-  @Override
   public void forEachIndirectAccess(Consumer<DexField> consumer) {
     // There can be indirect reads and writes of the same field reference, so we need to keep track
     // of the previously-seen indirect accesses to avoid reporting duplicates.
@@ -136,7 +158,6 @@ public class FieldAccessInfoImpl implements MutableFieldAccessInfo {
     throw new Unreachable("Should never be iterating the indirect accesses when they are unknown");
   }
 
-  @Override
   public void forEachAccessContext(Consumer<ProgramMethod> consumer) {
     forEachReadContext(consumer);
     forEachWriteContext(consumer);
@@ -146,9 +167,13 @@ public class FieldAccessInfoImpl implements MutableFieldAccessInfo {
     readsWithContexts.forEachAccessContext(consumer);
   }
 
-  @Override
   public void forEachWriteContext(Consumer<ProgramMethod> consumer) {
     writesWithContexts.forEachAccessContext(consumer);
+  }
+
+  @Override
+  public void forEachWriteContextForFieldAssignmentTracker(Consumer<ProgramMethod> consumer) {
+    forEachWriteContext(consumer);
   }
 
   @Override
@@ -156,8 +181,9 @@ public class FieldAccessInfoImpl implements MutableFieldAccessInfo {
     return hasReflectiveRead() || hasReflectiveWrite();
   }
 
+  @Override
   public boolean hasReflectiveRead() {
-    return (flags & FLAG_HAS_REFLECTIVE_READ) != 0;
+    return BitUtils.isBitInMaskSet(flags, FLAG_HAS_REFLECTIVE_READ);
   }
 
   public boolean setHasReflectiveRead() {
@@ -170,7 +196,7 @@ public class FieldAccessInfoImpl implements MutableFieldAccessInfo {
 
   @Override
   public boolean hasReflectiveWrite() {
-    return (flags & FLAG_HAS_REFLECTIVE_WRITE) != 0;
+    return BitUtils.isBitInMaskSet(flags, FLAG_HAS_REFLECTIVE_WRITE);
   }
 
   public boolean setHasReflectiveWrite() {
@@ -181,6 +207,15 @@ public class FieldAccessInfoImpl implements MutableFieldAccessInfo {
     return false;
   }
 
+  @Override
+  public boolean isEffectivelyFinal(ProgramField field) {
+    return isWrittenOnlyInMethodSatisfying(
+        method ->
+            method.getDefinition().isInitializer()
+                && method.getAccessFlags().isStatic() == field.getAccessFlags().isStatic()
+                && method.getHolder() == field.getHolder());
+  }
+
   /** Returns true if this field is read by the program. */
   @Override
   public boolean isRead() {
@@ -188,19 +223,20 @@ public class FieldAccessInfoImpl implements MutableFieldAccessInfo {
   }
 
   private boolean isReadDirectly() {
-    return !readsWithContexts.isEmpty();
+    return BitUtils.isBitInMaskSet(flags, FLAG_IS_READ_DIRECTLY);
   }
 
-  private boolean isReadIndirectly() {
-    return hasReflectiveRead()
-        || isReadFromAnnotation()
-        || isReadFromMethodHandle()
-        || isReadFromRecordInvokeDynamic();
+  public void setReadDirectly() {
+    flags |= FLAG_IS_READ_DIRECTLY;
+  }
+
+  private void clearReadDirectly() {
+    flags &= ~FLAG_IS_READ_DIRECTLY;
   }
 
   @Override
   public boolean isReadFromAnnotation() {
-    return (flags & FLAG_IS_READ_FROM_ANNOTATION) != 0;
+    return BitUtils.isBitInMaskSet(flags, FLAG_IS_READ_FROM_ANNOTATION);
   }
 
   public void setReadFromAnnotation() {
@@ -209,7 +245,7 @@ public class FieldAccessInfoImpl implements MutableFieldAccessInfo {
 
   @Override
   public boolean isReadFromMethodHandle() {
-    return (flags & FLAG_IS_READ_FROM_METHOD_HANDLE) != 0;
+    return BitUtils.isBitInMaskSet(flags, FLAG_IS_READ_FROM_METHOD_HANDLE);
   }
 
   public void setAccessedFromMethodHandle(FieldAccessKind accessKind) {
@@ -226,7 +262,7 @@ public class FieldAccessInfoImpl implements MutableFieldAccessInfo {
 
   @Override
   public boolean isReadFromRecordInvokeDynamic() {
-    return (flags & FLAG_IS_READ_FROM_RECORD_INVOKE_DYNAMIC) != 0;
+    return BitUtils.isBitInMaskSet(flags, FLAG_IS_READ_FROM_RECORD_INVOKE_DYNAMIC);
   }
 
   public void setReadFromRecordInvokeDynamic() {
@@ -238,10 +274,18 @@ public class FieldAccessInfoImpl implements MutableFieldAccessInfo {
   }
 
   @Override
-  public boolean isReadOnlyInFindLiteExtensionByNumberMethod(ProtoReferences references) {
-    return !isReadIndirectly()
-        && readsWithContexts.isAccessedOnlyInMethodSatisfying(
-            references::isFindLiteExtensionByNumberMethod);
+  public boolean isReadOnlyFromFindLiteExtensionByNumberMethod() {
+    return BitUtils.isBitInMaskSet(flags, FLAG_IS_READ_FROM_FIND_LITE_EXTENSION_BY_NUMBER_METHOD)
+        && BitUtils.isBitInMaskUnset(
+            flags, FLAG_IS_READ_FROM_NON_FIND_LITE_EXTENSION_BY_NUMBER_METHOD);
+  }
+
+  public void setReadFromFindLiteExtensionByNumberMethod() {
+    flags |= FLAG_IS_READ_FROM_FIND_LITE_EXTENSION_BY_NUMBER_METHOD;
+  }
+
+  public void setReadFromNonFindLiteExtensionByNumberMethod() {
+    flags |= FLAG_IS_READ_FROM_NON_FIND_LITE_EXTENSION_BY_NUMBER_METHOD;
   }
 
   /** Returns true if this field is written by the program. */
@@ -254,13 +298,9 @@ public class FieldAccessInfoImpl implements MutableFieldAccessInfo {
     return !writesWithContexts.isEmpty();
   }
 
-  private boolean isWrittenIndirectly() {
-    return hasReflectiveWrite() || isWrittenFromMethodHandle();
-  }
-
   @Override
   public boolean isWrittenFromMethodHandle() {
-    return (flags & FLAG_IS_WRITTEN_FROM_METHOD_HANDLE) != 0;
+    return BitUtils.isBitInMaskSet(flags, FLAG_IS_WRITTEN_FROM_METHOD_HANDLE);
   }
 
   public void setWrittenFromMethodHandle() {
@@ -278,7 +318,6 @@ public class FieldAccessInfoImpl implements MutableFieldAccessInfo {
    * Returns true if this field is only written by methods for which {@param predicate} returns
    * true.
    */
-  @Override
   public boolean isWrittenOnlyInMethodSatisfying(Predicate<ProgramMethod> predicate) {
     return writesWithContexts.isAccessedOnlyInMethodSatisfying(predicate) && !isWrittenIndirectly();
   }
@@ -286,12 +325,12 @@ public class FieldAccessInfoImpl implements MutableFieldAccessInfo {
   /**
    * Returns true if this field is written by a method in the program other than {@param method}.
    */
-  @Override
   public boolean isWrittenOutside(DexEncodedMethod method) {
     return writesWithContexts.isAccessedOutside(method) || isWrittenIndirectly();
   }
 
   public boolean recordRead(DexField access, ProgramMethod context) {
+    setReadDirectly();
     if (readsWithContexts.isBottom()) {
       readsWithContexts = new ConcreteAccessContexts();
     }
@@ -316,7 +355,8 @@ public class FieldAccessInfoImpl implements MutableFieldAccessInfo {
     assert !hasReflectiveAccess();
     assert !isReadFromAnnotation();
     assert !isReadFromMethodHandle();
-    readsWithContexts = AbstractAccessContexts.empty();
+    assert readsWithContexts.isTop();
+    clearReadDirectly();
     clearReadFromRecordInvokeDynamic();
   }
 
@@ -327,43 +367,38 @@ public class FieldAccessInfoImpl implements MutableFieldAccessInfo {
 
   public FieldAccessInfoImpl rewrittenWithLens(
       DexDefinitionSupplier definitions, GraphLens lens, Timing timing) {
+    assert readsWithContexts.isTop();
     timing.begin("Rewrite FieldAccessInfoImpl");
-    AbstractAccessContexts rewrittenReadsWithContexts =
-        readsWithContexts.rewrittenWithLens(definitions, lens);
     AbstractAccessContexts rewrittenWritesWithContexts =
         writesWithContexts.rewrittenWithLens(definitions, lens);
     FieldAccessInfoImpl rewritten;
     if (lens.isIdentityLensForFields(GraphLens.getIdentityLens())) {
-      if (rewrittenReadsWithContexts == readsWithContexts
-          && rewrittenWritesWithContexts == writesWithContexts) {
+      if (rewrittenWritesWithContexts == writesWithContexts) {
         rewritten = this;
       } else {
         rewritten =
-            new FieldAccessInfoImpl(
-                field, flags, rewrittenReadsWithContexts, rewrittenWritesWithContexts);
+            new FieldAccessInfoImpl(field, flags, readsWithContexts, rewrittenWritesWithContexts);
       }
     } else {
       rewritten =
           new FieldAccessInfoImpl(
-              lens.lookupField(field),
-              flags,
-              rewrittenReadsWithContexts,
-              rewrittenWritesWithContexts);
+              lens.lookupField(field), flags, readsWithContexts, rewrittenWritesWithContexts);
     }
     timing.end();
     return rewritten;
   }
 
   public FieldAccessInfoImpl join(FieldAccessInfoImpl impl) {
+    assert readsWithContexts.isTop();
     FieldAccessInfoImpl merged = new FieldAccessInfoImpl(field);
     merged.flags = flags | impl.flags;
-    merged.readsWithContexts = readsWithContexts.join(impl.readsWithContexts);
+    merged.readsWithContexts = AbstractAccessContexts.unknown();
     merged.writesWithContexts = writesWithContexts.join(impl.writesWithContexts);
     return merged;
   }
 
   public FieldAccessInfoImpl withoutPrunedItems(PrunedItems prunedItems) {
-    readsWithContexts = readsWithContexts.withoutPrunedItems(prunedItems);
+    assert readsWithContexts.isTop();
     writesWithContexts = writesWithContexts.withoutPrunedItems(prunedItems);
     return this;
   }

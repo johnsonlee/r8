@@ -14,7 +14,6 @@ import com.android.tools.r8.graph.Code;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.FieldAccessInfo;
 import com.android.tools.r8.graph.FieldAccessInfoCollectionImpl;
 import com.android.tools.r8.graph.FieldAccessInfoImpl;
 import com.android.tools.r8.graph.FieldResolutionResult;
@@ -253,7 +252,7 @@ public class EnqueuerDeferredTracingImpl extends EnqueuerDeferredTracing {
     Map<DexField, ProgramField> prunedFields = new IdentityHashMap<>();
     deferredEnqueuerActions.forEach(
         (field, ignore) -> {
-          FieldAccessInfo accessInfo = fieldAccessInfoCollection.get(field.getReference());
+          FieldAccessInfoImpl accessInfo = fieldAccessInfoCollection.get(field.getReference());
           prunedFields.put(field.getReference(), field);
           accessInfo.forEachAccessContext(methodsToProcess::add);
           accessInfo.forEachIndirectAccess(reference -> prunedFields.put(reference, field));

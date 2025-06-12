@@ -4,34 +4,31 @@
 
 package com.android.tools.r8.graph;
 
-import com.android.tools.r8.ir.analysis.proto.ProtoReferences;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
 
 /** Provides immutable access to {@link FieldAccessInfoImpl}. */
 public interface FieldAccessInfo {
 
   DexField getField();
 
-  int getNumberOfWriteContexts();
+  ProgramMethod getUniqueWriteContextForCallGraphConstruction();
 
-  boolean hasKnownReadContexts();
+  ProgramMethod getUniqueWriteContextForFieldValueAnalysis();
 
-  boolean hasKnownWriteContexts();
-
-  void forEachIndirectAccess(Consumer<DexField> consumer);
-
-  void forEachAccessContext(Consumer<ProgramMethod> consumer);
-
-  void forEachWriteContext(Consumer<ProgramMethod> consumer);
+  @Deprecated
+  void forEachWriteContextForFieldAssignmentTracker(Consumer<ProgramMethod> consumer);
 
   boolean hasReflectiveAccess();
+
+  boolean hasReflectiveRead();
 
   boolean hasReflectiveWrite();
 
   default boolean isAccessedFromMethodHandle() {
     return isReadFromMethodHandle() || isWrittenFromMethodHandle();
   }
+
+  boolean isEffectivelyFinal(ProgramField field);
 
   boolean isRead();
 
@@ -41,13 +38,20 @@ public interface FieldAccessInfo {
 
   boolean isReadFromMethodHandle();
 
-  boolean isReadOnlyInFindLiteExtensionByNumberMethod(ProtoReferences references);
+  default boolean isReadIndirectly() {
+    return hasReflectiveRead()
+        || isReadFromAnnotation()
+        || isReadFromMethodHandle()
+        || isReadFromRecordInvokeDynamic();
+  }
+
+  boolean isReadOnlyFromFindLiteExtensionByNumberMethod();
 
   boolean isWritten();
 
   boolean isWrittenFromMethodHandle();
 
-  boolean isWrittenOnlyInMethodSatisfying(Predicate<ProgramMethod> predicate);
-
-  boolean isWrittenOutside(DexEncodedMethod method);
+  default boolean isWrittenIndirectly() {
+    return hasReflectiveWrite() || isWrittenFromMethodHandle();
+  }
 }

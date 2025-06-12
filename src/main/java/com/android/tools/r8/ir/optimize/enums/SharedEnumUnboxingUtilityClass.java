@@ -320,7 +320,6 @@ public class SharedEnumUnboxingUtilityClass extends EnumUnboxingUtilityClass {
                   !appView.options().apiModelingOptions().isApiCallerIdentificationEnabled())
               .build();
       fieldAccessInfoCollectionModifierBuilder
-          .recordFieldReadInUnknownContext(valuesField.getReference())
           .recordFieldWriteInUnknownContext(valuesField.getReference());
       return valuesField;
     }

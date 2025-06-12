@@ -42,6 +42,7 @@ import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcretePri
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
 import com.android.tools.r8.optimize.argumentpropagation.utils.WideningUtils;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.IntBox;
 import com.android.tools.r8.utils.TraversalContinuation;
 import com.android.tools.r8.utils.collections.ProgramFieldMap;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
@@ -464,12 +465,15 @@ public class FieldAssignmentTracker {
               return;
             }
             if (!info.hasReflectiveAccess() && !info.isWrittenFromMethodHandle()) {
-              info.forEachWriteContext(
-                  context ->
-                      fieldWrites
-                          .computeIfAbsent(context.getDefinition(), ignore -> new ArrayList<>())
-                          .add(field));
-              pendingFieldWrites.put(field.getDefinition(), info.getNumberOfWriteContexts());
+              IntBox numberOfWriteContexts = new IntBox();
+              info.forEachWriteContextForFieldAssignmentTracker(
+                  context -> {
+                    fieldWrites
+                        .computeIfAbsent(context.getDefinition(), ignore -> new ArrayList<>())
+                        .add(field);
+                    numberOfWriteContexts.increment();
+                  });
+              pendingFieldWrites.put(field.getDefinition(), numberOfWriteContexts.get());
             }
           });
     }
