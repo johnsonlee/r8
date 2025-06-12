@@ -77,7 +77,7 @@ public class PrimaryR8IRConverter extends IRConverter {
     outliner.prepareForPrimaryOptimizationPass(graphLensForPrimaryOptimizationPass);
 
     if (fieldAccessAnalysis != null && fieldAccessAnalysis.fieldAssignmentTracker() != null) {
-      fieldAccessAnalysis.fieldAssignmentTracker().initialize();
+      fieldAccessAnalysis.fieldAssignmentTracker().initialize(executorService);
     }
 
     // Process the application identifying outlining candidates.

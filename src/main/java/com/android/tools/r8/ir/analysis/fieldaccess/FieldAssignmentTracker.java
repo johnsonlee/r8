@@ -5,11 +5,13 @@
 package com.android.tools.r8.ir.analysis.fieldaccess;
 
 import static com.android.tools.r8.ir.analysis.type.Nullability.definitelyNotNull;
+import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
+import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
@@ -36,17 +38,24 @@ import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackDelayed;
 import com.android.tools.r8.ir.optimize.info.field.InstanceFieldArgumentInitializationInfo;
 import com.android.tools.r8.ir.optimize.info.field.InstanceFieldInitializationInfo;
 import com.android.tools.r8.ir.optimize.info.field.InstanceFieldInitializationInfoCollection;
+import com.android.tools.r8.lightir.LirCode;
+import com.android.tools.r8.lightir.LirInstructionView;
+import com.android.tools.r8.lightir.LirOpcodes;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteArrayTypeValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteClassTypeValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcretePrimitiveTypeValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
 import com.android.tools.r8.optimize.argumentpropagation.utils.WideningUtils;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.android.tools.r8.utils.IntBox;
+import com.android.tools.r8.utils.Reference2IntMapUtils;
+import com.android.tools.r8.utils.SetUtils;
+import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.TraversalContinuation;
 import com.android.tools.r8.utils.collections.ProgramFieldMap;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
+import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
+import it.unimi.dsi.fastutil.objects.Reference2IntMap.Entry;
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
@@ -54,6 +63,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 
 // TODO(b/330674939): Remove legacy field optimizations.
@@ -91,8 +102,8 @@ public class FieldAssignmentTracker {
     this.objectAllocationGraph = new ObjectAllocationGraph();
   }
 
-  public void initialize() {
-    fieldAccessGraph.initialize(appView);
+  public void initialize(ExecutorService executorService) throws ExecutionException {
+    fieldAccessGraph.initialize(appView, executorService);
     objectAllocationGraph.initialize(appView);
     initializeAbstractInstanceFieldValues();
   }
@@ -446,7 +457,7 @@ public class FieldAssignmentTracker {
   static class FieldAccessGraph {
 
     // The fields written by each method.
-    private final Map<DexEncodedMethod, List<ProgramField>> fieldWrites = new IdentityHashMap<>();
+    private final Map<DexEncodedMethod, List<ProgramField>> fieldWrites = new ConcurrentHashMap<>();
 
     // The number of writes that have not yet been processed per field.
     private final Reference2IntMap<DexEncodedField> pendingFieldWrites =
@@ -454,32 +465,74 @@ public class FieldAssignmentTracker {
 
     FieldAccessGraph() {}
 
-    public void initialize(AppView<AppInfoWithLiveness> appView) {
+    public void initialize(AppView<AppInfoWithLiveness> appView, ExecutorService executorService)
+        throws ExecutionException {
       FieldAccessInfoCollection<?> fieldAccessInfoCollection =
           appView.appInfo().getFieldAccessInfoCollection();
       fieldAccessInfoCollection.forEach(
           info -> {
             ProgramField field =
                 appView.appInfo().resolveField(info.getField()).getSingleProgramField();
-            if (field == null) {
-              return;
-            }
-            if (!info.hasReflectiveAccess() && !info.isWrittenFromMethodHandle()) {
-              IntBox numberOfWriteContexts = new IntBox();
-              info.forEachWriteContextForFieldAssignmentTracker(
-                  context -> {
-                    fieldWrites
-                        .computeIfAbsent(context.getDefinition(), ignore -> new ArrayList<>())
-                        .add(field);
-                    numberOfWriteContexts.increment();
-                  });
-              pendingFieldWrites.put(field.getDefinition(), numberOfWriteContexts.get());
+            if (field != null && !info.isReadIndirectly() && !info.isWrittenIndirectly()) {
+              pendingFieldWrites.put(field.getDefinition(), 0);
             }
           });
+
+      // Find all write contexts for the fields of interest. First collect the fields of interest
+      // for thread safe querying.
+      Set<DexEncodedField> fieldsOfInterest =
+          SetUtils.newIdentityHashSet(pendingFieldWrites.size());
+      fieldsOfInterest.addAll(pendingFieldWrites.keySet());
+
+      // Iterate all code objects.
+      ThreadUtils.processItems(
+          appView.appInfo().classes(),
+          clazz -> {
+            Reference2IntMap<DexEncodedField> threadLocalPendingFieldWrites =
+                new Reference2IntOpenHashMap<>();
+            threadLocalPendingFieldWrites.defaultReturnValue(0);
+            clazz.forEachProgramMethodMatching(
+                m -> m.hasCode() && m.getCode().isLirCode(),
+                method -> {
+                  LirCode<?> code = method.getDefinition().getCode().asLirCode();
+                  Set<DexEncodedField> methodFieldWrites = Sets.newIdentityHashSet();
+                  for (LirInstructionView instruction : code) {
+                    if (instruction.getOpcode() == LirOpcodes.PUTFIELD
+                        || instruction.getOpcode() == LirOpcodes.PUTSTATIC) {
+                      DexField field =
+                          (DexField) code.getConstantItem(instruction.getNextConstantOperand());
+                      ProgramField resolvedField =
+                          appView.appInfo().resolveField(field).getSingleProgramField();
+                      if (resolvedField == null) {
+                        continue;
+                      }
+                      DexEncodedField resolvedFieldDefinition = resolvedField.getDefinition();
+                      if (fieldsOfInterest.contains(resolvedFieldDefinition)
+                          && methodFieldWrites.add(resolvedFieldDefinition)) {
+                        fieldWrites
+                            .computeIfAbsent(method.getDefinition(), ignoreKey(ArrayList::new))
+                            .add(resolvedField);
+                        Reference2IntMapUtils.increment(
+                            threadLocalPendingFieldWrites, resolvedFieldDefinition);
+                      }
+                    }
+                  }
+                });
+            // Commit the thread local data to the shared data.
+            synchronized (pendingFieldWrites) {
+              for (Entry<DexEncodedField> entry :
+                  threadLocalPendingFieldWrites.reference2IntEntrySet()) {
+                Reference2IntMapUtils.increment(
+                    pendingFieldWrites, entry.getKey(), entry.getIntValue());
+              }
+            }
+          },
+          appView.options().getThreadingModule(),
+          executorService);
     }
 
     void markProcessed(ProgramMethod method, Consumer<ProgramField> allWritesSeenConsumer) {
-      List<ProgramField> fieldWritesInMethod = fieldWrites.get(method.getDefinition());
+      List<ProgramField> fieldWritesInMethod = fieldWrites.remove(method.getDefinition());
       if (fieldWritesInMethod != null) {
         for (ProgramField field : fieldWritesInMethod) {
           int numberOfPendingFieldWrites = pendingFieldWrites.removeInt(field.getDefinition()) - 1;

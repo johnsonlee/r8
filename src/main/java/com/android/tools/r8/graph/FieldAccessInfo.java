@@ -4,8 +4,6 @@
 
 package com.android.tools.r8.graph;
 
-import java.util.function.Consumer;
-
 /** Provides immutable access to {@link FieldAccessInfoImpl}. */
 public interface FieldAccessInfo {
 
@@ -14,9 +12,6 @@ public interface FieldAccessInfo {
   ProgramMethod getUniqueWriteContextForCallGraphConstruction();
 
   ProgramMethod getUniqueWriteContextForFieldValueAnalysis();
-
-  @Deprecated
-  void forEachWriteContextForFieldAssignmentTracker(Consumer<ProgramMethod> consumer);
 
   boolean hasReflectiveAccess();
 

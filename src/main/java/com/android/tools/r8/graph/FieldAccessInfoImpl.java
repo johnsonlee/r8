@@ -159,21 +159,8 @@ public class FieldAccessInfoImpl implements MutableFieldAccessInfo {
   }
 
   public void forEachAccessContext(Consumer<ProgramMethod> consumer) {
-    forEachReadContext(consumer);
-    forEachWriteContext(consumer);
-  }
-
-  private void forEachReadContext(Consumer<ProgramMethod> consumer) {
     readsWithContexts.forEachAccessContext(consumer);
-  }
-
-  public void forEachWriteContext(Consumer<ProgramMethod> consumer) {
     writesWithContexts.forEachAccessContext(consumer);
-  }
-
-  @Override
-  public void forEachWriteContextForFieldAssignmentTracker(Consumer<ProgramMethod> consumer) {
-    forEachWriteContext(consumer);
   }
 
   @Override
