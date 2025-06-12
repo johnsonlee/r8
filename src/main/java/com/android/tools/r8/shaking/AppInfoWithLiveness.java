@@ -1007,7 +1007,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         lens.rewriteReferences(bootstrapMethods),
         lens.rewriteReferences(virtualMethodsTargetedByInvokeDirect),
         lens.rewriteReferences(liveMethods),
-        fieldAccessInfoCollection.rewrittenWithLens(definitionSupplier, lens, timing),
+        fieldAccessInfoCollection.rewrittenWithLens(definitionSupplier, lens, appliedLens, timing),
         objectAllocationInfoCollection.rewrittenWithLens(
             definitionSupplier, lens, appliedLens, timing),
         lens.rewriteCallSites(callSites, definitionSupplier, timing),

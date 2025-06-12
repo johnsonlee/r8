@@ -265,10 +265,7 @@ public class HorizontalClassMerger {
         new FieldAccessInfoCollectionModifier.Builder();
     for (HorizontalMergeGroup group : groups) {
       if (group.hasClassIdField()) {
-        DexProgramClass target = group.getTarget();
-        target.forEachProgramInstanceInitializerMatching(
-            definition -> definition.getCode().isHorizontalClassMergerCode(),
-            method -> builder.recordFieldWrittenInContext(group.getClassIdField(), method));
+        builder.addField(group.getClassIdField());
       }
     }
     return builder.build();

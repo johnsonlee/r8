@@ -319,8 +319,7 @@ public class SharedEnumUnboxingUtilityClass extends EnumUnboxingUtilityClass {
               .disableAndroidApiLevelCheckIf(
                   !appView.options().apiModelingOptions().isApiCallerIdentificationEnabled())
               .build();
-      fieldAccessInfoCollectionModifierBuilder
-          .recordFieldWriteInUnknownContext(valuesField.getReference());
+      fieldAccessInfoCollectionModifierBuilder.addField(valuesField.getReference());
       return valuesField;
     }
 

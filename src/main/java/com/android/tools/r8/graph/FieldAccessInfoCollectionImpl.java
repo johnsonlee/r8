@@ -30,19 +30,14 @@ public class FieldAccessInfoCollectionImpl
     this.infos = infos;
   }
 
-  @Override
-  public void destroyAccessContexts() {
-    infos.values().forEach(FieldAccessInfoImpl::destroyAccessContexts);
-  }
-
-  @Override
-  public void flattenAccessContexts() {
-    infos.values().forEach(FieldAccessInfoImpl::flattenAccessContexts);
-  }
-
   public FieldAccessInfoImpl computeIfAbsent(
       DexField field, Function<DexField, FieldAccessInfoImpl> fn) {
     return infos.computeIfAbsent(field, fn);
+  }
+
+  @Override
+  public void destroyUniqueWriteContexts() {
+    infos.values().forEach(FieldAccessInfoImpl::clearUniqueWriteContext);
   }
 
   @Override
@@ -80,13 +75,13 @@ public class FieldAccessInfoCollectionImpl
 
   @Override
   public FieldAccessInfoCollectionImpl rewrittenWithLens(
-      DexDefinitionSupplier definitions, GraphLens lens, Timing timing) {
+      DexDefinitionSupplier definitions, GraphLens lens, GraphLens appliedLens, Timing timing) {
     timing.begin("Rewrite FieldAccessInfoCollectionImpl");
     Map<DexField, FieldAccessInfoImpl> newInfos =
         LensUtils.mutableRewriteMap(
             infos,
             IdentityHashMap::new,
-            (field, info) -> info.rewrittenWithLens(definitions, lens, timing),
+            (field, info) -> info.rewrittenWithLens(definitions, lens, appliedLens),
             (field, info, rewrittenInfo) -> rewrittenInfo.getField(),
             (field, info, rewrittenInfo) -> rewrittenInfo,
             (field, info, otherInfo) -> info.join(otherInfo));

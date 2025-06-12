@@ -48,7 +48,7 @@ public class OptimizationInfoRemover {
     optimizationInfo.unsetDynamicType();
   }
 
-  private static void processMethod(DexEncodedMethod method) {
+  public static void processMethod(DexEncodedMethod method) {
     MutableMethodOptimizationInfo optimizationInfo =
         method.getOptimizationInfo().asMutableMethodOptimizationInfo();
     if (optimizationInfo == null) {

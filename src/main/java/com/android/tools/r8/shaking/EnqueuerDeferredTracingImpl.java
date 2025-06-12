@@ -27,6 +27,7 @@ import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodC
 import com.android.tools.r8.ir.conversion.passes.ThrowCatchOptimizer;
 import com.android.tools.r8.ir.optimize.AssumeInserter;
 import com.android.tools.r8.ir.optimize.CodeRewriter;
+import com.android.tools.r8.ir.optimize.info.OptimizationInfoRemover;
 import com.android.tools.r8.ir.optimize.membervaluepropagation.assume.AssumeInfo;
 import com.android.tools.r8.shaking.Enqueuer.FieldAccessKind;
 import com.android.tools.r8.shaking.Enqueuer.FieldAccessMetadata;
@@ -203,7 +204,7 @@ public class EnqueuerDeferredTracingImpl extends EnqueuerDeferredTracing {
 
     // If the field is now both read and written, then we cannot optimize the field unless the field
     // type is an uninstantiated class type.
-    if (info.getReadsWithContexts().hasAccesses() && info.getWritesWithContexts().hasAccesses()) {
+    if (info.isReadDirectly() && info.isWrittenDirectly()) {
       if (!fieldType.isClassType()) {
         return false;
       }
@@ -262,9 +263,15 @@ public class EnqueuerDeferredTracingImpl extends EnqueuerDeferredTracing {
     // Rewrite application.
     Map<DexProgramClass, ProgramMethodSet> initializedClassesWithContexts =
         new ConcurrentHashMap<>();
+    ProgramMethodSet instanceInitializers = ProgramMethodSet.createConcurrent();
     ThreadUtils.processItems(
         methodsToProcess,
-        (method, ignored) -> rewriteMethod(method, initializedClassesWithContexts, prunedFields),
+        (method, ignored) -> {
+          rewriteMethod(method, initializedClassesWithContexts, prunedFields);
+          if (method.getDefinition().isInstanceInitializer()) {
+            instanceInitializers.add(method);
+          }
+        },
         appView.options().getThreadingModule(),
         executorService,
         WorkLoad.HEAVY);
@@ -274,6 +281,11 @@ public class EnqueuerDeferredTracingImpl extends EnqueuerDeferredTracing {
         (clazz, contexts) ->
             contexts.forEach(context -> enqueuer.traceInitClass(clazz.getType(), context)));
     assert enqueuer.getWorklist().isEmpty();
+
+    // Clear the optimization info of instance initializers since the instance initializer
+    // optimization info may change when removing field puts.
+    instanceInitializers.forEach(
+        method -> OptimizationInfoRemover.processMethod(method.getDefinition()));
 
     // Prune field access info collection.
     prunedFields.values().forEach(field -> fieldAccessInfoCollection.remove(field.getReference()));

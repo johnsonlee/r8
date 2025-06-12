@@ -507,7 +507,6 @@ public class R8 {
       if (options.getTestingOptions().enableMemberRebindingAnalysis) {
         new MemberRebindingAnalysis(appViewWithLiveness).run(executorService);
       }
-      appViewWithLiveness.appInfo().getMutableFieldAccessInfoCollection().flattenAccessContexts();
       appViewWithLiveness
           .appInfo()
           .getMutableFieldAccessInfoCollection()

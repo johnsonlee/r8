@@ -4483,7 +4483,7 @@ public class Enqueuer {
           if (field != info.getField() || info == MISSING_FIELD_ACCESS_INFO) {
             return true;
           }
-          info.destroyReadAccessContexts();
+          info.destroyAccessContexts(mode);
           return false;
         });
     assert fieldAccessInfoCollection.verifyMappingIsOneToOne();

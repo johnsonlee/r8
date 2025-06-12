@@ -7,10 +7,11 @@ package com.android.tools.r8.graph;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AbstractAccessContexts.ConcreteAccessContexts;
 import com.android.tools.r8.graph.lens.GraphLens;
+import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.shaking.Enqueuer.FieldAccessKind;
 import com.android.tools.r8.utils.BitUtils;
+import com.android.tools.r8.utils.ObjectUtils;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
-import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.Sets;
 import java.util.Map;
 import java.util.Set;
@@ -35,6 +36,9 @@ public class FieldAccessInfoImpl implements MutableFieldAccessInfo {
   public static final int FLAG_IS_READ_FROM_RECORD_INVOKE_DYNAMIC = 1 << 6;
   public static final int FLAG_IS_READ_FROM_FIND_LITE_EXTENSION_BY_NUMBER_METHOD = 1 << 7;
   public static final int FLAG_IS_READ_FROM_NON_FIND_LITE_EXTENSION_BY_NUMBER_METHOD = 1 << 8;
+  public static final int FLAG_IS_WRITTEN_DIRECTLY = 1 << 9;
+  public static final int FLAG_IS_WRITTEN_FROM_NON_CLASS_INITIALIZER = 1 << 10;
+  public static final int FLAG_IS_WRITTEN_FROM_NON_INSTANCE_INITIALIZER = 1 << 11;
 
   // A direct reference to the definition of the field.
   private final DexField field;
@@ -50,8 +54,16 @@ public class FieldAccessInfoImpl implements MutableFieldAccessInfo {
   // reference appears.
   private AbstractAccessContexts writesWithContexts;
 
+  // The unique write context of this field, or null.
+  private ProgramMethod uniqueWriteContext;
+
   public FieldAccessInfoImpl(DexField field) {
     this(field, 0, AbstractAccessContexts.empty(), AbstractAccessContexts.empty());
+  }
+
+  public FieldAccessInfoImpl(DexField field, int flags, ProgramMethod uniqueWriteContext) {
+    this(field, flags, AbstractAccessContexts.unknown(), AbstractAccessContexts.unknown());
+    this.uniqueWriteContext = uniqueWriteContext;
   }
 
   public FieldAccessInfoImpl(
@@ -65,22 +77,13 @@ public class FieldAccessInfoImpl implements MutableFieldAccessInfo {
     this.writesWithContexts = writesWithContexts;
   }
 
-  void destroyAccessContexts() {
-    destroyReadAccessContexts();
-    writesWithContexts = AbstractAccessContexts.unknown();
-  }
-
-  public void destroyReadAccessContexts() {
+  public void destroyAccessContexts(Enqueuer.Mode mode) {
+    assert uniqueWriteContext == null;
+    if (mode.isInitialTreeShaking()) {
+      setUniqueWriteContextFromWritesWithContexts();
+    }
     readsWithContexts = AbstractAccessContexts.unknown();
-  }
-
-  void flattenAccessContexts() {
-    flattenAccessContexts(readsWithContexts);
-    flattenAccessContexts(writesWithContexts);
-  }
-
-  private void flattenAccessContexts(AbstractAccessContexts accessesWithContexts) {
-    accessesWithContexts.flattenAccessContexts(field);
+    writesWithContexts = AbstractAccessContexts.unknown();
   }
 
   @Override
@@ -88,16 +91,8 @@ public class FieldAccessInfoImpl implements MutableFieldAccessInfo {
     return field;
   }
 
-  public AbstractAccessContexts getReadsWithContexts() {
-    return readsWithContexts;
-  }
-
   public void setReadsWithContexts(AbstractAccessContexts readsWithContexts) {
     this.readsWithContexts = readsWithContexts;
-  }
-
-  public AbstractAccessContexts getWritesWithContexts() {
-    return writesWithContexts;
   }
 
   public void setWritesWithContexts(AbstractAccessContexts writesWithContexts) {
@@ -105,14 +100,27 @@ public class FieldAccessInfoImpl implements MutableFieldAccessInfo {
   }
 
   public ProgramMethod getUniqueWriteContext() {
-    if (hasKnownWriteContexts()
-        && writesWithContexts.getNumberOfAccessContexts() == 1
-        && !isWrittenIndirectly()) {
+    // We only set the `uniqueWriteContext` when we destroy `writesWithContexts`. Therefore,
+    // disallow uses of this method if the `writesWithContexts` has not been set to top.
+    assert writesWithContexts.isTop();
+    return uniqueWriteContext;
+  }
+
+  private void setUniqueWriteContextFromWritesWithContexts() {
+    if (writesWithContexts.isConcrete() && !isWrittenIndirectly()) {
       Map<DexField, ProgramMethodSet> accessesWithContexts =
           writesWithContexts.asConcrete().getAccessesWithContexts();
-      return accessesWithContexts.values().iterator().next().iterator().next();
+      if (accessesWithContexts.size() == 1) {
+        ProgramMethodSet contexts = accessesWithContexts.values().iterator().next();
+        if (contexts.size() == 1) {
+          uniqueWriteContext = contexts.getFirst();
+        }
+      }
     }
-    return null;
+  }
+
+  void clearUniqueWriteContext() {
+    uniqueWriteContext = null;
   }
 
   @Override
@@ -196,11 +204,27 @@ public class FieldAccessInfoImpl implements MutableFieldAccessInfo {
 
   @Override
   public boolean isEffectivelyFinal(ProgramField field) {
-    return isWrittenOnlyInMethodSatisfying(
-        method ->
-            method.getDefinition().isInitializer()
-                && method.getAccessFlags().isStatic() == field.getAccessFlags().isStatic()
-                && method.getHolder() == field.getHolder());
+    if (field.getAccessFlags().isStatic()) {
+      return BitUtils.isBitInMaskUnset(flags, FLAG_IS_WRITTEN_FROM_NON_CLASS_INITIALIZER);
+    } else {
+      return BitUtils.isBitInMaskUnset(flags, FLAG_IS_WRITTEN_FROM_NON_INSTANCE_INITIALIZER);
+    }
+  }
+
+  public void setWrittenFromNonClassInitializer() {
+    flags |= FLAG_IS_WRITTEN_FROM_NON_CLASS_INITIALIZER;
+  }
+
+  public void clearWrittenFromNonClassInitializer() {
+    flags &= ~FLAG_IS_WRITTEN_FROM_NON_CLASS_INITIALIZER;
+  }
+
+  public void setWrittenFromNonInstanceInitializer() {
+    flags |= FLAG_IS_WRITTEN_FROM_NON_INSTANCE_INITIALIZER;
+  }
+
+  public void clearWrittenFromNonInstanceInitializer() {
+    flags &= ~FLAG_IS_WRITTEN_FROM_NON_INSTANCE_INITIALIZER;
   }
 
   /** Returns true if this field is read by the program. */
@@ -209,7 +233,7 @@ public class FieldAccessInfoImpl implements MutableFieldAccessInfo {
     return isReadDirectly() || isReadIndirectly();
   }
 
-  private boolean isReadDirectly() {
+  public boolean isReadDirectly() {
     return BitUtils.isBitInMaskSet(flags, FLAG_IS_READ_DIRECTLY);
   }
 
@@ -281,8 +305,16 @@ public class FieldAccessInfoImpl implements MutableFieldAccessInfo {
     return isWrittenDirectly() || isWrittenIndirectly();
   }
 
-  private boolean isWrittenDirectly() {
-    return !writesWithContexts.isEmpty();
+  public boolean isWrittenDirectly() {
+    return BitUtils.isBitInMaskSet(flags, FLAG_IS_WRITTEN_DIRECTLY);
+  }
+
+  public void setWrittenDirectly() {
+    flags |= FLAG_IS_WRITTEN_DIRECTLY;
+  }
+
+  private void clearWrittenDirectly() {
+    flags &= ~FLAG_IS_WRITTEN_DIRECTLY;
   }
 
   @Override
@@ -299,14 +331,6 @@ public class FieldAccessInfoImpl implements MutableFieldAccessInfo {
    */
   public boolean isWrittenInMethodSatisfying(Predicate<ProgramMethod> predicate) {
     return writesWithContexts.isAccessedInMethodSatisfying(predicate);
-  }
-
-  /**
-   * Returns true if this field is only written by methods for which {@param predicate} returns
-   * true.
-   */
-  public boolean isWrittenOnlyInMethodSatisfying(Predicate<ProgramMethod> predicate) {
-    return writesWithContexts.isAccessedOnlyInMethodSatisfying(predicate) && !isWrittenIndirectly();
   }
 
   /**
@@ -328,6 +352,8 @@ public class FieldAccessInfoImpl implements MutableFieldAccessInfo {
   }
 
   public boolean recordWrite(DexField access, ProgramMethod context) {
+    setWrittenDirectly();
+    updateEffectivelyFinalFlags(context);
     if (writesWithContexts.isBottom()) {
       writesWithContexts = new ConcreteAccessContexts();
     }
@@ -335,6 +361,20 @@ public class FieldAccessInfoImpl implements MutableFieldAccessInfo {
       return writesWithContexts.asConcrete().recordAccess(access, context);
     }
     return false;
+  }
+
+  private void updateEffectivelyFinalFlags(ProgramMethod context) {
+    if (context.getAccessFlags().isConstructor()
+        && context.getHolderType().isIdenticalTo(field.getHolderType())) {
+      if (context.getAccessFlags().isStatic()) {
+        setWrittenFromNonInstanceInitializer();
+      } else {
+        setWrittenFromNonClassInitializer();
+      }
+    } else {
+      setWrittenFromNonClassInitializer();
+      setWrittenFromNonInstanceInitializer();
+    }
   }
 
   @Override
@@ -349,44 +389,49 @@ public class FieldAccessInfoImpl implements MutableFieldAccessInfo {
 
   @Override
   public void clearWrites() {
-    writesWithContexts = AbstractAccessContexts.empty();
+    assert !isWrittenIndirectly();
+    assert writesWithContexts.isTop();
+    clearWrittenDirectly();
+    clearWrittenFromNonClassInitializer();
+    clearWrittenFromNonInstanceInitializer();
+    clearUniqueWriteContext();
   }
 
   public FieldAccessInfoImpl rewrittenWithLens(
-      DexDefinitionSupplier definitions, GraphLens lens, Timing timing) {
+      DexDefinitionSupplier definitions, GraphLens lens, GraphLens appliedLens) {
     assert readsWithContexts.isTop();
-    timing.begin("Rewrite FieldAccessInfoImpl");
-    AbstractAccessContexts rewrittenWritesWithContexts =
-        writesWithContexts.rewrittenWithLens(definitions, lens);
-    FieldAccessInfoImpl rewritten;
-    if (lens.isIdentityLensForFields(GraphLens.getIdentityLens())) {
-      if (rewrittenWritesWithContexts == writesWithContexts) {
-        rewritten = this;
-      } else {
-        rewritten =
-            new FieldAccessInfoImpl(field, flags, readsWithContexts, rewrittenWritesWithContexts);
-      }
-    } else {
-      rewritten =
-          new FieldAccessInfoImpl(
-              lens.lookupField(field), flags, readsWithContexts, rewrittenWritesWithContexts);
+    assert writesWithContexts.isTop();
+    DexField rewrittenField = lens.lookupField(field, appliedLens);
+    ProgramMethod rewrittenUniqueWriteContext = null;
+    if (uniqueWriteContext != null) {
+      rewrittenUniqueWriteContext =
+          uniqueWriteContext.rewrittenWithLens(lens, appliedLens, definitions);
     }
-    timing.end();
-    return rewritten;
+    if (rewrittenField.isIdenticalTo(field)
+        && (ObjectUtils.identical(rewrittenUniqueWriteContext, uniqueWriteContext)
+            || (rewrittenUniqueWriteContext != null
+                && rewrittenUniqueWriteContext.isStructurallyEqualTo(uniqueWriteContext)))) {
+      return this;
+    }
+    return new FieldAccessInfoImpl(rewrittenField, flags, rewrittenUniqueWriteContext);
   }
 
   public FieldAccessInfoImpl join(FieldAccessInfoImpl impl) {
     assert readsWithContexts.isTop();
-    FieldAccessInfoImpl merged = new FieldAccessInfoImpl(field);
-    merged.flags = flags | impl.flags;
-    merged.readsWithContexts = AbstractAccessContexts.unknown();
-    merged.writesWithContexts = writesWithContexts.join(impl.writesWithContexts);
-    return merged;
+    assert writesWithContexts.isTop();
+    return new FieldAccessInfoImpl(
+        field,
+        flags | impl.flags,
+        AbstractAccessContexts.unknown(),
+        AbstractAccessContexts.unknown());
   }
 
   public FieldAccessInfoImpl withoutPrunedItems(PrunedItems prunedItems) {
     assert readsWithContexts.isTop();
-    writesWithContexts = writesWithContexts.withoutPrunedItems(prunedItems);
+    assert writesWithContexts.isTop();
+    if (uniqueWriteContext != null && prunedItems.isRemoved(uniqueWriteContext.getReference())) {
+      uniqueWriteContext = null;
+    }
     return this;
   }
 }

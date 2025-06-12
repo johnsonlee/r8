@@ -5,13 +5,9 @@
 package com.android.tools.r8.graph;
 
 import com.android.tools.r8.errors.Unreachable;
-import com.android.tools.r8.graph.lens.GraphLens;
-import com.android.tools.r8.utils.MapUtils;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import java.util.IdentityHashMap;
-import java.util.Iterator;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -40,8 +36,6 @@ import java.util.function.Predicate;
  */
 public abstract class AbstractAccessContexts {
 
-  abstract void flattenAccessContexts(DexField field);
-
   abstract void forEachAccessContext(Consumer<ProgramMethod> consumer);
 
   /**
@@ -50,17 +44,9 @@ public abstract class AbstractAccessContexts {
   abstract boolean isAccessedInMethodSatisfying(Predicate<ProgramMethod> predicate);
 
   /**
-   * Returns true if this field is only written by methods for which {@param predicate} returns
-   * true.
-   */
-  abstract boolean isAccessedOnlyInMethodSatisfying(Predicate<ProgramMethod> predicate);
-
-  /**
    * Returns true if this field is written by a method in the program other than {@param method}.
    */
   abstract boolean isAccessedOutside(DexEncodedMethod method);
-
-  abstract int getNumberOfAccessContexts();
 
   public final boolean hasAccesses() {
     return !isEmpty();
@@ -84,11 +70,6 @@ public abstract class AbstractAccessContexts {
     return false;
   }
 
-  abstract AbstractAccessContexts rewrittenWithLens(
-      DexDefinitionSupplier definitions, GraphLens lens);
-
-  abstract AbstractAccessContexts withoutPrunedItems(PrunedItems prunedItems);
-
   public static EmptyAccessContexts empty() {
     return EmptyAccessContexts.getInstance();
   }
@@ -110,11 +91,6 @@ public abstract class AbstractAccessContexts {
     }
 
     @Override
-    void flattenAccessContexts(DexField field) {
-      // Intentionally empty.
-    }
-
-    @Override
     void forEachAccessContext(Consumer<ProgramMethod> consumer) {
       // Intentionally empty.
     }
@@ -125,18 +101,8 @@ public abstract class AbstractAccessContexts {
     }
 
     @Override
-    boolean isAccessedOnlyInMethodSatisfying(Predicate<ProgramMethod> predicate) {
-      return true;
-    }
-
-    @Override
     boolean isAccessedOutside(DexEncodedMethod method) {
       return false;
-    }
-
-    @Override
-    int getNumberOfAccessContexts() {
-      return 0;
     }
 
     @Override
@@ -150,18 +116,8 @@ public abstract class AbstractAccessContexts {
     }
 
     @Override
-    AbstractAccessContexts rewrittenWithLens(DexDefinitionSupplier definitions, GraphLens lens) {
-      return this;
-    }
-
-    @Override
     public AbstractAccessContexts join(AbstractAccessContexts contexts) {
       return contexts;
-    }
-
-    @Override
-    AbstractAccessContexts withoutPrunedItems(PrunedItems prunedItems) {
-      return this;
     }
   }
 
@@ -209,33 +165,6 @@ public abstract class AbstractAccessContexts {
       return accessesWithContexts;
     }
 
-    @Override
-    int getNumberOfAccessContexts() {
-      if (accessesWithContexts.size() == 1) {
-        return accessesWithContexts.values().iterator().next().size();
-      }
-      throw new Unreachable(
-          "Should only be querying the number of access contexts after flattening");
-    }
-
-    @Override
-    void flattenAccessContexts(DexField field) {
-      if (accessesWithContexts != null) {
-        ProgramMethodSet flattenedAccessContexts =
-            accessesWithContexts.computeIfAbsent(field, ignore -> ProgramMethodSet.create());
-        accessesWithContexts.forEach(
-            (access, contexts) -> {
-              if (access.isNotIdenticalTo(field)) {
-                flattenedAccessContexts.addAll(contexts);
-              }
-            });
-        accessesWithContexts.clear();
-        if (!flattenedAccessContexts.isEmpty()) {
-          accessesWithContexts.put(field, flattenedAccessContexts);
-        }
-      }
-    }
-
     /**
      * Returns true if this field is written by a method for which {@param predicate} returns true.
      */
@@ -249,22 +178,6 @@ public abstract class AbstractAccessContexts {
         }
       }
       return false;
-    }
-
-    /**
-     * Returns true if this field is only written by methods for which {@param predicate} returns
-     * true.
-     */
-    @Override
-    public boolean isAccessedOnlyInMethodSatisfying(Predicate<ProgramMethod> predicate) {
-      for (ProgramMethodSet encodedWriteContexts : accessesWithContexts.values()) {
-        for (ProgramMethod encodedWriteContext : encodedWriteContexts) {
-          if (!predicate.test(encodedWriteContext)) {
-            return false;
-          }
-        }
-      }
-      return true;
     }
 
     /**
@@ -304,54 +217,6 @@ public abstract class AbstractAccessContexts {
     }
 
     @Override
-    ConcreteAccessContexts rewrittenWithLens(DexDefinitionSupplier definitions, GraphLens lens) {
-      Map<DexField, ProgramMethodSet> rewrittenAccessesWithContexts = null;
-      for (Entry<DexField, ProgramMethodSet> entry : accessesWithContexts.entrySet()) {
-        DexField field = entry.getKey();
-        DexField rewrittenField = lens.lookupField(field);
-
-        ProgramMethodSet contexts = entry.getValue();
-        ProgramMethodSet rewrittenContexts = contexts.rewrittenWithLens(definitions, lens);
-
-        if (rewrittenField.isIdenticalTo(field) && rewrittenContexts == contexts) {
-          if (rewrittenAccessesWithContexts == null) {
-            continue;
-          }
-        } else {
-          if (rewrittenAccessesWithContexts == null) {
-            rewrittenAccessesWithContexts = new IdentityHashMap<>(accessesWithContexts.size());
-            MapUtils.forEachUntilExclusive(
-                accessesWithContexts, rewrittenAccessesWithContexts::put, field);
-          }
-        }
-        merge(rewrittenAccessesWithContexts, rewrittenField, rewrittenContexts);
-      }
-      if (rewrittenAccessesWithContexts != null) {
-        rewrittenAccessesWithContexts =
-            MapUtils.trimCapacityOfIdentityHashMapIfSizeLessThan(
-                rewrittenAccessesWithContexts, accessesWithContexts.size());
-        return new ConcreteAccessContexts(rewrittenAccessesWithContexts);
-      } else {
-        return this;
-      }
-    }
-
-    private static void merge(
-        Map<DexField, ProgramMethodSet> accessesWithContexts,
-        DexField field,
-        ProgramMethodSet contexts) {
-      ProgramMethodSet existingContexts = accessesWithContexts.put(field, contexts);
-      if (existingContexts != null) {
-        if (existingContexts.size() <= contexts.size()) {
-          contexts.addAll(existingContexts);
-        } else {
-          accessesWithContexts.put(field, existingContexts);
-          existingContexts.addAll(contexts);
-        }
-      }
-    }
-
-    @Override
     public AbstractAccessContexts join(AbstractAccessContexts contexts) {
       if (contexts.isEmpty()) {
         return this;
@@ -372,30 +237,6 @@ public abstract class AbstractAccessContexts {
       contexts.asConcrete().accessesWithContexts.forEach(addAllMethods);
       return new ConcreteAccessContexts(newAccessesWithContexts);
     }
-
-    @Override
-    AbstractAccessContexts withoutPrunedItems(PrunedItems prunedItems) {
-      for (ProgramMethodSet methodSet : accessesWithContexts.values()) {
-        Iterator<ProgramMethod> iterator = methodSet.iterator();
-        ProgramMethodSet newAccessContexts = null;
-        while (iterator.hasNext()) {
-          DexMethod methodReference = iterator.next().getReference();
-          if (prunedItems.isRemoved(methodReference)) {
-            iterator.remove();
-            if (prunedItems.isFullyInlined(methodReference)) {
-              if (newAccessContexts == null) {
-                newAccessContexts = ProgramMethodSet.create();
-              }
-              prunedItems.forEachFullyInlinedMethodCaller(methodReference, newAccessContexts::add);
-            }
-          }
-        }
-        if (newAccessContexts != null) {
-          methodSet.addAll(newAccessContexts);
-        }
-      }
-      return this;
-    }
   }
 
   public static class UnknownAccessContexts extends AbstractAccessContexts {
@@ -409,11 +250,6 @@ public abstract class AbstractAccessContexts {
     }
 
     @Override
-    void flattenAccessContexts(DexField field) {
-      // Intentionally empty.
-    }
-
-    @Override
     void forEachAccessContext(Consumer<ProgramMethod> consumer) {
       throw new Unreachable("Should never be iterating the access contexts when they are unknown");
     }
@@ -424,19 +260,8 @@ public abstract class AbstractAccessContexts {
     }
 
     @Override
-    boolean isAccessedOnlyInMethodSatisfying(Predicate<ProgramMethod> predicate) {
-      return false;
-    }
-
-    @Override
     boolean isAccessedOutside(DexEncodedMethod method) {
       return true;
-    }
-
-    @Override
-    int getNumberOfAccessContexts() {
-      throw new Unreachable(
-          "Should never be querying the number of access contexts when they are unknown");
     }
 
     @Override
@@ -450,17 +275,7 @@ public abstract class AbstractAccessContexts {
     }
 
     @Override
-    AbstractAccessContexts rewrittenWithLens(DexDefinitionSupplier definitions, GraphLens lens) {
-      return this;
-    }
-
-    @Override
     public AbstractAccessContexts join(AbstractAccessContexts contexts) {
-      return this;
-    }
-
-    @Override
-    AbstractAccessContexts withoutPrunedItems(PrunedItems prunedItems) {
       return this;
     }
   }

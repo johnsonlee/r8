@@ -117,7 +117,10 @@ public class PrimaryR8IRConverter extends IRConverter {
     new IdentifierMinifier(appView).rewriteDexItemBasedConstStringInStaticFields(executorService);
 
     // The field access info collection is not maintained during IR processing.
-    appView.appInfoWithLiveness().getMutableFieldAccessInfoCollection().destroyAccessContexts();
+    appView
+        .appInfoWithLiveness()
+        .getMutableFieldAccessInfoCollection()
+        .destroyUniqueWriteContexts();
 
     // Assure that no more optimization feedback left after primary processing.
     assert feedback.noUpdatesLeft();

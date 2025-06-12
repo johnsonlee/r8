@@ -11,17 +11,16 @@ public interface MutableFieldAccessInfoCollection<
         S extends MutableFieldAccessInfoCollection<S, T>, T extends MutableFieldAccessInfo>
     extends FieldAccessInfoCollection<T> {
 
-  void destroyAccessContexts();
+  void destroyUniqueWriteContexts();
 
   T extend(DexField field, FieldAccessInfoImpl info);
-
-  void flattenAccessContexts();
 
   void removeIf(BiPredicate<DexField, FieldAccessInfoImpl> predicate);
 
   void restrictToProgram(DexDefinitionSupplier definitions);
 
-  S rewrittenWithLens(DexDefinitionSupplier definitions, GraphLens lens, Timing timing);
+  S rewrittenWithLens(
+      DexDefinitionSupplier definitions, GraphLens lens, GraphLens appliedLens, Timing timing);
 
   S withoutPrunedItems(PrunedItems prunedItems);
 }
