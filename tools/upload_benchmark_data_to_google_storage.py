@@ -8,6 +8,7 @@ import perf
 import utils
 
 import argparse
+import functools
 import json
 import os
 import re
@@ -55,7 +56,7 @@ def GetReleaseBranches():
             pass
 
         # Filter out branches that are not on the form X.Y
-        if not re.search('^(0|[1-9]\d*)\.(0|[1-9]\d*)$', remote_branch):
+        if not re.search(r'^(0|[1-9]\d*)\.(0|[1-9]\d*)$', remote_branch):
             continue
 
         # Filter out branches prior to 8.9.
@@ -66,6 +67,16 @@ def GetReleaseBranches():
 
         result.append(remote_branch)
     return result
+
+
+def CmpVersions(x, y):
+    semver_x = utils.check_basic_semver_version(x.version(), allowPrerelease=True)
+    semver_y = utils.check_basic_semver_version(y.version(), allowPrerelease=True)
+    if semver_x.larger_than(semver_y):
+        return 1
+    if semver_y.larger_than(semver_x):
+        return -1
+    return 0
 
 
 def GetReleaseCommits():
@@ -82,10 +93,11 @@ def GetReleaseCommits():
             git_hash = candidate_commit[:separator_index]
             git_title = candidate_commit[separator_index + 1:]
             if not re.search(
-                    '^Version %s\.%s\.(0|[1-9]\d*)-dev$' %
+                    r'^Version %s\.%s\.(0|[1-9]\d*)-dev$' %
                 (major, minor), git_title):
                 continue
             release_commits.append(historic_run.git_commit_from_hash(git_hash))
+    release_commits.sort(key=functools.cmp_to_key(CmpVersions))
     return release_commits
 
 
