@@ -88,6 +88,7 @@ def ParseOptions(argv):
 
 def main(argv):
     options = ParseOptions(argv)
+    utils.check_gcert()
     with utils.ChangedWorkingDirectory(REPO_ROOT, quiet=True):
         branches = [
             parse(line)
