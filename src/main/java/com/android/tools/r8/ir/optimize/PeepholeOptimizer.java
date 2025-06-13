@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize;
 
+import static com.android.tools.r8.ir.conversion.passes.TrivialGotosCollapser.unlinkTrivialGotoBlock;
 import static com.android.tools.r8.ir.regalloc.LiveIntervals.NO_REGISTER;
 
 import com.android.tools.r8.graph.AppView;
@@ -467,6 +468,7 @@ public class PeepholeOptimizer {
    * with a goto to the other.
    */
   public static void removeIdenticalPredecessorBlocks(IRCode code, RegisterAllocator allocator) {
+    Set<BasicBlock> blocksToRemove = Sets.newIdentityHashSet();
     BasicBlockInstructionsEquivalence equivalence =
         new BasicBlockInstructionsEquivalence(code, allocator);
     // Locate one block at a time that has identical predecessors. Rewrite those predecessors and
@@ -503,12 +505,20 @@ public class PeepholeOptimizer {
             Goto exit = new Goto();
             exit.setPosition(otherPred.getPosition());
             pred.getInstructions().addLast(exit);
+
+            // If `otherPred` is a catch handler, then we cannot `goto otherPred`. In this case we
+            // therefore eliminate the goto and remove the `pred` block.
+            if (pred.isCatchHandler()) {
+              unlinkTrivialGotoBlock(pred, otherPred);
+              blocksToRemove.add(pred);
+            }
           } else {
             blockToIndex.put(wrapper, predIndex);
           }
         }
       }
     } while (changed);
+    code.removeBlocks(blocksToRemove);
   }
 
   /**

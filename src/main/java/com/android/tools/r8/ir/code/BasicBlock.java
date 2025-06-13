@@ -1378,6 +1378,15 @@ public class BasicBlock {
     return blockIndex >= 0 && blockIndex < numberOfExceptionalSuccessors;
   }
 
+  public boolean isCatchHandler() {
+    for (BasicBlock predecessor : predecessors) {
+      if (predecessor.hasCatchSuccessor(this)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   public int guardsForCatchSuccessor(BasicBlock block) {
     assert hasCatchSuccessor(block);
     int index = successors.indexOf(block);
