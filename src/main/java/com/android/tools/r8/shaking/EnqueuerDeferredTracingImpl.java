@@ -123,14 +123,6 @@ public class EnqueuerDeferredTracingImpl extends EnqueuerDeferredTracing {
       return enqueueDeferredEnqueuerActions(field);
     }
 
-    // Field can be removed unless some other field access that has not yet been seen prohibits it.
-    // Record an EnqueuerAction that must be traced if that should happen.
-    EnqueuerAction deferredEnqueuerAction =
-        accessKind.toEnqueuerAction(fieldReference, context, metadata.toDeferred());
-    deferredEnqueuerActions
-        .computeIfAbsent(field, ignoreKey(LinkedHashSet::new))
-        .add(deferredEnqueuerAction);
-
     // If the field is static, then the field access will trigger the class initializer of the
     // field's holder. Therefore, we unconditionally trace the class initializer in this case.
     // The corresponding IR rewriter will rewrite the field access into an init-class instruction.
@@ -145,6 +137,14 @@ public class EnqueuerDeferredTracingImpl extends EnqueuerDeferredTracing {
       enqueuer.getWorklist().enqueueTraceTypeReferenceAction(field.getHolder(), reason);
       enqueuer.getWorklist().enqueueTraceDirectAndIndirectClassInitializers(field.getHolder());
     }
+
+    // Field can be removed unless some other field access that has not yet been seen prohibits it.
+    // Record an EnqueuerAction that must be traced if that should happen.
+    EnqueuerAction deferredEnqueuerAction =
+        accessKind.toEnqueuerAction(fieldReference, context, metadata.toDeferred());
+    deferredEnqueuerActions
+        .computeIfAbsent(field, ignoreKey(LinkedHashSet::new))
+        .add(deferredEnqueuerAction);
 
     return true;
   }
