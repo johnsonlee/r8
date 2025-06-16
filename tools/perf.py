@@ -110,7 +110,14 @@ INTERNAL_BENCHMARKS = {
 }
 # A collection of benchmarks that should not be run on the bots, but can be used
 # for running locally.
-LOCAL_BENCHMARKS = {'SystemUIAppTreeShaking': {'targets': ['r8-full']}}
+LOCAL_BENCHMARKS = {
+    'AGSA': {
+        'targets': ['r8-full']
+    },
+    'SystemUIAppTreeShaking': {
+        'targets': ['r8-full']
+    },
+}
 ALL_BENCHMARKS = {}
 ALL_BENCHMARKS.update(EXTERNAL_BENCHMARKS)
 ALL_BENCHMARKS.update(INTERNAL_BENCHMARKS)
