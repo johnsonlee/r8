@@ -107,25 +107,8 @@ CLEAN_COMMANDS = [
     ['tools/gradle.py', 'clean'],
 ]
 
-# TODO(b/210982978): Enable testing of min xmx again
-TEST_COMMANDS = [
-    # Run test.py internal testing.
-    [
-        'tools/test.py', '--only_internal', '--slow_tests',
-        '--java_max_memory_size=8G'
-    ],
-    # Run internal benchmarks.
-    [
-        'tools/perf.py', '--internal', '--iterations-inner', '3',
-        '--no-upload-benchmark-data-to-google-storage'
-    ],
-    # Ensure that all internal apps compile.
-    ['tools/run_on_app.py', '--run-all', '--out=out', '--workers', '3'],
-]
-
 # Command timeout, in seconds.
 RUN_TIMEOUT = 3600 * 7
-BOT_RUN_TIMEOUT = RUN_TIMEOUT * len(TEST_COMMANDS)
 
 
 def log(str):
@@ -271,8 +254,9 @@ def run_bot():
     git_hash = utils.get_HEAD_sha1()
     put_magic_file(READY_FOR_TESTING, git_hash)
     begin = time.time()
+    timeout = get_bot_timeout()
     while True:
-        if time.time() - begin > BOT_RUN_TIMEOUT:
+        if time.time() - begin > timeout:
             log('Timeout exceeded: http://go/internal-r8-doc')
             raise Exception('Bot timeout')
         if get_magic_file_exists(TESTING_COMPLETE):
@@ -395,11 +379,45 @@ def run_once(archive):
     env['R8_GRADLE_CORES_PER_FORK'] = '5'
     if archive:
         [execute(cmd, archive, env) for cmd in CLEAN_COMMANDS]
-    failed = any([execute(cmd, archive, env) for cmd in TEST_COMMANDS])
+    test_commands = get_test_commands()
+    failed = any([execute(cmd, archive, env) for cmd in test_commands])
     # Gradle daemon occasionally leaks memory, stop it.
     gradle.RunGradle(['--stop'])
     archive_status(1 if failed else 0)
     return failed
+
+
+# Bot timeout in seconds.
+def get_bot_timeout():
+    return RUN_TIMEOUT * len(get_default_test_commands())
+
+
+def get_default_test_commands():
+    return [
+        # Run test.py internal testing.
+        [
+            'tools/test.py', '--only_internal', '--slow_tests',
+            '--java_max_memory_size=8G'
+        ],
+        # Run internal benchmarks.
+        [
+            'tools/perf.py', '--internal', '--iterations-inner', '3',
+            '--no-upload-benchmark-data-to-google-storage'
+        ],
+        # Ensure that all internal apps compile.
+        ['tools/run_on_app.py', '--run-all', '--out=out', '--workers', '3'],
+    ]
+
+
+def get_test_commands():
+    test_commands = get_default_test_commands()
+    version = utils.get_HEAD_commit().version()
+    if version and version.endswith('-dev'):
+        test_commands.append([
+            'tools/perf.py', '--benchmark', 'AGSA', '--iterations-inner', '1',
+            '--no-upload-benchmark-data-to-google-storage'
+        ])
+    return test_commands
 
 
 def Main():

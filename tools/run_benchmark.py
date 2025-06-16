@@ -163,11 +163,11 @@ def main(argv, temp):
 
 
 def run(options, r8jar, testjars):
-    xms='8g'
-    xmx='8g'
+    xms = '8g'
+    xmx = '8g'
     if 'AGSA' in options.benchmark:
-        xms = '16g'
-        xmx = '16g'
+        xms = '32g'
+        xmx = '32g'
     jdkhome = get_jdk_home(options, options.benchmark)
     cmd = [
         jdk.GetJavaExecutable(jdkhome),
