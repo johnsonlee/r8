@@ -6,12 +6,17 @@ package com.android.tools.r8.androidresources;
 
 public class Resources {
   public static String GET_STRING_VALUE = "GET_STRING_VALUE";
+  public static int GET_COLOR_VALUE = 84;
 
   // Returns the GET_STRING_VALUE  to be able to distinguish resource inlined values from values
   // we get from this call (i.e., not inlined). Inlined values are the actual values from the
   // resource table.
   public String getString(int id) {
     return GET_STRING_VALUE;
+  }
+
+  public int getColor(int id) {
+    return GET_COLOR_VALUE;
   }
 
   public int getIdentifier(String name, String defType, String defPackage) {

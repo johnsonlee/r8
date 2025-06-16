@@ -66,7 +66,8 @@ public class AndroidResourceTestingUtils {
     DRAWABLE,
     STYLEABLE,
     XML,
-    ID;
+    ID,
+    COLOR;
 
     public static RClassType fromClass(Class clazz) {
       String type = rClassWithoutNamespaceAndOuter(clazz).substring(2);
@@ -139,13 +140,16 @@ public class AndroidResourceTestingUtils {
           + "</manifest>\n"
           + "\n";
 
-  public static String XML_FILE_WITH_STRING_REFERENCE =
+  public static String XML_FILE_WITH_COLOR_AND_STRING_REFERENCE =
       "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
-          + "<paths>\n"
-          + "    <files-path\n"
-          + "        name=\"@string/%s\"\n"
-          + "        path=\"let/it/be\" />\n"
-          + "</paths>";
+          + "<TextView xmlns:android=\"http://schemas.android.com/apk/res/android\"\n"
+          + "    android:layout_height=\"wrap_content\"\n"
+          + "    android:layout_width=\"wrap_content\"\n"
+          + "    android:text=\"%s\"\n"
+          + "    android:textColor=\"%s\"\n"
+          + "    android:textSize=\"22sp\"\n"
+          + "    android:padding=\"16dp\""
+          + "/>";
 
   public static String XML_FILE_WITH_ID =
       "<menu xmlns:android=\"http://schemas.android.com/apk/res/android\"\n"
@@ -316,6 +320,9 @@ public class AndroidResourceTestingUtils {
             } else if (item.hasStr()) {
               entries.add(
                   new ResourceValue(item.getStr().getValue(), configValue.getConfig().toString()));
+            } else if (item.hasPrim()) {
+              entries.add(
+                  new ResourceValue(item.getPrim().toString(), configValue.getConfig().toString()));
             }
             mapping.put(name, entries);
           }
@@ -387,6 +394,9 @@ public class AndroidResourceTestingUtils {
     private int packageId = 0x7f;
     private String packageName;
     private boolean useStaticValueForNonFinalFields = false;
+    private Map<String, String> colorValues = new TreeMap<>();
+    private Set<String> colorsWithExtraConfigs = new TreeSet<>();
+    private boolean aaptBinaryRoundtrip = false;
 
     // Create the android resources from the passed in R classes
     // All values will be generated based on the fields in the class.
@@ -409,6 +419,9 @@ public class AndroidResourceTestingUtils {
           if (rClassType == RClassType.STRING) {
             addStringValue(name, name);
           }
+          if (rClassType == RClassType.COLOR) {
+            addColor(name, "#FCFCFC");
+          }
           if (rClassType == RClassType.DRAWABLE) {
             addDrawable(name + ".png", TINY_PNG);
           }
@@ -421,6 +434,11 @@ public class AndroidResourceTestingUtils {
           }
         }
       }
+      return this;
+    }
+
+    AndroidTestResourceBuilder addColor(String name, String value) {
+      colorValues.put(name, value);
       return this;
     }
 
@@ -437,10 +455,23 @@ public class AndroidResourceTestingUtils {
       return this;
     }
 
+    AndroidTestResourceBuilder addXmlWithStringAndColorReference(
+        String xmlName, String stringValue, String colorValue) {
+      xmlFiles.put(
+          xmlName,
+          String.format(XML_FILE_WITH_COLOR_AND_STRING_REFERENCE, stringValue, colorValue));
+      return this;
+    }
+
     AndroidTestResourceBuilder addXmlWithStringReference(
         String xmlName, String nameOfReferencedString) {
-      xmlFiles.put(xmlName, String.format(XML_FILE_WITH_STRING_REFERENCE, nameOfReferencedString));
-      return this;
+      return addXmlWithStringAndColorReference(
+          xmlName, "@string/" + nameOfReferencedString, "#FF0A0B0C");
+    }
+
+    AndroidTestResourceBuilder addXmlWithColorReference(String xmlName, String nameOfColor) {
+      return addXmlWithStringAndColorReference(
+          xmlName, "This is a string", "@color/" + nameOfColor);
     }
 
     public AndroidTestResourceBuilder withSimpleManifestAndAppNameString() {
@@ -533,6 +564,13 @@ public class AndroidResourceTestingUtils {
               languageValues.resolve("strings.xml"), createStringResourceXml(true));
         }
       }
+      if (colorValues.size() > 0) {
+        FileUtils.writeTextFile(valuesFolder.resolve("colors.xml"), createColorXml(false));
+        if (colorsWithExtraConfigs.size() > 0) {
+          Path alternativeValues = temp.newFolder("res", "values-night").toPath();
+          FileUtils.writeTextFile(alternativeValues.resolve("colors.xml"), createColorXml(true));
+        }
+      }
       if (overlayableValues.size() > 0) {
         FileUtils.writeTextFile(valuesFolder.resolve("overlayable.xml"), createOverlayableXml());
       }
@@ -580,7 +618,8 @@ public class AndroidResourceTestingUtils {
           temp,
           packageId,
           aaptPackageName,
-          !useStaticValueForNonFinalFields);
+          !useStaticValueForNonFinalFields,
+          aaptBinaryRoundtrip);
       Path rClassJavaFile =
           Files.walk(rClassOutputDir)
               .filter(path -> path.endsWith("R.java"))
@@ -675,6 +714,23 @@ public class AndroidResourceTestingUtils {
           new AndroidTestRClass(rClassJavaFile, rewrittenRClassFiles), output, keepRuleFiles);
     }
 
+    private String createColorXml(boolean nonDefaultColor) {
+      StringBuilder stringBuilder = new StringBuilder("<resources>\n");
+      colorValues.forEach(
+          (name, color) -> {
+            if (!nonDefaultColor || colorsWithExtraConfigs.contains(name)) {
+              stringBuilder.append(
+                  "<color name=\""
+                      + name
+                      + "\">"
+                      + (!nonDefaultColor ? color : "#000000FF")
+                      + "</color>");
+            }
+          });
+      stringBuilder.append("</resources>");
+      return stringBuilder.toString();
+    }
+
     private String createOverlayableXml() {
       StringBuilder stringBuilder = new StringBuilder("<resources>\n");
 
@@ -719,6 +775,16 @@ public class AndroidResourceTestingUtils {
       stringBuilder.append("</resources>");
       return stringBuilder.toString();
     }
+
+    public AndroidTestResourceBuilder addExtraColorConfig(String name) {
+      colorsWithExtraConfigs.add(name);
+      return this;
+    }
+
+    public AndroidTestResourceBuilder setAaptBinaryRoundtrip(boolean aaptBinaryRoundtrip) {
+      this.aaptBinaryRoundtrip = aaptBinaryRoundtrip;
+      return this;
+    }
   }
 
   public static ProcessResult dumpWithAapt2(Path path) throws IOException {
@@ -737,9 +803,11 @@ public class AndroidResourceTestingUtils {
       TemporaryFolder temp,
       int packageId,
       String packageName,
-      boolean nonFinalIds)
+      boolean nonFinalIds,
+      boolean aaptBinaryRoundtrip)
       throws IOException {
     Path compileOutput = temp.newFile("compiled.zip").toPath();
+    Path tempBinary = temp.newFile("tempbinary.zip").toPath();
     ProcessResult compileProcessResult =
         ToolHelper.runAapt2(
             "compile", "-o", compileOutput.toString(), "--dir", resFolder.toString());
@@ -750,8 +818,6 @@ public class AndroidResourceTestingUtils {
             "link",
             "-I",
             ToolHelper.getAndroidJar(AndroidApiLevel.S).toString(),
-            "-o",
-            resourceZip.toString(),
             "--java",
             rClassFolder.toString(),
             "--manifest",
@@ -759,16 +825,38 @@ public class AndroidResourceTestingUtils {
             "--package-id",
             "" + packageId,
             "--allow-reserved-package-id",
+            "--no-auto-version",
             "--rename-resources-package",
             packageName,
-            "--proto-format",
             compileOutput.toString());
+    if (!aaptBinaryRoundtrip) {
+      args.add("--proto-format");
+      args.add("-o");
+      args.add(resourceZip.toString());
+    } else {
+      args.add("-o");
+      args.add(tempBinary.toString());
+    }
+
     if (nonFinalIds) {
       args.add("--non-final-ids");
     }
 
     ProcessResult linkProcesResult = ToolHelper.runAapt2(args.toArray(new String[0]));
     failOnError(linkProcesResult);
+
+    if (aaptBinaryRoundtrip) {
+      List<String> roundTripArgs =
+          Lists.newArrayList(
+              "convert",
+              "-o",
+              resourceZip.toString(),
+              "--output-format",
+              "proto",
+              tempBinary.toString());
+      ProcessResult roundTripResult = ToolHelper.runAapt2(roundTripArgs.toArray(new String[0]));
+      failOnError(roundTripResult);
+    }
   }
 
   private static void failOnError(ProcessResult processResult) {
