@@ -56,7 +56,10 @@ public class AGSABenchmarks extends BenchmarkBase {
   private static void configure(R8FullTestBuilder testBuilder) {
     testBuilder
         .addOptionsModification(
-            options -> options.getOpenClosedInterfacesOptions().suppressAllOpenInterfaces())
+            options -> {
+              options.getOpenClosedInterfacesOptions().suppressAllOpenInterfaces();
+              options.getTestingOptions().dontReportFailingCheckDiscarded = true;
+            })
         .allowDiagnosticMessages()
         .allowUnusedDontWarnPatterns()
         .allowUnusedProguardConfigurationRules()
