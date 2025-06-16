@@ -32,7 +32,7 @@ abstract class MethodStateCollection<K> {
     addMethodState(appView, getKey(method), methodState);
   }
 
-  private void addMethodState(
+  public void addMethodState(
       AppView<AppInfoWithLiveness> appView, K method, MethodState methodState) {
     if (methodState.isUnknown()) {
       methodStates.put(method, methodState);

@@ -18,6 +18,8 @@ import com.android.tools.r8.optimize.argumentpropagation.propagation.VirtualDisp
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.timing.Timing;
+import com.android.tools.r8.utils.timing.TimingMerger;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -69,11 +71,27 @@ public class ArgumentPropagatorOptimizationInfoPropagator {
       Timing timing)
       throws ExecutionException {
     timing.begin("Propagate argument information for virtual methods");
-    ThreadUtils.processItems(
-        stronglyConnectedProgramComponents,
-        this::processStronglyConnectedComponent,
-        appView.options().getThreadingModule(),
-        executorService);
+    TimingMerger merger = timing.beginMerger("Fork", executorService);
+    Collection<Timing> timings =
+        ThreadUtils.processItemsWithResults(
+            stronglyConnectedProgramComponents,
+            classes -> {
+              Timing threadTiming =
+                  Timing.create(
+                      classes.iterator().next().getTypeName()
+                          + " ("
+                          + classes.size()
+                          + "/"
+                          + appView.appInfo().classes().size()
+                          + ")",
+                      appView.options());
+              processStronglyConnectedComponent(classes, threadTiming);
+              return threadTiming.end();
+            },
+            appView.options().getThreadingModule(),
+            executorService);
+    merger.add(timings);
+    merger.end();
     timing.end();
 
     // Solve the parameter flow constraints.
@@ -90,7 +108,8 @@ public class ArgumentPropagatorOptimizationInfoPropagator {
     timing.end();
   }
 
-  private void processStronglyConnectedComponent(Set<DexProgramClass> stronglyConnectedComponent) {
+  private void processStronglyConnectedComponent(
+      Set<DexProgramClass> stronglyConnectedComponent, Timing timing) {
     // Invoke instructions that target interface methods may dispatch to methods that are not
     // defined on a subclass of the interface method holder.
     //
@@ -102,6 +121,7 @@ public class ArgumentPropagatorOptimizationInfoPropagator {
     //
     // To handle this we first propagate any argument information stored for I.m() to A.m() by doing
     // a top-down traversal over the interfaces in the strongly connected component.
+    timing.begin("Interface method argument propagator");
     new InterfaceMethodArgumentPropagator(
             appView,
             immediateSubtypingInfo,
@@ -109,6 +129,7 @@ public class ArgumentPropagatorOptimizationInfoPropagator {
             signature ->
                 interfaceDispatchOutsideProgram.accept(stronglyConnectedComponent, signature))
         .run(stronglyConnectedComponent);
+    timing.end();
 
     // Now all the argument information for a given method is guaranteed to be stored on a supertype
     // of the method's holder. All that remains is to propagate the information downwards in the
@@ -121,7 +142,10 @@ public class ArgumentPropagatorOptimizationInfoPropagator {
     //  information" during the depth-first class hierarchy traversal, since the argument
     //  information would be active by construction when it is first seen during the top-down class
     //  hierarchy traversal.
-    new VirtualDispatchMethodArgumentPropagator(appView, immediateSubtypingInfo, methodStates)
+    timing.begin("Virtual dispatch method argument propagator");
+    new VirtualDispatchMethodArgumentPropagator(
+            appView, immediateSubtypingInfo, methodStates, timing)
         .run(stronglyConnectedComponent);
+    timing.end();
   }
 }

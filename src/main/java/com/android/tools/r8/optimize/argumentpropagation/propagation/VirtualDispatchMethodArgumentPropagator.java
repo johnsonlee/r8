@@ -31,6 +31,8 @@ import com.android.tools.r8.optimize.argumentpropagation.codescanner.StateCloner
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.UnknownMethodState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.collections.DexMethodSignatureSet;
+import com.android.tools.r8.utils.timing.Timing;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
@@ -44,6 +46,12 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
     // information does not have a lower bound).
     final MethodStateCollectionBySignature active = MethodStateCollectionBySignature.create();
 
+    // Argument information for final virtual methods. The intersection of this and the active
+    // tracked collection is empty to guarantee that we do not carry this information downwards.
+    // TODO(b/422947619): Also apply pruning to activeUntilLowerBound and inactiveUntilUpperBound.
+    final MethodStateCollectionBySignature activeUntilCurrentClass =
+        MethodStateCollectionBySignature.create();
+
     // Argument information for virtual methods that must be propagated to all overrides that are
     // above the given lower bound.
     final Map<DexType, MethodStateCollectionBySignature> activeUntilLowerBound =
@@ -56,8 +64,13 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
 
     PropagationState(DexProgramClass clazz) {
       // Join the argument information from each of the super types.
+      DexMethodSignatureSet finalMethods = DexMethodSignatureSet.create();
+      // TODO(b/422947619): Extend build speed optimization for final methods to package-private
+      //  final methods. See PackagePrivateOverridePublicizerTest for an example.
+      clazz.forEachProgramVirtualMethodMatching(
+          m -> m.isFinal() && !m.getAccessFlags().isPackagePrivate(), finalMethods::add);
       immediateSubtypingInfo.forEachImmediateProgramSuperClass(
-          clazz, superclass -> addParentState(clazz, superclass));
+          clazz, superclass -> addParentState(clazz, superclass, finalMethods));
     }
 
     @SuppressWarnings("ReferenceEquality")
@@ -65,12 +78,13 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
     //  given subclass. Instead of copying the state, consider linking the states. This would reduce
     //  memory usage, but would require visiting all transitive (program) super classes for each
     //  subclass.
-    private void addParentState(DexProgramClass clazz, DexProgramClass superclass) {
+    private void addParentState(
+        DexProgramClass clazz, DexProgramClass superclass, DexMethodSignatureSet finalMethods) {
       PropagationState parentState = propagationStates.get(superclass.asProgramClass());
       assert parentState != null;
 
       // Add the argument information that must be propagated to all method overrides.
-      active.addMethodStates(appViewWithLiveness, parentState.active);
+      addActive(parentState.active, finalMethods);
 
       // Add the argument information that is active until a given lower bound.
       parentState.activeUntilLowerBound.forEach(
@@ -78,7 +92,8 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
             TypeElement lowerBoundType = lowerBound.toTypeElement(appViewWithLiveness);
             TypeElement currentType = clazz.getType().toTypeElement(appViewWithLiveness);
             if (lowerBoundType.lessThanOrEqual(currentType, appViewWithLiveness)) {
-              addActiveUntilLowerBound(lowerBound, activeMethodState);
+              addActiveUntilCurrentClassOrLowerBound(
+                  lowerBound, activeMethodState, clazz, finalMethods);
             } else {
               // No longer active.
             }
@@ -93,7 +108,7 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
               // TODO(b/190154391): Only carry this information downwards if the upper bound is a
               //  subtype of this class. Otherwise we carry this information to all subtypes,
               //  although clearly the information will never become active.
-              addInactiveUntilUpperBound(bounds, inactiveMethodStates);
+              addInactiveUntilUpperBound(bounds, inactiveMethodStates, finalMethods);
               return;
             }
 
@@ -113,12 +128,13 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
               if (lowerBound.lessThanOrEqual(currentType, appViewWithLiveness)) {
                 DexType activeUntilLowerBoundType =
                     lowerBound.toDexType(appViewWithLiveness.dexItemFactory());
-                addActiveUntilLowerBound(activeUntilLowerBoundType, inactiveMethodStates);
+                addActiveUntilCurrentClassOrLowerBound(
+                    activeUntilLowerBoundType, inactiveMethodStates, clazz, finalMethods);
               } else {
                 return;
               }
             } else {
-              active.addMethodStates(appViewWithLiveness, inactiveMethodStates);
+              addActive(inactiveMethodStates, finalMethods);
             }
 
             inactiveMethodStates.forEach(
@@ -148,13 +164,79 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
                     DexProgramClass resolvedHolder =
                         resolutionResult.getResolvedHolder().asProgramClass();
                     PropagationState propagationState = propagationStates.get(resolvedHolder);
-                    propagationState.addActiveUntilLowerBound(
-                        resolvedHolder.getType(),
-                        resolutionResult.getResolvedProgramMethod(),
-                        methodState);
+                    propagationState.addActiveUntilCurrentClass(
+                        resolutionResult.getResolvedProgramMethod(), methodState);
                   }
                 });
           });
+    }
+
+    private void addActive(ProgramMethod method, MethodState methodState) {
+      internalAddActive(
+          method.getMethodSignature(),
+          methodState,
+          method.getAccessFlags().isFinal() && !method.getAccessFlags().isPackagePrivate());
+    }
+
+    private void addActive(
+        MethodStateCollectionBySignature other, DexMethodSignatureSet finalMethods) {
+      other.forEach(
+          (method, methodState) ->
+              internalAddActive(method, methodState, finalMethods.contains(method)));
+    }
+
+    private void internalAddActive(
+        DexMethodSignature method, MethodState methodState, boolean isFinal) {
+      if (isFinal) {
+        activeUntilCurrentClass.addMethodState(appViewWithLiveness, method, methodState);
+      } else {
+        active.addMethodState(appViewWithLiveness, method, methodState);
+      }
+    }
+
+    private void setActive(ProgramMethod method, MethodState methodState) {
+      if (method.getAccessFlags().isFinal() && !method.getAccessFlags().isPackagePrivate()) {
+        activeUntilCurrentClass.set(method, methodState);
+      } else {
+        active.set(method, methodState);
+      }
+    }
+
+    private void addActiveUntilCurrentClass(ProgramMethod method, MethodState methodState) {
+      activeUntilCurrentClass.addMethodState(appViewWithLiveness, method, methodState);
+    }
+
+    private void addActiveUntilCurrentClassOrLowerBound(
+        DexType lowerBound, ProgramMethod method, MethodState methodState) {
+      boolean isFinal =
+          method.getAccessFlags().isFinal() && !method.getAccessFlags().isPackagePrivate();
+      if (isFinal || lowerBound.isIdenticalTo(method.getHolderType())) {
+        addActiveUntilCurrentClass(method, methodState);
+      } else {
+        addActiveUntilLowerBound(lowerBound, method, methodState);
+      }
+    }
+
+    private void addActiveUntilCurrentClassOrLowerBound(
+        DexType lowerBound,
+        MethodStateCollectionBySignature otherMethodStates,
+        DexProgramClass currentClass,
+        DexMethodSignatureSet finalMethods) {
+      if (lowerBound.isIdenticalTo(currentClass.getType())) {
+        activeUntilCurrentClass.addMethodStates(appViewWithLiveness, otherMethodStates);
+      } else {
+        otherMethodStates.forEach(
+            (method, methodState) -> {
+              if (finalMethods.contains(method)) {
+                activeUntilCurrentClass.addMethodState(appViewWithLiveness, method, methodState);
+              } else {
+                activeUntilLowerBound
+                    .computeIfAbsent(
+                        lowerBound, ignoreKey(MethodStateCollectionBySignature::create))
+                    .addMethodState(appViewWithLiveness, method, methodState);
+              }
+            });
+      }
     }
 
     private void addActiveUntilLowerBound(
@@ -164,32 +246,42 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
           .addMethodState(appViewWithLiveness, method, methodState);
     }
 
-    private void addActiveUntilLowerBound(
-        DexType lowerBound, MethodStateCollectionBySignature methodStates) {
-      activeUntilLowerBound
-          .computeIfAbsent(lowerBound, ignoreKey(MethodStateCollectionBySignature::create))
-          .addMethodStates(appViewWithLiveness, methodStates);
-    }
-
     private void addInactiveUntilUpperBound(
         DynamicTypeWithUpperBound upperBound, ProgramMethod method, MethodState methodState) {
-      inactiveUntilUpperBound
-          .computeIfAbsent(upperBound, ignoreKey(MethodStateCollectionBySignature::create))
-          .addMethodState(appViewWithLiveness, method, methodState);
+      boolean isFinal =
+          method.getAccessFlags().isFinal() && !method.getAccessFlags().isPackagePrivate();
+      if (!isFinal) {
+        inactiveUntilUpperBound
+            .computeIfAbsent(upperBound, ignoreKey(MethodStateCollectionBySignature::create))
+            .addMethodState(appViewWithLiveness, method, methodState);
+      }
     }
 
     private void addInactiveUntilUpperBound(
-        DynamicTypeWithUpperBound upperBound, MethodStateCollectionBySignature methodStates) {
-      inactiveUntilUpperBound
-          .computeIfAbsent(upperBound, ignoreKey(MethodStateCollectionBySignature::create))
-          .addMethodStates(appViewWithLiveness, methodStates);
+        DynamicTypeWithUpperBound upperBound,
+        MethodStateCollectionBySignature otherMethodStates,
+        DexMethodSignatureSet finalMethods) {
+      otherMethodStates.forEach(
+          (method, methodState) -> {
+            if (!finalMethods.contains(method)) {
+              inactiveUntilUpperBound
+                  .computeIfAbsent(upperBound, ignoreKey(MethodStateCollectionBySignature::create))
+                  .addMethodStates(appViewWithLiveness, otherMethodStates);
+            }
+          });
     }
 
     private MethodState computeMethodStateForPolymorphicMethod(ProgramMethod method) {
       assert method.getDefinition().isNonPrivateVirtualMethod();
       MethodState methodState = active.get(method).mutableCopy();
+      DexMethodSignature methodSignature = method.getMethodSignature();
+      methodState =
+          methodState.mutableJoin(
+              appViewWithLiveness,
+              methodSignature,
+              activeUntilCurrentClass.get(method),
+              StateCloner.getCloner());
       if (!activeUntilLowerBound.isEmpty()) {
-        DexMethodSignature methodSignature = method.getMethodSignature();
         for (MethodStateCollectionBySignature methodStates : activeUntilLowerBound.values()) {
           methodState =
               methodState.mutableJoin(
@@ -285,6 +377,7 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
   }
 
   final AppView<AppInfoWithLiveness> appViewWithLiveness;
+  final Timing timing;
 
   // For each class, stores the argument information for each virtual method on this class and all
   // direct and indirect super classes.
@@ -297,9 +390,11 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
   public VirtualDispatchMethodArgumentPropagator(
       AppView<AppInfoWithLiveness> appView,
       ImmediateProgramSubtypingInfo immediateSubtypingInfo,
-      MethodStateCollectionByReference methodStates) {
+      MethodStateCollectionByReference methodStates,
+      Timing timing) {
     super(appView, immediateSubtypingInfo, methodStates);
     this.appViewWithLiveness = appView;
+    this.timing = timing;
   }
 
   @Override
@@ -312,11 +407,15 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
   @Override
   public void visit(DexProgramClass clazz) {
     assert !propagationStates.containsKey(clazz);
+    timing.begin("Compute propagation state");
     computePropagationState(clazz);
+    timing.end();
   }
 
   private void computePropagationState(DexProgramClass clazz) {
+    timing.begin("Add parent states");
     PropagationState propagationState = new PropagationState(clazz);
+    timing.end();
 
     // Join the argument information from the methods of the current class.
     clazz.forEachProgramVirtualMethod(
@@ -330,7 +429,7 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
           //  distinguish monomorphic unknown method states from polymorphic unknown method states.
           //  We only need to propagate polymorphic unknown method states here.
           if (methodState.isUnknown()) {
-            propagationState.active.set(method, UnknownMethodState.get());
+            propagationState.setActive(method, UnknownMethodState.get());
             return;
           }
 
@@ -343,11 +442,11 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
 
           ConcretePolymorphicMethodState polymorphicMethodState =
               concreteMethodState.asPolymorphic();
+          timing.begin("Visit polymorphic method state");
           polymorphicMethodState.forEach(
               (bounds, methodStateForBounds) -> {
                 if (bounds.isUnknown()) {
-                  propagationState.active.addMethodState(
-                      appViewWithLiveness, method, methodStateForBounds);
+                  propagationState.addActive(method, methodStateForBounds);
                 } else {
                   // TODO(b/190154391): Verify that the bounds are not trivial according to the
                   //  static receiver type.
@@ -361,11 +460,10 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
                           lowerBound.toDexType(appViewWithLiveness.dexItemFactory());
                       assert !bounds.isExactClassType()
                           || activeUntilLowerBoundType.isIdenticalTo(clazz.getType());
-                      propagationState.addActiveUntilLowerBound(
+                      propagationState.addActiveUntilCurrentClassOrLowerBound(
                           activeUntilLowerBoundType, method, methodStateForBounds);
                     } else {
-                      propagationState.active.addMethodState(
-                          appViewWithLiveness, method, methodStateForBounds);
+                      propagationState.addActive(method, methodStateForBounds);
                     }
                   } else {
                     assert !clazz
@@ -377,6 +475,7 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
                   }
                 }
               });
+          timing.end();
         });
 
     assert propagationState.verifyActiveUntilLowerBoundRelevance(clazz);
@@ -423,8 +522,10 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
 
   @Override
   public void prune(DexProgramClass clazz) {
+    timing.begin("Compute final method states");
     PropagationState propagationState = propagationStates.remove(clazz);
     computeFinalMethodStates(clazz, propagationState);
+    timing.end();
   }
 
   private boolean verifyAllClassesFinished(Collection<DexProgramClass> stronglyConnectedComponent) {
