@@ -506,9 +506,9 @@ public class PeepholeOptimizer {
             exit.setPosition(otherPred.getPosition());
             pred.getInstructions().addLast(exit);
 
-            // If `otherPred` is a catch handler, then we cannot `goto otherPred`. In this case we
-            // therefore eliminate the goto and remove the `pred` block.
-            if (pred.isCatchHandler()) {
+            // If `otherPred` is a catch handler with a `move-exception`, then we cannot
+            // `goto otherPred`. In this case we eliminate the goto and remove the `pred` block.
+            if (otherPred.entry().isMoveException()) {
               unlinkTrivialGotoBlock(pred, otherPred);
               blocksToRemove.add(pred);
             }
