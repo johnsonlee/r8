@@ -182,4 +182,18 @@ public class ReflectiveOracle {
   public static void onClassGetField(Class<?> clazz, String name) {
     getInstance().onClassGetField(Stack.createStack(), clazz, name);
   }
+
+  public static void onAtomicIntegerFieldUpdaterNewUpdater(Class<?> clazz, String name) {
+    getInstance().onAtomicIntegerFieldUpdaterNewUpdater(Stack.createStack(), clazz, name);
+  }
+
+  public static void onAtomicLongFieldUpdaterNewUpdater(Class<?> clazz, String name) {
+    getInstance().onAtomicLongFieldUpdaterNewUpdater(Stack.createStack(), clazz, name);
+  }
+
+  public static void onAtomicReferenceFieldUpdaterNewUpdater(
+      Class<?> clazz, Class<?> fieldClass, String name) {
+    getInstance()
+        .onAtomicReferenceFieldUpdaterNewUpdater(Stack.createStack(), clazz, fieldClass, name);
+  }
 }

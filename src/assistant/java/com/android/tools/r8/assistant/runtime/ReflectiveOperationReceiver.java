@@ -41,6 +41,13 @@ public interface ReflectiveOperationReceiver {
 
   void onClassIsAssignableFrom(Stack stack, Class<?> clazz, Class<?> sup);
 
+  void onAtomicIntegerFieldUpdaterNewUpdater(Stack stack, Class<?> clazz, String name);
+
+  void onAtomicLongFieldUpdaterNewUpdater(Stack stack, Class<?> clazz, String name);
+
+  void onAtomicReferenceFieldUpdaterNewUpdater(
+      Stack stack, Class<?> clazz, Class<?> fieldClass, String name);
+
   @KeepForApi
   enum ClassFlag {
     ANNOTATION,

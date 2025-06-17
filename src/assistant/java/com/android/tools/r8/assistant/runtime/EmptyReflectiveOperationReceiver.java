@@ -53,4 +53,14 @@ public class EmptyReflectiveOperationReceiver implements ReflectiveOperationRece
 
   @Override
   public void onClassFlag(Stack stack, Class<?> clazz, ClassFlag classFlag) {}
+
+  @Override
+  public void onAtomicIntegerFieldUpdaterNewUpdater(Stack stack, Class<?> clazz, String name) {}
+
+  @Override
+  public void onAtomicLongFieldUpdaterNewUpdater(Stack stack, Class<?> clazz, String name) {}
+
+  @Override
+  public void onAtomicReferenceFieldUpdaterNewUpdater(
+      Stack stack, Class<?> clazz, Class<?> fieldClass, String name) {}
 }

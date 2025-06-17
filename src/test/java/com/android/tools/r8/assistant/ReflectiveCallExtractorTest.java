@@ -45,7 +45,7 @@ public class ReflectiveCallExtractorTest extends TestBase {
 
   @Test
   public void testGuava() throws Exception {
-    test(ToolHelper.GUAVA_JRE, 18, 20);
+    test(ToolHelper.GUAVA_JRE, 21, 17);
   }
 
   @Test
@@ -64,7 +64,7 @@ public class ReflectiveCallExtractorTest extends TestBase {
             "dump_app.zip");
     Path programArchive =
         CompilerDump.fromArchive(zip, temp.newFolder().toPath()).getProgramArchive();
-    test(programArchive, 23, 26);
+    test(programArchive, 26, 23);
   }
 
   private void test(Path jar, int success, int failure) throws Exception {
