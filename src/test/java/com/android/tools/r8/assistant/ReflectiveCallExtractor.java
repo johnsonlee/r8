@@ -77,6 +77,9 @@ public class ReflectiveCallExtractor {
     if (factory.serviceLoaderMethods.isLoadMethod(method)) {
       return true;
     }
+    if (factory.proxyMethods.newProxyInstance.isIdenticalTo(method)) {
+      return true;
+    }
     DexType type = method.getHolderType();
     String name = method.getName().toString();
     if (type.isIdenticalTo(factory.classType)) {
@@ -90,12 +93,6 @@ public class ReflectiveCallExtractor {
         return false;
       }
       return true;
-    }
-    if (type.isIdenticalTo(factory.proxyType)) {
-      if (name.equals("getProxyClass") || name.equals("newProxyInstance")) {
-        return true;
-      }
-      return false;
     }
     if (type.isIdenticalTo(factory.unsafeType)) {
       // We assume all offset based methods are called using the right method below to compute the
@@ -119,9 +116,12 @@ public class ReflectiveCallExtractor {
     List<DexType> types = new ArrayList<>(methods.keySet());
     types.sort(Comparator.naturalOrder());
     for (DexType type : types) {
-      sb.append("+++ ").append(type).append(" +++").append("\n");
-      for (DexMethod dexMethod : methods.get(type)) {
-        sb.append(dexMethod).append("\n");
+      Collection<DexMethod> typeMethods = methods.get(type);
+      if (!typeMethods.isEmpty()) {
+        sb.append("+++ ").append(type).append(" +++").append("\n");
+        for (DexMethod dexMethod : typeMethods) {
+          sb.append(dexMethod).append("\n");
+        }
       }
     }
     return sb.toString();

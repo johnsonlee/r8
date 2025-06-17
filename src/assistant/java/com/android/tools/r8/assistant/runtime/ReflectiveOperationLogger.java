@@ -6,6 +6,8 @@ package com.android.tools.r8.assistant.runtime;
 
 import com.android.tools.r8.assistant.runtime.ReflectiveOracle.Stack;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
+import java.lang.reflect.InvocationHandler;
+import java.util.Arrays;
 
 @KeepForApi
 public class ReflectiveOperationLogger implements ReflectiveOperationReceiver {
@@ -105,6 +107,26 @@ public class ReflectiveOperationLogger implements ReflectiveOperationReceiver {
             + clazz
             + "#"
             + name);
+  }
+
+  @Override
+  public void onServiceLoaderLoad(Stack stack, Class<?> clazz, ClassLoader classLoader) {
+    System.out.println("Reflectively got ServiceLoader.load on " + clazz + " with " + classLoader);
+  }
+
+  @Override
+  public void onProxyNewProxyInstance(
+      Stack stack,
+      ClassLoader classLoader,
+      Class<?>[] interfaces,
+      InvocationHandler invocationHandler) {
+    System.out.println(
+        "Reflectively got Proxy.newProxyInstance on "
+            + Arrays.toString(interfaces)
+            + " with "
+            + classLoader
+            + " and "
+            + invocationHandler);
   }
 
   public boolean requiresStackInformation() {

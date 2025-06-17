@@ -5,6 +5,7 @@ package com.android.tools.r8.assistant.runtime;
 
 import com.android.tools.r8.assistant.runtime.ReflectiveOracle.Stack;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
+import java.lang.reflect.InvocationHandler;
 
 @KeepForApi
 public interface ReflectiveOperationReceiver {
@@ -47,6 +48,14 @@ public interface ReflectiveOperationReceiver {
 
   void onAtomicReferenceFieldUpdaterNewUpdater(
       Stack stack, Class<?> clazz, Class<?> fieldClass, String name);
+
+  void onServiceLoaderLoad(Stack stack, Class<?> clazz, ClassLoader classLoader);
+
+  void onProxyNewProxyInstance(
+      Stack stack,
+      ClassLoader classLoader,
+      Class<?>[] interfaces,
+      InvocationHandler invocationHandler);
 
   @KeepForApi
   enum ClassFlag {

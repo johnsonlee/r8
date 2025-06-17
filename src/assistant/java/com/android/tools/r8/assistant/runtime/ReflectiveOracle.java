@@ -6,6 +6,7 @@ package com.android.tools.r8.assistant.runtime;
 import com.android.tools.r8.assistant.runtime.ReflectiveOperationReceiver.ClassFlag;
 import com.android.tools.r8.assistant.runtime.ReflectiveOperationReceiver.NameLookupType;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
+import java.lang.reflect.InvocationHandler;
 import java.util.Arrays;
 
 @KeepForApi
@@ -195,5 +196,24 @@ public class ReflectiveOracle {
       Class<?> clazz, Class<?> fieldClass, String name) {
     getInstance()
         .onAtomicReferenceFieldUpdaterNewUpdater(Stack.createStack(), clazz, fieldClass, name);
+  }
+
+  public static void onServiceLoaderLoad(Class<?> clazz) {
+    getInstance().onServiceLoaderLoad(Stack.createStack(), clazz, null);
+  }
+
+  public static void onServiceLoaderLoadWithClassLoader(Class<?> clazz, ClassLoader classLoader) {
+    getInstance().onServiceLoaderLoad(Stack.createStack(), clazz, classLoader);
+  }
+
+  public static void onServiceLoaderLoadInstalled(Class<?> clazz) {
+    getInstance()
+        .onServiceLoaderLoad(Stack.createStack(), clazz, ClassLoader.getSystemClassLoader());
+  }
+
+  public static void onProxyNewProxyInstance(
+      ClassLoader classLoader, Class<?>[] interfaces, InvocationHandler invocationHandler) {
+    getInstance()
+        .onProxyNewProxyInstance(Stack.createStack(), classLoader, interfaces, invocationHandler);
   }
 }

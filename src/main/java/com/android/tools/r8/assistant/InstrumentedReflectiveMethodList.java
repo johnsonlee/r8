@@ -144,6 +144,25 @@ public class InstrumentedReflectiveMethodList {
             factory.classType,
             factory.stringType));
 
+    builder.put(
+        factory.serviceLoaderMethods.load,
+        getMethodReferenceWithClassParameter("onServiceLoaderLoad"));
+    builder.put(
+        factory.serviceLoaderMethods.loadWithClassLoader,
+        getMethodReferenceWithParameterTypes(
+            "onServiceLoaderLoadWithClassLoader", factory.classType, factory.classLoaderType));
+    builder.put(
+        factory.serviceLoaderMethods.loadInstalled,
+        getMethodReferenceWithClassParameter("onServiceLoaderLoadInstalled"));
+
+    builder.put(
+        factory.proxyMethods.newProxyInstance,
+        getMethodReferenceWithParameterTypes(
+            "onProxyNewProxyInstance",
+            factory.classLoaderType,
+            factory.classArrayType,
+            factory.invocationHandlerType));
+
     return builder.build();
   }
 
