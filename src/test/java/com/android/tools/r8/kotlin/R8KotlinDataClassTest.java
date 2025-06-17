@@ -129,14 +129,6 @@ public class R8KotlinDataClassTest extends AbstractR8KotlinTestBase {
                 testBuilder
                     .addKeepRules(keepClassMethod(mainClassName, testMethodSignature))
                     .addOptionsModification(disableClassInliner))
-        .inspect(
-            inspector -> {
-              if (testParameters.canUseJavaLangInvokeVarHandleStoreStoreFence()) {
-                // TODO(b/383488282): Should always be removed.
-                checkClassIsKept(inspector, TEST_DATA_CLASS.getClassName());
-              } else {
-                checkClassIsRemoved(inspector, TEST_DATA_CLASS.getClassName());
-              }
-            });
+        .inspect(inspector -> checkClassIsRemoved(inspector, TEST_DATA_CLASS.getClassName()));
   }
 }
