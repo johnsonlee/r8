@@ -10,10 +10,12 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.dump.CompilerDump;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Map;
@@ -38,17 +40,31 @@ public class ReflectiveCallExtractorTest extends TestBase {
 
   @Test
   public void testGson() throws Exception {
-    test(ToolHelper.GSON, 16, 16);
+    test(ToolHelper.GSON, 16, 12);
   }
 
   @Test
   public void testGuava() throws Exception {
-    test(ToolHelper.GUAVA_JRE, 18, 22);
+    test(ToolHelper.GUAVA_JRE, 18, 20);
   }
 
   @Test
   public void testJacoco() throws Exception {
     test(ToolHelper.JACOCO_AGENT, 12, 0);
+  }
+
+  @Test
+  public void testNowInAndroid() throws Exception {
+    Path zip =
+        Paths.get(
+            ToolHelper.THIRD_PARTY_DIR,
+            "opensource-apps",
+            "android",
+            "nowinandroid",
+            "dump_app.zip");
+    Path programArchive =
+        CompilerDump.fromArchive(zip, temp.newFolder().toPath()).getProgramArchive();
+    test(programArchive, 23, 26);
   }
 
   private void test(Path jar, int success, int failure) throws Exception {
