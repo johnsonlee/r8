@@ -34,7 +34,11 @@ def parse_arguments():
         default=None,
         action='store_true',
         help='Use the exclude-deps version of the mapping file.')
-    parser.add_argument('--map', help='Path to r8lib map.', default=None)
+    parser.add_argument('--map', help='Path to r8lib map in text format.', default=None)
+    parser.add_argument('--partition-map',
+                        '--partition_map',
+                        help='Path to r8lib map in ZIP partition format.',
+                        default=None)
     parser.add_argument('--r8jar', help='Path to r8 jar.', default=None)
     parser.add_argument('--no-r8lib',
                         '--no_r8lib',
@@ -67,28 +71,47 @@ def parse_arguments():
                         default=None,
                         action='store_true',
                         help='Disable validation of map hash.')
+    parser.add_argument(
+        '--disable-partition-map',
+        default=False,
+        action='store_true',
+        help='Disable use of partition map (unless one was explicitly specified'
+            ' with --partition-map).')
     return parser.parse_args()
 
 
 def get_map_file(args, temp):
-    # default to using the specified map file.
+    # Default to using the specified map file.
     if args.map:
-        return args.map
+        return (False, args.map)
+    if args.partition_map:
+        return (True, args.partition_map)
 
-    # next try to extract it from the tag/version options.
-    map_path = utils.find_cloud_storage_file_from_options('r8lib.jar.map', args)
-    if map_path:
-        return map_path
+    for use_partition_map in ([False] if args.disable_partition_map else [True, False]):
+        # Try to extract map from the tag/version options.
+        map_path = utils.find_cloud_storage_file_from_options(
+            'r8lib.jar_map.zip' if use_partition_map else 'r8lib.jar.map', args)
+        if map_path:
+            return (use_partition_map, map_path)
 
-    # next try to extract it from the stack-trace source-file content.
-    if not args.stacktrace:
-        if not args.quiet:
-            print('Waiting for stack-trace input...')
-        args.stacktrace = os.path.join(temp, 'stacktrace.txt')
-        open(args.stacktrace, 'w').writelines(sys.stdin.readlines())
+        # Try to extract map from the stack-trace source-file content.
+        r8_source_file = get_r8_source_file_attribute(args.stacktrace)
+        if r8_source_file:
+            map_path = get_map_from_r8_source_file_attribute(
+                args, r8_source_file, use_partition_map)
+        if map_path:
+            return (use_partition_map, map_path)
 
+    # If no other map file was found, use the local mapping file.
+    if args.r8jar:
+        return (False, args.r8jar + ".map")
+    return (False, utils.R8LIB_MAP)
+
+
+# Extract the R8 source file attribute from the stack trace if present.
+def get_r8_source_file_attribute(stacktrace):
     r8_source_file = None
-    for line in open(args.stacktrace, 'r'):
+    for line in open(stacktrace, 'r'):
         start = line.rfind("(R8_")
         if start > 0:
             end = line.find(":", start)
@@ -101,41 +124,49 @@ def get_map_file(args, temp):
                     print(' ' + content)
             else:
                 r8_source_file = content
+    return r8_source_file
 
-    if r8_source_file:
-        (header, r8_version_or_hash, maphash) = r8_source_file.split('_')
-        # If the command-line specified --exclude-deps then assume it is as previous
-        # versions will not be marked as such in the source-file line.
-        is_excldeps = args.exclude_deps
-        excldeps_start = r8_version_or_hash.find('+excldeps')
-        if (excldeps_start > 0):
-            is_excldeps = True
-            r8_version_or_hash = r8_version_or_hash[0:excldeps_start]
-        if len(r8_version_or_hash) < 40:
-            args.version = r8_version_or_hash
-        else:
-            args.commit_hash = r8_version_or_hash
-        map_path = None
-        if path.exists(utils.R8LIB_MAP) and get_hash_from_map_file(
-                utils.R8LIB_MAP) == maphash:
-            return utils.R8LIB_MAP
 
-        try:
-            map_path = utils.find_cloud_storage_file_from_options(
-                'r8lib' + ('-exclude-deps' if is_excldeps else '') + '.jar.map',
-                args)
-        except Exception as e:
-            print(e)
-            print('WARNING: Falling back to using local mapping file.')
+def get_map_from_r8_source_file_attribute(args, r8_source_file, use_partition_map):
+    (header, r8_version_or_hash, maphash) = r8_source_file.split('_')
+    # If the command-line specified --exclude-deps then assume it is as previous
+    # versions will not be marked as such in the source-file line.
+    is_excldeps = args.exclude_deps
+    excldeps_start = r8_version_or_hash.find('+excldeps')
+    if (excldeps_start > 0):
+        is_excldeps = True
+        r8_version_or_hash = r8_version_or_hash[0:excldeps_start]
+    if len(r8_version_or_hash) < 40:
+        args.version = r8_version_or_hash
+    else:
+        args.commit_hash = r8_version_or_hash
+    map_path = None
+    # First check local mapping file for map hash.
+    if path.exists(utils.R8LIB_MAP) and get_hash_from_map_file(
+            utils.R8LIB_MAP) == maphash:
+        return utils.R8LIB_MAP
+    try:
+        # Look for mapping file on GCS based on the version or commit hash
+        # found in the source file atttribute.
+        map_path = utils.find_cloud_storage_file_from_options(
+            'r8lib' + ('-exclude-deps' if is_excldeps else '')
+            + ('.jar_map.zip' if use_partition_map else '.jar.map'),
+            args)
 
-        if map_path and not args.disable_map_validation:
-            check_maphash(map_path, maphash, args)
+        if map_path:
+            # Partition map is not validated. The mapping file header is
+            # in the METADATA blob together with some other imformation.
+            if not args.disable_map_validation and not use_partition_map:
+                check_maphash(map_path, maphash, args)
             return map_path
+    except Exception as e:
+        print(e)
+        print('WARNING: Falling back to using local mapping file.')
 
     # If no other map file was found, use the local mapping file.
     if args.r8jar:
-        return args.r8jar + ".map"
-    return utils.R8LIB_MAP
+        return args.r8jar + ('_map.zip' if use_partition_map else ".map")
+    return utils.R8LIB_PARTITION_MAP if use_partition_map else utils.R8LIB_MAP
 
 
 def check_maphash(mapping_path, maphash, args):
@@ -161,8 +192,16 @@ def get_hash_from_map_file(mapping_path):
 def main():
     args = parse_arguments()
     with utils.TempDir() as temp:
-        map_path = get_map_file(args, temp)
+        # Get the stack trace to retrace.
+        if not args.stacktrace:
+            if not args.quiet:
+                print('Waiting for stack-trace input...')
+            args.stacktrace = os.path.join(temp, 'stacktrace.txt')
+            open(args.stacktrace, 'w').writelines(sys.stdin.readlines())
+
+        (is_partition_map, map_path) = get_map_file(args, temp)
         return run(map_path,
+                   is_partition_map,
                    args.stacktrace,
                    args.r8jar,
                    args.no_r8lib,
@@ -173,6 +212,7 @@ def main():
 
 
 def run(map_path,
+        is_partition_map,
         stacktrace,
         r8jar,
         no_r8lib,
@@ -191,8 +231,12 @@ def run(map_path,
         r8jar = utils.R8_JAR if no_r8lib else utils.R8LIB_JAR
 
     retrace_args += [
-        '-cp', r8jar, 'com.android.tools.r8.retrace.Retrace', map_path
+        '-cp', r8jar, 'com.android.tools.r8.retrace.Retrace'
     ]
+    if is_partition_map:
+        retrace_args.extend(['--partition-map', map_path])
+    else:
+        retrace_args.append(map_path)
 
     if regex:
         retrace_args.append('--regex')
