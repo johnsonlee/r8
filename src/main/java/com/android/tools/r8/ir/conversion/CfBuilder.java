@@ -127,8 +127,8 @@ public class CfBuilder {
     }
 
     void setHeight(int height) {
-      assert height <= maxHeight;
       this.height = height;
+      this.maxHeight = Math.max(maxHeight, height);
     }
   }
 
