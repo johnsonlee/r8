@@ -41,7 +41,7 @@ public class NotNullAfterInstanceOfTest extends TestBase {
               MethodSubject mainMethodSubject = inspector.clazz(Main.class).mainMethod();
               assertThat(mainMethodSubject, isPresent());
               assertEquals(
-                  3,
+                  2,
                   mainMethodSubject.streamInstructions().filter(InstructionSubject::isIf).count());
             })
         .run(parameters.getRuntime(), Main.class)

@@ -204,7 +204,7 @@ public class AssumeInserter {
         Value value = instanceOf.value();
         DynamicTypeWithUpperBound dynamicType =
             DynamicType.create(
-                appView, instanceOf.type().toTypeElement(appView, value.getType().nullability()));
+                appView, instanceOf.type().toTypeElement(appView, definitelyNotNull()));
         DynamicTypeWithUpperBound staticType = DynamicType.create(appView, value.getType());
         if (dynamicType.strictlyLessThan(staticType, appView)
             && hasOtherNonDebugUsers(value, instanceOf)) {
