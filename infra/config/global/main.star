@@ -179,7 +179,7 @@ def get_dimensions(windows = False, internal = False, archive = False, noble=Tru
         "pool": "luci.r8.ci",
     }
     if windows:
-        dimensions["os"] = "Windows-10"
+        dimensions["os"] = "Windows-11"
     else:
         if noble:
             dimensions["os"] = "Ubuntu-22.04"
