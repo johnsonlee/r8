@@ -5,11 +5,15 @@ package com.android.tools.r8.naming;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndRenamed;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.BooleanUtils;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import java.util.List;
 import org.junit.Test;
@@ -21,16 +25,23 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class DontObfuscateSyntheticsWithKeptContextTest extends TestBase {
 
+  private static final ClassReference lambdaClassReference =
+      SyntheticItemsTestUtils.syntheticLambdaClass(Main.class, 0);
+
   @Parameter(0)
   public TestParameters parameters;
 
   @Parameter(1)
   public boolean enableRepackaging;
 
-  @Parameters(name = "{0}")
+  @Parameter(2)
+  public boolean restrictRenaming;
+
+  @Parameters(name = "{0}, repackage: {1}, restrict renaming: {2}")
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters().withDexRuntimesAndAllApiLevels().withPartialCompilation().build(),
+        BooleanUtils.values(),
         BooleanUtils.values());
   }
 
@@ -38,22 +49,41 @@ public class DontObfuscateSyntheticsWithKeptContextTest extends TestBase {
   public void test() throws Exception {
     testForR8(parameters)
         .addInnerClasses(getClass())
-        .addKeepAllClassesRule()
+        // Allow access modification to ensure that the lambda is subject to repackaging.
+        .addKeepRules("-keep,allowaccessmodification class ** { *; }")
         .applyIf(enableRepackaging, b -> b.addKeepRules("-repackageclasses"))
+        .applyIf(
+            parameters.getPartialCompilationTestParameters().isSome(),
+            b -> b.addR8PartialR8OptionsModification(this::configure),
+            b -> b.addOptionsModification(this::configure))
+        // Verify repackaging happens when renaming is not restricted.
+        .addRepackagingInspector(
+            inspector -> {
+              ClassReference repackagedLambdaClassReference =
+                  inspector.getTarget(lambdaClassReference);
+              if (restrictRenaming) {
+                assertEquals(lambdaClassReference, repackagedLambdaClassReference);
+              } else {
+                assertNotEquals(lambdaClassReference, repackagedLambdaClassReference);
+              }
+            })
         .compile()
         .inspectIf(
             !parameters.isRandomPartialCompilation(),
             inspector -> {
-              // TODO(b/422530029): Add option to keep lambda name without fully disabling
-              // obfuscation.
-              ClassSubject lambdaClassSubject =
-                  inspector.clazz(SyntheticItemsTestUtils.syntheticLambdaClass(Main.class, 0));
+              ClassSubject lambdaClassSubject = inspector.clazz(lambdaClassReference);
               assertThat(
                   lambdaClassSubject,
-                  isPresentAndRenamed(parameters.getPartialCompilationTestParameters().isNone()));
+                  isPresentAndRenamed(
+                      !restrictRenaming
+                          && parameters.getPartialCompilationTestParameters().isNone()));
             })
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("Hello, world!");
+  }
+
+  private void configure(InternalOptions options) {
+    options.getSyntheticItemsOptions().restrictRenaming = restrictRenaming;
   }
 
   static class Main {

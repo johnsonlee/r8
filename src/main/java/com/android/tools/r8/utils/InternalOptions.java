@@ -103,6 +103,7 @@ import com.android.tools.r8.shaking.GlobalKeepInfoConfiguration;
 import com.android.tools.r8.shaking.KeepSpecificationSource;
 import com.android.tools.r8.shaking.ProguardConfiguration;
 import com.android.tools.r8.shaking.ProguardConfigurationRule;
+import com.android.tools.r8.synthesis.SyntheticItemsOptions;
 import com.android.tools.r8.threading.ThreadingModule;
 import com.android.tools.r8.tracereferences.TraceReferencesOptions;
 import com.android.tools.r8.utils.IROrdering.IdentityIROrdering;
@@ -1045,6 +1046,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   private final MappingComposeOptions mappingComposeOptions = new MappingComposeOptions();
   private ArtProfileOptions artProfileOptions = new ArtProfileOptions(this);
   private StartupOptions startupOptions = new StartupOptions(this);
+  private final SyntheticItemsOptions syntheticItemsOptions = new SyntheticItemsOptions();
   private final TraceReferencesOptions traceReferencesOptions = new TraceReferencesOptions();
   private final InstrumentationOptions instrumentationOptions;
   public R8PartialCompilationConfiguration partialCompilationConfiguration =
@@ -1179,6 +1181,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   public void setStartupOptions(StartupOptions startupOptions) {
     this.startupOptions = startupOptions;
+  }
+
+  public SyntheticItemsOptions getSyntheticItemsOptions() {
+    return syntheticItemsOptions;
   }
 
   public TraceReferencesOptions getTraceReferencesOptions() {

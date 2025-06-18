@@ -15,6 +15,7 @@ import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.codeinspector.EnumUnboxingInspector;
 import com.android.tools.r8.utils.codeinspector.HorizontallyMergedClassesInspector;
+import com.android.tools.r8.utils.codeinspector.RepackagingInspector;
 import com.android.tools.r8.utils.codeinspector.VerticallyMergedClassesInspector;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -212,6 +213,17 @@ public class R8PartialTestBuilder
                     inspector.acceptWithRuntimeException(
                         new HorizontallyMergedClassesInspector(
                             appView, horizontallyMergedClasses)));
+  }
+
+  @Override
+  public R8PartialTestBuilder addRepackagingInspector(
+      ThrowableConsumer<RepackagingInspector> inspector) {
+    return addR8PartialR8OptionsModification(
+        options ->
+            options.testing.repackagingLensConsumer =
+                (dexItemFactory, repackagingLens) ->
+                    inspector.acceptWithRuntimeException(
+                        new RepackagingInspector(dexItemFactory, repackagingLens)));
   }
 
   @Override

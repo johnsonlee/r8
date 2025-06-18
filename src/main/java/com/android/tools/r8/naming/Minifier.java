@@ -292,7 +292,9 @@ public class Minifier {
     @Override
     public DexString reservedDescriptor(DexType type, Function<DexType, DexClass> definitionFor) {
       DexProgramClass clazz = asProgramClassOrNull(definitionFor.apply(type));
-      if (clazz == null || !appView.getKeepInfo(clazz).isMinificationAllowed(appView.options())) {
+      if (clazz == null
+          || !appView.getKeepInfo(clazz).isMinificationAllowed(appView.options())
+          || !appView.options().getSyntheticItemsOptions().isMinificationAllowed(clazz, appView)) {
         return type.getDescriptor();
       }
       return null;

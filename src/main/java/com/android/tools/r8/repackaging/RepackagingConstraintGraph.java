@@ -59,7 +59,7 @@ public class RepackagingConstraintGraph {
     // package descriptor.
     boolean hasPinnedItem = false;
     for (DexProgramClass clazz : pkg) {
-      boolean isPinned = !appView.appInfo().isRepackagingAllowed(clazz, appView);
+      boolean isPinned = computeIsPinned(clazz);
       Node classNode = createNode(clazz);
       if (isPinned) {
         pinnedNodes.add(classNode);
@@ -71,6 +71,11 @@ public class RepackagingConstraintGraph {
       hasPinnedItem |= isPinned;
     }
     return !hasPinnedItem;
+  }
+
+  private boolean computeIsPinned(DexProgramClass clazz) {
+    return !appView.appInfo().isRepackagingAllowed(clazz, appView)
+        || !appView.options().getSyntheticItemsOptions().isRepackagingAllowed(clazz, appView);
   }
 
   private Node createNode(DexDefinition definition) {
