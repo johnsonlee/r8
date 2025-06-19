@@ -153,14 +153,28 @@ public abstract class KeepAnnoTestBuilder {
     return this;
   }
 
+  /**
+   * Prints the all rules passed to the compilation. Compared to {@link #printExtractedRules()} this
+   * is all rules, not just the ones extracted from keep annotations.
+   */
   public final KeepAnnoTestBuilder printRules() {
-    return inspectOutputConfig(System.out::println);
+    return inspectOutputRules(System.out::println);
   }
 
-  public KeepAnnoTestBuilder inspectOutputConfig(Consumer<String> configConsumer) {
-    // Default to ignore the consumer.
-    return this;
+  /**
+   * Inspect the all rules passed to the compilation. Compared to {@link
+   * #inspectExtractedRules(Consumer)} this is all rules, not just the ones extracted from keep
+   * annotations.
+   */
+  public abstract KeepAnnoTestBuilder inspectOutputRules(Consumer<String> configConsumer);
+
+  /** Prints the rules extracted from annotations as part of the compilation. */
+  public final KeepAnnoTestBuilder printExtractedRules() {
+    return inspectExtractedRules(rules -> System.out.println(String.join("\n", rules)));
   }
+
+  /** Inspect the rules extracted from annotations as part of the compilation. */
+  public abstract KeepAnnoTestBuilder inspectExtractedRules(Consumer<List<String>> configConsumer);
 
   private static class ReferenceBuilder extends KeepAnnoTestBuilder {
 
@@ -199,6 +213,18 @@ public abstract class KeepAnnoTestBuilder {
     }
 
     @Override
+    public KeepAnnoTestBuilder inspectOutputRules(Consumer<String> configConsumer) {
+      // Ignore the consumer.
+      return this;
+    }
+
+    @Override
+    public KeepAnnoTestBuilder inspectExtractedRules(Consumer<List<String>> configConsumer) {
+      // Ignore the consumer.
+      return this;
+    }
+
+    @Override
     public SingleTestRunResult<?> run(Class<?> mainClass) throws Exception {
       return builder.run(parameters().getRuntime(), mainClass);
     }
@@ -212,6 +238,7 @@ public abstract class KeepAnnoTestBuilder {
     final KeepAnnoConfig config;
 
     final List<Consumer<R>> compileResultConsumers = new ArrayList<>();
+    final List<String> extractedRules = new ArrayList();
 
     private R8NativeBuilderBase(KeepAnnoParameters params, B builder) {
       super(params);
@@ -276,7 +303,12 @@ public abstract class KeepAnnoTestBuilder {
       if (isExtractRules()) {
         List<KeepDeclaration> declarations = KeepEdgeReader.readKeepEdges(classFileData);
         if (!declarations.isEmpty()) {
-          KeepRuleExtractor extractor = new KeepRuleExtractor(builder::addKeepRules);
+          KeepRuleExtractor extractor =
+              new KeepRuleExtractor(
+                  rule -> {
+                    builder.addKeepRules(rule);
+                    extractedRules.add(rule);
+                  });
           declarations.forEach(extractor::extract);
         }
         return;
@@ -299,9 +331,15 @@ public abstract class KeepAnnoTestBuilder {
     }
 
     @Override
-    public KeepAnnoTestBuilder inspectOutputConfig(Consumer<String> configConsumer) {
+    public KeepAnnoTestBuilder inspectOutputRules(Consumer<String> configConsumer) {
       compileResultConsumers.add(
           result -> configConsumer.accept(result.getProguardConfiguration()));
+      return this;
+    }
+
+    @Override
+    public KeepAnnoTestBuilder inspectExtractedRules(Consumer<List<String>> configConsumer) {
+      compileResultConsumers.add(result -> configConsumer.accept(extractedRules));
       return this;
     }
 
@@ -393,6 +431,8 @@ public abstract class KeepAnnoTestBuilder {
         KeepRuleExtractorOptions.getR8Options();
     private final ExternalR8TestBuilder builder;
     private final List<Consumer<List<String>>> configConsumers = new ArrayList<>();
+    private final List<Consumer<List<String>>> extractedRulesConsumers = new ArrayList<>();
+    private final List<String> extractedRules = new ArrayList();
 
     public R8LegacyBuilder(
         KeepAnnoParameters params,
@@ -419,6 +459,7 @@ public abstract class KeepAnnoTestBuilder {
       List<String> rules = KeepAnnoTestUtils.extractRulesFromFiles(programFiles, extractorOptions);
       builder.addProgramFiles(programFiles);
       builder.addKeepRules(rules);
+      extractedRules.addAll(rules);
       return this;
     }
 
@@ -427,6 +468,7 @@ public abstract class KeepAnnoTestBuilder {
       List<String> rules = KeepAnnoTestUtils.extractRules(programClasses, extractorOptions);
       builder.addProgramClasses(programClasses);
       builder.addKeepRules(rules);
+      extractedRules.addAll(rules);
       return this;
     }
 
@@ -437,18 +479,25 @@ public abstract class KeepAnnoTestBuilder {
           KeepAnnoTestUtils.extractRulesFromBytes(programClasses, extractorOptions);
       builder.addProgramClassFileData(programClasses);
       builder.addKeepRules(rules);
+      extractedRules.addAll(rules);
       return this;
     }
 
     @Override
-    public KeepAnnoTestBuilder inspectOutputConfig(Consumer<String> configConsumer) {
+    public KeepAnnoTestBuilder inspectOutputRules(Consumer<String> configConsumer) {
       configConsumers.add(lines -> configConsumer.accept(String.join("\n", lines)));
+      return this;
+    }
+
+    public KeepAnnoTestBuilder inspectExtractedRules(Consumer<List<String>> configConsumer) {
+      extractedRulesConsumers.add(configConsumer);
       return this;
     }
 
     @Override
     public SingleTestRunResult<?> run(Class<?> mainClass) throws Exception {
       configConsumers.forEach(fn -> fn.accept(builder.getConfig()));
+      extractedRulesConsumers.forEach(fn -> fn.accept(extractedRules));
       return builder.run(parameters().getRuntime(), mainClass);
     }
   }
@@ -459,6 +508,8 @@ public abstract class KeepAnnoTestBuilder {
         KeepRuleExtractorOptions.getPgOptions();
     private final ProguardTestBuilder builder;
     private final List<Consumer<List<String>>> configConsumers = new ArrayList<>();
+    private final List<Consumer<List<String>>> extractedRulesConsumers = new ArrayList<>();
+    private final List<String> extractedRules = new ArrayList();
 
     public PGBuilder(
         KeepAnnoParameters params,
@@ -490,6 +541,7 @@ public abstract class KeepAnnoTestBuilder {
       List<String> rules = KeepAnnoTestUtils.extractRulesFromFiles(programFiles, extractorOptions);
       builder.addProgramFiles(programFiles);
       builder.addKeepRules(rules);
+      extractedRules.addAll(rules);
       return this;
     }
 
@@ -498,6 +550,7 @@ public abstract class KeepAnnoTestBuilder {
       List<String> rules = KeepAnnoTestUtils.extractRules(programClasses, extractorOptions);
       builder.addProgramClasses(programClasses);
       builder.addKeepRules(rules);
+      extractedRules.addAll(rules);
       return this;
     }
 
@@ -508,18 +561,25 @@ public abstract class KeepAnnoTestBuilder {
           KeepAnnoTestUtils.extractRulesFromBytes(programClasses, extractorOptions);
       builder.addProgramClassFileData(programClasses);
       builder.addKeepRules(rules);
+      extractedRules.addAll(rules);
       return this;
     }
 
     @Override
-    public KeepAnnoTestBuilder inspectOutputConfig(Consumer<String> configConsumer) {
+    public KeepAnnoTestBuilder inspectOutputRules(Consumer<String> configConsumer) {
       configConsumers.add(lines -> configConsumer.accept(String.join("\n", lines)));
+      return this;
+    }
+
+    public KeepAnnoTestBuilder inspectExtractedRules(Consumer<List<String>> configConsumer) {
+      extractedRulesConsumers.add(configConsumer);
       return this;
     }
 
     @Override
     public SingleTestRunResult<?> run(Class<?> mainClass) throws Exception {
       configConsumers.forEach(fn -> fn.accept(builder.getConfig()));
+      extractedRulesConsumers.forEach(fn -> fn.accept(extractedRules));
       return builder.run(parameters().getRuntime(), mainClass);
     }
   }
