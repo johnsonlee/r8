@@ -35,8 +35,9 @@ public class BenchmarkResultsSingle implements BenchmarkResults {
   private final LongList codeSizeResults = new LongArrayList();
   private final LongList instructionCodeSizeResults = new LongArrayList();
   private final LongList composableInstructionCodeSizeResults = new LongArrayList();
-  private final LongList dex2OatSizeResult = new LongArrayList();
+  private final LongList dex2OatSizeResults = new LongArrayList();
   private final List<Int2ReferenceMap<SegmentInfo>> dexSegmentsSizeResults = new ArrayList<>();
+  private final LongList resourceSizeResults = new LongArrayList();
 
   public BenchmarkResultsSingle(String name, Set<BenchmarkMetric> metrics) {
     this.name = name;
@@ -63,12 +64,16 @@ public class BenchmarkResultsSingle implements BenchmarkResults {
     return dexSegmentsSizeResults;
   }
 
-  public LongList getDex2OatSizeResult() {
-    return dex2OatSizeResult;
+  public LongList getDex2OatSizeResults() {
+    return dex2OatSizeResults;
   }
 
   public LongList getRuntimeResults() {
     return runtimeResults;
+  }
+
+  public LongList getResourceSizeResults() {
+    return resourceSizeResults;
   }
 
   @Override
@@ -114,12 +119,14 @@ public class BenchmarkResultsSingle implements BenchmarkResults {
   public void addDex2OatSizeResult(long result) {
     verifyMetric(
         BenchmarkMetric.Dex2OatCodeSize, metrics.contains(BenchmarkMetric.Dex2OatCodeSize), true);
-    dex2OatSizeResult.add(result);
+    dex2OatSizeResults.add(result);
   }
 
   @Override
   public void addResourceSizeResult(long result) {
-    addCodeSizeResult(result);
+    verifyMetric(
+        BenchmarkMetric.ResourceSize, true, metrics.contains(BenchmarkMetric.ResourceSize));
+    resourceSizeResults.add(result);
   }
 
   @Override
@@ -133,8 +140,9 @@ public class BenchmarkResultsSingle implements BenchmarkResults {
     assertTrue(codeSizeResults.isEmpty());
     assertTrue(instructionCodeSizeResults.isEmpty());
     assertTrue(composableInstructionCodeSizeResults.isEmpty());
-    assertTrue(dex2OatSizeResult.isEmpty());
+    assertTrue(dex2OatSizeResults.isEmpty());
     assertTrue(dexSegmentsSizeResults.isEmpty());
+    assertTrue(resourceSizeResults.isEmpty());
   }
 
   @Override
@@ -179,7 +187,7 @@ public class BenchmarkResultsSingle implements BenchmarkResults {
     verifyMetric(
         BenchmarkMetric.Dex2OatCodeSize,
         isBenchmarkingCodeSize() && metrics.contains(BenchmarkMetric.Dex2OatCodeSize),
-        !dex2OatSizeResult.isEmpty());
+        !dex2OatSizeResults.isEmpty());
   }
 
   private void printRunTime(long duration) {
@@ -213,6 +221,10 @@ public class BenchmarkResultsSingle implements BenchmarkResults {
     System.out.println(BenchmarkResults.prettyMetric(name, BenchmarkMetric.Dex2OatCodeSize, bytes));
   }
 
+  private void printResourceSize(long bytes) {
+    System.out.println(BenchmarkResults.prettyMetric(name, BenchmarkMetric.ResourceSize, bytes));
+  }
+
   @Override
   public void printResults(ResultMode mode, boolean failOnCodeSizeDifferences) {
     verifyConfigAndResults();
@@ -235,7 +247,8 @@ public class BenchmarkResultsSingle implements BenchmarkResults {
           failOnCodeSizeDifferences,
           result -> printDexSegmentSize(section, result));
     }
-    printCodeSizeResults(dex2OatSizeResult, failOnCodeSizeDifferences, this::printDex2OatSize);
+    printCodeSizeResults(dex2OatSizeResults, failOnCodeSizeDifferences, this::printDex2OatSize);
+    printCodeSizeResults(resourceSizeResults, failOnCodeSizeDifferences, this::printResourceSize);
   }
 
   private static void printCodeSizeResults(

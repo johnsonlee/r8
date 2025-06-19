@@ -10,7 +10,8 @@ public enum BenchmarkMetric {
   ComposableInstructionCodeSize,
   DexSegmentsCodeSize,
   Dex2OatCodeSize,
-  StartupTime;
+  StartupTime,
+  ResourceSize;
 
   public String getDartType() {
     return "Metric." + name();

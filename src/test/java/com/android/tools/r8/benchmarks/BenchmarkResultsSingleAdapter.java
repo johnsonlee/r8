@@ -54,8 +54,8 @@ public class BenchmarkResultsSingleAdapter extends BenchmarkResultsAdapterBase
           resultObject,
           "oat_code_size",
           iteration,
-          result.getDex2OatSizeResult(),
-          i -> result.getDex2OatSizeResult().getLong(i));
+          result.getDex2OatSizeResults(),
+          i -> result.getDex2OatSizeResults().getLong(i));
       addPropertyIfValueDifferentFromRepresentative(
           resultObject,
           "runtime",
@@ -63,6 +63,13 @@ public class BenchmarkResultsSingleAdapter extends BenchmarkResultsAdapterBase
           result.getRuntimeResults(),
           i -> result.getRuntimeResults().getLong(i));
           resultsArray.add(resultObject);
+      addPropertyIfValueDifferentFromRepresentative(
+          resultObject,
+          "resource_size",
+          iteration,
+          result.getResourceSizeResults(),
+          i -> result.getResourceSizeResults().getLong(i));
+      resultsArray.add(resultObject);
     }
 
     JsonObject benchmarkObject = new JsonObject();

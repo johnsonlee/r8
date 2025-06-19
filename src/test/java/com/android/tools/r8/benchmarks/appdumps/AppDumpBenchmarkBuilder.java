@@ -164,6 +164,9 @@ public class AppDumpBenchmarkBuilder {
           .measureComposableInstructionCodeSize()
           .measureDexSegmentsCodeSize()
           .measureDex2OatCodeSize();
+      if (enableResourceShrinking) {
+        builder.measureResourceSize();
+      }
     }
     return builder.build();
   }
@@ -181,50 +184,26 @@ public class AppDumpBenchmarkBuilder {
       ThrowableConsumer<? super R8PartialTestBuilder> configuration,
       ThrowableConsumer<? super R8PartialTestCompileResult> compileResultConsumer) {
     verify();
-    return BenchmarkConfig.builder()
-        .setName(name)
-        .setTarget(BenchmarkTarget.R8)
-        .setSuite(BenchmarkSuite.OPENSOURCE_BENCHMARKS)
-        .setMethod(runR8WithPartialShrinking(this, configuration, compileResultConsumer))
-        .setFromRevision(fromRevision)
-        .addDependency(dumpDependency)
-        .measureRunTime()
-        .measureCodeSize()
-        .measureInstructionCodeSize()
-        .measureComposableInstructionCodeSize()
-        .measureDexSegmentsCodeSize()
-        .measureDex2OatCodeSize()
-        // TODO(b/373550435): Update dex2oat to enable checking absence of verification errors
-        //  on SystemUI.
-        .setEnableDex2OatVerification(!name.equals("SystemUIAppPartialShrinking"))
-        .setTimeout(10, TimeUnit.MINUTES)
-        .build();
-  }
-
-  public BenchmarkConfig buildR8WithResourceShrinking(
-      ThrowableConsumer<? super R8FullTestBuilder> configuration) {
-    verify();
     BenchmarkConfig.Builder builder =
         BenchmarkConfig.builder()
             .setName(name)
             .setTarget(BenchmarkTarget.R8)
             .setSuite(BenchmarkSuite.OPENSOURCE_BENCHMARKS)
-            .setMethod(runR8(this, configuration))
+            .setMethod(runR8WithPartialShrinking(this, configuration, compileResultConsumer))
             .setFromRevision(fromRevision)
             .addDependency(dumpDependency)
-            // TODO(b/368282141): Also measure resource size.
             .measureRunTime()
+            .measureCodeSize()
+            .measureInstructionCodeSize()
+            .measureComposableInstructionCodeSize()
+            .measureDexSegmentsCodeSize()
+            .measureDex2OatCodeSize()
             // TODO(b/373550435): Update dex2oat to enable checking absence of verification errors
             //  on SystemUI.
-            .setEnableDex2OatVerification(!name.equals("SystemUIApp"))
+            .setEnableDex2OatVerification(!name.equals("SystemUIAppPartialShrinking"))
             .setTimeout(10, TimeUnit.MINUTES);
-    if (!runtimeOnly) {
-      builder
-          .measureCodeSize()
-          .measureInstructionCodeSize()
-          .measureComposableInstructionCodeSize()
-          .measureDexSegmentsCodeSize()
-          .measureDex2OatCodeSize();
+    if (enableResourceShrinking) {
+      builder.measureResourceSize();
     }
     return builder.build();
   }
@@ -386,14 +365,18 @@ public class AppDumpBenchmarkBuilder {
                       .apply(
                           r -> {
                             try {
-                              // TODO(b/368282141): Also emit resource size.
                               r.benchmarkCompile(results)
                                   .benchmarkCodeSize(results)
                                   .benchmarkInstructionCodeSize(results)
                                   .benchmarkDexSegmentsCodeSize(results)
                                   .benchmarkDex2OatCodeSize(
                                       results,
-                                      environment.getConfig().isDex2OatVerificationEnabled());
+                                      environment.getConfig().isDex2OatVerificationEnabled())
+                                  .applyIf(
+                                      environment
+                                          .getConfig()
+                                          .containsMetric(BenchmarkMetric.ResourceSize),
+                                      cr -> cr.benchmarkResourceSize(results));
                             } catch (CompilationFailedException e) {
                               if (!(e.getCause() instanceof AbortBenchmarkException)) {
                                 throw e;
@@ -468,6 +451,11 @@ public class AppDumpBenchmarkBuilder {
                                   .benchmarkDex2OatCodeSize(
                                       results,
                                       environment.getConfig().isDex2OatVerificationEnabled())
+                                  .applyIf(
+                                      environment
+                                          .getConfig()
+                                          .containsMetric(BenchmarkMetric.ResourceSize),
+                                      cr -> cr.benchmarkResourceSize(results))
                                   .apply(compileResultConsumer));
                 });
   }

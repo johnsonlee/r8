@@ -186,6 +186,11 @@ public class BenchmarkConfig {
       return this;
     }
 
+    public Builder measureResourceSize() {
+      metrics.add(BenchmarkMetric.ResourceSize);
+      return this;
+    }
+
     public Builder measureWarmup() {
       measureWarmup = true;
       return this;
