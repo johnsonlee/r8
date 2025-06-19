@@ -60,7 +60,7 @@ public class SourceFileAttributeCompatTest extends TestBase {
   }
 
   private void checkSourceFileIsReplacedByDefault(SingleTestRunResult<?> result) throws Exception {
-    checkSourceFile(result, "SourceFile", "SourceFile", "SourceFile");
+    checkSourceFile(result, "r8-map-id-42", "r8-map-id-42", "r8-map-id-42");
   }
 
   private void checkSourceFile(
@@ -157,12 +157,12 @@ public class SourceFileAttributeCompatTest extends TestBase {
 
   @Test
   public void testR8() throws Exception {
-    runAllTests(() -> testForR8(parameters.getBackend()), true);
+    runAllTests(() -> testForR8(parameters.getBackend()).setMapIdTemplate("42"), true);
   }
 
   @Test
   public void testCompatR8() throws Exception {
-    runAllTests(() -> testForR8Compat(parameters.getBackend()), false);
+    runAllTests(() -> testForR8Compat(parameters.getBackend()).setMapIdTemplate("42"), false);
   }
 
   @Test

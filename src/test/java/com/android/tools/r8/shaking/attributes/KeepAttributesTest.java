@@ -64,8 +64,7 @@ public class KeepAttributesTest extends TestBase {
   }
 
   private boolean doesNotHavePcSupport() {
-    return parameters.isCfRuntime()
-        || parameters.getApiLevel().isLessThan(apiLevelWithPcAsLineNumberSupport());
+    return true;
   }
 
   @Test
