@@ -103,7 +103,7 @@ public class SourceFileTemplateTest extends TestBase {
               inspector.clazz(TestClass.class).getDexProgramClass().getSourceFile().toString();
           assertThat(actual, startsWith("MySourceFile "));
           assertThat(actual, not(containsString("%")));
-          assertEquals("MySourceFile ".length() + 7, actual.length());
+          assertEquals("MySourceFile ".length() + 64, actual.length());
         });
   }
 
@@ -129,7 +129,7 @@ public class SourceFileTemplateTest extends TestBase {
         inspector -> {
           String actual =
               inspector.clazz(TestClass.class).getDexProgramClass().getSourceFile().toString();
-          assertEquals("id  hash  id  hash ".length() + 2 * 7 + 2 * 64, actual.length());
+          assertEquals("id  hash  id  hash ".length() + 4 * 64, actual.length());
         });
   }
 
