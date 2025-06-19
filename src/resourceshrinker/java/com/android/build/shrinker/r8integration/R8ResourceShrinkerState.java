@@ -11,6 +11,7 @@ import com.android.aapt.Resources.Entry;
 import com.android.aapt.Resources.FileReference;
 import com.android.aapt.Resources.Item;
 import com.android.aapt.Resources.Package;
+import com.android.aapt.Resources.Primitive;
 import com.android.aapt.Resources.ResourceTable;
 import com.android.aapt.Resources.Value;
 import com.android.aapt.Resources.XmlAttribute;
@@ -34,6 +35,8 @@ import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.origin.PathOrigin;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import it.unimi.dsi.fastutil.ints.IntSet;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Paths;
@@ -45,6 +48,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -54,6 +58,7 @@ public class R8ResourceShrinkerState {
   private final Function<Exception, RuntimeException> errorHandler;
   private final R8ResourceShrinkerModel r8ResourceShrinkerModel;
   private final Map<String, Supplier<InputStream>> xmlFileProviders = new HashMap<>();
+  private final Map<String, byte[]> changedXmlFiles = new HashMap<>();
   private final Set<String> duplicatedResFolderEntries = new HashSet<>();
   private final List<Supplier<InputStream>> keepRuleFileProviders = new ArrayList<>();
 
@@ -118,7 +123,7 @@ public class R8ResourceShrinkerState {
     if (resource.references != null) {
       for (Resource reference : resource.references) {
         if (!reference.isReachable()) {
-          trace(reference.value, reference.toString());
+          trace(reference.value, resource.toString());
         }
       }
     }
@@ -144,7 +149,7 @@ public class R8ResourceShrinkerState {
         .processToolsAttributes()
         .forEach(resource -> trace(resource.value, "keep xml file"));
     for (Supplier<InputStream> manifestProvider : manifestProviders) {
-      traceXml("AndroidManifest.xml", manifestProvider.get());
+      traceXml("AndroidManifest.xml", manifestProvider.get(), ids -> {});
     }
   }
 
@@ -207,12 +212,28 @@ public class R8ResourceShrinkerState {
   private byte[] getXmlOrResFileBytes(String path) {
     assert !path.startsWith("res/");
     String pathWithRes = "res/" + path;
-    Supplier<InputStream> inputStreamSupplier = xmlFileProviders.get(pathWithRes);
-    if (inputStreamSupplier == null) {
-      inputStreamSupplier = resfileProviders.get(pathWithRes);
+
+    if (xmlFileProviders.containsKey(pathWithRes)) {
+      return getXmlBytes(pathWithRes);
     }
+    Supplier<InputStream> inputStreamSupplier = resfileProviders.get(pathWithRes);
     if (inputStreamSupplier == null) {
       // Ill formed resource table with file references inside res/ that does not exist.
+      return null;
+    }
+    try {
+      return inputStreamSupplier.get().readAllBytes();
+    } catch (IOException ex) {
+      throw errorHandler.apply(ex);
+    }
+  }
+
+  private byte[] getXmlBytes(String pathWithRes) {
+    if (changedXmlFiles.containsKey(pathWithRes)) {
+      return changedXmlFiles.get(pathWithRes);
+    }
+    Supplier<InputStream> inputStreamSupplier = xmlFileProviders.get(pathWithRes);
+    if (inputStreamSupplier == null) {
       return null;
     }
     try {
@@ -251,7 +272,7 @@ public class R8ResourceShrinkerState {
                   + " reachable from "
                   + resourceStringEntry.getValue());
     }
-    return new ShrinkerResult(resEntriesToKeep, shrunkenTables);
+    return new ShrinkerResult(resEntriesToKeep, shrunkenTables, changedXmlFiles);
   }
 
   private ImmutableSet<String> getResEntriesToKeep(ResourceStore resourceStore) {
@@ -269,11 +290,19 @@ public class R8ResourceShrinkerState {
     if (xmlFiles != null) {
       for (String xmlFile : xmlFiles) {
         InputStream inputStream = xmlFileProviders.get(xmlFile).get();
-        traceXml(xmlFile, inputStream);
+        Resource resource = r8ResourceShrinkerModel.getResourceStore().getResource(id);
+        traceXml(xmlFile, inputStream, inlinedIds -> pruneModel(resource, inlinedIds));
         if (duplicatedResFolderEntries.contains(xmlFile)) {
           traceDuplicatedXmlFileIds(id, xmlFile);
         }
       }
+    }
+  }
+
+  private void pruneModel(Resource resource, IntSet inlinedIds) {
+    List<Resource> references = resource.references;
+    if (references != null) {
+      references.removeIf(r -> inlinedIds.contains(r.value));
     }
   }
 
@@ -287,9 +316,21 @@ public class R8ResourceShrinkerState {
     }
   }
 
-  private void traceXml(String xmlFile, InputStream inputStream) {
+  private void traceXml(
+      String xmlFile, InputStream inputStream, Consumer<IntSet> inlinedIdsConsumer) {
     try {
-      XmlNode xmlNode = XmlNode.parseFrom(inputStream);
+      XmlNode xmlNode;
+      if (changedXmlFiles.containsKey(xmlFile)) {
+        xmlNode = XmlNode.parseFrom(changedXmlFiles.get(xmlFile));
+      } else {
+        xmlNode = XmlNode.parseFrom(inputStream);
+        XmlNode.Builder xmlNodeBuilder = xmlNode.toBuilder();
+        boolean changed = tryInlineValues(xmlNodeBuilder, inlinedIdsConsumer);
+        if (changed) {
+          xmlNode = xmlNodeBuilder.build();
+          changedXmlFiles.put(xmlFile, xmlNode.toByteArray());
+        }
+      }
       visitNode(xmlNode, xmlFile, null);
       // Ensure that we trace the transitive reachable ids, without us having to iterate all
       // resources for the reachable marker.
@@ -299,6 +340,44 @@ public class R8ResourceShrinkerState {
     } catch (IOException e) {
       errorHandler.apply(e);
     }
+  }
+
+  private boolean tryInlineValues(
+      XmlNode.Builder xmlNodeBuilder, Consumer<IntSet> inlinedIdsConsumer) {
+    XmlElement.Builder elementBuilder = xmlNodeBuilder.getElementBuilder();
+    IntSet inlinedIds = null;
+    for (XmlAttribute.Builder attributeBuilder : elementBuilder.getAttributeBuilderList()) {
+      if (attributeBuilder.hasCompiledItem()) {
+        Item compiledItem = attributeBuilder.getCompiledItem();
+        if (compiledItem.hasRef()) {
+          int id = compiledItem.getRef().getId();
+          SingleValueResource res = getR8ResourceShrinkerModel().getSingleValueResourceOrNull(id);
+          // Try to inline if single
+          if (res != null) {
+            Primitive prim = res.getPrimitive();
+            if (prim != null) {
+              attributeBuilder.getCompiledItemBuilder().clearRef().setPrim(prim);
+            } else {
+              attributeBuilder.setValue(res.getSingleValueLiteral());
+              attributeBuilder.clearCompiledItem();
+            }
+            if (inlinedIds == null) {
+              inlinedIds = new IntOpenHashSet();
+            }
+            inlinedIds.add(id);
+          }
+        }
+      }
+    }
+    boolean changedChildren = false;
+    for (XmlNode.Builder builder : elementBuilder.getChildBuilderList()) {
+      changedChildren = tryInlineValues(builder, inlinedIdsConsumer) || changedChildren;
+    }
+    if (inlinedIds != null) {
+      inlinedIdsConsumer.accept(inlinedIds);
+      return true;
+    }
+    return changedChildren;
   }
 
   private void tryEnqueuerOnString(String possibleClass, String xmlName) {
@@ -437,16 +516,90 @@ public class R8ResourceShrinkerState {
     }
   }
 
+  public interface SingleValueResource {
+    String getSingleValueLiteral();
+
+    Primitive getPrimitive();
+  }
+
+  public static class StringSingleValueResource implements SingleValueResource {
+    private final String value;
+
+    StringSingleValueResource(String value) {
+      this.value = value;
+    }
+
+    @Override
+    public String getSingleValueLiteral() {
+      return value;
+    }
+
+    @Override
+    public Primitive getPrimitive() {
+      return null;
+    }
+  }
+
+  public static class ColorSingleValueResource implements SingleValueResource {
+
+    final Primitive colorPrim;
+
+    private String toHexColor(int value, int truncate) {
+      return "#" + Integer.toHexString(value).substring(truncate).toUpperCase();
+    }
+
+    ColorSingleValueResource(Primitive prim) {
+      this.colorPrim = prim;
+    }
+
+    @Override
+    public String getSingleValueLiteral() {
+      int colorValue = getValue();
+      if (colorPrim.hasColorRgb4Value()) {
+        return toHexColor(colorValue, 4);
+      } else if (colorPrim.hasColorRgb8Value()) {
+        return toHexColor(colorValue, 2);
+      } else if (colorPrim.hasColorArgb4Value()) {
+        return toHexColor(colorValue, 3);
+      } else if (colorPrim.hasColorArgb8Value()) {
+        return toHexColor(colorValue, 0);
+      } else {
+        assert false;
+        return null;
+      }
+    }
+
+    public int getValue() {
+      if (colorPrim.hasColorRgb4Value()) {
+        return colorPrim.getColorRgb4Value();
+      } else if (colorPrim.hasColorRgb8Value()) {
+        return colorPrim.getColorRgb8Value();
+      } else if (colorPrim.hasColorArgb4Value()) {
+        return colorPrim.getColorArgb4Value();
+      } else if (colorPrim.hasColorArgb8Value()) {
+        return colorPrim.getColorArgb8Value();
+      } else {
+        assert false;
+        return -1;
+      }
+    }
+
+    @Override
+    public Primitive getPrimitive() {
+      return colorPrim;
+    }
+  }
+
   public static class R8ResourceShrinkerModel extends ResourceShrinkerModel {
-    private final Map<Integer, String> stringResourcesWithSingleValue = new HashMap<>();
+    private final Map<Integer, SingleValueResource> resourcesWithSingleValue = new HashMap<>();
 
     public R8ResourceShrinkerModel(
         ShrinkerDebugReporter debugReporter, boolean supportMultipackages) {
       super(debugReporter, supportMultipackages);
     }
 
-    public String getSingleStringValueOrNull(int id) {
-      return stringResourcesWithSingleValue.get(id);
+    public SingleValueResource getSingleValueResourceOrNull(int id) {
+      return resourcesWithSingleValue.get(id);
     }
 
     // Similar to instantiation in ProtoResourceTableGatherer, but using an inputstream.
@@ -482,19 +635,32 @@ public class R8ResourceShrinkerState {
 
     private void recordSingleValueResources(ResourceType resourceType, Entry entry, int entryId) {
       if (!entry.hasOverlayableItem() && entry.getConfigValueList().size() == 1) {
-        if (resourceType == ResourceType.STRING) {
+        if (resourceType == ResourceType.STRING || resourceType == ResourceType.COLOR) {
           ConfigValue configValue = entry.getConfigValue(0);
           if (configValue.hasValue()) {
             Value value = configValue.getValue();
             if (value.hasItem()) {
               Item item = value.getItem();
               if (item.hasStr()) {
-                stringResourcesWithSingleValue.put(entryId, item.getStr().getValue());
+                resourcesWithSingleValue.put(
+                    entryId, new StringSingleValueResource(item.getStr().getValue()));
+              } else if (item.hasPrim()) {
+                Primitive prim = item.getPrim();
+                if (hasColor(prim)) {
+                  resourcesWithSingleValue.put(entryId, new ColorSingleValueResource(prim));
+                }
               }
             }
           }
         }
       }
+    }
+
+    private boolean hasColor(Primitive prim) {
+      return prim.hasColorRgb4Value()
+          || prim.hasColorRgb8Value()
+          || prim.hasColorArgb4Value()
+          || prim.hasColorArgb8Value();
     }
   }
 }

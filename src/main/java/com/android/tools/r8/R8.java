@@ -1081,11 +1081,17 @@ public class R8 {
           break;
         case RES_FOLDER_FILE:
         case XML_FILE:
-          if (shrinkerResult
-              .getResFolderEntriesToKeep()
-              .contains(androidResource.getPath().location())) {
-            androidResourceConsumer.accept(
-                new R8PassThroughAndroidResource(androidResource, reporter), reporter);
+          String location = androidResource.getPath().location();
+          if (shrinkerResult.getResFolderEntriesToKeep().contains(location)) {
+            if (shrinkerResult.hasCustomFileFor(location)) {
+              androidResourceConsumer.accept(
+                  new R8AndroidResourceWithData(
+                      androidResource, reporter, shrinkerResult.getBytesFor(location)),
+                  reporter);
+            } else {
+              androidResourceConsumer.accept(
+                  new R8PassThroughAndroidResource(androidResource, reporter), reporter);
+            }
           }
           break;
       }

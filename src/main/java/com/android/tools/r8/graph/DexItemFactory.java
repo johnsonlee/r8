@@ -93,6 +93,7 @@ public class DexItemFactory {
   public static final String androidMediaMediaMetadataRetrieverDescriptorString =
       "Landroid/media/MediaMetadataRetriever;";
   public static final String androidResourcesDescriptorString = "Landroid/content/res/Resources;";
+  public static final String androidContextDescriptorString = "Landroid/content/Context;";
 
   /** Set of types that may be synthesized during compilation. */
   private final Set<DexType> possibleCompilerSynthesizedTypes = Sets.newIdentityHashSet();
@@ -679,11 +680,19 @@ public class DexItemFactory {
       createStaticallyKnownType(androidMediaMediaMetadataRetrieverDescriptorString);
   public final DexType androidResourcesType =
       createStaticallyKnownType(androidResourcesDescriptorString);
-  public final DexString androidResourcesGetStringName = createString("getString");
-  public final DexProto androidResourcesGetStringProto = createProto(stringType, intType);
+  public final DexType androidContentContextType =
+      createStaticallyKnownType(androidContextDescriptorString);
+  public final DexString getColorName = createString("getColor");
+  public final DexProto androidGetColorProto = createProto(intType, intType);
+  public final DexMethod androidResourcesGetColorMethod =
+      createMethod(androidResourcesType, androidGetColorProto, getColorName);
+  public final DexMethod androidContextGetColorMethod =
+      createMethod(androidContentContextType, androidGetColorProto, getColorName);
+
+  public final DexString getStringName = createString("getString");
+  public final DexProto androidGetStringProto = createProto(stringType, intType);
   public final DexMethod androidResourcesGetStringMethod =
-      createMethod(
-          androidResourcesType, androidResourcesGetStringProto, androidResourcesGetStringName);
+      createMethod(androidResourcesType, androidGetStringProto, getStringName);
 
   public final StringBuildingMethods stringBuilderMethods =
       new StringBuildingMethods(stringBuilderType);

@@ -40,6 +40,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -326,12 +327,21 @@ public class LegacyResourceShrinker {
   public static class ShrinkerResult {
     private final Set<String> resFolderEntriesToKeep;
     private final Map<FeatureSplit, ResourceTable> resourceTableInProtoFormat;
+    private final Map<String, byte[]> customResourceFileBytes;
 
     public ShrinkerResult(
         Set<String> resFolderEntriesToKeep,
         Map<FeatureSplit, ResourceTable> resourceTableInProtoFormat) {
+      this(resFolderEntriesToKeep, resourceTableInProtoFormat, Collections.emptyMap());
+    }
+
+    public ShrinkerResult(
+        Set<String> resFolderEntriesToKeep,
+        Map<FeatureSplit, ResourceTable> resourceTableInProtoFormat,
+        Map<String, byte[]> customResourceFileBytes) {
       this.resFolderEntriesToKeep = resFolderEntriesToKeep;
       this.resourceTableInProtoFormat = resourceTableInProtoFormat;
+      this.customResourceFileBytes = customResourceFileBytes;
     }
 
     public byte[] getResourceTableInProtoFormat(FeatureSplit featureSplit) {
@@ -340,6 +350,14 @@ public class LegacyResourceShrinker {
 
     public Set<String> getResFolderEntriesToKeep() {
       return resFolderEntriesToKeep;
+    }
+
+    public byte[] getBytesFor(String location) {
+      return customResourceFileBytes.get(location);
+    }
+
+    public boolean hasCustomFileFor(String location) {
+      return customResourceFileBytes.containsKey(location);
     }
   }
 

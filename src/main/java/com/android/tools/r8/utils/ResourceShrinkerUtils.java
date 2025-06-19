@@ -60,9 +60,15 @@ public class ResourceShrinkerUtils {
           state.addResourceTable(androidResource.getByteStream(), featureSplit);
           break;
         case XML_FILE:
-          state.addXmlFileProvider(
-              () -> wrapThrowingInputStreamResource(appView, androidResource),
-              androidResource.getPath().location());
+          if (androidResource.getPath().location().startsWith("res/raw/")) {
+            state.addResFileProvider(
+                () -> wrapThrowingInputStreamResource(appView, androidResource),
+                androidResource.getPath().location());
+          } else {
+            state.addXmlFileProvider(
+                () -> wrapThrowingInputStreamResource(appView, androidResource),
+                androidResource.getPath().location());
+          }
           break;
         case KEEP_RULE_FILE:
           state.addKeepRuleRileProvider(

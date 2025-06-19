@@ -98,8 +98,7 @@ public class ColorInliningTest extends TestBase {
             resourceTableInspector -> {
               if (optimize && !addResourcesSubclass) {
                 if (!parameters.isRandomPartialCompilation()) {
-                  // TODO(b/420574058) assert that the optimized resources does not contain `foo`.
-                  resourceTableInspector.assertContainsResourceWithName("color", "foo");
+                  resourceTableInspector.assertDoesNotContainResourceWithName("color", "foo");
                 }
               } else {
                 // When there are resource subclasses we should not inline, since this can have
@@ -122,8 +121,8 @@ public class ColorInliningTest extends TestBase {
               assertThat(mainMethodSubject, isPresent());
               if (!parameters.isRandomPartialCompilation()) {
                 assertEquals(
-                    // TODO(b/420574058) should only contain two instances after opt.
-                    optimize ? 3 : 3, getResourceCallsCount(mainMethodSubject));
+                    optimize && !addResourcesSubclass ? 2 : 3,
+                    getResourceCallsCount(mainMethodSubject));
               }
               if (addResourcesSubclass) {
                 MethodSubject resourceGetterSubject =

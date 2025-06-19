@@ -5,13 +5,8 @@
 package com.android.tools.r8.ir.optimize.library;
 
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
-import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexClassAndMethod;
-import com.android.tools.r8.graph.DexField;
+import com.android.tools.r8.graph.*;
 import com.android.tools.r8.graph.DexItemFactory.LibraryMembers;
-import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.LibraryField;
-import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.BasicBlockIterator;
 import com.android.tools.r8.ir.code.IRCode;
@@ -59,7 +54,10 @@ public class LibraryMemberOptimizer implements CodeOptimization {
     register(new StringMethodOptimizer(appView));
     if (appView.enableWholeProgramOptimizations()
         && appView.options().isOptimizedResourceShrinking()) {
-      register(new ResourceGetOptimizer(appView));
+      AppView<? extends AppInfoWithClassHierarchy> appViewWithClassHierarchy =
+          appView.withClassHierarchy();
+      register(new ResourceGetOptimizerForResources(appViewWithClassHierarchy));
+      register(new ResourceGetOptimizerForContext(appViewWithClassHierarchy));
     }
     if (appView.enableWholeProgramOptimizations()) {
       // Subtyping is required to prove the enum class is a subtype of java.lang.Enum.

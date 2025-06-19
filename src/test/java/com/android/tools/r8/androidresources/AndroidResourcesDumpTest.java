@@ -103,8 +103,11 @@ public class AndroidResourcesDumpTest extends TestBase {
         resourceFileCount++;
         String name = nextEntry.getName();
         assertTrue(fileEntries.contains(name));
-        byte[] original = ZipUtils.readSingleEntry(resourceZip, name);
-        assertArrayEquals(original, ByteStreams.toByteArray(zipInputStream));
+        // We allow xml files to have been rewritten.
+        if (!name.endsWith(".xml")) {
+          byte[] original = ZipUtils.readSingleEntry(resourceZip, name);
+          assertArrayEquals(original, ByteStreams.toByteArray(zipInputStream));
+        }
         nextEntry = zipInputStream.getNextEntry();
       }
     }
