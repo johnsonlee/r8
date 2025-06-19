@@ -59,7 +59,7 @@ public class LibraryMemberOptimizer implements CodeOptimization {
     register(new StringMethodOptimizer(appView));
     if (appView.enableWholeProgramOptimizations()
         && appView.options().isOptimizedResourceShrinking()) {
-      register(new ResourcesMemberOptimizer(appView));
+      register(new ResourceGetOptimizer(appView));
     }
     if (appView.enableWholeProgramOptimizations()) {
       // Subtyping is required to prove the enum class is a subtype of java.lang.Enum.

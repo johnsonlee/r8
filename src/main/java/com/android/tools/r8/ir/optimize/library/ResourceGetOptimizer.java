@@ -1,4 +1,4 @@
-// Copyright (c) 2023, the R8 project authors. Please see the AUTHORS file
+// Copyright (c) 2025, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
@@ -26,13 +26,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-public class ResourcesMemberOptimizer extends StatelessLibraryMethodModelCollection {
+public class ResourceGetOptimizer extends StatelessLibraryMethodModelCollection {
 
   private final AppView<?> appView;
   private final DexItemFactory dexItemFactory;
   private Optional<Boolean> allowStringInlining = Optional.empty();
 
-  ResourcesMemberOptimizer(AppView<?> appView) {
+  ResourceGetOptimizer(AppView<?> appView) {
     this.appView = appView;
     this.dexItemFactory = appView.dexItemFactory();
   }
