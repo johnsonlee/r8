@@ -43,7 +43,7 @@ public class CustomSourceFileTest extends CompilerApiTestRunner {
   @Test
   public void testSourceFile() throws Exception {
     ApiTest test = new ApiTest(ApiTest.PARAMETERS);
-    runTest(test::run, hash -> hash.substring(0, 7));
+    runTest(test::run, hash -> hash);
   }
 
   private String getMapHash(String mapping) {

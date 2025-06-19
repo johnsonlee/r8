@@ -14,13 +14,14 @@ import com.android.tools.r8.naming.retrace.StackTrace.StackTraceLine;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class StackTraceWithPcAndNoLineTableTestRunner extends TestBase {
 
   private final TestParameters parameters;
 
-  @Parameterized.Parameters(name = "{0}")
+  @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
   }
@@ -40,9 +41,7 @@ public class StackTraceWithPcAndNoLineTableTestRunner extends TestBase {
         .run(parameters.getRuntime(), getTestClass())
         .assertFailureWithErrorThatThrows(RuntimeException.class)
         .inspectStackTrace(
-            stacktrace -> {
-              assertThat(stacktrace, StackTrace.isSame(getExpectedStackTrace(true)));
-            });
+            stacktrace -> assertThat(stacktrace, StackTrace.isSame(getExpectedStackTrace(true))));
   }
 
   @Test
@@ -51,6 +50,7 @@ public class StackTraceWithPcAndNoLineTableTestRunner extends TestBase {
         .addProgramClasses(getTestClass())
         .addKeepMainRule(getTestClass())
         .addKeepRules("-keep,allowshrinking,allowobfuscation class * { *; }")
+        .setMapIdTemplate("42")
         .setMinApi(parameters)
         .run(parameters.getRuntime(), getTestClass())
         .assertFailureWithErrorThatThrows(RuntimeException.class)
@@ -58,7 +58,7 @@ public class StackTraceWithPcAndNoLineTableTestRunner extends TestBase {
             (stacktrace, inspector) -> {
               // The source file should be set to the default SourceFile when not kept.
               assertEquals(
-                  "SourceFile",
+                  "r8-map-id-42",
                   inspector.clazz(getTestClass()).getDexProgramClass().sourceFile.toString());
               assertThat(stacktrace, StackTrace.isSame(getExpectedStackTrace(true)));
             });

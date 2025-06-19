@@ -11,7 +11,6 @@ import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isTopOfStackTrace;
 import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertNotNull;
-import static junit.framework.TestCase.assertNull;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -119,7 +118,7 @@ public class DexPcWithDebugInfoForOverloadedMethodsTestRunner extends TestBase {
     assertEquals(3, clazz.allMethods().size());
     for (FoundMethodSubject method : clazz.allMethods()) {
       if (method.getOriginalMethodName().equals("main")) {
-        assertNull(method.getMethod().getCode().asDexCode().getDebugInfo());
+        assertNotNull(method.getMethod().getCode().asDexCode().getDebugInfo());
       } else {
         assertEquals("overloaded", method.getOriginalMethodName());
         assertNotNull(method.getMethod().getCode().asDexCode().getDebugInfo());

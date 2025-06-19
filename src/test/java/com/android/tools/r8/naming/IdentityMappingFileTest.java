@@ -30,11 +30,12 @@ import java.nio.file.Path;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class IdentityMappingFileTest extends TestBase {
 
-  @Parameterized.Parameters(name = "{0}")
+  @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters().withNoneRuntime().build();
   }
@@ -75,58 +76,73 @@ public class IdentityMappingFileTest extends TestBase {
 
   @Test
   public void testTheTestBuilder() throws Exception {
-    String mapping =
-        testForR8(Backend.DEX)
-            .addProgramClassFileData(getMainWithoutLineTable())
-            .setMinApi(AndroidApiLevel.B)
-            .addKeepMainRule(Main.class)
-            .compile()
-            .getProguardMap();
-    checkIdentityMappingContent(mapping);
+    System.setProperty("com.android.tools.r8.enableMapIdInSourceFile", "0");
+    try {
+      String mapping =
+          testForR8(Backend.DEX)
+              .addProgramClassFileData(getMainWithoutLineTable())
+              .setMinApi(AndroidApiLevel.B)
+              .addKeepMainRule(Main.class)
+              .compile()
+              .getProguardMap();
+      checkIdentityMappingContent(mapping);
+    } finally {
+      System.clearProperty("com.android.tools.r8.enableMapIdInSourceFile");
+    }
   }
 
   @Test
   public void testFileOutput() throws Exception {
-    Path mappingPath = temp.newFolder().toPath().resolve("mapping.map");
-    R8.run(
-        R8Command.builder()
-            .addClassProgramData(getMainWithoutLineTable(), Origin.unknown())
-            .addProguardConfiguration(
-                ImmutableList.of(keepMainProguardConfiguration(Main.class)), Origin.unknown())
-            .addLibraryFiles(ToolHelper.getJava8RuntimeJar())
-            .setProguardMapOutputPath(mappingPath)
-            .setProgramConsumer(DexIndexedConsumer.emptyConsumer())
-            .build());
-    assertTrue(Files.exists(mappingPath));
-    checkIdentityMappingContent(FileUtils.readTextFile(mappingPath, StandardCharsets.UTF_8));
+    System.setProperty("com.android.tools.r8.enableMapIdInSourceFile", "0");
+    try {
+      Path mappingPath = temp.newFolder().toPath().resolve("mapping.map");
+      R8.run(
+          R8Command.builder()
+              .addClassProgramData(getMainWithoutLineTable(), Origin.unknown())
+              .addProguardConfiguration(
+                  ImmutableList.of(keepMainProguardConfiguration(Main.class)), Origin.unknown())
+              .addLibraryFiles(ToolHelper.getJava8RuntimeJar())
+              .setProguardMapOutputPath(mappingPath)
+              .setProgramConsumer(DexIndexedConsumer.emptyConsumer())
+              .build());
+      assertTrue(Files.exists(mappingPath));
+      checkIdentityMappingContent(FileUtils.readTextFile(mappingPath, StandardCharsets.UTF_8));
+    } finally {
+      System.clearProperty("com.android.tools.r8.enableMapIdInSourceFile");
+    }
   }
 
   @Test
   public void testStringConsumer() throws Exception {
-    BooleanBox consumerWasCalled = new BooleanBox(false);
-    StringBuilder mappingContent = new StringBuilder();
-    R8.run(
-        R8Command.builder()
-            .addClassProgramData(getMainWithoutLineTable(), Origin.unknown())
-            .addProguardConfiguration(
-                ImmutableList.of(keepMainProguardConfiguration(Main.class)), Origin.unknown())
-            .addLibraryFiles(ToolHelper.getJava8RuntimeJar())
-            .setProguardMapConsumer(
-                new StringConsumer() {
-                  @Override
-                  public void accept(String string, DiagnosticsHandler handler) {
-                    mappingContent.append(string);
-                  }
+    System.setProperty("com.android.tools.r8.enableMapIdInSourceFile", "0");
+    try {
+      BooleanBox consumerWasCalled = new BooleanBox(false);
+      StringBuilder mappingContent = new StringBuilder();
+      R8.run(
+          R8Command.builder()
+              .addClassProgramData(getMainWithoutLineTable(), Origin.unknown())
+              .addProguardConfiguration(
+                  ImmutableList.of(keepMainProguardConfiguration(Main.class)), Origin.unknown())
+              .addLibraryFiles(ToolHelper.getJava8RuntimeJar())
+              .setProguardMapConsumer(
+                  new StringConsumer() {
+                    @Override
+                    public void accept(String string, DiagnosticsHandler handler) {
+                      mappingContent.append(string);
+                    }
 
-                  @Override
-                  public void finished(DiagnosticsHandler handler) {
-                    consumerWasCalled.set(true);
-                  }
-                })
-            .setProgramConsumer(DexIndexedConsumer.emptyConsumer())
-            .build());
-    assertTrue(consumerWasCalled.get());
-    checkIdentityMappingContent(mappingContent.toString());
+                    @Override
+                    public void finished(DiagnosticsHandler handler) {
+                      consumerWasCalled.set(true);
+                    }
+                  })
+              .setProgramConsumer(DexIndexedConsumer.emptyConsumer())
+              .build());
+      assertTrue(consumerWasCalled.get());
+      checkIdentityMappingContent(mappingContent.toString());
+    } finally {
+      System.clearProperty("com.android.tools.r8.enableMapIdInSourceFile");
+    }
   }
 
   private byte[] getMainWithoutLineTable() throws Exception {

@@ -8,6 +8,8 @@ import static com.android.tools.r8.naming.retrace.StackTrace.isSame;
 import static com.android.tools.r8.utils.codeinspector.Matchers.hasLineNumberTable;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.notIf;
+import static org.hamcrest.CoreMatchers.anyOf;
+import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 
@@ -20,7 +22,6 @@ import com.android.tools.r8.naming.retrace.StackTrace.StackTraceLine;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import java.util.List;
-import org.hamcrest.CoreMatchers;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -63,10 +64,10 @@ public class SingleLineInfoRemoveTest extends TestBase {
         .setMinApi(parameters)
         .addKeepMainRule(Main.class)
         .addKeepAttributeSourceFile()
-        .addKeepAttributeLineNumberTable()
         .applyIf(
             customSourceFile,
-            b -> b.getBuilder().setSourceFileProvider(env -> "MyCustomSourceFile"))
+            b -> b.getBuilder().setSourceFileProvider(env -> "MyCustomSourceFile"),
+            b -> b.setMapIdTemplate("42"))
         .enableInliningAnnotations()
         .run(parameters.getRuntime(), Main.class)
         .assertFailureWithErrorThatThrows(NullPointerException.class)
@@ -76,12 +77,9 @@ public class SingleLineInfoRemoveTest extends TestBase {
                 if (customSourceFile) {
                   assertEquals("MyCustomSourceFile", line.fileName);
                 } else if (parameters.isCfRuntime()) {
-                  assertEquals("SourceFile", line.fileName);
+                  assertEquals("r8-map-id-42", line.fileName);
                 } else {
-                  assertThat(
-                      line.fileName,
-                      CoreMatchers.anyOf(
-                          CoreMatchers.is("SourceFile"), CoreMatchers.is("Unknown Source")));
+                  assertThat(line.fileName, anyOf(is("r8-map-id-42"), is("Unknown Source")));
                 }
               }
             })
@@ -97,9 +95,8 @@ public class SingleLineInfoRemoveTest extends TestBase {
   }
 
   private boolean canSingleLineDebugInfoBeDiscarded() {
-    return parameters.isDexRuntime()
-        && !customSourceFile
-        && parameters.getApiLevel().isGreaterThanOrEqualTo(apiLevelWithPcAsLineNumberSupport());
+    // We cannot discard the debug info since we need to preserve the source file.
+    return false;
   }
 
   public static class Main {

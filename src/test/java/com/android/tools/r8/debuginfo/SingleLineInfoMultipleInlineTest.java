@@ -7,7 +7,6 @@ package com.android.tools.r8.debuginfo;
 import static com.android.tools.r8.naming.retrace.StackTrace.isSame;
 import static com.android.tools.r8.utils.codeinspector.Matchers.hasLineNumberTable;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static com.android.tools.r8.utils.codeinspector.Matchers.notIf;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -68,12 +67,7 @@ public class SingleLineInfoMultipleInlineTest extends TestBase {
               assertThat(mainSubject.uniqueMethodWithOriginalName("inlinee"), not(isPresent()));
               assertThat(
                   mainSubject.uniqueMethodWithOriginalName("shouldNotRemoveLineNumberForInline"),
-                  notIf(
-                      hasLineNumberTable(),
-                      parameters.isDexRuntime()
-                          && parameters
-                              .getApiLevel()
-                              .isGreaterThanOrEqualTo(apiLevelWithPcAsLineNumberSupport())));
+                  hasLineNumberTable());
             });
   }
 

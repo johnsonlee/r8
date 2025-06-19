@@ -73,7 +73,7 @@ public class SingleLineInfoInlineRemoveTest extends TestBase {
               assertThat(mainSubject.uniqueMethodWithOriginalName("inlinee"), not(isPresent()));
               assertThat(
                   mainSubject.uniqueMethodWithOriginalName("shouldRemoveLineNumberForInline"),
-                  notIf(hasLineNumberTable(), compileApiHasPcLineSupport()));
+                  hasLineNumberTable());
             });
   }
 

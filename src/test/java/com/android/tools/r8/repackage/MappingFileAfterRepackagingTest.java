@@ -8,7 +8,6 @@ import static org.junit.Assert.assertEquals;
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.StringUtils;
 import java.util.List;
@@ -68,15 +67,9 @@ public class MappingFileAfterRepackagingTest extends TestBase {
                       .filter(line -> line.contains("java.lang.String toString()"))
                       .count();
               assertEquals(
-                  (repackage ? 1 : 2 + BooleanUtils.intValue(parameters.isDexRuntime()))
-                      + BooleanUtils.intValue(isPc2pc()),
+                  (repackage ? 1 : 2 + BooleanUtils.intValue(parameters.isDexRuntime())),
                   unqualifiedMatches);
             });
-  }
-
-  private boolean isPc2pc() {
-    return parameters.isDexRuntime()
-        && parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.O);
   }
 
   static class Main {

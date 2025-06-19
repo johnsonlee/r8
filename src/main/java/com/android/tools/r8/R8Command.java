@@ -1537,8 +1537,7 @@ public final class R8Command extends BaseCompilerCommand {
     // Note that minify/optimize settings must be set on internal options before doing this.
     internal.mapIdProvider = getMapIdProvider();
     internal.sourceFileProvider =
-        SourceFileRewriter.computeSourceFileProvider(
-            getSourceFileProvider(), proguardConfiguration, internal);
+        SourceFileRewriter.computeSourceFileProvider(getSourceFileProvider(), internal);
 
     internal.configureAndroidPlatformBuild(getAndroidPlatformBuild());
 

@@ -296,7 +296,7 @@ public abstract class BaseCompilerCommand extends BaseCommand {
     protected PartitionMapConsumer partitionMapConsumer = null;
     private DumpInputFlags dumpInputFlags = DumpInputFlags.getDefault();
     private MapIdProvider mapIdProvider = null;
-    private SourceFileProvider sourceFileProvider = null;
+    private SourceFileProvider sourceFileProvider;
     private boolean isAndroidPlatformBuild = false;
     private final List<ArtProfileForRewriting> artProfilesForRewriting = new ArrayList<>();
     private final List<StartupProfileProvider> startupProfileProviders = new ArrayList<>();

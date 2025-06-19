@@ -29,8 +29,9 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class TreeShakingSpecificTest extends TestBase {
 
-  private Backend backend;
-  private AndroidApiLevel minApi = AndroidApiLevel.LATEST;
+  private static final AndroidApiLevel minApi = AndroidApiLevel.LATEST;
+
+  private final Backend backend;
 
   @Parameters(name = "Backend: {1}")
   public static List<Object[]> data() {
@@ -105,15 +106,14 @@ public class TreeShakingSpecificTest extends TestBase {
     return StringUtils.lines(
         "shaking1.Shaking -> shaking1.Shaking:",
         "# {'id':'sourceFile','fileName':'Shaking.java'}",
-        "    0:6:void main(java.lang.String[]):8:8 -> main",
-        "    7:21:void main(java.lang.String[]):9:9 -> main",
+        "    1:2:void main(java.lang.String[]):8:9 -> main",
         "shaking1.Used -> a.a:",
         "# {'id':'sourceFile','fileName':'Used.java'}",
         "    java.lang.String name -> a",
-        "    0:2:void <init>(java.lang.String):12:12 -> <init>",
-        "    3:5:void <init>(java.lang.String):13:13 -> <init>",
-        "    0:16:java.lang.String method():17:17 -> a",
-        "    0:2:java.lang.String aMethodThatIsNotUsedButKept():21:21 "
+        "    1:3:void <init>(java.lang.String):12:12 -> <init>",
+        "    4:6:void <init>(java.lang.String):13:13 -> <init>",
+        "    1:1:java.lang.String method():17:17 -> a",
+        "    1:3:java.lang.String aMethodThatIsNotUsedButKept():21:21 "
             + "-> aMethodThatIsNotUsedButKept");
   }
 

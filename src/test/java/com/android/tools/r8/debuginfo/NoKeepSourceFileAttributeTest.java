@@ -34,6 +34,7 @@ public class NoKeepSourceFileAttributeTest extends TestBase {
     testForR8(parameters.getBackend())
         .addInnerClasses(NoKeepSourceFileAttributeTest.class)
         .addKeepMainRule(TestClass.class)
+        .setMapIdTemplate("42")
         .setMinApi(parameters)
         .run(parameters.getRuntime(), TestClass.class)
         .assertFailureWithErrorThatThrows(RuntimeException.class)
@@ -42,11 +43,7 @@ public class NoKeepSourceFileAttributeTest extends TestBase {
               List<StackTraceLine> stackTraceLines = stacktrace.getStackTraceLines();
               assertEquals(1, stackTraceLines.size());
               StackTraceLine stackTraceLine = stackTraceLines.get(0);
-              if (parameters.getApiLevel().isLessThan(apiLevelWithPcAsLineNumberSupport())) {
-                assertEquals("SourceFile", stackTraceLine.fileName);
-              } else {
-                assertEquals("Unknown Source", stackTraceLine.fileName);
-              }
+              assertEquals("r8-map-id-42", stackTraceLine.fileName);
             })
         .inspectStackTrace(
             stacktrace -> {

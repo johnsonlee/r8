@@ -6,49 +6,43 @@ package com.android.tools.r8.naming;
 import com.android.tools.r8.SourceFileEnvironment;
 import com.android.tools.r8.SourceFileProvider;
 import com.android.tools.r8.graph.DexItemFactory;
-import com.android.tools.r8.shaking.ProguardConfiguration;
 import com.android.tools.r8.utils.InternalOptions;
 
 /** Computes the source file provider based on the proguard configuration if none is set. */
 public class SourceFileRewriter {
 
   public static SourceFileProvider computeSourceFileProvider(
-      SourceFileProvider provider, ProguardConfiguration configuration, InternalOptions options) {
+      SourceFileProvider provider, InternalOptions options) {
     if (provider != null) {
       return provider;
     }
-    if (!configuration.getKeepAttributes().sourceFile) {
-      return rewriteToDefaultSourceFile(options.dexItemFactory());
-    }
-    if (options.forceProguardCompatibility) {
-      return computeCompatProvider(options);
-    }
-    return computeNonCompatProvider(options);
-  }
-
-  private static SourceFileProvider computeCompatProvider(InternalOptions options) {
-    // Compatibility mode will only apply -renamesourcefileattribute when minifying names.
-    if (options.isMinifying()) {
-      String renaming = getRenameSourceFileAttribute(options);
-      if (renaming != null) {
-        return rewriteTo(renaming, isDefaultOrEmpty(renaming, options));
-      }
-    }
-    return null;
-  }
-
-  private static SourceFileProvider computeNonCompatProvider(InternalOptions options) {
     String renaming = getRenameSourceFileAttribute(options);
     if (renaming != null) {
       return rewriteTo(renaming, isDefaultOrEmpty(renaming, options));
     }
-    if (options.isMinifying() || options.isOptimizing()) {
+    if (options.getTestingOptions().enableMapIdInSourceFile) {
+      if (!options.forceProguardCompatibility
+          || !options.getProguardConfiguration().getKeepAttributes().sourceFile) {
+        if (options.isMinifying() || options.isOptimizing()) {
+          return env -> "r8-map-id-" + env.getMapId();
+        }
+      }
+    }
+    if (!options.getProguardConfiguration().getKeepAttributes().sourceFile) {
       return rewriteToDefaultSourceFile(options.dexItemFactory());
     }
     return null;
   }
 
   private static String getRenameSourceFileAttribute(InternalOptions options) {
+    // Only apply -renamesourcefileattribute if the SourceFile attribute is kept.
+    if (!options.getProguardConfiguration().getKeepAttributes().sourceFile) {
+      return null;
+    }
+    // Compatibility mode will only apply -renamesourcefileattribute when minifying names.
+    if (options.forceProguardCompatibility && !options.isMinifying()) {
+      return null;
+    }
     return options.getProguardConfiguration().getRenameSourceFileAttribute();
   }
 

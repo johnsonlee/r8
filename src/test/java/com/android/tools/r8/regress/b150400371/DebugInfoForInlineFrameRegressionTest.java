@@ -5,7 +5,6 @@
 package com.android.tools.r8.regress.b150400371;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -18,18 +17,19 @@ import it.unimi.dsi.fastutil.ints.IntSet;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class DebuginfoForInlineFrameRegressionTest extends TestBase {
+public class DebugInfoForInlineFrameRegressionTest extends TestBase {
 
   private final TestParameters parameters;
 
-  @Parameterized.Parameters(name = "{0}")
+  @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters().withDexRuntimes().withAllApiLevels().build();
   }
 
-  public DebuginfoForInlineFrameRegressionTest(TestParameters parameters) {
+  public DebugInfoForInlineFrameRegressionTest(TestParameters parameters) {
     this.parameters = parameters;
   }
 
@@ -48,14 +48,10 @@ public class DebuginfoForInlineFrameRegressionTest extends TestBase {
             (inspector) -> {
               MethodSubject main =
                   inspector.method(InlineInto.class.getDeclaredMethod("main", String[].class));
-              if (parameters.getApiLevel().isLessThan(apiLevelWithPcAsLineNumberSupport())) {
-                // Method has 2 actual lines for inlining of foo.
-                // The pc2pc encoding is larger than normal encoding, so it is just the two lines.
-                IntSet lines = new IntArraySet(main.getLineNumberTable().getLines());
-                assertEquals(ImmutableSet.of(1, 2), lines);
-              } else {
-                assertNull(main.getLineNumberTable());
-              }
+              // Method has 2 actual lines for inlining of foo.
+              // The pc2pc encoding is larger than normal encoding, so it is just the two lines.
+              IntSet lines = new IntArraySet(main.getLineNumberTable().getLines());
+              assertEquals(ImmutableSet.of(1, 2), lines);
             });
   }
 

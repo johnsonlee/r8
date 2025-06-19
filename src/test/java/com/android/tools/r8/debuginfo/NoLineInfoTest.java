@@ -16,7 +16,6 @@ import com.android.tools.r8.naming.retrace.StackTrace.StackTraceLine;
 import com.android.tools.r8.transformers.ClassFileTransformer.MethodPredicate;
 import com.android.tools.r8.utils.BooleanUtils;
 import java.io.IOException;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -30,7 +29,7 @@ public class NoLineInfoTest extends TestBase {
 
   private static final String INPUT_SOURCE_FILE = "InputSourceFile.java";
   private static final String CUSTOM_SOURCE_FILE = "TaggedSourceFile";
-  private static final String DEFAULT_SOURCE_FILE = "SourceFile";
+  private static final String DEFAULT_SOURCE_FILE = "r8-map-id-42";
   private static final String UNKNOWN_SOURCE_FILE = "Unknown Source";
 
   private final TestParameters parameters;
@@ -91,7 +90,7 @@ public class NoLineInfoTest extends TestBase {
         .addProgramClassFileData(getTestClassTransformed())
         .addKeepClassAndMembersRules(TestClass.class)
         .addKeepAttributeSourceFile()
-        .addKeepAttributeLineNumberTable()
+        .setMapIdTemplate("42")
         .setMinApi(parameters)
         .addOptionsModification(o -> o.testing.forcePcBasedEncoding = true)
         .applyIf(
@@ -107,15 +106,10 @@ public class NoLineInfoTest extends TestBase {
                         .flatMap(c -> c.allMethods().stream())
                         .map(m -> m.getMethod().getCode().asDexCode().getDebugInfo())
                         .collect(Collectors.toSet());
-                if (isCompileWithPcAsLineNumberSupport() && !customSourceFile) {
-                  // If debug info is stripped all items are null pointers.
-                  assertEquals(Collections.singleton(null), debugInfos);
-                } else {
-                  // If debug info remains it is two canonical items and one null pointer.
-                  // The presence of 'null' debug info items is for methods with no actual lines at
-                  // all.
-                  assertEquals(customSourceFile ? 2 : 3, debugInfos.size());
-                }
+                // If debug info remains it is two canonical items and one null pointer.
+                // The presence of 'null' debug info items is for methods with no actual lines at
+                // all.
+                assertEquals(2, debugInfos.size());
               }
             })
         .inspectOriginalStackTrace(
@@ -159,14 +153,11 @@ public class NoLineInfoTest extends TestBase {
     if (customSourceFile) {
       return line(CUSTOM_SOURCE_FILE, method, line);
     }
-    if (isCompileWithPcAsLineNumberSupport()) {
-      return line(UNKNOWN_SOURCE_FILE, method, line);
-    }
     return line(DEFAULT_SOURCE_FILE, method, line);
   }
 
   private int getPcEncoding(int pc) {
-    return isCompileWithPcAsLineNumberSupport() && !customSourceFile ? pc : (pc + 1);
+    return pc + 1;
   }
 
   // A residual line that is either null debug info or pc2pc mapping.
@@ -208,15 +199,8 @@ public class NoLineInfoTest extends TestBase {
   // TODO(b/232212653): The retraced stack trace should be the same as `getExpectedInputStacktrace`.
   private StackTrace getUnexpectedRetracedStacktrace() {
     assertFalse(parameters.isCfRuntime());
-    StackTraceLine fooLine;
-    if (isRuntimeWithPcAsLineNumberSupport() && !customSourceFile) {
-      // TODO(b/232212653): Retrace should convert PC 1 to line <noline>/-1/0.
-      fooLine = inputLine("foo", 1);
-    } else {
-      fooLine = inputLine("foo", -1);
-    }
-    int position =
-        isCompileWithPcAsLineNumberSupport() && !customSourceFile ? -1 : getPcEncoding(0);
+    StackTraceLine fooLine = inputLine("foo", -1);
+    int position = getPcEncoding(0);
     StackTraceLine barLine = inputLine("bar", position);
     StackTraceLine bazLine = inputLine("baz", position);
     return StackTrace.builder()
@@ -239,8 +223,7 @@ public class NoLineInfoTest extends TestBase {
           .build();
     }
     return StackTrace.builder()
-        // Foo has only <noline> on input and so it is allowed to compile it to a null debug-info.
-        .add(residualPcOrNoLine("foo", 1))
+        .add(residualLine("foo", getPcEncoding(1)))
         .add(residualLine("bar", getPcEncoding(0)))
         .add(residualLine("baz", getPcEncoding(0)))
         .add(residualLine("main", getPcEncoding(6)))

@@ -13,10 +13,11 @@ import static org.junit.Assert.assertEquals;
 import com.android.tools.r8.R8PartialTestCompileResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfRuntime;
 import com.android.tools.r8.naming.retrace.StackTrace;
+import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
+import java.util.List;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -33,9 +34,13 @@ public class PartialCompilationD8LineNumberTest extends TestBase {
   @Parameter(0)
   public TestParameters parameters;
 
-  @Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimesAndApiLevels().build();
+  @Parameter(1)
+  public boolean renameSourceFileAttribute;
+
+  @Parameters(name = "{0}, renameSourceFileAttribute: {1}")
+  public static List<Object[]> data() {
+    return buildParameters(
+        getTestParameters().withAllRuntimesAndApiLevels().build(), BooleanUtils.values());
   }
 
   @BeforeClass
@@ -63,6 +68,12 @@ public class PartialCompilationD8LineNumberTest extends TestBase {
             .addR8IncludedClasses(IncludedClass.class)
             .addR8ExcludedClasses(ExcludedClass.class)
             .addKeepMainRule(IncludedClass.class)
+            .applyIf(
+                renameSourceFileAttribute,
+                b ->
+                    b.addKeepAttributeSourceFile()
+                        .addKeepRules("-renamesourcefileattribute CustomSourceFile"))
+            .setMapIdTemplate("42")
             .setMinApi(parameters)
             .compile()
             .inspect(
@@ -70,7 +81,8 @@ public class PartialCompilationD8LineNumberTest extends TestBase {
                   ClassSubject includedClass = inspector.clazz(IncludedClass.class);
                   assertThat(includedClass, isPresent());
                   assertEquals(
-                      "SourceFile", includedClass.getDexProgramClass().getSourceFile().toString());
+                      renameSourceFileAttribute ? "CustomSourceFile" : "r8-map-id-42",
+                      includedClass.getDexProgramClass().getSourceFile().toString());
 
                   ClassSubject excludedClass = inspector.clazz(ExcludedClass.class);
                   assertThat(excludedClass, isPresent());

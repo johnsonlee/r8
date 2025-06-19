@@ -12,7 +12,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.R8TestBuilder;
-import com.android.tools.r8.R8TestRunResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.graph.DexClass;
@@ -21,7 +20,6 @@ import com.android.tools.r8.naming.testclasses.ClassToBeMinified;
 import com.android.tools.r8.naming.testclasses.Main;
 import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.references.Reference;
-import com.android.tools.r8.shaking.ProguardKeepAttributes;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
@@ -36,6 +34,8 @@ import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class RenameSourceFileRetraceTest extends TestBase {
+
+  private static final String MAP_ID = "42";
 
   private static final String FILENAME_RENAME = "FOO";
   private static final String FILENAME_MAIN = "Main.java";
@@ -63,18 +63,15 @@ public class RenameSourceFileRetraceTest extends TestBase {
   @Test
   public void testR8()
       throws ExecutionException, CompilationFailedException, IOException, NoSuchMethodException {
-    R8TestBuilder<?, R8TestRunResult, ?> r8TestBuilder =
-        isCompat ? testForR8Compat(parameters.getBackend()) : testForR8(parameters.getBackend());
-    if (keepSourceFile) {
-      r8TestBuilder.addKeepAttributes(ProguardKeepAttributes.SOURCE_FILE);
-    }
     String minifiedFileName =
         (keepSourceFile && isCompat) ? FILENAME_CLASS_TO_BE_MINIFIED : getDefaultExpectedName();
     String mainFileName = (keepSourceFile && isCompat) ? FILENAME_MAIN : getDefaultExpectedName();
-    r8TestBuilder
+
+    testForR8Compat(parameters.getBackend(), isCompat)
+        .applyIf(keepSourceFile, R8TestBuilder::addKeepAttributeSourceFile)
         .addProgramClasses(ClassToBeMinified.class, Main.class)
-        .addKeepAttributes(ProguardKeepAttributes.LINE_NUMBER_TABLE)
         .addKeepMainRule(Main.class)
+        .setMapIdTemplate(MAP_ID)
         .setMinApi(parameters)
         .enableInliningAnnotations()
         .run(parameters.getRuntime(), Main.class)
@@ -86,17 +83,13 @@ public class RenameSourceFileRetraceTest extends TestBase {
   @Test
   public void testRenameSourceFileR8()
       throws ExecutionException, CompilationFailedException, IOException, NoSuchMethodException {
-    R8TestBuilder<?, R8TestRunResult, ?> r8TestBuilder =
-        isCompat ? testForR8Compat(parameters.getBackend()) : testForR8(parameters.getBackend());
-    if (keepSourceFile) {
-      r8TestBuilder.addKeepAttributes(ProguardKeepAttributes.SOURCE_FILE);
-    }
     String expectedName = getDefaultExpectedName(FILENAME_RENAME);
-    r8TestBuilder
+    testForR8Compat(parameters.getBackend(), isCompat)
+        .applyIf(keepSourceFile, R8TestBuilder::addKeepAttributeSourceFile)
         .addProgramClasses(ClassToBeMinified.class, Main.class)
-        .addKeepAttributes(ProguardKeepAttributes.LINE_NUMBER_TABLE)
         .addKeepRules("-renamesourcefileattribute " + FILENAME_RENAME)
         .addKeepMainRule(Main.class)
+        .setMapIdTemplate(MAP_ID)
         .setMinApi(parameters)
         .enableInliningAnnotations()
         .run(parameters.getRuntime(), Main.class)
@@ -106,7 +99,7 @@ public class RenameSourceFileRetraceTest extends TestBase {
   }
 
   private String getDefaultExpectedName() {
-    return "SourceFile";
+    return "r8-map-id-" + MAP_ID;
   }
 
   private String getDefaultExpectedName(String name) {

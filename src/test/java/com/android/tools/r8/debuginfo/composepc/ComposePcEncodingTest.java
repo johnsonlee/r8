@@ -29,13 +29,14 @@ import java.util.OptionalInt;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class ComposePcEncodingTest extends TestBase {
 
   private final TestParameters parameters;
 
-  @Parameterized.Parameters(name = "{0}")
+  @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters().withDexRuntimes().withAllApiLevels().build();
   }
@@ -48,10 +49,6 @@ public class ComposePcEncodingTest extends TestBase {
     return transformer(TestClass.class)
         .removeLineNumberTable(MethodPredicate.onName("unusedKeptAndNoLineInfo"))
         .transform();
-  }
-
-  private boolean isNativePcSupported() {
-    return parameters.getApiLevel().isGreaterThanOrEqualTo(apiLevelWithPcAsLineNumberSupport());
   }
 
   @Test
@@ -70,13 +67,12 @@ public class ComposePcEncodingTest extends TestBase {
             .compile()
             .inspect(
                 inspector -> {
-                  // Expected residual line info of 1 for pc2pc encoding and some value for native.
-                  int residualLine = isNativePcSupported() ? 123 : 1;
+                  // Expected residual line info of 1 for pc2pc encoding.
+                  int residualLine = 1;
                   // Check the expected status of the DEX debug info object for the "no lines".
                   MethodSubject methodNoLines = inspector.method(unusedKeptAndNoLineInfo);
                   assertThat(methodNoLines, isPresent());
-                  // TODO(b/232212653): This should be true in pc2pc compilation with a single line.
-                  assertFalse(methodNoLines.hasLineNumberTable());
+                  assertTrue(methodNoLines.hasLineNumberTable());
                   // Check that "retracing" the pinned method with no lines maps to "noline/zero".
                   RetraceFrameResult retraceResult =
                       inspector
@@ -90,8 +86,7 @@ public class ComposePcEncodingTest extends TestBase {
                   assertEquals(0, frameElement.getOuterFrames().size());
                   RetracedMethodReference topFrame = frameElement.getTopFrame();
                   assertTrue(topFrame.isKnown());
-                  // TODO(b/232212653): Retrace should map back to the "no line" value of zero.
-                  assertFalse(topFrame.hasPosition());
+                  assertEquals(0, topFrame.getOriginalPositionOrDefault(-1));
                 });
 
     compileResult

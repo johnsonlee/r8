@@ -43,7 +43,7 @@ public class CustomMapIdTest extends CompilerApiTestRunner {
   @Test
   public void testDefaultMapId() throws Exception {
     ApiTest test = new ApiTest(ApiTest.PARAMETERS);
-    runTest(test::runDefaultMapId, hash -> hash.substring(0, 7));
+    runTest(test::runDefaultMapId, hash -> hash);
   }
 
   @Test

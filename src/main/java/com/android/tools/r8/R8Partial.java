@@ -188,10 +188,12 @@ class R8Partial {
             .setBuildMetadataConsumer(options.r8BuildMetadataConsumer)
             .setEnableExperimentalMissingLibraryApiModeling(
                 options.apiModelingOptions().isApiModelingEnabled())
+            .setMapIdProvider(options.mapIdProvider)
             .setMinApiLevel(options.getMinApiLevel().getLevel())
             .setMode(options.getCompilationMode())
             .setPartialCompilationConfiguration(options.partialCompilationConfiguration)
-            .setProgramConsumer(options.programConsumer);
+            .setProgramConsumer(options.programConsumer)
+            .setSourceFileProvider(options.sourceFileProvider);
     // The program input that R8 must compile is provided above using an
     // InternalProgramClassProvider. This passes in the data resources that we must either rewrite
     // or pass through.
