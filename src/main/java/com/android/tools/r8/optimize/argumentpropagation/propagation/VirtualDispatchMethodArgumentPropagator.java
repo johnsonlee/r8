@@ -6,7 +6,6 @@ package com.android.tools.r8.optimize.argumentpropagation.propagation;
 
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.ir.analysis.type.Nullability.definitelyNotNull;
-import static com.android.tools.r8.ir.analysis.type.Nullability.maybeNull;
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 
 import com.android.tools.r8.graph.AppView;
@@ -84,36 +83,47 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
       assert parentState != null;
 
       // Add the argument information that must be propagated to all method overrides.
+      timing.begin("Process active");
       addActive(parentState.active, finalMethods);
+      timing.end();
 
       // Add the argument information that is active until a given lower bound.
+      timing.begin("Process active until lower bound");
       parentState.activeUntilLowerBound.forEach(
           (lowerBound, activeMethodState) -> {
-            TypeElement lowerBoundType = lowerBound.toTypeElement(appViewWithLiveness);
-            TypeElement currentType = clazz.getType().toTypeElement(appViewWithLiveness);
-            if (lowerBoundType.lessThanOrEqual(currentType, appViewWithLiveness)) {
+            // TODO(422947619): Leverage the immediate subtyping info for final checks.
+            if (appView.appInfo().isSubtype(lowerBound, clazz.getType())) {
               addActiveUntilCurrentClassOrLowerBound(
                   lowerBound, activeMethodState, clazz, finalMethods);
             } else {
               // No longer active.
             }
           });
+      timing.end();
 
       // Add the argument information that is inactive until a given upper bound.
+      // TODO(b/422947619): When we do not activate, we basically just copy down.
+      //  Instead of copying down we could simply add a pointer to the data in the parent state.
+      timing.begin("Process inactive until upper bound");
+      Map<ClassTypeElement, Boolean> greaterThanOrEqualToCache = new HashMap<>();
       parentState.inactiveUntilUpperBound.forEach(
           (bounds, inactiveMethodStates) -> {
             ClassTypeElement upperBound = bounds.getDynamicUpperBoundType().asClassType();
-            if (!shouldActivateMethodStateGuardedByBounds(upperBound, clazz, superclass)) {
+            if (!shouldActivateMethodStateGuardedByBounds(
+                upperBound, clazz, superclass, greaterThanOrEqualToCache)) {
               // Still inactive.
               // TODO(b/190154391): Only carry this information downwards if the upper bound is a
               //  subtype of this class. Otherwise we carry this information to all subtypes,
               //  although clearly the information will never become active.
+              timing.begin("Forward inactive");
               addInactiveUntilUpperBound(bounds, inactiveMethodStates, finalMethods);
+              timing.end();
               return;
             }
 
             // The upper bound is the current class, thus this inactive information now becomes
             // active.
+            timing.begin("Promote inactive to active");
             if (bounds.hasDynamicLowerBoundType()) {
               // For class methods with sibling interface methods, we can have lower bound type
               // information on the sibling interface method. When this information is propagated
@@ -124,19 +134,21 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
               // interface method is not applied. The information is propagated to the class
               // method that implements the interface method below.
               ClassTypeElement lowerBound = bounds.getDynamicLowerBoundType();
-              TypeElement currentType = clazz.getType().toTypeElement(appViewWithLiveness);
-              if (lowerBound.lessThanOrEqual(currentType, appViewWithLiveness)) {
+              if (lowerBound.lessThanOrEqual(clazz, appViewWithLiveness, immediateSubtypingInfo)) {
                 DexType activeUntilLowerBoundType =
                     lowerBound.toDexType(appViewWithLiveness.dexItemFactory());
                 addActiveUntilCurrentClassOrLowerBound(
                     activeUntilLowerBoundType, inactiveMethodStates, clazz, finalMethods);
               } else {
+                timing.end();
                 return;
               }
             } else {
               addActive(inactiveMethodStates, finalMethods);
             }
+            timing.end();
 
+            timing.begin("Process inactive method states");
             inactiveMethodStates.forEach(
                 (signature, methodState) -> {
                   SingleResolutionResult<?> resolutionResult =
@@ -168,7 +180,9 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
                         resolutionResult.getResolvedProgramMethod(), methodState);
                   }
                 });
+            timing.end();
           });
+      timing.end();
     }
 
     private void addActive(ProgramMethod method, MethodState methodState) {
@@ -320,11 +334,10 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
       }
       DynamicTypeWithUpperBound dynamicTypeWithUpperBound =
           dynamicType.asDynamicTypeWithUpperBound();
-      TypeElement dynamicUpperBoundType = dynamicTypeWithUpperBound.getDynamicUpperBoundType();
-      TypeElement staticUpperBoundType =
-          method.getHolderType().toTypeElement(appViewWithLiveness, definitelyNotNull());
-      if (dynamicUpperBoundType.lessThanOrEqualUpToNullability(
-          staticUpperBoundType, appViewWithLiveness)) {
+      ClassTypeElement dynamicUpperBoundType =
+          dynamicTypeWithUpperBound.getDynamicUpperBoundType().asClassType();
+      if (dynamicUpperBoundType.lessThanOrEqual(
+          method.getHolder(), appViewWithLiveness, immediateSubtypingInfo)) {
         DynamicType newDynamicType = dynamicType.withNullability(definitelyNotNull());
         assert newDynamicType.equals(dynamicType)
             || !dynamicType.getNullability().isDefinitelyNotNull();
@@ -334,8 +347,10 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
       if (dynamicLowerBoundType == null) {
         return DynamicType.definitelyNotNull();
       }
-      assert dynamicLowerBoundType.lessThanOrEqualUpToNullability(
-          staticUpperBoundType, appViewWithLiveness);
+      assert dynamicLowerBoundType.lessThanOrEqual(
+          method.getHolder(), appViewWithLiveness, immediateSubtypingInfo);
+      TypeElement staticUpperBoundType =
+          method.getHolderType().toTypeElement(appViewWithLiveness, definitelyNotNull());
       if (dynamicLowerBoundType.equalUpToNullability(staticUpperBoundType)) {
         return DynamicType.createExact(dynamicLowerBoundType.asDefinitelyNotNull());
       }
@@ -345,32 +360,41 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
 
     @SuppressWarnings("ReferenceEquality")
     private boolean shouldActivateMethodStateGuardedByBounds(
-        ClassTypeElement upperBound, DexProgramClass currentClass, DexProgramClass superClass) {
-      ClassTypeElement classType =
-          TypeElement.fromDexType(currentClass.getType(), maybeNull(), appViewWithLiveness)
-              .asClassType();
-      // When propagating argument information for interface methods downwards from an interface to
-      // a non-interface we need to account for the parent classes of the current class.
-      if (superClass.isInterface()
-          && !currentClass.isInterface()
-          && currentClass.getSuperType() != appViewWithLiveness.dexItemFactory().objectType) {
-        return classType.lessThanOrEqualUpToNullability(upperBound, appViewWithLiveness);
+        ClassTypeElement upperBound,
+        DexProgramClass currentClass,
+        DexProgramClass superClass,
+        Map<ClassTypeElement, Boolean> greaterThanOrEqualToCache) {
+      try (Timing t0 = timing.begin("Evaluate type bounds")) {
+        // When propagating argument information for interface methods downwards from an interface
+        // to
+        // a non-interface we need to account for the parent classes of the current class.
+        if (superClass.isInterface()
+            && !currentClass.isInterface()
+            && currentClass.getSuperType() != appViewWithLiveness.dexItemFactory().objectType) {
+          return greaterThanOrEqualToCache.computeIfAbsent(
+              upperBound,
+              uB ->
+                  uB.greaterThanOrEqualTo(
+                      currentClass, appViewWithLiveness, immediateSubtypingInfo));
+        }
+        // If the upper bound does not have any interfaces we simply activate the method state when
+        // meeting the upper bound class type in the downwards traversal over the class hierarchy.
+        if (upperBound.getInterfaces().isEmpty()) {
+          return currentClass.getType().isIdenticalTo(upperBound.getClassType());
+        }
+        // If the upper bound has interfaces, we check if the current class is a subtype of *both*
+        // the
+        // upper bound class type and the upper bound interface types.
+        return greaterThanOrEqualToCache.computeIfAbsent(
+            upperBound,
+            uB ->
+                uB.greaterThanOrEqualTo(currentClass, appViewWithLiveness, immediateSubtypingInfo));
       }
-      // If the upper bound does not have any interfaces we simply activate the method state when
-      // meeting the upper bound class type in the downwards traversal over the class hierarchy.
-      if (classType.getInterfaces().isEmpty()) {
-        return classType.equalUpToNullability(upperBound);
-      }
-      // If the upper bound has interfaces, we check if the current class is a subtype of *both* the
-      // upper bound class type and the upper bound interface types.
-      return classType.lessThanOrEqualUpToNullability(upperBound, appViewWithLiveness);
     }
 
     boolean verifyActiveUntilLowerBoundRelevance(DexProgramClass clazz) {
-      TypeElement currentType = clazz.getType().toTypeElement(appViewWithLiveness);
       for (DexType lowerBound : activeUntilLowerBound.keySet()) {
-        TypeElement lowerBoundType = lowerBound.toTypeElement(appViewWithLiveness);
-        assert lowerBoundType.lessThanOrEqual(currentType, appViewWithLiveness);
+        assert appView.appInfo().isSubtype(lowerBound, clazz.getType());
       }
       return true;
     }
