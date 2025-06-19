@@ -15,6 +15,7 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.conversion.callgraph.CallGraph;
 import com.android.tools.r8.utils.ThreadUtils;
+import com.android.tools.r8.utils.UncheckedExecutionException;
 import com.android.tools.r8.utils.collections.ProgramMethodMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -72,20 +73,24 @@ public class SingleCallerInformation {
       this.appView = appView;
     }
 
-    public Builder analyze(ExecutorService executorService) throws ExecutionException {
-      ThreadUtils.processItems(
-          consumer ->
-              appView
-                  .appInfo()
-                  .forEachMethod(
-                      method -> {
-                        if (method.getDefinition().hasCode()) {
-                          consumer.accept(method);
-                        }
-                      }),
-          this::processMethod,
-          appView.options().getThreadingModule(),
-          executorService);
+    public Builder analyze(ExecutorService executorService) {
+      try {
+        ThreadUtils.processItems(
+            consumer ->
+                appView
+                    .appInfo()
+                    .forEachMethod(
+                        method -> {
+                          if (method.getDefinition().hasCode()) {
+                            consumer.accept(method);
+                          }
+                        }),
+            this::processMethod,
+            appView.options().getThreadingModule(),
+            executorService);
+      } catch (ExecutionException e) {
+        throw new UncheckedExecutionException(e);
+      }
       return this;
     }
 
