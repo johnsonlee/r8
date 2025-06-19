@@ -4,9 +4,9 @@
 
 package com.android.tools.r8.debug;
 
+import com.android.tools.r8.KotlinCompileMemoizer;
 import com.android.tools.r8.KotlinCompilerTool;
 import com.android.tools.r8.KotlinTestBase;
-import com.android.tools.r8.KotlinTestBase.KotlinCompileMemoizer;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestRuntime.CfRuntime;

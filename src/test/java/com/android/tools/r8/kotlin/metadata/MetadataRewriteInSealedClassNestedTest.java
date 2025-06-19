@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.kotlin.metadata;
 
+import com.android.tools.r8.KotlinCompileMemoizer;
 import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestParameters;

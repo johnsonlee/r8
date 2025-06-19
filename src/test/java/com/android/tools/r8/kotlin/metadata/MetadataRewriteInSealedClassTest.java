@@ -15,6 +15,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 
+import com.android.tools.r8.KotlinCompileMemoizer;
 import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestParameters;

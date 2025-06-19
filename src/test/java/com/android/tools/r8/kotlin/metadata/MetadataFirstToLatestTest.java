@@ -5,10 +5,10 @@
 package com.android.tools.r8.kotlin.metadata;
 
 import static org.hamcrest.CoreMatchers.containsString;
-import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.android.tools.r8.KotlinCompileMemoizer;
 import com.android.tools.r8.KotlinCompilerTool.KotlinCompiler;
 import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
 import com.android.tools.r8.KotlinCompilerTool.KotlinTargetVersion;

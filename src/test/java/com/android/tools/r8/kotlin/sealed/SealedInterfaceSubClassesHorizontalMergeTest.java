@@ -5,10 +5,10 @@
 package com.android.tools.r8.kotlin.sealed;
 
 import static com.android.tools.r8.ToolHelper.getFilesInTestFolderRelativeToClass;
-import static org.hamcrest.CoreMatchers.equalTo;
 import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.CompilationFailedException;
+import com.android.tools.r8.KotlinCompileMemoizer;
 import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
 import com.android.tools.r8.KotlinTestBase;
 import com.android.tools.r8.KotlinTestParameters;

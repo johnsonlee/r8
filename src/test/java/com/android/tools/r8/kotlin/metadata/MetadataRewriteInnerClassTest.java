@@ -10,6 +10,7 @@ import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.ClassFileConsumer;
 import com.android.tools.r8.DexIndexedConsumer.ArchiveConsumer;
+import com.android.tools.r8.KotlinCompileMemoizer;
 import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.ProgramConsumer;

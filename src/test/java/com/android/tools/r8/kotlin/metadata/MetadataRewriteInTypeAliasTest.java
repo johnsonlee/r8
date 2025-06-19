@@ -14,6 +14,7 @@ import static junit.framework.TestCase.assertNotNull;
 import static junit.framework.TestCase.assertTrue;
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import com.android.tools.r8.KotlinCompileMemoizer;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.kotlin.Kotlin.ClassClassifiers;

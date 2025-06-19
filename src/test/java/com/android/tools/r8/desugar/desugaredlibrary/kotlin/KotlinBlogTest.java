@@ -8,8 +8,8 @@ import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTL
 import static com.android.tools.r8.KotlinTestBase.getCompileMemoizer;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.DEFAULT_SPECIFICATIONS;
 
+import com.android.tools.r8.KotlinCompileMemoizer;
 import com.android.tools.r8.KotlinCompilerTool.KotlinCompiler;
-import com.android.tools.r8.KotlinTestBase.KotlinCompileMemoizer;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;

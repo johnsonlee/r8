@@ -20,11 +20,8 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.junit.rules.TemporaryFolder;
 
@@ -147,90 +144,4 @@ public abstract class KotlinTestBase extends TestBase {
             Version.isMainVersion(), b -> b.setFakeCompilerVersion(SemanticVersion.max()));
   }
 
-  public static class KotlinCompileMemoizer {
-
-    static class CompilerConfigurationKey {
-      private final KotlinTargetVersion targetVersion;
-      private final KotlinLambdaGeneration lambdaGeneration;
-
-      private CompilerConfigurationKey(
-          KotlinTargetVersion targetVersion, KotlinLambdaGeneration lambdaGeneration) {
-        this.targetVersion = targetVersion;
-        this.lambdaGeneration = lambdaGeneration;
-      }
-
-      @Override
-      public boolean equals(Object o) {
-        if (this == o) {
-          return true;
-        }
-        if (!(o instanceof CompilerConfigurationKey)) {
-          return false;
-        }
-        CompilerConfigurationKey other = (CompilerConfigurationKey) o;
-        return targetVersion == other.targetVersion && lambdaGeneration == other.lambdaGeneration;
-      }
-
-      @Override
-      public int hashCode() {
-        return Objects.hash(targetVersion, lambdaGeneration);
-      }
-    }
-
-    private final Collection<Path> sources;
-    private final CfRuntime runtime;
-    private final TemporaryFolder temporaryFolder;
-
-    private Consumer<KotlinCompilerTool> kotlinCompilerToolConsumer = x -> {};
-    private final Map<KotlinCompiler, Map<CompilerConfigurationKey, Path>> compiledPaths =
-        new IdentityHashMap<>();
-
-    public KotlinCompileMemoizer(Collection<Path> sources) {
-      this(sources, CfRuntime.getCheckedInJdk9(), null);
-    }
-
-    public KotlinCompileMemoizer(
-        Collection<Path> sources, CfRuntime runtime, TemporaryFolder temporaryFolder) {
-      this.sources = sources;
-      this.runtime = runtime;
-      this.temporaryFolder = temporaryFolder;
-    }
-
-    public KotlinCompileMemoizer configure(Consumer<KotlinCompilerTool> consumer) {
-      this.kotlinCompilerToolConsumer = consumer;
-      return this;
-    }
-
-    public Path getForConfiguration(KotlinTestParameters kotlinParameters) {
-      return getForConfiguration(
-          kotlinParameters.getCompiler(),
-          kotlinParameters.getTargetVersion(),
-          kotlinParameters.getLambdaGeneration());
-    }
-
-    public Path getForConfiguration(
-        KotlinCompiler compiler,
-        KotlinTargetVersion targetVersion,
-        KotlinLambdaGeneration lambdaGeneration) {
-      Map<CompilerConfigurationKey, Path> kotlinTargetVersionPathMap = compiledPaths.get(compiler);
-      if (kotlinTargetVersionPathMap == null) {
-        kotlinTargetVersionPathMap = new IdentityHashMap<>();
-        compiledPaths.put(compiler, kotlinTargetVersionPathMap);
-      }
-      return kotlinTargetVersionPathMap.computeIfAbsent(
-          new CompilerConfigurationKey(targetVersion, lambdaGeneration),
-          ignored -> {
-            try {
-              KotlinCompilerTool kotlinc =
-                  temporaryFolder == null
-                      ? kotlinc(runtime, compiler, targetVersion, lambdaGeneration)
-                      : kotlinc(
-                          runtime, temporaryFolder, compiler, targetVersion, lambdaGeneration);
-              return kotlinc.addSourceFiles(sources).apply(kotlinCompilerToolConsumer).compile();
-            } catch (IOException e) {
-              throw new RuntimeException(e);
-            }
-          });
-    }
-  }
 }

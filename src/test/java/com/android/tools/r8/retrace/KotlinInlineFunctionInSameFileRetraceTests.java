@@ -12,6 +12,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.StringContains.containsString;
 
 import com.android.tools.r8.CompilationMode;
+import com.android.tools.r8.KotlinCompileMemoizer;
 import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
 import com.android.tools.r8.KotlinTestBase;
 import com.android.tools.r8.KotlinTestParameters;

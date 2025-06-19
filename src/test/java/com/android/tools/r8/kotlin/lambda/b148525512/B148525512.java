@@ -5,6 +5,7 @@
 package com.android.tools.r8.kotlin.lambda.b148525512;
 
 import com.android.tools.r8.DexIndexedConsumer.ArchiveConsumer;
+import com.android.tools.r8.KotlinCompileMemoizer;
 import com.android.tools.r8.KotlinTestBase;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.R8TestCompileResult;

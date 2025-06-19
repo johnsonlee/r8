@@ -10,6 +10,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
+import com.android.tools.r8.KotlinCompileMemoizer;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.SingleTestRunResult;
 import com.android.tools.r8.TestCompileResult;

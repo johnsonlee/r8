@@ -12,6 +12,7 @@ import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndNotR
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import com.android.tools.r8.KotlinCompileMemoizer;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.R8TestRunResult;

@@ -9,6 +9,7 @@ import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTL
 import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_9_21;
 
 import com.android.tools.r8.DexIndexedConsumer.ArchiveConsumer;
+import com.android.tools.r8.KotlinCompileMemoizer;
 import com.android.tools.r8.KotlinTestBase;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestBase;

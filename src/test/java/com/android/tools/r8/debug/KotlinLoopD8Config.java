@@ -7,9 +7,9 @@ package com.android.tools.r8.debug;
 import static com.android.tools.r8.KotlinTestBase.getCompileMemoizer;
 import static com.android.tools.r8.TestBase.memoizeBiFunction;
 
+import com.android.tools.r8.KotlinCompileMemoizer;
 import com.android.tools.r8.KotlinCompilerTool;
 import com.android.tools.r8.KotlinTestBase;
-import com.android.tools.r8.KotlinTestBase.KotlinCompileMemoizer;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.OutputMode;
 import com.android.tools.r8.TestBase;

@@ -9,10 +9,10 @@ import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.MIN_
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndRenamed;
 import static org.hamcrest.CoreMatchers.allOf;
 import static org.hamcrest.CoreMatchers.containsString;
-import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.JvmTestRunResult;
+import com.android.tools.r8.KotlinCompileMemoizer;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.shaking.ProguardKeepAttributes;

@@ -6,7 +6,7 @@ package com.android.tools.r8.enumunboxing.kotlin;
 
 import static com.android.tools.r8.KotlinTestBase.getCompileMemoizer;
 
-import com.android.tools.r8.KotlinTestBase.KotlinCompileMemoizer;
+import com.android.tools.r8.KotlinCompileMemoizer;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;

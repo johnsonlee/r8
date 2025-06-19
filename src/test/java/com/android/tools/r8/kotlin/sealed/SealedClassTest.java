@@ -7,6 +7,7 @@ package com.android.tools.r8.kotlin.sealed;
 import static com.android.tools.r8.ToolHelper.getFilesInTestFolderRelativeToClass;
 
 import com.android.tools.r8.CompilationFailedException;
+import com.android.tools.r8.KotlinCompileMemoizer;
 import com.android.tools.r8.KotlinTestBase;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestParameters;

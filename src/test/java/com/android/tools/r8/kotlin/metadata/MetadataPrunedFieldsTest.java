@@ -8,6 +8,7 @@ import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import com.android.tools.r8.KotlinCompileMemoizer;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.kotlin.metadata.metadata_pruned_fields.Main;

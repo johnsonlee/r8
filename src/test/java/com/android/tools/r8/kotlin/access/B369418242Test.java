@@ -5,6 +5,7 @@ package com.android.tools.r8.kotlin.access;
 
 import static org.junit.Assume.assumeTrue;
 
+import com.android.tools.r8.KotlinCompileMemoizer;
 import com.android.tools.r8.KotlinTestBase;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestParameters;

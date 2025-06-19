@@ -5,7 +5,6 @@
 package com.android.tools.r8.rewrite.assertions;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -13,6 +12,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.D8TestBuilder;
+import com.android.tools.r8.KotlinCompileMemoizer;
 import com.android.tools.r8.KotlinTestBase;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.R8FullTestBuilder;

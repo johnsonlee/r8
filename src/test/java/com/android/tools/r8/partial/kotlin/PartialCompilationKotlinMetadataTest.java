@@ -8,6 +8,7 @@ import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertNotNull;
 
+import com.android.tools.r8.KotlinCompileMemoizer;
 import com.android.tools.r8.KotlinCompilerTool.KotlinCompiler;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestParameters;
