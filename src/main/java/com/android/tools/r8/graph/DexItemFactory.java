@@ -3552,6 +3552,11 @@ public class DexItemFactory {
         .getOrCreateVariant(nullability);
   }
 
+  public InterfaceCollection getLeastUpperBoundOfImplementedInterfacesOrDefault(
+      DexType type, InterfaceCollection defaultValue) {
+    return classTypeInterfaces.getOrDefault(type, defaultValue);
+  }
+
   public InterfaceCollection getOrComputeLeastUpperBoundOfImplementedInterfaces(
       DexType type, AppView<? extends AppInfoWithClassHierarchy> appView) {
     return classTypeInterfaces.computeIfAbsent(

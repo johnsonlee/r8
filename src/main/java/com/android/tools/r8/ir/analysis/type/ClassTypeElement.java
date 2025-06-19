@@ -13,6 +13,7 @@ import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.ir.analysis.type.InterfaceCollection.Builder;
 import com.android.tools.r8.utils.BooleanBox;
 import com.android.tools.r8.utils.Box;
+import com.android.tools.r8.utils.ObjectUtils;
 import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.SetUtils;
@@ -105,6 +106,22 @@ public class ClassTypeElement extends ReferenceTypeElement {
     return lazyInterfaces;
   }
 
+  public boolean hasDefaultImplementedInterfaces() {
+    assert appView != null : "Unexpected use of hasDefaultImplementedInterfaces() in D8";
+    if (lazyInterfaces == null) {
+      return true;
+    }
+    InterfaceCollection defaultImplementedInterfaces =
+        appView
+            .dexItemFactory()
+            .getLeastUpperBoundOfImplementedInterfacesOrDefault(getClassType(), null);
+    if (ObjectUtils.identical(lazyInterfaces, defaultImplementedInterfaces)) {
+      return true;
+    }
+    assert !lazyInterfaces.equals(defaultImplementedInterfaces);
+    return false;
+  }
+
   private ClassTypeElement createVariant(
       Nullability nullability, NullabilityVariants<ClassTypeElement> variants) {
     assert this.nullability != nullability;
@@ -161,7 +178,7 @@ public class ClassTypeElement extends ReferenceTypeElement {
       ImmediateProgramSubtypingInfo immediateSubtypingInfo) {
     DexType thisClassType = getClassType();
     DexType otherClassType = otherClass.getType();
-    if (getInterfaces().isEmpty()) {
+    if (getInterfaces().isEmpty() || hasDefaultImplementedInterfaces()) {
       // <= can be implemented by a single class hierarchy check.
       if (thisClassType.isIdenticalTo(otherClassType)) {
         return true;
@@ -188,7 +205,7 @@ public class ClassTypeElement extends ReferenceTypeElement {
       ImmediateProgramSubtypingInfo immediateSubtypingInfo) {
     DexType thisClassType = getClassType();
     DexType otherClassType = otherClass.getType();
-    if (getInterfaces().isEmpty()) {
+    if (getInterfaces().isEmpty() || hasDefaultImplementedInterfaces()) {
       // >= can be implemented by a single class hierarchy check.
       if (thisClassType.isIdenticalTo(otherClassType)) {
         return true;
