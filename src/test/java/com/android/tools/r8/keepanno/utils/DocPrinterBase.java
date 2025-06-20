@@ -35,7 +35,7 @@ public abstract class DocPrinterBase<T> {
 
   public T setDocTitle(String title) {
     assert this.title == null;
-    assert title.endsWith(".");
+    assert title.endsWith(".") : "Title '" + title + "' should end with a dot.";
     this.title = title;
     return self();
   }
@@ -51,6 +51,25 @@ public abstract class DocPrinterBase<T> {
 
   public T setDeprecated(String desc) {
     deprecatedDesc = desc;
+    return self();
+  }
+
+  public T addLines(String... lines) {
+    return addLines(Arrays.asList(lines));
+  }
+
+  public T addLines(List<String> lines) {
+    additionalLines.addAll(lines);
+    return self();
+  }
+
+  public T addSection(String... lines) {
+    return addSection(Arrays.asList(lines));
+  }
+
+  public T addSection(List<String> lines) {
+    additionalLines.add("");
+    additionalLines.addAll(lines);
     return self();
   }
 

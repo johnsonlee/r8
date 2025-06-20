@@ -24,8 +24,6 @@
 
 package androidx.annotation.keep
 
-import kotlin.annotation.Retention
-import kotlin.annotation.Target
 import kotlin.reflect.KClass
 
 /**

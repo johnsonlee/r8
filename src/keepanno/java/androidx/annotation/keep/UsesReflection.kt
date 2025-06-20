@@ -24,9 +24,6 @@
 
 package androidx.annotation.keep
 
-import kotlin.annotation.Retention
-import kotlin.annotation.Target
-
 /**
  * Annotation to declare the reflective usages made by a class, method or field.
  *

@@ -131,6 +131,89 @@ public final class AnnotationConstants {
     }
   }
 
+  public static final class UsesReflectionToConstruct {
+    private static final String DESCRIPTOR = "Landroidx/annotation/keep/UsesReflectionToConstruct;";
+    private static final String DESCRIPTOR_CONTAINER =
+        "Landroidx/annotation/keep/UsesReflectionToConstruct$Container;";
+    private static final String DESCRIPTOR_LEGACY =
+        "Lcom/android/tools/r8/keepanno/annotations/UsesReflectionToConstruct;";
+
+    public static boolean isDescriptor(String descriptor) {
+      return DESCRIPTOR.equals(descriptor) || DESCRIPTOR_LEGACY.equals(descriptor);
+    }
+
+    public static boolean isKotlinRepeatableContainerDescriptor(String descriptor) {
+      return DESCRIPTOR_CONTAINER.equals(descriptor);
+    }
+
+    public static String getDescriptor() {
+      return DESCRIPTOR;
+    }
+
+    public static final String classSelectionGroup = "class-selection";
+    public static final String classConstant = "classConstant";
+    public static final String className = "className";
+    public static final String constructorParametersGroup = "constructor-parameters";
+    public static final String params = "params";
+    public static final String paramClassNames = "paramClassNames";
+  }
+
+  public static final class UsesReflectionToAccessMethod {
+    private static final String DESCRIPTOR =
+        "Landroidx/annotation/keep/UsesReflectionToAccessMethod;";
+    private static final String DESCRIPTOR_CONTAINER =
+        "Landroidx/annotation/keep/UsesReflectionToAccessMethod$Container;";
+    private static final String DESCRIPTOR_LEGACY =
+        "Lcom/android/tools/r8/keepanno/annotations/UsesReflectionToAccessMethod;";
+
+    public static boolean isDescriptor(String descriptor) {
+      return DESCRIPTOR.equals(descriptor) || DESCRIPTOR_LEGACY.equals(descriptor);
+    }
+
+    public static boolean isKotlinRepeatableContainerDescriptor(String descriptor) {
+      return DESCRIPTOR_CONTAINER.equals(descriptor);
+    }
+
+    public static String getDescriptor() {
+      return DESCRIPTOR;
+    }
+
+    public static final String classSelectionGroup = "class-selection";
+    public static final String classConstant = "classConstant";
+    public static final String className = "className";
+    public static final String constructorParametersGroup = "constructor-parameters";
+    public static final String params = "params";
+    public static final String paramClassNames = "paramClassNames";
+  }
+
+  public static final class UsesReflectionToAccessField {
+    private static final String DESCRIPTOR =
+        "Landroidx/annotation/keep/UsesReflectionToAccessField;";
+    private static final String DESCRIPTOR_CONTAINER =
+        "Landroidx/annotation/keep/UsesReflectionToAccessField$Container;";
+    private static final String DESCRIPTOR_LEGACY =
+        "Lcom/android/tools/r8/keepanno/annotations/UsesReflectionToAccessField;";
+
+    public static boolean isDescriptor(String descriptor) {
+      return DESCRIPTOR.equals(descriptor) || DESCRIPTOR_LEGACY.equals(descriptor);
+    }
+
+    public static boolean isKotlinRepeatableContainerDescriptor(String descriptor) {
+      return DESCRIPTOR_CONTAINER.equals(descriptor);
+    }
+
+    public static String getDescriptor() {
+      return DESCRIPTOR;
+    }
+
+    public static final String classSelectionGroup = "class-selection";
+    public static final String classConstant = "classConstant";
+    public static final String className = "className";
+    public static final String constructorParametersGroup = "constructor-parameters";
+    public static final String params = "params";
+    public static final String paramClassNames = "paramClassNames";
+  }
+
   /** Item properties common to binding items, conditions and targets. */
   public static final class Item {
     public static final String classGroup = "class";

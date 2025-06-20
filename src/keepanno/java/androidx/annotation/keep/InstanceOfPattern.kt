@@ -24,9 +24,6 @@
 
 package androidx.annotation.keep
 
-import kotlin.annotation.Retention
-import kotlin.annotation.Target
-
 /**
  * A pattern structure for matching instances of classes and interfaces.
  *

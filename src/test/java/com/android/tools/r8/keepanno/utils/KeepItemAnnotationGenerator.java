@@ -13,6 +13,7 @@ import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.cfmethodgeneration.CodeGenerationBase;
 import com.android.tools.r8.keepanno.annotations.KeepItemKind;
 import com.android.tools.r8.references.ClassReference;
+import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.StringUtils;
@@ -23,6 +24,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.lang.annotation.ElementType;
+import java.lang.annotation.Repeatable;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
@@ -90,6 +92,7 @@ public class KeepItemAnnotationGenerator {
   }
 
   public static class EnumReference {
+
     public final ClassReference enumClass;
     public final String enumValue;
 
@@ -177,17 +180,23 @@ public class KeepItemAnnotationGenerator {
       }
     }
 
-    private String kotlinValueType() {
-      if (valueType.equals("Class<?>")) {
+    private static String kotlinValueType(String type) {
+      if (type.equals("Class<?>")) {
         return "KClass<*>";
       }
-      if (valueType.equals("boolean")) {
+      if (type.equals("boolean")) {
         return "Boolean";
       }
+      return type;
+    }
+
+    private String kotlinValueType() {
       if (valueType.endsWith("[]")) {
-        return "Array<" + valueType.substring(0, valueType.length() - 2) + ">";
+        String baseType = valueType.substring(0, valueType.length() - 2);
+        assert !baseType.endsWith("[]") : "Multi dimensional arrays are not supported";
+        return "Array<" + kotlinValueType(baseType) + ">";
       }
-      return valueType;
+      return kotlinValueType(valueType);
     }
 
     private String kotlinValueDefault() {
@@ -235,6 +244,11 @@ public class KeepItemAnnotationGenerator {
       return setValue("{" + value + "}");
     }
 
+    public GroupMember defaultArrayClass(String value) {
+      setType("Class<?>" + "[]");
+      return setValue("{" + value + "}");
+    }
+
     public GroupMember defaultEmptyString() {
       return defaultValue(JAVA_STRING, quote(""));
     }
@@ -246,10 +260,19 @@ public class KeepItemAnnotationGenerator {
     public GroupMember defaultArrayEmpty(ClassReference type) {
       return defaultArrayValue(type, "");
     }
+
+    public GroupMember defaultUnspecifiedClass() {
+      return setType("Class<?>").setValue("Unspecified::class");
+    }
+
+    public GroupMember defaultUnspecifiedArray() {
+      return setType("Array<KClass<*>>").setValue("[Unspecified::class]");
+    }
   }
 
   public static class Group {
 
+    boolean forAndroidX = false;
     final String name;
     final List<GroupMember> members = new ArrayList<>();
     final List<String> footers = new ArrayList<>();
@@ -259,6 +282,15 @@ public class KeepItemAnnotationGenerator {
 
     private Group(String name) {
       this.name = name;
+    }
+
+    Group forAndroidX(boolean forAndroidX) {
+      this.forAndroidX = forAndroidX;
+      return this;
+    }
+
+    Group forAndroidX() {
+      return forAndroidX(true);
     }
 
     Group allowMutuallyExclusiveWithOtherGroups() {
@@ -293,12 +325,17 @@ public class KeepItemAnnotationGenerator {
               group.members.forEach(m -> mutuallyExclusiveProperties.add(m.name));
             });
         if (mutuallyExclusiveProperties.size() == 1) {
-          member.addParagraph(
-              "Mutually exclusive with the property `"
-                  + mutuallyExclusiveProperties.get(0)
-                  + "` also defining "
-                  + name
-                  + ".");
+          if (forAndroidX) {
+            member.addSection(
+                "Mutually exclusive with [" + mutuallyExclusiveProperties.get(0) + "].");
+          } else {
+            member.addParagraph(
+                "Mutually exclusive with the property `"
+                    + mutuallyExclusiveProperties.get(0)
+                    + "` also defining "
+                    + name
+                    + ".");
+          }
         } else if (mutuallyExclusiveProperties.size() > 1) {
           member.addParagraph(
               "Mutually exclusive with the following other properties defining " + name + ":");
@@ -361,6 +398,12 @@ public class KeepItemAnnotationGenerator {
     final ClassReference KEEP_CONDITION;
     final ClassReference KEEP_FOR_API;
 
+    final ClassReference USES_REFLECTION_TO_CONSTRUCT;
+    final ClassReference USES_REFLECTION_TO_ACCESS_METHOD;
+    final ClassReference USES_REFLECTION_TO_ACCESS_FIELD;
+    final ClassReference UNCONDITIONALLY_KEEP;
+    final List<ClassReference> REPEATABLE_ANNOTATIONS;
+
     final ClassReference KEEP_ITEM_KIND;
     final EnumReference KIND_ONLY_CLASS;
     final EnumReference KIND_ONLY_MEMBERS;
@@ -422,8 +465,6 @@ public class KeepItemAnnotationGenerator {
 
     final List<Class<?>> ANNOTATION_IMPORTS =
         ImmutableList.of(ElementType.class, Retention.class, RetentionPolicy.class, Target.class);
-    final List<Class<?>> KOTLIN_ANNOTATION_IMPORTS =
-        ImmutableList.of(kotlin.annotation.Retention.class, kotlin.annotation.Target.class);
 
     private final PrintStream writer;
     private final String pkg;
@@ -451,6 +492,15 @@ public class KeepItemAnnotationGenerator {
       KEEP_CONDITION = annoClass("KeepCondition");
       KEEP_FOR_API = annoClass("KeepForApi");
 
+      USES_REFLECTION_TO_CONSTRUCT = annoClass("UsesReflectionToConstruct");
+      USES_REFLECTION_TO_ACCESS_METHOD = annoClass("UsesReflectionToAccessMethod");
+      USES_REFLECTION_TO_ACCESS_FIELD = annoClass("UsesReflectionToAccessField");
+      UNCONDITIONALLY_KEEP = annoClass("UnconditionallyKeep");
+      REPEATABLE_ANNOTATIONS =
+          ImmutableList.of(
+              USES_REFLECTION_TO_CONSTRUCT,
+              USES_REFLECTION_TO_ACCESS_METHOD,
+              USES_REFLECTION_TO_ACCESS_FIELD);
       KEEP_ITEM_KIND = annoClass("KeepItemKind");
       KIND_ONLY_CLASS = enumRef(KEEP_ITEM_KIND, "ONLY_CLASS");
       KIND_ONLY_MEMBERS = enumRef(KEEP_ITEM_KIND, "ONLY_MEMBERS");
@@ -612,7 +662,18 @@ public class KeepItemAnnotationGenerator {
     }
 
     private void printAnnotationImports() {
-      printImports(generateKotlin() ? KOTLIN_ANNOTATION_IMPORTS : ANNOTATION_IMPORTS);
+      printAnnotationImports(false);
+    }
+
+    private void printAnnotationImports(boolean incluceRepeatable) {
+      if (generateKotlin()) {
+        // Classes in kotlin.annotation does not need to be imported.
+        return;
+      }
+      if (incluceRepeatable) {
+        printImports(ImmutableList.of(Repeatable.class));
+      }
+      printImports(ANNOTATION_IMPORTS);
     }
 
     private void printOpenAnnotationClassTargettingAnnotations(String clazz) {
@@ -627,7 +688,7 @@ public class KeepItemAnnotationGenerator {
       }
     }
 
-    private void printOpenAnnotationClassTargettingClassFieldlMethodCtor(String clazz) {
+    private void printOpenAnnotationClassTargetingClassFieldMethodCtor(String clazz) {
       if (generateKotlin()) {
         println("@Retention(AnnotationRetention.BINARY)");
         println("@Target(");
@@ -1684,7 +1745,7 @@ public class KeepItemAnnotationGenerator {
               "When a member is annotated, the member patterns cannot be used as the annotated"
                   + " member itself fully defines the item to be kept (i.e., itself).")
           .printDoc(this::println);
-      printOpenAnnotationClassTargettingClassFieldlMethodCtor("KeepForApi");
+      printOpenAnnotationClassTargetingClassFieldMethodCtor("KeepForApi");
       println();
       withIndent(
           () -> {
@@ -1773,7 +1834,7 @@ public class KeepItemAnnotationGenerator {
               "    // unreachable",
               "  }")
           .printDoc(this::println);
-      printOpenAnnotationClassTargettingClassFieldlMethodCtor(getUnqualifiedName(USES_REFLECTION));
+      printOpenAnnotationClassTargetingClassFieldMethodCtor(getUnqualifiedName(USES_REFLECTION));
       println();
       withIndent(
           () -> {
@@ -1782,6 +1843,267 @@ public class KeepItemAnnotationGenerator {
             createConsequencesAsValueGroup().generate(this);
             println();
             createAdditionalPreconditionsGroup().generate(this);
+          });
+      printCloseAnnotationClass();
+    }
+
+    private Group createAndroidXClassSelection(
+        Consumer<GroupMember> classConstantConsumer, Consumer<GroupMember> classNameConsumer) {
+      GroupMember classConstant = new GroupMember("classConstant").defaultUnspecifiedClass();
+      classConstantConsumer.accept(classConstant);
+      GroupMember className = new GroupMember("className").defaultEmptyString();
+      classNameConsumer.accept(className);
+      return new Group("class-selection")
+          .forAndroidX()
+          .addMember(classConstant)
+          .addMember(className);
+    }
+
+    private Group createAndroidXParameterSelection(
+        Consumer<GroupMember> paramsConsumer, Consumer<GroupMember> paramClassNamesConsumer) {
+      GroupMember params = new GroupMember("params").defaultUnspecifiedArray();
+      paramsConsumer.accept(params);
+      GroupMember paramClassNames =
+          new GroupMember("paramClassNames")
+              .defaultArrayValue(Reference.classFromClass(String.class), "\"\"");
+      paramClassNamesConsumer.accept(paramClassNames);
+      return new Group("constructor-parameters")
+          .forAndroidX()
+          .addMember(params)
+          .addMember(paramClassNames);
+    }
+
+    private Group createMethodNameSelection() {
+      return new Group("method-name")
+          .addMember(
+              new GroupMember("methodName")
+                  .setDocTitle("Method name (or pattern) accessed by reflection.")
+                  .requiredStringValue());
+    }
+
+    private Group createAndroidXReturnTypeSelection() {
+      return new Group("return-selection")
+          .forAndroidX()
+          .addMember(
+              new GroupMember("returnClass")
+                  .setDocTitle("Return type of the method accessed by reflection.")
+                  .addSection("Ignored if not specified.")
+                  .defaultUnspecifiedClass())
+          .addMember(
+              new GroupMember("returnClassName")
+                  .setDocTitle(
+                      "Return type (or type pattern) of the method accessed by" + " reflection.")
+                  .addSection("Ignored if not specified.")
+                  .defaultEmptyString());
+    }
+
+    private Group createAndroidXFieldNameSelection() {
+      return new Group("field-name")
+          .addMember(
+              new GroupMember("fieldName")
+                  .setDocTitle("Field name (or pattern) accessed by reflection.")
+                  .requiredStringValue());
+    }
+
+    private Group createAndroidXFieldTypeSelection() {
+      return new Group("field-type-selection")
+          .forAndroidX()
+          .addMember(
+              new GroupMember("fieldClass")
+                  .setDocTitle("Class of field accessed by reflection.")
+                  .addSection("Ignored if not specified.")
+                  .defaultUnspecifiedClass())
+          .addMember(
+              new GroupMember("fieldClassName")
+                  .setDocTitle("Class (or class pattern) of field accessed by reflection.")
+                  .addSection("Ignored if not specified.")
+                  .defaultEmptyString());
+    }
+
+    private void generateUsesReflectionToConstruct() {
+      printCopyRight(2025);
+      printPackage();
+      printAnnotationImports(true);
+      if (generateKotlin()) {
+        println("import kotlin.reflect.KClass");
+      }
+      DocPrinter.printer()
+          .setDocTitle(
+              "The annotated code uses reflection to indirectly invoke a constructor of a"
+                  + " class/interface, or its subclasses / interface implementers.")
+          .addSection(
+              "This annotation indicates to optimizers or shrinkers that the target constructor"
+                  + " should be kept if the annotated code is reachable in the final application"
+                  + " build.")
+          .addSection(
+              "`@UsesReflectionToConstruct()` is a convenience for"
+                  + " `@UsesReflectionToAccessMethod(methodName = \"<init>\")`")
+          .addSection("@see UsesReflectionToAccessMethod")
+          .addSection("@see UsesReflectionToAccessField")
+          .printDoc(this::println);
+      println("@Repeatable");
+      printOpenAnnotationClassTargetingClassFieldMethodCtor(
+          getUnqualifiedName(USES_REFLECTION_TO_CONSTRUCT));
+      println();
+      withIndent(
+          () -> {
+            createAndroidXClassSelection(
+                    g -> g.setDocTitle("Class to be instantiated."),
+                    g -> g.setDocTitle("Class to be instantiated."))
+                .generate(this);
+            println();
+            createAndroidXParameterSelection(
+                    g ->
+                        g.setDocTitle(
+                                "Defines which constructor to keep by specifying the parameter list"
+                                    + " types.")
+                            .addSection(
+                                "If neither `param` nor `paramClassNames` is specified then"
+                                    + " constructors with all parameter lists are kept."),
+                    g ->
+                        g.setDocTitle(
+                                "Defines which constructor to keep by specifying the parameter list"
+                                    + " types.")
+                            .addSection(
+                                "If neither `param` nor `paramClassNames` is specified then"
+                                    + " constructors with all parameter lists are kept."))
+                .generate(this);
+          });
+      printCloseAnnotationClass();
+    }
+
+    private void generateUsesReflectionToAccessMethod() {
+      printCopyRight(2025);
+      printPackage();
+      printAnnotationImports(true);
+      if (generateKotlin()) {
+        println("import kotlin.reflect.KClass");
+      }
+      DocPrinter.printer()
+          .setDocTitle(
+              "The annotated code uses reflection to indirectly access a method of the specified"
+                  + " class/interface, or its subclasses / interface implementers.")
+          .addSection(
+              "This annotation indicates to optimizers or shrinkers that the target method should"
+                  + " be preserved if the annotated code is reachable in the final application"
+                  + " build.")
+          .addSection("@see UsesReflectionToConstruct")
+          .addSection("@see UsesReflectionToAccessField")
+          .printDoc(this::println);
+      println("@Repeatable");
+      printOpenAnnotationClassTargetingClassFieldMethodCtor(
+          getUnqualifiedName(USES_REFLECTION_TO_ACCESS_METHOD));
+      println();
+      withIndent(
+          () -> {
+            createAndroidXClassSelection(
+                    g -> g.setDocTitle("Class containing the method accessed by reflection."),
+                    g ->
+                        g.setDocTitle(
+                            "Class name (or pattern) containing the method accessed by"
+                                + " reflection."))
+                .generate(this);
+            println();
+            createMethodNameSelection().generate(this);
+            println();
+            createAndroidXParameterSelection(
+                    g ->
+                        g.setDocTitle(
+                                "Defines which method to keep by specifying set of parameter"
+                                    + " classes passed.")
+                            .addSection(
+                                "If neither `param` nor `paramClassNames` is specified then"
+                                    + " methods with all parameter lists are kept."),
+                    g ->
+                        g.setDocTitle(
+                                "Defines which method to keep by specifying set of parameter"
+                                    + " classes passed.")
+                            .addSection(
+                                "If neither `param` nor `paramClassNames` is specified then"
+                                    + " methods with all parameter lists are kept."))
+                .generate(this);
+            println();
+            createAndroidXReturnTypeSelection().generate(this);
+          });
+      printCloseAnnotationClass();
+    }
+
+    private void generateUsesReflectionToAccessField() {
+      printCopyRight(2025);
+      printPackage();
+      printAnnotationImports(true);
+      if (generateKotlin()) {
+        println("import kotlin.reflect.KClass");
+      }
+      DocPrinter.printer()
+          .setDocTitle(
+              "The annotated code uses reflection to indirectly access a field of the specified"
+                  + " class/interface, or its subclasses / interface implementers.")
+          .addSection(
+              "This annotation indicates to optimizers or shrinkers that the target field should be"
+                  + " preserved if the annotated code is reachable in the final application build.")
+          .addSection("@see UsesReflectionToConstruct", "@see UsesReflectionToAccessMethod")
+          .printDoc(this::println);
+      println("@Repeatable");
+      printOpenAnnotationClassTargetingClassFieldMethodCtor(
+          getUnqualifiedName(USES_REFLECTION_TO_ACCESS_FIELD));
+      println();
+      withIndent(
+          () -> {
+            createAndroidXClassSelection(
+                    g -> g.setDocTitle("Class containing the field accessed by reflection."),
+                    g ->
+                        g.setDocTitle(
+                            "Class name (or pattern) containing the field accessed by"
+                                + " reflection."))
+                .generate(this);
+            println();
+            createAndroidXFieldNameSelection().generate(this);
+            println();
+            createAndroidXFieldTypeSelection().generate(this);
+          });
+      printCloseAnnotationClass();
+    }
+
+    private void generateUnconditionallyKeep() {
+      printCopyRight(2025);
+      printPackage();
+      printAnnotationImports(true);
+      if (generateKotlin()) {
+        println("import kotlin.reflect.KClass");
+      }
+      DocPrinter.printer()
+          .setDocTitle(
+              "Indicates code which is accessed by references from outside of the application code"
+                  + " directly, such as via JNI, reflection, or instantiation from platform"
+                  + " framework code.")
+          .addSection(
+              "NOTE: This keep rule is unconditional, meaning that the annotated class, method, or"
+                  + " field will always be preserved in the final application even if, for example,"
+                  + " the surrounding code is never used.")
+          .addSection(
+              "If reflection or JNI access occurs inside the application, instead prefer the"
+                  + " `@UsesReflection***` annotations, as they will keep conditionally, rather"
+                  + " than unconditionally as this annotation does.")
+          .addSection(
+              "@see UsesReflectionToConstruct",
+              "@see UsesReflectionToAccessMethod",
+              "@see UsesReflectionToAccessField")
+          .printDoc(this::println);
+      printOpenAnnotationClassTargetingClassFieldMethodCtor(
+          getUnqualifiedName(UNCONDITIONALLY_KEEP));
+      println();
+      withIndent(
+          () -> {
+            new Group("should-preserve-name")
+                .addMember(
+                    new GroupMember("shouldPreserveName")
+                        .setDocTitle("Should the name be preserved.")
+                        .addSection(
+                            "Generally this is true if the reference is external, but this can be"
+                                + " disabled if the name isn't important.")
+                        .defaultBooleanValue(true))
+                .generate(this);
           });
       printCloseAnnotationClass();
     }
@@ -1815,7 +2137,7 @@ public class KeepItemAnnotationGenerator {
               "When a member is annotated, the member patterns cannot be used as the annotated"
                   + " member itself fully defines the item to be kept (i.e., itself).")
           .printDoc(this::println);
-      printOpenAnnotationClassTargettingClassFieldlMethodCtor(annotationClassName);
+      printOpenAnnotationClassTargetingClassFieldMethodCtor(annotationClassName);
       println();
       withIndent(
           () -> {
@@ -1901,6 +2223,10 @@ public class KeepItemAnnotationGenerator {
             generateUsedByNativeConstants();
             generateCheckRemovedConstants();
             generateCheckOptimizedOutConstants();
+            // androidx annotations.
+            generateUsesReflectionToConstructConstants();
+            generateUsesReflectionToAccessMethodConstants();
+            generateUsesReflectionToAccessFieldConstants();
             // Common item fields.
             generateItemConstants();
             // Inner annotation classes.
@@ -1933,10 +2259,20 @@ public class KeepItemAnnotationGenerator {
           "Lcom/android/tools/r8/keepanno/annotations"
               + desc.substring(desc.lastIndexOf(DescriptorUtils.DESCRIPTOR_PACKAGE_SEPARATOR));
       println("private static final String DESCRIPTOR = " + quote(desc) + ";");
+      if (REPEATABLE_ANNOTATIONS.contains(clazz)) {
+        String desc_container = desc.substring(0, desc.length() - 1) + "$Container;";
+        println(
+            "private static final String DESCRIPTOR_CONTAINER = " + quote(desc_container) + ";");
+      }
       println("private static final String DESCRIPTOR_LEGACY = " + quote(desc_legacy) + ";");
       println("public static boolean isDescriptor(String descriptor) {");
       println("  return DESCRIPTOR.equals(descriptor) || DESCRIPTOR_LEGACY.equals(descriptor);");
       println("}");
+      if (REPEATABLE_ANNOTATIONS.contains(clazz)) {
+        println("public static boolean isKotlinRepeatableContainerDescriptor(String descriptor) {");
+        println("  return DESCRIPTOR_CONTAINER.equals(descriptor);");
+        println("}");
+      }
       println("public static String getDescriptor() {");
       println("  return DESCRIPTOR;");
       println("}");
@@ -2039,6 +2375,57 @@ public class KeepItemAnnotationGenerator {
       withIndent(
           () -> {
             generateAnnotationConstants(CHECK_OPTIMIZED_OUT);
+          });
+      println("}");
+      println();
+    }
+
+    private void forEachUsesReflectionToConstructGroup(Consumer<Group> fn) {
+      fn.accept(createAndroidXClassSelection(g -> {}, g -> {}));
+      fn.accept(createAndroidXParameterSelection(g -> {}, g -> {}));
+    }
+
+    private void forEachUsesReflectionToAccessMethodGroup(Consumer<Group> fn) {
+      fn.accept(createAndroidXClassSelection(g -> {}, g -> {}));
+      fn.accept(createMethodNameSelection());
+      fn.accept(createAndroidXParameterSelection(g -> {}, g -> {}));
+      fn.accept(createAndroidXReturnTypeSelection());
+    }
+
+    private void forEachUsesReflectionToAccessFieldGroup(Consumer<Group> fn) {
+      fn.accept(createAndroidXClassSelection(g -> {}, g -> {}));
+      fn.accept(createAndroidXFieldNameSelection());
+      fn.accept(createAndroidXFieldTypeSelection());
+    }
+
+    private void generateUsesReflectionToConstructConstants() {
+      println("public static final class UsesReflectionToConstruct {");
+      withIndent(
+          () -> {
+            generateAnnotationConstants(USES_REFLECTION_TO_CONSTRUCT);
+            forEachUsesReflectionToConstructGroup(g -> g.generateConstants(this));
+          });
+      println("}");
+      println();
+    }
+
+    private void generateUsesReflectionToAccessMethodConstants() {
+      println("public static final class UsesReflectionToAccessMethod {");
+      withIndent(
+          () -> {
+            generateAnnotationConstants(USES_REFLECTION_TO_ACCESS_METHOD);
+            forEachUsesReflectionToConstructGroup(g -> g.generateConstants(this));
+          });
+      println("}");
+      println();
+    }
+
+    private void generateUsesReflectionToAccessFieldConstants() {
+      println("public static final class UsesReflectionToAccessField {");
+      withIndent(
+          () -> {
+            generateAnnotationConstants(USES_REFLECTION_TO_ACCESS_FIELD);
+            forEachUsesReflectionToConstructGroup(g -> g.generateConstants(this));
           });
       println("}");
       println();
@@ -2440,6 +2827,26 @@ public class KeepItemAnnotationGenerator {
                 generator.generateUsedByX("UsedByNative", "accessed from native code via JNI"),
             write);
       }
+      writeFile(
+          ANDROIDX_ANNO_PKG,
+          generator -> generator.USES_REFLECTION_TO_CONSTRUCT,
+          Generator::generateUsesReflectionToConstruct,
+          write);
+      writeFile(
+          ANDROIDX_ANNO_PKG,
+          generator -> generator.USES_REFLECTION_TO_ACCESS_METHOD,
+          Generator::generateUsesReflectionToAccessMethod,
+          write);
+      writeFile(
+          ANDROIDX_ANNO_PKG,
+          generator -> generator.USES_REFLECTION_TO_ACCESS_FIELD,
+          Generator::generateUsesReflectionToAccessField,
+          write);
+      writeFile(
+          ANDROIDX_ANNO_PKG,
+          generator -> generator.UNCONDITIONALLY_KEEP,
+          Generator::generateUnconditionallyKeep,
+          write);
     }
   }
 }
