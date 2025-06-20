@@ -22,6 +22,7 @@ import com.android.tools.r8.ToolHelper.CommandResultCache;
 import com.android.tools.r8.ToolHelper.ProcessResult;
 import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.utils.ArrayUtils;
+import com.android.tools.r8.utils.ConsumerUtils;
 import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.StringUtils;
@@ -430,6 +431,11 @@ public class KotlinCompilerTool {
   }
 
   public Path compile(boolean expectingFailure) throws IOException {
+    return compile(expectingFailure, ConsumerUtils.emptyConsumer());
+  }
+
+  public Path compile(boolean expectingFailure, Consumer<ProcessResult> consumer)
+      throws IOException {
     Path output = getOrCreateOutputPath();
     ProcessResult result = compileInternal(output);
     if (expectingFailure) {
@@ -437,6 +443,7 @@ public class KotlinCompilerTool {
     } else {
       assertEquals(result.toString(), result.exitCode, 0);
     }
+    consumer.accept(result);
     return output;
   }
 
