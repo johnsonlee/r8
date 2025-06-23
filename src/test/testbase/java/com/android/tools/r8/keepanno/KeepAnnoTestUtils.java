@@ -5,6 +5,10 @@
 package com.android.tools.r8.keepanno;
 
 import static com.android.tools.r8.R8TestBuilder.KeepAnnotationLibrary.ANDROIDX;
+import static com.android.tools.r8.utils.FileUtils.isClassFile;
+import static com.android.tools.r8.utils.FileUtils.isJarFile;
+import static com.android.tools.r8.utils.FileUtils.isZipFile;
+import static com.android.tools.r8.utils.ZipUtils.isClassFile;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.ByteDataView;
@@ -18,6 +22,9 @@ import com.android.tools.r8.keepanno.keeprules.KeepRuleExtractor;
 import com.android.tools.r8.keepanno.keeprules.KeepRuleExtractorOptions;
 import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.ListUtils;
+import com.android.tools.r8.utils.ZipUtils;
+import com.google.common.collect.ImmutableList;
+import com.google.common.io.ByteStreams;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -53,7 +60,7 @@ public class KeepAnnoTestUtils {
         try (Stream<Path> paths = Files.list(annoDir)) {
           paths.forEach(
               p -> {
-                if (FileUtils.isClassFile(p)) {
+                if (isClassFile(p)) {
                   byte[] data = FileUtils.uncheckedReadAllBytes(p);
                   String fileName = p.getFileName().toString();
                   String className = fileName.substring(0, fileName.lastIndexOf('.'));
@@ -74,17 +81,31 @@ public class KeepAnnoTestUtils {
 
   public static List<String> extractRulesFromFiles(
       List<Path> inputFiles, KeepRuleExtractorOptions extractorOptions) {
-    return extractRulesFromBytes(
-        ListUtils.map(
-            inputFiles,
-            path -> {
-              try {
-                return Files.readAllBytes(path);
-              } catch (IOException e) {
-                throw new RuntimeException(e);
-              }
-            }),
-        extractorOptions);
+    List<String> result = new ArrayList<>();
+    for (Path inputFile : inputFiles) {
+      try {
+        if (isClassFile(inputFile)) {
+          result.addAll(
+              extractRulesFromBytes(
+                  ImmutableList.of(Files.readAllBytes(inputFile)), extractorOptions));
+        } else if (isJarFile(inputFile) || isZipFile(inputFile)) {
+          List<byte[]> classFilesFromArchive = new ArrayList<>();
+          ZipUtils.iter(
+              inputFile,
+              (entry, input) -> {
+                if (ZipUtils.isClassFile(entry.getName())) {
+                  classFilesFromArchive.add(ByteStreams.toByteArray(input));
+                }
+              });
+          result.addAll(extractRulesFromBytes(classFilesFromArchive, extractorOptions));
+        } else {
+          assert false : "Unsupported file format";
+        }
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+    }
+    return result;
   }
 
   public static List<String> extractRules(

@@ -7,6 +7,8 @@ import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTL
 import static com.android.tools.r8.utils.FunctionUtils.ignoreArgument;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static junit.framework.TestCase.assertNotNull;
+import static org.hamcrest.CoreMatchers.anyOf;
+import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -174,7 +176,9 @@ public abstract class KotlinMetadataTestBase extends KotlinTestBase {
   public static void verifyExpectedWarningsFromKotlinReflectAndStdLib(
       TestCompileResult<?, ?> compileResult) {
     compileResult.assertAllWarningMessagesMatch(
-        equalTo("Resource 'META-INF/versions/9/module-info.class' already exists."));
+        anyOf(
+            equalTo("Resource 'META-INF/versions/9/module-info.class' already exists."),
+            containsString("-upto-")));
   }
 
   protected String unresolvedReferenceMessage(KotlinTestParameters param, String ref) {

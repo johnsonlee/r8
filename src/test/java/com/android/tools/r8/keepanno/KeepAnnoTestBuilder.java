@@ -5,6 +5,9 @@
 package com.android.tools.r8.keepanno;
 
 import static com.android.tools.r8.R8TestBuilder.KeepAnnotationLibrary.ANDROIDX;
+import static com.android.tools.r8.utils.FileUtils.isClassFile;
+import static com.android.tools.r8.utils.FileUtils.isJarFile;
+import static com.android.tools.r8.utils.FileUtils.isZipFile;
 
 import com.android.tools.r8.ExternalR8TestBuilder;
 import com.android.tools.r8.KotlinCompilerTool.KotlinCompiler;
@@ -33,6 +36,8 @@ import com.android.tools.r8.keepanno.keeprules.KeepRuleExtractorOptions;
 import com.android.tools.r8.keepanno.proto.KeepSpecProtos.KeepSpec;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.partial.R8PartialCompilationConfiguration.Builder;
+import com.android.tools.r8.utils.ZipUtils;
+import com.google.common.io.ByteStreams;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -100,6 +105,9 @@ public abstract class KeepAnnoTestBuilder {
   public abstract KeepAnnoTestBuilder addProgramClassFileData(List<byte[]> programClasses)
       throws IOException;
 
+  public abstract KeepAnnoTestBuilder addProgramFilesWithoutAnnotations(List<Path> programFiles)
+      throws IOException;
+
   public final KeepAnnoTestBuilder addKeepMainRule(Class<?> mainClass) {
     return applyIfShrinker(b -> b.addKeepMainRule(mainClass));
   }
@@ -108,7 +116,15 @@ public abstract class KeepAnnoTestBuilder {
     return applyIfShrinker(b -> b.addKeepClassRules(classes));
   }
 
+  public final KeepAnnoTestBuilder addKeepRules(String... classes) {
+    return applyIfShrinker(b -> b.addKeepRules(classes));
+  }
+
+  public abstract void compile() throws Exception;
+
   public abstract SingleTestRunResult<?> run(Class<?> mainClass) throws Exception;
+
+  public abstract SingleTestRunResult<?> run(String mainClass) throws Exception;
 
   public KeepAnnoTestBuilder applyIfShrinker(
       ThrowableConsumer<TestShrinkerBuilder<?, ?, ?, ?, ?>> builderConsumer) {
@@ -129,6 +145,12 @@ public abstract class KeepAnnoTestBuilder {
 
   public KeepAnnoTestBuilder applyIfR8Partial(
       ThrowableConsumer<R8PartialTestBuilder> builderConsumer) {
+    return this;
+  }
+
+  public KeepAnnoTestBuilder applyIfR8OrR8Partial(
+      ThrowableConsumer<TestShrinkerBuilder<?, ?, ?, ?, ?>> r8BuilderConsumer,
+      ThrowableConsumer<R8PartialTestBuilder> r8PartialBuilderConsumer) {
     return this;
   }
 
@@ -213,6 +235,14 @@ public abstract class KeepAnnoTestBuilder {
     }
 
     @Override
+    public KeepAnnoTestBuilder addProgramFilesWithoutAnnotations(List<Path> programFiles)
+        throws IOException {
+      // TODO(b/392865072): Ensure annotations are not processed.
+      builder.addProgramFiles(programFiles);
+      return this;
+    }
+
+    @Override
     public KeepAnnoTestBuilder inspectOutputRules(Consumer<String> configConsumer) {
       // Ignore the consumer.
       return this;
@@ -225,7 +255,17 @@ public abstract class KeepAnnoTestBuilder {
     }
 
     @Override
+    public void compile() throws Exception {
+      // Do nothing.
+    }
+
+    @Override
     public SingleTestRunResult<?> run(Class<?> mainClass) throws Exception {
+      return builder.run(parameters().getRuntime(), mainClass);
+    }
+
+    @Override
+    public SingleTestRunResult<?> run(String mainClass) throws Exception {
       return builder.run(parameters().getRuntime(), mainClass);
     }
   }
@@ -275,9 +315,29 @@ public abstract class KeepAnnoTestBuilder {
     }
 
     @Override
+    public KeepAnnoTestBuilder applyIfR8OrR8Partial(
+        ThrowableConsumer<TestShrinkerBuilder<?, ?, ?, ?, ?>> r8BuilderConsumer,
+        ThrowableConsumer<R8PartialTestBuilder> r8PartialBuilderConsumer) {
+      r8BuilderConsumer.acceptWithRuntimeException(builder);
+      return this;
+    }
+
+    @Override
     public KeepAnnoTestBuilder addProgramFiles(List<Path> programFiles) throws IOException {
       for (Path programFile : programFiles) {
-        extractAndAdd(Files.readAllBytes(programFile));
+        if (isClassFile(programFile)) {
+          extractAndAdd(Files.readAllBytes(programFile));
+        } else if (isJarFile(programFile) || isZipFile(programFile)) {
+          ZipUtils.iter(
+              programFile,
+              (entry, input) -> {
+                if (isClassFile(entry.getName())) {
+                  extractAndAdd(ByteStreams.toByteArray(input));
+                }
+              });
+        } else {
+          assert false : "Unsupported file format";
+        }
       }
       return this;
     }
@@ -331,6 +391,14 @@ public abstract class KeepAnnoTestBuilder {
     }
 
     @Override
+    public KeepAnnoTestBuilder addProgramFilesWithoutAnnotations(List<Path> programFiles)
+        throws IOException {
+      // TODO(b/392865072): Ensure annotations are not processed.
+      builder.addProgramFiles(programFiles);
+      return this;
+    }
+
+    @Override
     public KeepAnnoTestBuilder inspectOutputRules(Consumer<String> configConsumer) {
       compileResultConsumers.add(
           result -> configConsumer.accept(result.getProguardConfiguration()));
@@ -344,7 +412,20 @@ public abstract class KeepAnnoTestBuilder {
     }
 
     @Override
+    public void compile() throws Exception {
+      R compileResult = builder.compile();
+      compileResultConsumers.forEach(fn -> fn.accept(compileResult));
+    }
+
+    @Override
     public SingleTestRunResult<?> run(Class<?> mainClass) throws Exception {
+      R compileResult = builder.compile();
+      compileResultConsumers.forEach(fn -> fn.accept(compileResult));
+      return compileResult.run(parameters().getRuntime(), mainClass);
+    }
+
+    @Override
+    public SingleTestRunResult<?> run(String mainClass) throws Exception {
       R compileResult = builder.compile();
       compileResultConsumers.forEach(fn -> fn.accept(compileResult));
       return compileResult.run(parameters().getRuntime(), mainClass);
@@ -410,6 +491,14 @@ public abstract class KeepAnnoTestBuilder {
     }
 
     @Override
+    public KeepAnnoTestBuilder applyIfR8OrR8Partial(
+        ThrowableConsumer<TestShrinkerBuilder<?, ?, ?, ?, ?>> r8BuilderConsumer,
+        ThrowableConsumer<R8PartialTestBuilder> r8PartialBuilderConsumer) {
+      r8PartialBuilderConsumer.acceptWithRuntimeException(builder);
+      return this;
+    }
+
+    @Override
     boolean isExtractRules() {
       return config == KeepAnnoConfig.R8_PARTIAL_RULES;
     }
@@ -455,6 +544,14 @@ public abstract class KeepAnnoTestBuilder {
     }
 
     @Override
+    public KeepAnnoTestBuilder applyIfR8OrR8Partial(
+        ThrowableConsumer<TestShrinkerBuilder<?, ?, ?, ?, ?>> r8BuilderConsumer,
+        ThrowableConsumer<R8PartialTestBuilder> r8PartialBuilderConsumer) {
+      r8BuilderConsumer.acceptWithRuntimeException(builder);
+      return this;
+    }
+
+    @Override
     public KeepAnnoTestBuilder addProgramFiles(List<Path> programFiles) throws IOException {
       List<String> rules = KeepAnnoTestUtils.extractRulesFromFiles(programFiles, extractorOptions);
       builder.addProgramFiles(programFiles);
@@ -484,6 +581,14 @@ public abstract class KeepAnnoTestBuilder {
     }
 
     @Override
+    public KeepAnnoTestBuilder addProgramFilesWithoutAnnotations(List<Path> programFiles)
+        throws IOException {
+      // TODO(b/392865072): Ensure annotations are not processed.
+      builder.addProgramFiles(programFiles);
+      return this;
+    }
+
+    @Override
     public KeepAnnoTestBuilder inspectOutputRules(Consumer<String> configConsumer) {
       configConsumers.add(lines -> configConsumer.accept(String.join("\n", lines)));
       return this;
@@ -495,7 +600,19 @@ public abstract class KeepAnnoTestBuilder {
     }
 
     @Override
+    public void compile() throws Exception {
+      builder.compile();
+    }
+
+    @Override
     public SingleTestRunResult<?> run(Class<?> mainClass) throws Exception {
+      configConsumers.forEach(fn -> fn.accept(builder.getConfig()));
+      extractedRulesConsumers.forEach(fn -> fn.accept(extractedRules));
+      return builder.run(parameters().getRuntime(), mainClass);
+    }
+
+    @Override
+    public SingleTestRunResult<?> run(String mainClass) throws Exception {
       configConsumers.forEach(fn -> fn.accept(builder.getConfig()));
       extractedRulesConsumers.forEach(fn -> fn.accept(extractedRules));
       return builder.run(parameters().getRuntime(), mainClass);
@@ -521,11 +638,7 @@ public abstract class KeepAnnoTestBuilder {
       builder =
           TestBase.testForProguard(KeepAnnoTestUtils.PG_VERSION, temp)
               .applyIf(
-                  keepAnnotationLibrary == ANDROIDX,
-                  b ->
-                      b.addDefaultRuntimeLibrary(parameters())
-                          .addLibraryFiles(
-                              kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar()))
+                  keepAnnotationLibrary == ANDROIDX, b -> b.addDefaultRuntimeLibrary(parameters()))
               .addProgramFiles(KeepAnnoTestUtils.getKeepAnnoLib(temp, keepAnnotationLibrary))
               .setMinApi(parameters());
     }
@@ -566,6 +679,14 @@ public abstract class KeepAnnoTestBuilder {
     }
 
     @Override
+    public KeepAnnoTestBuilder addProgramFilesWithoutAnnotations(List<Path> programFiles)
+        throws IOException {
+      // TODO(b/392865072): Ensure annotations are not processed.
+      builder.addProgramFiles(programFiles);
+      return this;
+    }
+
+    @Override
     public KeepAnnoTestBuilder inspectOutputRules(Consumer<String> configConsumer) {
       configConsumers.add(lines -> configConsumer.accept(String.join("\n", lines)));
       return this;
@@ -577,7 +698,19 @@ public abstract class KeepAnnoTestBuilder {
     }
 
     @Override
+    public void compile() throws Exception {
+      builder.compile();
+    }
+
+    @Override
     public SingleTestRunResult<?> run(Class<?> mainClass) throws Exception {
+      configConsumers.forEach(fn -> fn.accept(builder.getConfig()));
+      extractedRulesConsumers.forEach(fn -> fn.accept(extractedRules));
+      return builder.run(parameters().getRuntime(), mainClass);
+    }
+
+    @Override
+    public SingleTestRunResult<?> run(String mainClass) throws Exception {
       configConsumers.forEach(fn -> fn.accept(builder.getConfig()));
       extractedRulesConsumers.forEach(fn -> fn.accept(extractedRules));
       return builder.run(parameters().getRuntime(), mainClass);

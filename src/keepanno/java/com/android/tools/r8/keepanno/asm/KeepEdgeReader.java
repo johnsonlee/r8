@@ -21,6 +21,7 @@ import com.android.tools.r8.keepanno.ast.AnnotationConstants.MemberAccess;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.MethodAccess;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Target;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.UsedByReflection;
+import com.android.tools.r8.keepanno.ast.AnnotationConstants.UsesReflectionToConstruct;
 import com.android.tools.r8.keepanno.ast.KeepAnnotationPattern;
 import com.android.tools.r8.keepanno.ast.KeepBindingReference;
 import com.android.tools.r8.keepanno.ast.KeepBindings;
@@ -29,6 +30,7 @@ import com.android.tools.r8.keepanno.ast.KeepCheck;
 import com.android.tools.r8.keepanno.ast.KeepCheck.KeepCheckKind;
 import com.android.tools.r8.keepanno.ast.KeepClassBindingReference;
 import com.android.tools.r8.keepanno.ast.KeepClassItemPattern;
+import com.android.tools.r8.keepanno.ast.KeepClassPattern;
 import com.android.tools.r8.keepanno.ast.KeepCondition;
 import com.android.tools.r8.keepanno.ast.KeepConsequences;
 import com.android.tools.r8.keepanno.ast.KeepConstraint;
@@ -102,6 +104,7 @@ public class KeepEdgeReader implements Opcodes {
   private static boolean isEmbeddedAnnotation(String descriptor) {
     if (AnnotationConstants.Edge.isDescriptor(descriptor)
         || AnnotationConstants.UsesReflection.isDescriptor(descriptor)
+        || AnnotationConstants.UsesReflectionToConstruct.isDescriptor(descriptor)
         || AnnotationConstants.ForApi.isDescriptor(descriptor)
         || AnnotationConstants.UsedByReflection.isDescriptor(descriptor)
         || AnnotationConstants.UsedByNative.isDescriptor(descriptor)
@@ -356,6 +359,16 @@ public class KeepEdgeReader implements Opcodes {
                     .setClassNamePattern(KeepQualifiedClassNamePattern.exact(className))
                     .build());
       }
+      if (AnnotationConstants.UsesReflectionToConstruct.isDescriptor(descriptor)) {
+        return new UsesReflectionToConstructVisitor(
+            parsingContext,
+            parent::accept,
+            setContext,
+            bindingsHelper ->
+                KeepClassItemPattern.builder()
+                    .setClassNamePattern(KeepQualifiedClassNamePattern.exact(className))
+                    .build());
+      }
       if (ForApi.isDescriptor(descriptor)) {
         return new ForApiClassVisitor(parsingContext, parent::accept, setContext, className);
       }
@@ -492,6 +505,23 @@ public class KeepEdgeReader implements Opcodes {
       }
       if (AnnotationConstants.UsesReflection.isDescriptor(descriptor)) {
         return new UsesReflectionVisitor(
+            parsingContext,
+            parent::accept,
+            setContext,
+            bindingsHelper ->
+                createMethodItemContext(className, methodName, methodDescriptor, bindingsHelper));
+      }
+      if (AnnotationConstants.UsesReflectionToConstruct.isDescriptor(descriptor)) {
+        return new UsesReflectionToConstructVisitor(
+            parsingContext,
+            parent::accept,
+            setContext,
+            bindingsHelper ->
+                createMethodItemContext(className, methodName, methodDescriptor, bindingsHelper));
+      }
+      if (AnnotationConstants.UsesReflectionToConstruct.isKotlinRepeatableContainerDescriptor(
+          descriptor)) {
+        return new UsesReflectionForInstantiationContainerVisitor(
             parsingContext,
             parent::accept,
             setContext,
@@ -1331,6 +1361,226 @@ public class KeepEdgeReader implements Opcodes {
 
     @Override
     public void visitEnd() {
+      parent.accept(
+          builder
+              .setMetaInfo(metaInfoBuilder.build())
+              .setBindings(bindingsHelper.build())
+              .setPreconditions(preconditions.build())
+              .build());
+    }
+  }
+
+  private static class ParametersClassVisitor extends AnnotationVisitorBase {
+    private final ParsingContext parsingContext;
+    private final Consumer<KeepMethodParametersPattern> consumer;
+    private final KeepMethodParametersPattern.Builder builder =
+        KeepMethodParametersPattern.builder();
+
+    public ParametersClassVisitor(
+        PropertyParsingContext parsingContext, Consumer<KeepMethodParametersPattern> consumer) {
+      super(parsingContext);
+      this.parsingContext = parsingContext;
+      this.consumer = consumer;
+    }
+
+    @Override
+    public void visit(String name, Object value) {
+      assert name == null;
+      if (value instanceof String) {
+        builder.addParameterTypePattern(KeepTypePattern.fromDescriptor("L" + value + ";"));
+      } else if (value instanceof Type) {
+        builder.addParameterTypePattern(
+            KeepTypePattern.fromDescriptor(((Type) value).getDescriptor()));
+      } else {
+        super.visit(name, value);
+      }
+    }
+
+    @Override
+    public void visitEnd() {
+      consumer.accept(builder.build());
+    }
+  }
+
+  private static class ParametersClassNamesVisitor extends AnnotationVisitorBase {
+    private final ParsingContext parsingContext;
+    private final Consumer<KeepMethodParametersPattern> consumer;
+    private final KeepMethodParametersPattern.Builder builder =
+        KeepMethodParametersPattern.builder();
+
+    public ParametersClassNamesVisitor(
+        PropertyParsingContext parsingContext, Consumer<KeepMethodParametersPattern> consumer) {
+      super(parsingContext);
+      this.parsingContext = parsingContext;
+      this.consumer = consumer;
+    }
+
+    @Override
+    public void visit(String name, Object value) {
+      assert name == null;
+      if (value instanceof String) {
+        builder.addParameterTypePattern(KeepTypePattern.fromDescriptor("L" + value + ";"));
+      } else {
+        super.visit(name, value);
+      }
+    }
+
+    @Override
+    public void visitEnd() {
+      consumer.accept(builder.build());
+    }
+  }
+
+  private static class UsesReflectionForInstantiationContainerVisitor
+      extends AnnotationVisitorBase {
+
+    private final AnnotationParsingContext parsingContext;
+    private final Parent<KeepEdge> parent;
+    Consumer<KeepEdgeMetaInfo.Builder> addContext;
+    Function<UserBindingsHelper, KeepItemPattern> contextBuilder;
+
+    UsesReflectionForInstantiationContainerVisitor(
+        AnnotationParsingContext parsingContext,
+        Parent<KeepEdge> parent,
+        Consumer<KeepEdgeMetaInfo.Builder> addContext,
+        Function<UserBindingsHelper, KeepItemPattern> contextBuilder) {
+      super(parsingContext);
+      this.parsingContext = parsingContext;
+      this.parent = parent;
+      this.addContext = addContext;
+      this.contextBuilder = contextBuilder;
+    }
+
+    @Override
+    public AnnotationVisitor visitArray(String name) {
+      if (name.equals("value")) {
+        return new UsesReflectionForInstantiationsVisitor(
+            parsingContext, parent, addContext, contextBuilder);
+      }
+      return super.visitArray(name);
+    }
+
+    @Override
+    public void visitEnd() {
+      super.visitEnd();
+    }
+  }
+
+  private static class UsesReflectionForInstantiationsVisitor extends AnnotationVisitorBase {
+    private final AnnotationParsingContext parsingContext;
+    private final Parent<KeepEdge> parent;
+    Consumer<KeepEdgeMetaInfo.Builder> addContext;
+    Function<UserBindingsHelper, KeepItemPattern> contextBuilder;
+
+    public UsesReflectionForInstantiationsVisitor(
+        AnnotationParsingContext parsingContext,
+        Parent<KeepEdge> parent,
+        Consumer<KeepEdgeMetaInfo.Builder> addContext,
+        Function<UserBindingsHelper, KeepItemPattern> contextBuilder) {
+      super(parsingContext);
+      this.parsingContext = parsingContext;
+      this.parent = parent;
+      this.addContext = addContext;
+      this.contextBuilder = contextBuilder;
+    }
+
+    @Override
+    public AnnotationVisitor visitAnnotation(String name, String descriptor) {
+      assert name == null;
+      if (AnnotationConstants.UsesReflectionToConstruct.isDescriptor(descriptor)) {
+        return new UsesReflectionToConstructVisitor(
+            parsingContext, parent, addContext, contextBuilder);
+      }
+      return super.visitAnnotation(name, descriptor);
+    }
+  }
+
+  private static class UsesReflectionToConstructVisitor extends AnnotationVisitorBase {
+
+    private final ParsingContext parsingContext;
+    private final Parent<KeepEdge> parent;
+    private final KeepEdge.Builder builder = KeepEdge.builder();
+    private final KeepPreconditions.Builder preconditions = KeepPreconditions.builder();
+    private final KeepEdgeMetaInfo.Builder metaInfoBuilder = KeepEdgeMetaInfo.builder();
+    private KeepMethodParametersPattern parameters = KeepMethodParametersPattern.any();
+    private final UserBindingsHelper bindingsHelper = new UserBindingsHelper();
+
+    private KeepQualifiedClassNamePattern qualifiedName;
+
+    UsesReflectionToConstructVisitor(
+        AnnotationParsingContext parsingContext,
+        Parent<KeepEdge> parent,
+        Consumer<KeepEdgeMetaInfo.Builder> addContext,
+        Function<UserBindingsHelper, KeepItemPattern> contextBuilder) {
+      super(parsingContext);
+      this.parsingContext = parsingContext;
+      this.parent = parent;
+      KeepItemPattern context = contextBuilder.apply(bindingsHelper);
+      KeepBindingReference contextBinding =
+          bindingsHelper.defineFreshItemBinding("CONTEXT", context);
+      preconditions.addCondition(KeepCondition.builder().setItemReference(contextBinding).build());
+      addContext.accept(metaInfoBuilder);
+    }
+
+    @Override
+    public void visit(String name, Object value) {
+      if (name.equals(UsesReflectionToConstruct.classConstant) && value instanceof Type) {
+        qualifiedName =
+            KeepQualifiedClassNamePattern.exactFromDescriptor(((Type) value).getDescriptor());
+        return;
+      }
+      if (name.equals(AnnotationConstants.UsesReflectionToConstruct.className)
+          && value instanceof String) {
+        qualifiedName = KeepQualifiedClassNamePattern.exact((String) value);
+        return;
+      }
+      super.visit(name, value);
+    }
+
+    @Override
+    public AnnotationVisitor visitArray(String name) {
+      PropertyParsingContext propertyParsingContext = parsingContext.property(name);
+      if (name.equals(UsesReflectionToConstruct.params)) {
+        return new ParametersClassVisitor(
+            propertyParsingContext, parameters -> this.parameters = parameters);
+      }
+      if (name.equals(UsesReflectionToConstruct.paramClassNames)) {
+        return new ParametersClassNamesVisitor(
+            propertyParsingContext, parameters -> this.parameters = parameters);
+      }
+      return super.visitArray(name);
+    }
+
+    @Override
+    public void visitEnd() {
+      KeepClassItemPattern classItemPattern =
+          KeepClassItemPattern.builder()
+              .setClassPattern(
+                  KeepClassPattern.builder().setClassNamePattern(qualifiedName).build())
+              .build();
+      KeepClassBindingReference classBinding =
+          bindingsHelper.defineFreshClassBinding(classItemPattern);
+      KeepMemberItemPattern keepMemberItemPattern =
+          KeepMemberItemPattern.builder()
+              .setClassReference(classBinding)
+              .setMemberPattern(
+                  KeepMethodPattern.builder()
+                      .setNamePattern(KeepMethodNamePattern.instanceInitializer())
+                      .setParametersPattern(parameters)
+                      .setReturnTypeVoid()
+                      .build())
+              .build();
+      KeepMemberBindingReference memberBinding =
+          bindingsHelper.defineFreshMemberBinding(keepMemberItemPattern);
+      builder.setConsequences(
+          KeepConsequences.builder()
+              .addTarget(
+                  KeepTarget.builder()
+                      .setItemReference(classBinding)
+                      .setItemReference(memberBinding)
+                      .build())
+              .addTarget(KeepTarget.builder().setItemReference(classBinding).build())
+              .build());
       parent.accept(
           builder
               .setMetaInfo(metaInfoBuilder.build())

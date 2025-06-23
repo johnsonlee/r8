@@ -2712,12 +2712,16 @@ public class ToolHelper {
   }
 
   public static Collection<Path> getFilesInTestFolderRelativeToClass(
-      Class<?> clazz, String folderName, String endsWith) throws IOException {
+      Class<?> clazz, String folderName, String... endsWith) throws IOException {
     Path subFolder = getTestFolderForClass(clazz).resolve(folderName);
     assert Files.isDirectory(subFolder);
-    try (Stream<Path> walker = Files.walk(subFolder)) {
-      return walker.filter(path -> path.toString().endsWith(endsWith)).collect(Collectors.toList());
+    List<Path> result = new ArrayList<>();
+    for (String s : endsWith) {
+      try (Stream<Path> walker = Files.walk(subFolder)) {
+        walker.filter(path -> path.toString().endsWith(s)).forEach(result::add);
+      }
     }
+    return result;
   }
 
   /** This code only works if run with depot_tools on the path */
