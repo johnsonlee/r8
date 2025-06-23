@@ -12,7 +12,6 @@ import com.android.tools.r8.DexFilePerClassFileConsumer;
 import com.android.tools.r8.DexIndexedConsumer;
 import com.android.tools.r8.FeatureSplit;
 import com.android.tools.r8.ProgramConsumer;
-import com.android.tools.r8.debuginfo.DebugRepresentation;
 import com.android.tools.r8.dex.FileWriter.ByteBufferResult;
 import com.android.tools.r8.dex.FileWriter.DexContainerSection;
 import com.android.tools.r8.dex.FileWriter.MapItem;
@@ -22,7 +21,6 @@ import com.android.tools.r8.graph.ObjectToOffsetMapping;
 import com.android.tools.r8.utils.BitUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ListUtils;
-import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.timing.Timing;
 import com.android.tools.r8.utils.timing.TimingMerger;
 import com.google.common.collect.Sets;
@@ -31,70 +29,12 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
 class ApplicationWriterContainer extends ApplicationWriter {
   protected ApplicationWriterContainer(
       AppView<?> appView, Marker marker, DexIndexedConsumer consumer) {
     super(appView, marker, consumer);
-  }
-
-  @Override
-  protected Collection<Timing> rewriteJumboStringsAndComputeDebugRepresentation(
-      ExecutorService executorService,
-      List<VirtualFile> virtualFiles,
-      List<LazyDexString> lazyDexStrings)
-      throws ExecutionException {
-    if (virtualFiles.isEmpty()) {
-      return new ArrayList<>();
-    }
-    // Collect strings from all virtual files into the last DEX section.
-    VirtualFile lastFile = virtualFiles.get(virtualFiles.size() - 1);
-    List<VirtualFile> allExceptLastFile = virtualFiles.subList(0, virtualFiles.size() - 1);
-    for (VirtualFile virtualFile : allExceptLastFile) {
-      lastFile.indexedItems.addStrings(virtualFile.indexedItems.getStrings());
-    }
-    Collection<Timing> timings = new ArrayList<>(virtualFiles.size());
-    // Compute string layout and handle jumbo strings for the last DEX section.
-    timings.add(rewriteJumboStringsAndComputeDebugRepresentation(lastFile, lazyDexStrings));
-    // Handle jumbo strings for the remaining DEX sections using the string ids in the last DEX
-    // section.
-    timings.addAll(
-        ThreadUtils.processItemsWithResults(
-            allExceptLastFile,
-            virtualFile ->
-                rewriteJumboStringsAndComputeDebugRepresentationWithExternalStringIds(
-                    virtualFile, lazyDexStrings, lastFile.getObjectMapping()),
-            appView.options().getThreadingModule(),
-            executorService));
-    return timings;
-  }
-
-  private Timing rewriteJumboStringsAndComputeDebugRepresentationWithExternalStringIds(
-      VirtualFile virtualFile, List<LazyDexString> lazyDexStrings, ObjectToOffsetMapping mapping) {
-    Timing fileTiming = Timing.create("VirtualFile " + virtualFile.getId(), options);
-    computeOffsetMappingAndRewriteJumboStringsWithExternalStringIds(
-        virtualFile, lazyDexStrings, fileTiming, mapping);
-    DebugRepresentation.computeForFile(appView, virtualFile);
-    fileTiming.end();
-    return fileTiming;
-  }
-
-  private void computeOffsetMappingAndRewriteJumboStringsWithExternalStringIds(
-      VirtualFile virtualFile,
-      List<LazyDexString> lazyDexStrings,
-      Timing timing,
-      ObjectToOffsetMapping mapping) {
-    if (virtualFile.isEmpty()) {
-      return;
-    }
-    timing.begin("Compute object offset mapping");
-    virtualFile.computeMapping(appView, lazyDexStrings.size(), timing, mapping);
-    timing.end();
-    timing.begin("Rewrite jumbo strings");
-    rewriteCodeWithJumboStrings(virtualFile.getObjectMapping(), virtualFile.classes());
-    timing.end();
   }
 
   @Override

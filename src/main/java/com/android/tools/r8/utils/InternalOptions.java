@@ -2789,6 +2789,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     return false;
   }
 
+  public boolean enableContainerDex() {
+    return getTestingOptions().forceDexContainerFormat || canUseContainerDex();
+  }
+
   public boolean canUseJavaLangVarHandleStoreStoreFence(DexDefinitionSupplier definitions) {
     if (isGeneratingDex() && hasMinApi(AndroidApiLevel.T)) {
       DexItemFactory factory = definitions.dexItemFactory();

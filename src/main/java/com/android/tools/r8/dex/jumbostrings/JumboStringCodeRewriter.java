@@ -1,7 +1,7 @@
 // Copyright (c) 2017, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-package com.android.tools.r8.dex;
+package com.android.tools.r8.dex.jumbostrings;
 
 import static com.android.tools.r8.graph.DexCode.TryHandler.NO_HANDLER;
 import static com.android.tools.r8.graph.DexDebugEventBuilder.addDefaultEventWithAdvancePcIfNecessary;
@@ -57,7 +57,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.function.BooleanSupplier;
 
-public class JumboStringRewriter {
+public class JumboStringCodeRewriter {
 
   private static class TryTargets {
     private DexInstruction start;
@@ -109,7 +109,7 @@ public class JumboStringRewriter {
       new Int2ReferenceOpenHashMap<>();
   private final Map<TryHandler, List<DexInstruction>> handlerTargets = new IdentityHashMap<>();
 
-  public JumboStringRewriter(
+  public JumboStringCodeRewriter(
       DexEncodedMethod method,
       DexString firstJumboString,
       BooleanSupplier materializeInfoForNativePc,

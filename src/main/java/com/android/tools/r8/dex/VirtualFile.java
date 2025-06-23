@@ -753,7 +753,7 @@ public class VirtualFile {
       return fields.size();
     }
 
-    Collection<DexString> getStrings() {
+    public Collection<DexString> getStrings() {
       return strings;
     }
   }

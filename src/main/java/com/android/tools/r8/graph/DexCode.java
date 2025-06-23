@@ -9,13 +9,13 @@ import static com.android.tools.r8.utils.DexDebugUtils.verifySetPositionFramesFo
 
 import com.android.tools.r8.dex.CodeToKeep;
 import com.android.tools.r8.dex.IndexedItemCollection;
-import com.android.tools.r8.dex.JumboStringRewriter;
 import com.android.tools.r8.dex.MixedSectionCollection;
 import com.android.tools.r8.dex.code.CfOrDexInstruction;
 import com.android.tools.r8.dex.code.DexInstruction;
 import com.android.tools.r8.dex.code.DexMonitorEnter;
 import com.android.tools.r8.dex.code.DexReturnVoid;
 import com.android.tools.r8.dex.code.DexSwitchPayload;
+import com.android.tools.r8.dex.jumbostrings.JumboStringCodeRewriter;
 import com.android.tools.r8.graph.DexCode.TryHandler.TypeAddrPair;
 import com.android.tools.r8.graph.DexDebugEvent.AdvanceLine;
 import com.android.tools.r8.graph.DexDebugEvent.Default;
@@ -238,7 +238,7 @@ public class DexCode extends Code
       }
     }
     return firstJumboString != null
-        ? new JumboStringRewriter(
+        ? new JumboStringCodeRewriter(
                 method.getDefinition(),
                 firstJumboString,
                 () -> appView.options().shouldMaterializeLineInfoForNativePcEncoding(method),

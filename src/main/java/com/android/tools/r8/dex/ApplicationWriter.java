@@ -24,6 +24,7 @@ import com.android.tools.r8.debuginfo.DebugRepresentation.DebugRepresentationPre
 import com.android.tools.r8.dex.FileWriter.ByteBufferResult;
 import com.android.tools.r8.dex.VirtualFile.FilePerInputClassDistributor;
 import com.android.tools.r8.dex.VirtualFile.ItemUseInfo;
+import com.android.tools.r8.dex.jumbostrings.JumboStringRewriter;
 import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.features.FeatureSplitConfiguration.DataResourceProvidersAndConsumer;
 import com.android.tools.r8.graph.AppServices;
@@ -37,7 +38,6 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.DexWritableCode;
 import com.android.tools.r8.graph.EnclosingMethodAttribute;
 import com.android.tools.r8.graph.InnerClassAttribute;
 import com.android.tools.r8.graph.ObjectToOffsetMapping;
@@ -163,8 +163,7 @@ public class ApplicationWriter {
 
   public static ApplicationWriter create(
       AppView<?> appView, Marker marker, DexIndexedConsumer consumer) {
-    if (appView.options().getTestingOptions().forceDexContainerFormat
-        || appView.options().canUseContainerDex()) {
+    if (appView.options().enableContainerDex()) {
       if (!DexVersion.getDexVersion(appView.options().getMinApiLevel()).isContainerDex()) {
         appView
             .options()
@@ -281,28 +280,6 @@ public class ApplicationWriter {
     write(executorService, null);
   }
 
-  protected Timing rewriteJumboStringsAndComputeDebugRepresentation(
-      VirtualFile virtualFile, List<LazyDexString> lazyDexStrings) {
-    Timing fileTiming = Timing.create("VirtualFile " + virtualFile.getId(), options);
-    computeOffsetMappingAndRewriteJumboStrings(virtualFile, lazyDexStrings, fileTiming);
-    DebugRepresentation.computeForFile(appView, virtualFile);
-    fileTiming.end();
-    return fileTiming;
-  }
-
-  protected Collection<Timing> rewriteJumboStringsAndComputeDebugRepresentation(
-      ExecutorService executorService,
-      List<VirtualFile> virtualFiles,
-      List<LazyDexString> lazyDexStrings)
-      throws ExecutionException {
-    return ThreadUtils.processItemsWithResults(
-        virtualFiles,
-        virtualFile ->
-            rewriteJumboStringsAndComputeDebugRepresentation(virtualFile, lazyDexStrings),
-        appView.options().getThreadingModule(),
-        executorService);
-  }
-
   protected void writeVirtualFiles(
       ExecutorService executorService,
       List<VirtualFile> virtualFiles,
@@ -375,16 +352,8 @@ public class ApplicationWriter {
           true);
 
       new SortAnnotations(appView).run(executorService, timing);
-
-      {
-        // Compute offsets and rewrite jumbo strings so that code offsets are fixed.
-        TimingMerger merger = timing.beginMerger("Pre-write phase", executorService);
-        Collection<Timing> timings =
-            rewriteJumboStringsAndComputeDebugRepresentation(
-                executorService, virtualFiles, lazyDexStrings);
-        merger.add(timings);
-        merger.end();
-      }
+      JumboStringRewriter.create(appView, lazyDexStrings, virtualFiles)
+          .run(executorService, timing);
 
       // Now that the instruction offsets in each code object are fixed, compute the mapping file
       // content.
@@ -542,19 +511,6 @@ public class ApplicationWriter {
         sourceFile == null ? null : options.itemFactory.createString(sourceFile);
     classes.forEach(clazz -> clazz.setSourceFile(dexSourceFile));
     return dexSourceFile;
-  }
-
-  private void computeOffsetMappingAndRewriteJumboStrings(
-      VirtualFile virtualFile, List<LazyDexString> lazyDexStrings, Timing timing) {
-    if (virtualFile.isEmpty()) {
-      return;
-    }
-    timing.begin("Compute object offset mapping");
-    virtualFile.computeMapping(appView, lazyDexStrings.size(), timing);
-    timing.end();
-    timing.begin("Rewrite jumbo strings");
-    rewriteCodeWithJumboStrings(virtualFile.getObjectMapping(), virtualFile.classes());
-    timing.end();
   }
 
   private <T extends DexItem> void printUse(Map<T, ItemUseInfo> useMap, String label) {
@@ -918,35 +874,6 @@ public class ApplicationWriter {
     clazz.forEachProgramMethodMatching(
         DexEncodedMethod::hasCode,
         method -> method.getDefinition().getCode().asDexWritableCode().setCallSiteContexts(method));
-  }
-
-  /**
-   * Rewrites the code for all methods in the given file so that they use JumboString for at least
-   * the strings that require it in mapping.
-   *
-   * <p>If run multiple times on a class, the lowest index that is required to be a JumboString will
-   * be used.
-   */
-  protected void rewriteCodeWithJumboStrings(
-      ObjectToOffsetMapping mapping, Collection<DexProgramClass> classes) {
-    // Do not bail out early if forcing jumbo string processing.
-    if (!options.testing.forceJumboStringProcessing) {
-      // If there are no strings with jumbo indices at all this is a no-op.
-      if (!mapping.hasJumboStrings()) {
-        return;
-      }
-    }
-    for (DexProgramClass clazz : classes) {
-      clazz.forEachProgramMethodMatching(
-          DexEncodedMethod::hasCode,
-          method -> {
-            DexWritableCode code = method.getDefinition().getCode().asDexWritableCode();
-            DexWritableCode rewrittenCode =
-                code.rewriteCodeWithJumboStrings(
-                    method, mapping, appView, options.testing.forceJumboStringProcessing);
-            method.setCode(rewrittenCode.asCode(), appView);
-          });
-    }
   }
 
   private ByteBufferResult writeDexFile(
