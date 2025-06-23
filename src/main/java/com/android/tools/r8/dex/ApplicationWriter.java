@@ -52,7 +52,6 @@ import com.android.tools.r8.profile.startup.profile.StartupProfile;
 import com.android.tools.r8.shaking.MainDexInfo;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.ArrayUtils;
-import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.DexVersion;
 import com.android.tools.r8.utils.ExceptionUtils;
@@ -314,11 +313,9 @@ public class ApplicationWriter {
 
     timing.begin("DexApplication.write");
 
-    Box<ProguardMapId> delayedProguardMapId = new Box<>();
     List<LazyDexString> lazyDexStrings = new ArrayList<>();
-    computeMarkerStrings(delayedProguardMapId, lazyDexStrings);
-    OriginalSourceFiles originalSourceFiles =
-        computeSourceFileString(delayedProguardMapId, lazyDexStrings);
+    computeMarkerStrings(lazyDexStrings);
+    OriginalSourceFiles originalSourceFiles = computeSourceFileString(lazyDexStrings);
 
     try {
       timing.begin("Insert Attribute Annotations");
@@ -357,19 +354,20 @@ public class ApplicationWriter {
 
       // Now that the instruction offsets in each code object are fixed, compute the mapping file
       // content.
+      ProguardMapId proguardMapId = null;
       if (willComputeProguardMap()) {
         // TODO(b/220999985): Refactor line number optimization to be per file and thread it above.
         DebugRepresentationPredicate representation =
             DebugRepresentation.fromFiles(virtualFiles, options);
-        delayedProguardMapId.set(
-            runAndWriteMap(inputApp, appView, timing, originalSourceFiles, representation));
+        proguardMapId =
+            runAndWriteMap(inputApp, appView, timing, originalSourceFiles, representation);
       }
 
       // With the mapping id/hash known, it is safe to compute the remaining dex strings.
       timing.begin("Compute lazy strings");
       List<DexString> forcedStrings = new ArrayList<>();
       for (LazyDexString lazyDexString : lazyDexStrings) {
-        forcedStrings.add(lazyDexString.compute());
+        forcedStrings.add(lazyDexString.compute(proguardMapId));
       }
       timing.end();
 
@@ -404,36 +402,33 @@ public class ApplicationWriter {
     }
   }
 
-  private void computeMarkerStrings(
-      Box<ProguardMapId> delayedProguardMapId, List<LazyDexString> lazyDexStrings) {
+  private void computeMarkerStrings(List<LazyDexString> lazyDexStrings) {
     List<Marker> allMarkers = new ArrayList<>();
     if (previousMarkers != null) {
       allMarkers.addAll(previousMarkers);
     }
     DexItemFactory factory = appView.dexItemFactory();
-    currentMarker
-        .ifPresent(
-            marker -> {
-              if (willComputeProguardMap()) {
-                lazyDexStrings.add(
-                    new LazyDexString() {
+    currentMarker.ifPresent(
+        marker -> {
+          if (willComputeProguardMap()) {
+            lazyDexStrings.add(
+                new LazyDexString() {
 
-                      @Override
-                      public DexString internalCompute() {
-                        marker.setPgMapId(delayedProguardMapId.get().getId());
-                        return marker.toDexString(factory);
-                      }
-                    });
-              } else {
-                allMarkers.add(marker);
-              }
-            });
+                  @Override
+                  public DexString internalCompute(ProguardMapId proguardMapId) {
+                    marker.setPgMapId(proguardMapId.getId());
+                    return marker.toDexString(factory);
+                  }
+                });
+          } else {
+            allMarkers.add(marker);
+          }
+        });
     allMarkers.sort(Comparator.comparing(Marker::toString));
     markerStrings = ListUtils.map(allMarkers, marker -> marker.toDexString(factory));
   }
 
-  private OriginalSourceFiles computeSourceFileString(
-      Box<ProguardMapId> delayedProguardMapId, List<LazyDexString> lazyDexStrings) {
+  private OriginalSourceFiles computeSourceFileString(List<LazyDexString> lazyDexStrings) {
     if (options.sourceFileProvider == null) {
       return OriginalSourceFiles.fromClasses();
     }
@@ -447,8 +442,8 @@ public class ApplicationWriter {
     lazyDexStrings.add(
         new LazyDexString() {
           @Override
-          public DexString internalCompute() {
-            return rewriteSourceFile(originalSourceFiles.keySet(), delayedProguardMapId.get());
+          public DexString internalCompute(ProguardMapId proguardMapId) {
+            return rewriteSourceFile(originalSourceFiles.keySet(), proguardMapId);
           }
         });
     return OriginalSourceFiles.fromMap(originalSourceFiles);
@@ -909,11 +904,11 @@ public class ApplicationWriter {
   public abstract static class LazyDexString {
     private boolean computed = false;
 
-    public abstract DexString internalCompute();
+    public abstract DexString internalCompute(ProguardMapId proguardMapId);
 
-    public final DexString compute() {
+    public final DexString compute(ProguardMapId proguardMapId) {
       assert !computed;
-      DexString value = internalCompute();
+      DexString value = internalCompute(proguardMapId);
       computed = true;
       return value;
     }
