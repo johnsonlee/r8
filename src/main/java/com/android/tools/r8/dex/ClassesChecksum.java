@@ -8,7 +8,6 @@ import com.google.gson.JsonSyntaxException;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import java.io.UTFDataFormatException;
-import java.util.Comparator;
 import java.util.Map;
 
 public class ClassesChecksum {
@@ -46,7 +45,7 @@ public class ClassesChecksum {
     // In order to make printing of markers deterministic we sort the entries by key.
     final JsonObject sortedJson = new JsonObject();
     dictionary.object2LongEntrySet().stream()
-        .sorted(Comparator.comparing(Map.Entry::getKey))
+        .sorted(Map.Entry.comparingByKey())
         .forEach(
             entry ->
                 sortedJson.addProperty(entry.getKey(), Long.toString(entry.getLongValue(), 16)));

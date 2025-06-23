@@ -29,10 +29,7 @@ import com.android.tools.r8.features.FeatureSplitConfiguration.DataResourceProvi
 import com.android.tools.r8.graph.AppServices;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexAnnotation;
-import com.android.tools.r8.graph.DexAnnotationDirectory;
 import com.android.tools.r8.graph.DexAnnotationSet;
-import com.android.tools.r8.graph.DexDebugInfoForWriting;
-import com.android.tools.r8.graph.DexEncodedArray;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItem;
@@ -40,13 +37,10 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.DexTypeList;
-import com.android.tools.r8.graph.DexValue;
 import com.android.tools.r8.graph.DexWritableCode;
 import com.android.tools.r8.graph.EnclosingMethodAttribute;
 import com.android.tools.r8.graph.InnerClassAttribute;
 import com.android.tools.r8.graph.ObjectToOffsetMapping;
-import com.android.tools.r8.graph.ParameterAnnotationsList;
 import com.android.tools.r8.metadata.impl.BuildMetadataFactory;
 import com.android.tools.r8.naming.KotlinModuleSynthesizer;
 import com.android.tools.r8.naming.NamingLens;
@@ -111,72 +105,44 @@ public class ApplicationWriter {
   public DexIndexedConsumer programConsumer;
   public InternalGlobalSyntheticsProgramConsumer globalsSyntheticsConsumer;
 
-  private static class SortAnnotations extends MixedSectionCollection {
+  private static class SortAnnotations {
 
+    private final AppView<?> appView;
     private final NamingLens namingLens;
 
-    public SortAnnotations(NamingLens namingLens) {
-      this.namingLens = namingLens;
+    public SortAnnotations(AppView<?> appView) {
+      this.appView = appView;
+      this.namingLens = appView.getNamingLens();
     }
 
-    @Override
-    public boolean add(DexAnnotationSet dexAnnotationSet) {
-      // Annotation sets are sorted by annotation types.
-      dexAnnotationSet.sort(namingLens);
-      return true;
+    void run(ExecutorService executorService, Timing timing) throws ExecutionException {
+      timing.begin("Sort annotations");
+      ThreadUtils.processItems(
+          appView.appInfo().classes(),
+          this::processClass,
+          appView.options().getThreadingModule(),
+          executorService);
+      timing.end();
     }
 
-    @Override
-    public boolean add(DexAnnotation annotation) {
-      // The elements of encoded annotation must be sorted by name.
-      annotation.annotation.sort();
-      return true;
-    }
-
-    @Override
-    public boolean add(DexEncodedArray dexEncodedArray) {
-      // Dex values must potentially be sorted, eg, for DexValueAnnotation.
-      for (DexValue value : dexEncodedArray.values) {
-        value.sort();
+    private void processClass(DexProgramClass clazz) {
+      // Sort all annotations.
+      clazz.annotations().forEach(this::processAnnotation);
+      for (DexEncodedMethod method : clazz.methods()) {
+        method.annotations().forEach(this::processAnnotation);
+        method.getParameterAnnotations().forEach(this::processAnnotationSet);
       }
-      return true;
+      for (DexEncodedField field : clazz.fields()) {
+        field.annotations().forEach(this::processAnnotation);
+      }
     }
 
-    @Override
-    public boolean add(DexProgramClass dexClassData) {
-      return true;
+    private void processAnnotation(DexAnnotation annotation) {
+      annotation.getAnnotation().sort();
     }
 
-    @Override
-    public boolean add(DexEncodedMethod method, DexWritableCode dexCode) {
-      return true;
-    }
-
-    @Override
-    public boolean add(DexDebugInfoForWriting dexDebugInfo) {
-      return true;
-    }
-
-    @Override
-    public boolean add(DexTypeList dexTypeList) {
-      return true;
-    }
-
-    @Override
-    public boolean add(ParameterAnnotationsList parameterAnnotationsList) {
-      return true;
-    }
-
-    @Override
-    public void setAnnotationsDirectoryForClass(
-        DexProgramClass clazz, DexAnnotationDirectory annotationDirectory) {
-      // Intentionally empty.
-    }
-
-    @Override
-    public void setStaticFieldValuesForClass(
-        DexProgramClass clazz, DexEncodedArray staticFieldValues) {
-      add(staticFieldValues);
+    private void processAnnotationSet(DexAnnotationSet annotationSet) {
+      annotationSet.sort(namingLens);
     }
   }
 
@@ -277,8 +243,8 @@ public class ApplicationWriter {
               : new InternalGlobalSyntheticsDexIndexedConsumer(
                   options.getGlobalSyntheticsConsumer());
     }
-    while (virtualFiles.size() > 0 && virtualFiles.get(virtualFiles.size() - 1).isEmpty()) {
-      virtualFiles.remove(virtualFiles.size() - 1);
+    while (!virtualFiles.isEmpty() && ListUtils.last(virtualFiles).isEmpty()) {
+      ListUtils.removeLast(virtualFiles);
     }
     return virtualFiles;
   }
@@ -408,11 +374,7 @@ public class ApplicationWriter {
           shrinker -> virtualFiles.stream().allMatch(shrinker::verifyDeadProtoTypesNotReferenced),
           true);
 
-      // TODO(b/151313617): Sorting annotations mutates elements so run single threaded on main.
-      timing.begin("Sort Annotations");
-      SortAnnotations sortAnnotations = new SortAnnotations(getNamingLens());
-      appView.appInfo().classes().forEach((clazz) -> clazz.addDependencies(sortAnnotations));
-      timing.end();
+      new SortAnnotations(appView).run(executorService, timing);
 
       {
         // Compute offsets and rewrite jumbo strings so that code offsets are fixed.

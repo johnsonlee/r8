@@ -496,7 +496,7 @@ public class DexProgramClass extends DexClass
 
   @Override
   public void addDependencies(MixedSectionCollection collector) {
-    assert getEnclosingMethodAttribute() == null;
+    assert !hasEnclosingMethodAttribute();
     assert getInnerClasses().isEmpty();
     assert !classSignature.hasSignature();
     // We only have a class data item if there are methods or fields.

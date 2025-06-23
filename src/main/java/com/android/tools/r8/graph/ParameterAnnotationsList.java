@@ -140,6 +140,12 @@ public class ParameterAnnotationsList extends DexItem
     return values.length == 0;
   }
 
+  public void forEach(Consumer<DexAnnotationSet> consumer) {
+    for (DexAnnotationSet value : values) {
+      consumer.accept(value);
+    }
+  }
+
   /** Iterate over the {@link DexAnnotation}s of all parameters. */
   public void forEachAnnotation(Consumer<DexAnnotation> consumer) {
     for (DexAnnotationSet parameterAnnotations : values) {
