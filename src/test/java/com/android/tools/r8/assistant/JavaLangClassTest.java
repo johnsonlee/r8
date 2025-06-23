@@ -37,8 +37,8 @@ public class JavaLangClassTest extends TestBase {
         .compile()
         .run(parameters.getRuntime(), JavaLangClassTestClass.class)
         .assertSuccessWithOutputLines(
-            "5", "1", "9", "2", "3", "3", "4", "5", "6", "7", "8", "5", "1", "12", "13", "15", "22",
-            "20", "21");
+            "5", "1", "9", "2", "3", "3", "4", "32", "30", "31", "5", "6", "7", "8", "5", "1", "12",
+            "13", "15", "22", "33", "35", "20", "21", "34");
   }
 
   public static class Instrumentation extends EmptyReflectiveOperationReceiver {
@@ -79,14 +79,60 @@ public class JavaLangClassTest extends TestBase {
     }
 
     @Override
+    public void onClassGetDeclaredMethods(Stack stack, Class<?> clazz) {
+      printNumIfTrue(clazz.getName().endsWith("Foo"), 4);
+    }
+
+    @Override
     public void onClassGetDeclaredField(Stack stack, Class<?> clazz, String fieldName) {
       printNumIfTrue(
           clazz.getName().endsWith("Foo") && (fieldName.equals("a") || fieldName.equals("b")), 3);
     }
 
     @Override
-    public void onClassGetDeclaredMethods(Stack stack, Class<?> clazz) {
-      printNumIfTrue(clazz.getName().endsWith("Foo"), 4);
+    public void onClassGetDeclaredFields(Stack stack, Class<?> clazz) {
+      printNumIfTrue(clazz.getName().endsWith("Foo"), 32);
+    }
+
+    @Override
+    public void onClassGetDeclaredConstructor(Stack stack, Class<?> clazz, Class<?>... parameters) {
+      printNumIfTrue(clazz.getName().endsWith("Foo"), 30);
+    }
+
+    @Override
+    public void onClassGetDeclaredConstructors(Stack stack, Class<?> clazz) {
+      printNumIfTrue(clazz.getName().endsWith("Foo"), 31);
+    }
+
+    @Override
+    public void onClassGetMethod(
+        Stack stack, Class<?> clazz, String method, Class<?>... parameters) {
+      printNumIfTrue(clazz.getName().endsWith("Bar"), 20);
+    }
+
+    @Override
+    public void onClassGetMethods(Stack stack, Class<?> clazz) {
+      printNumIfTrue(clazz.getName().endsWith("Bar"), 22);
+    }
+
+    @Override
+    public void onClassGetField(Stack stack, Class<?> clazz, String fieldName) {
+      printNumIfTrue(clazz.getName().endsWith("Bar"), 21);
+    }
+
+    @Override
+    public void onClassGetFields(Stack stack, Class<?> clazz) {
+      printNumIfTrue(clazz.getName().endsWith("Bar"), 33);
+    }
+
+    @Override
+    public void onClassGetConstructor(Stack stack, Class<?> clazz, Class<?>... parameters) {
+      printNumIfTrue(clazz.getName().endsWith("Bar"), 34);
+    }
+
+    @Override
+    public void onClassGetConstructors(Stack stack, Class<?> clazz) {
+      printNumIfTrue(clazz.getName().endsWith("Bar"), 35);
     }
 
     @Override
@@ -113,22 +159,6 @@ public class JavaLangClassTest extends TestBase {
     @Override
     public void onClassGetSuperclass(Stack stack, Class<?> clazz) {
       printNumIfTrue(clazz.getName().endsWith("Foo"), 9);
-    }
-
-    @Override
-    public void onClassGetMethod(
-        Stack stack, Class<?> clazz, String method, Class<?>... parameters) {
-      printNumIfTrue(clazz.getName().endsWith("Bar"), 20);
-    }
-
-    @Override
-    public void onClassGetField(Stack stack, Class<?> clazz, String fieldName) {
-      printNumIfTrue(clazz.getName().endsWith("Bar"), 21);
-    }
-
-    @Override
-    public void onClassGetMethods(Stack stack, Class<?> clazz) {
-      printNumIfTrue(clazz.getName().endsWith("Bar"), 22);
     }
   }
 }

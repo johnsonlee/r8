@@ -17,15 +17,39 @@ public class ReflectiveOperationLogger implements ReflectiveOperationReceiver {
     System.out.println("Reflectively created new instance of " + clazz.getName());
   }
 
-  @Override
-  public void onClassGetDeclaredMethod(
-      Stack stack, Class<?> clazz, String method, Class<?>... parameters) {
-    System.out.println("Reflectively got declared method " + method + " on " + clazz.getName());
+  private String printMethod(String method, Class<?>... parameters) {
+    return method + printParameters(parameters);
+  }
+
+  private String printConstructor(Class<?>... parameters) {
+    return "<init>" + printParameters(parameters);
+  }
+
+  private String printParameters(Class<?>... parameters) {
+    if (parameters.length == 0) {
+      return "()";
+    }
+    StringBuilder sb = new StringBuilder();
+    sb.append("(");
+    Class<?> first = parameters[0];
+    for (Class<?> parameter : parameters) {
+      if (parameter != first) {
+        sb.append(", ");
+      }
+      sb.append(parameter.getName());
+    }
+    sb.append(")");
+    return sb.toString();
   }
 
   @Override
-  public void onClassGetDeclaredField(Stack stack, Class<?> clazz, String fieldName) {
-    System.out.println("Reflectively got declared field " + fieldName + " on " + clazz.getName());
+  public void onClassGetDeclaredMethod(
+      Stack stack, Class<?> clazz, String method, Class<?>... parameters) {
+    System.out.println(
+        "Reflectively got declared method "
+            + printMethod(method, parameters)
+            + " on "
+            + clazz.getName());
   }
 
   @Override
@@ -34,8 +58,38 @@ public class ReflectiveOperationLogger implements ReflectiveOperationReceiver {
   }
 
   @Override
+  public void onClassGetDeclaredField(Stack stack, Class<?> clazz, String fieldName) {
+    System.out.println("Reflectively got declared field " + fieldName + " on " + clazz.getName());
+  }
+
+  @Override
+  public void onClassGetDeclaredFields(Stack stack, Class<?> clazz) {
+    System.out.println("Reflectively got declared fields on " + clazz.getName());
+  }
+
+  @Override
+  public void onClassGetDeclaredConstructor(Stack stack, Class<?> clazz, Class<?>... parameters) {
+    System.out.println(
+        "Reflectively got declared constructor "
+            + printConstructor(parameters)
+            + " on "
+            + clazz.getName());
+  }
+
+  @Override
+  public void onClassGetDeclaredConstructors(Stack stack, Class<?> clazz) {
+    System.out.println("Reflectively got declared constructors on " + clazz.getName());
+  }
+
+  @Override
   public void onClassGetMethod(Stack stack, Class<?> clazz, String method, Class<?>... parameters) {
-    System.out.println("Reflectively got method " + method + " on " + clazz.getName());
+    System.out.println(
+        "Reflectively got method " + printMethod(method, parameters) + " on " + clazz.getName());
+  }
+
+  @Override
+  public void onClassGetMethods(Stack stack, Class<?> clazz) {
+    System.out.println("Reflectively got methods on " + clazz.getName());
   }
 
   @Override
@@ -44,8 +98,19 @@ public class ReflectiveOperationLogger implements ReflectiveOperationReceiver {
   }
 
   @Override
-  public void onClassGetMethods(Stack stack, Class<?> clazz) {
-    System.out.println("Reflectively got methods on " + clazz.getName());
+  public void onClassGetFields(Stack stack, Class<?> clazz) {
+    System.out.println("Reflectively got fields on " + clazz.getName());
+  }
+
+  @Override
+  public void onClassGetConstructor(Stack stack, Class<?> clazz, Class<?>... parameters) {
+    System.out.println(
+        "Reflectively got constructor " + printConstructor(parameters) + " on " + clazz.getName());
+  }
+
+  @Override
+  public void onClassGetConstructors(Stack stack, Class<?> clazz) {
+    System.out.println("Reflectively got constructors on " + clazz.getName());
   }
 
   @Override

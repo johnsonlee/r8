@@ -71,14 +71,6 @@ public class ReflectiveOracle {
     getInstance().onClassNewInstance(Stack.createStack(), clazz);
   }
 
-  public static void onClassGetDeclaredMethod(Class<?> clazz, String name, Class<?>... parameters) {
-    getInstance().onClassGetDeclaredMethod(Stack.createStack(), clazz, name, parameters);
-  }
-
-  public static void onClassGetDeclaredMethods(Class<?> clazz) {
-    getInstance().onClassGetDeclaredMethods(Stack.createStack(), clazz);
-  }
-
   public static void onClassForName(String className) {
     // The last parameter is implicitly the caller's holder class class loader.
     getInstance().onClassForName(Stack.createStack(), className, true, null);
@@ -88,8 +80,52 @@ public class ReflectiveOracle {
     getInstance().onClassForName(Stack.createStack(), className, initialize, classLoader);
   }
 
+  public static void onClassGetDeclaredMethod(Class<?> clazz, String name, Class<?>... parameters) {
+    getInstance().onClassGetDeclaredMethod(Stack.createStack(), clazz, name, parameters);
+  }
+
+  public static void onClassGetDeclaredMethods(Class<?> clazz) {
+    getInstance().onClassGetDeclaredMethods(Stack.createStack(), clazz);
+  }
+
   public static void onClassGetDeclaredField(Class<?> clazz, String fieldName) {
     getInstance().onClassGetDeclaredField(Stack.createStack(), clazz, fieldName);
+  }
+
+  public static void onClassGetDeclaredFields(Class<?> clazz) {
+    getInstance().onClassGetDeclaredFields(Stack.createStack(), clazz);
+  }
+
+  public static void onClassGetDeclaredConstructor(Class<?> clazz, Class<?>... parameters) {
+    getInstance().onClassGetDeclaredConstructor(Stack.createStack(), clazz, parameters);
+  }
+
+  public static void onClassGetDeclaredConstructors(Class<?> clazz) {
+    getInstance().onClassGetDeclaredConstructors(Stack.createStack(), clazz);
+  }
+
+  public static void onClassGetMethod(Class<?> clazz, String name, Class<?>[] parameterTypes) {
+    getInstance().onClassGetMethod(Stack.createStack(), clazz, name, parameterTypes);
+  }
+
+  public static void onClassGetMethods(Class<?> clazz) {
+    getInstance().onClassGetMethods(Stack.createStack(), clazz);
+  }
+
+  public static void onClassGetField(Class<?> clazz, String name) {
+    getInstance().onClassGetField(Stack.createStack(), clazz, name);
+  }
+
+  public static void onClassGetFields(Class<?> clazz) {
+    getInstance().onClassGetFields(Stack.createStack(), clazz);
+  }
+
+  public static void onClassGetConstructor(Class<?> clazz, Class<?>... parameterTypes) {
+    getInstance().onClassGetConstructor(Stack.createStack(), clazz, parameterTypes);
+  }
+
+  public static void onClassGetConstructors(Class<?> clazz) {
+    getInstance().onClassGetConstructors(Stack.createStack(), clazz);
   }
 
   public static void onClassGetName(Class<?> clazz) {
@@ -170,18 +206,6 @@ public class ReflectiveOracle {
 
   public static void onClassIsSynthetic(Class<?> clazz) {
     getInstance().onClassFlag(Stack.createStack(), clazz, ClassFlag.SYNTHETIC);
-  }
-
-  public static void onClassGetMethods(Class<?> clazz) {
-    getInstance().onClassGetMethods(Stack.createStack(), clazz);
-  }
-
-  public static void onClassGetMethod(Class<?> clazz, String name, Class<?>[] parameterTypes) {
-    getInstance().onClassGetMethod(Stack.createStack(), clazz, name, parameterTypes);
-  }
-
-  public static void onClassGetField(Class<?> clazz, String name) {
-    getInstance().onClassGetField(Stack.createStack(), clazz, name);
   }
 
   public static void onAtomicIntegerFieldUpdaterNewUpdater(Class<?> clazz, String name) {

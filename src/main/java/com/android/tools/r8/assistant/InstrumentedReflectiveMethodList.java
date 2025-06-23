@@ -34,19 +34,71 @@ public class InstrumentedReflectiveMethodList {
         factory.classMethods.newInstance,
         getMethodReferenceWithClassParameter("onClassNewInstance"));
     builder.put(
-        factory.classMethods.getDeclaredMethod,
-        getMethodReferenceWithClassMethodNameAndParameters("onClassGetDeclaredMethod"));
-    builder.put(
         factory.classMethods.forName, getMethodReferenceWithStringParameter("onClassForName"));
     builder.put(
-        factory.classMethods.getDeclaredField,
-        getMethodReferenceWithClassAndStringParameter("onClassGetDeclaredField"));
+        factory.classMethods.forName3,
+        getMethodReferenceWithParameterTypes(
+            "onClassForName", factory.stringType, factory.booleanType, factory.classLoaderType));
+
+    builder.put(
+        factory.classMethods.getDeclaredMethod,
+        getMethodReferenceWithClassMethodNameAndParameters("onClassGetDeclaredMethod"));
     builder.put(
         factory.createMethod(
             factory.classType,
             factory.createProto(factory.createArrayType(1, factory.methodType)),
             "getDeclaredMethods"),
         getMethodReferenceWithClassParameter("onClassGetDeclaredMethods"));
+    builder.put(
+        factory.classMethods.getDeclaredField,
+        getMethodReferenceWithClassAndStringParameter("onClassGetDeclaredField"));
+    builder.put(
+        factory.createMethod(
+            factory.classType,
+            factory.createProto(factory.createArrayType(1, factory.fieldType)),
+            "getDeclaredFields"),
+        getMethodReferenceWithClassParameter("onClassGetDeclaredFields"));
+    builder.put(
+        factory.classMethods.getDeclaredConstructor,
+        getMethodReferenceWithParameterTypes(
+            "onClassGetDeclaredConstructor", factory.classType, factory.classArrayType));
+    builder.put(
+        factory.createMethod(
+            factory.classType,
+            factory.createProto(factory.createArrayType(1, factory.constructorType)),
+            "getDeclaredConstructors"),
+        getMethodReferenceWithClassParameter("onClassGetDeclaredConstructors"));
+    builder.put(
+        factory.classMethods.getMethod,
+        getMethodReferenceWithParameterTypes(
+            "onClassGetMethod", factory.classType, factory.stringType, factory.classArrayType));
+    builder.put(
+        factory.createMethod(
+            factory.classType,
+            factory.createProto(factory.createArrayType(1, factory.methodType)),
+            "getMethods"),
+        getMethodReferenceWithClassParameter("onClassGetMethods"));
+    builder.put(
+        factory.classMethods.getField,
+        getMethodReferenceWithParameterTypes(
+            "onClassGetField", factory.classType, factory.stringType));
+    builder.put(
+        factory.createMethod(
+            factory.classType,
+            factory.createProto(factory.createArrayType(1, factory.fieldType)),
+            "getFields"),
+        getMethodReferenceWithClassParameter("onClassGetFields"));
+    builder.put(
+        factory.classMethods.getConstructor,
+        getMethodReferenceWithParameterTypes(
+            "onClassGetConstructor", factory.classType, factory.classArrayType));
+    builder.put(
+        factory.createMethod(
+            factory.classType,
+            factory.createProto(factory.createArrayType(1, factory.constructorType)),
+            "getConstructors"),
+        getMethodReferenceWithClassParameter("onClassGetConstructors"));
+
     builder.put(
         factory.classMethods.getName, getMethodReferenceWithClassParameter("onClassGetName"));
     builder.put(
@@ -61,10 +113,6 @@ public class InstrumentedReflectiveMethodList {
     builder.put(
         factory.classMethods.getSuperclass,
         getMethodReferenceWithClassParameter("onClassGetSuperclass"));
-    builder.put(
-        factory.classMethods.forName3,
-        getMethodReferenceWithParameterTypes(
-            "onClassForName", factory.stringType, factory.booleanType, factory.classLoaderType));
     builder.put(
         factory.createMethod(
             factory.classType, factory.createProto(factory.classType), "getComponentType"),
@@ -115,20 +163,8 @@ public class InstrumentedReflectiveMethodList {
     builder.put(
         factory.createMethod(factory.classType, toBoolean, "isSynthetic"),
         getMethodReferenceWithClassParameter("onClassIsSynthetic"));
-    builder.put(
-        factory.classMethods.getMethod,
-        getMethodReferenceWithParameterTypes(
-            "onClassGetMethod", factory.classType, factory.stringType, factory.classArrayType));
-    builder.put(
-        factory.classMethods.getField,
-        getMethodReferenceWithParameterTypes(
-            "onClassGetField", factory.classType, factory.stringType));
-    builder.put(
-        factory.createMethod(
-            factory.classType,
-            factory.createProto(factory.createArrayType(1, factory.methodType)),
-            "getMethods"),
-        getMethodReferenceWithClassParameter("onClassGetMethods"));
+
+    // AtomicFieldUpdater methods.
 
     builder.put(
         factory.atomicFieldUpdaterMethods.intUpdater,
@@ -144,6 +180,8 @@ public class InstrumentedReflectiveMethodList {
             factory.classType,
             factory.stringType));
 
+    // ServiceLoader methods.
+
     builder.put(
         factory.serviceLoaderMethods.load,
         getMethodReferenceWithClassParameter("onServiceLoaderLoad"));
@@ -154,6 +192,8 @@ public class InstrumentedReflectiveMethodList {
     builder.put(
         factory.serviceLoaderMethods.loadInstalled,
         getMethodReferenceWithClassParameter("onServiceLoaderLoadInstalled"));
+
+    // Proxy methods.
 
     builder.put(
         factory.proxyMethods.newProxyInstance,

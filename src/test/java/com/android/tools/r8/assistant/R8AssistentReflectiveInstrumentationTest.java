@@ -70,7 +70,7 @@ public class R8AssistentReflectiveInstrumentationTest extends TestBase {
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutputLines(
             "Reflectively created new instance of " + Bar.class.getName(),
-            "Reflectively got declared method callMe on " + Bar.class.getName(),
+            "Reflectively got declared method callMe() on " + Bar.class.getName(),
             "Reflectively got name on " + Bar.class.getName() + "(NAME)",
             "Reflectively called Class.forName on " + Bar.class.getName());
   }

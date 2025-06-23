@@ -31,20 +31,38 @@ public class EmptyReflectiveOperationReceiver implements ReflectiveOperationRece
       Stack stack, Class<?> clazz, String method, Class<?>... parameters) {}
 
   @Override
+  public void onClassGetDeclaredMethods(Stack stack, Class<?> clazz) {}
+
+  @Override
   public void onClassGetDeclaredField(Stack stack, Class<?> clazz, String fieldName) {}
 
   @Override
-  public void onClassGetDeclaredMethods(Stack stack, Class<?> clazz) {}
+  public void onClassGetDeclaredFields(Stack stack, Class<?> clazz) {}
+
+  @Override
+  public void onClassGetDeclaredConstructor(Stack stack, Class<?> clazz, Class<?>... parameters) {}
+
+  @Override
+  public void onClassGetDeclaredConstructors(Stack stack, Class<?> clazz) {}
 
   @Override
   public void onClassGetMethod(
       Stack stack, Class<?> clazz, String method, Class<?>... parameters) {}
 
   @Override
+  public void onClassGetMethods(Stack stack, Class<?> clazz) {}
+
+  @Override
   public void onClassGetField(Stack stack, Class<?> clazz, String fieldName) {}
 
   @Override
-  public void onClassGetMethods(Stack stack, Class<?> clazz) {}
+  public void onClassGetFields(Stack stack, Class<?> clazz) {}
+
+  @Override
+  public void onClassGetConstructor(Stack stack, Class<?> clazz, Class<?>... parameters) {}
+
+  @Override
+  public void onClassGetConstructors(Stack stack, Class<?> clazz) {}
 
   @Override
   public void onClassGetName(Stack stack, Class<?> clazz, NameLookupType lookupType) {}
