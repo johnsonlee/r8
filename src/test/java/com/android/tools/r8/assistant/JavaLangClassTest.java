@@ -38,7 +38,7 @@ public class JavaLangClassTest extends TestBase {
         .run(parameters.getRuntime(), JavaLangClassTestClass.class)
         .assertSuccessWithOutputLines(
             "5", "1", "9", "2", "3", "3", "4", "32", "30", "31", "5", "6", "7", "8", "5", "1", "12",
-            "13", "15", "22", "33", "35", "20", "21", "34");
+            "13", "15", "22", "33", "35", "20", "21", "34", "42", "41", "40");
   }
 
   public static class Instrumentation extends EmptyReflectiveOperationReceiver {
@@ -159,6 +159,21 @@ public class JavaLangClassTest extends TestBase {
     @Override
     public void onClassGetSuperclass(Stack stack, Class<?> clazz) {
       printNumIfTrue(clazz.getName().endsWith("Foo"), 9);
+    }
+
+    @Override
+    public void onClassAsSubclass(Stack stack, Class<?> holder, Class<?> clazz) {
+      printNumIfTrue(holder.getName().endsWith("Bar"), 40);
+    }
+
+    @Override
+    public void onClassIsInstance(Stack stack, Class<?> holder, Object object) {
+      printNumIfTrue(holder.getName().endsWith("Bar"), 41);
+    }
+
+    @Override
+    public void onClassCast(Stack stack, Class<?> holder, Object object) {
+      printNumIfTrue(holder.getName().endsWith("Bar"), 42);
     }
   }
 }

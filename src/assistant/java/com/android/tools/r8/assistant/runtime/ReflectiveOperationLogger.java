@@ -146,6 +146,23 @@ public class ReflectiveOperationLogger implements ReflectiveOperationReceiver {
   }
 
   @Override
+  public void onClassAsSubclass(Stack stack, Class<?> holder, Class<?> clazz) {
+    System.out.println(
+        "Reflectively called Class.asSubclass on " + clazz.getName() + " from " + holder.getName());
+  }
+
+  @Override
+  public void onClassIsInstance(Stack stack, Class<?> holder, Object object) {
+    System.out.println(
+        "Reflectively called Class.isInstance on " + object + " from " + holder.getName());
+  }
+
+  @Override
+  public void onClassCast(Stack stack, Class<?> holder, Object object) {
+    System.out.println("Reflectively called Class.cast on " + object + " from " + holder.getName());
+  }
+
+  @Override
   public void onClassFlag(Stack stack, Class<?> clazz, ClassFlag classFlag) {
     System.out.println("Reflectively got class flag " + classFlag);
   }

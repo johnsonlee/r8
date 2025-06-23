@@ -46,6 +46,12 @@ public interface ReflectiveOperationReceiver {
 
   void onClassGetSuperclass(Stack stack, Class<?> clazz);
 
+  void onClassAsSubclass(Stack stack, Class<?> holder, Class<?> clazz);
+
+  void onClassIsInstance(Stack stack, Class<?> holder, Object object);
+
+  void onClassCast(Stack stack, Class<?> holder, Object object);
+
   void onClassFlag(Stack stack, Class<?> clazz, ClassFlag classFlag);
 
   void onClassGetComponentType(Stack stack, Class<?> clazz);

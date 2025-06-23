@@ -71,6 +71,15 @@ public class EmptyReflectiveOperationReceiver implements ReflectiveOperationRece
   public void onClassGetSuperclass(Stack stack, Class<?> clazz) {}
 
   @Override
+  public void onClassAsSubclass(Stack stack, Class<?> holder, Class<?> clazz) {}
+
+  @Override
+  public void onClassIsInstance(Stack stack, Class<?> holder, Object object) {}
+
+  @Override
+  public void onClassCast(Stack stack, Class<?> holder, Object object) {}
+
+  @Override
   public void onClassFlag(Stack stack, Class<?> clazz, ClassFlag classFlag) {}
 
   @Override

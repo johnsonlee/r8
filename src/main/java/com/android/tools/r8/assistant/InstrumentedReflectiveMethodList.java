@@ -39,6 +39,24 @@ public class InstrumentedReflectiveMethodList {
         factory.classMethods.forName3,
         getMethodReferenceWithParameterTypes(
             "onClassForName", factory.stringType, factory.booleanType, factory.classLoaderType));
+    builder.put(
+        factory.createMethod(
+            factory.classType,
+            factory.createProto(factory.classType, factory.classType),
+            "asSubclass"),
+        getMethodReferenceWithParameterTypes(
+            "onClassAsSubclass", factory.classType, factory.classType));
+    builder.put(
+        factory.createMethod(
+            factory.classType, factory.createProto(factory.objectType, factory.objectType), "cast"),
+        getMethodReferenceWithParameterTypes("onClassCast", factory.classType, factory.objectType));
+    builder.put(
+        factory.createMethod(
+            factory.classType,
+            factory.createProto(factory.booleanType, factory.objectType),
+            "isInstance"),
+        getMethodReferenceWithParameterTypes(
+            "onClassIsInstance", factory.classType, factory.objectType));
 
     builder.put(
         factory.classMethods.getDeclaredMethod,

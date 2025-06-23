@@ -148,6 +148,18 @@ public class ReflectiveOracle {
     getInstance().onClassGetSuperclass(Stack.createStack(), clazz);
   }
 
+  public static void onClassAsSubclass(Class<?> holder, Class<?> clazz) {
+    getInstance().onClassAsSubclass(Stack.createStack(), holder, clazz);
+  }
+
+  public static void onClassIsInstance(Class<?> holder, Object object) {
+    getInstance().onClassIsInstance(Stack.createStack(), holder, object);
+  }
+
+  public static void onClassCast(Class<?> holder, Object object) {
+    getInstance().onClassCast(Stack.createStack(), holder, object);
+  }
+
   public static void onClassGetComponentType(Class<?> clazz) {
     getInstance().onClassGetComponentType(Stack.createStack(), clazz);
   }
