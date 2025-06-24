@@ -5,6 +5,7 @@
 package com.android.tools.r8.graph;
 
 import static com.android.tools.r8.features.ClassToFeatureSplitMap.createEmptyClassToFeatureSplitMap;
+import static com.android.tools.r8.utils.TraversalContinuation.breakIf;
 import static com.android.tools.r8.utils.TraversalContinuation.doBreak;
 import static com.android.tools.r8.utils.TraversalContinuation.doContinue;
 
@@ -278,42 +279,96 @@ public class AppInfoWithClassHierarchy extends AppInfo {
         });
   }
 
-  @SuppressWarnings("ReferenceEquality")
   public boolean isSubtype(DexType subtype, DexType supertype) {
-    assert subtype != null;
-    assert supertype != null;
-    assert subtype.isClassType();
-    assert supertype.isClassType();
-    return subtype == supertype || isStrictSubtypeOf(subtype, supertype);
+    return isSubtype(subtype, supertype, null, null, null);
   }
 
-  @SuppressWarnings("ReferenceEquality")
-  public boolean isStrictSubtypeOf(DexType subtype, DexType supertype) {
-    assert subtype != null;
-    assert supertype != null;
+  public boolean isSubtype(DexType subtype, DexClass superclass) {
+    return isSubtype(subtype, superclass.getType(), null, superclass, null);
+  }
+
+  public boolean isSubtype(
+      DexType subtype, DexClass superclass, ImmediateProgramSubtypingInfo immediateSubtypingInfo) {
+    return isSubtype(subtype, superclass.getType(), null, superclass, immediateSubtypingInfo);
+  }
+
+  private boolean isSubtype(
+      DexType subtype,
+      DexType supertype,
+      DexClass optionalSubclass,
+      DexClass optionalSuperclass,
+      ImmediateProgramSubtypingInfo optionalImmediateSubtypingInfo) {
     assert subtype.isClassType();
     assert supertype.isClassType();
-    if (subtype == supertype) {
+    return subtype.isIdenticalTo(supertype)
+        || isStrictSubtypeOf(
+            subtype,
+            supertype,
+            optionalSubclass,
+            optionalSuperclass,
+            optionalImmediateSubtypingInfo);
+  }
+
+  public boolean isStrictSubtypeOf(DexType subtype, DexType supertype) {
+    return isStrictSubtypeOf(subtype, supertype, null, null, null);
+  }
+
+  private boolean isStrictSubtypeOf(
+      DexType subtype,
+      DexType supertype,
+      DexClass optionalSubclass,
+      DexClass optionalSuperclass,
+      ImmediateProgramSubtypingInfo optionalImmediateSubtypingInfo) {
+    assert subtype.isClassType();
+    assert supertype.isClassType();
+    assert optionalSubclass == null || optionalSubclass.getType().isIdenticalTo(subtype);
+    assert optionalSuperclass == null || optionalSuperclass.getType().isIdenticalTo(supertype);
+    if (subtype.isIdenticalTo(supertype)) {
       return false;
     }
     // Treat object special: it is always the supertype even for broken hierarchies.
-    if (subtype == dexItemFactory().objectType) {
+    DexType objectType = dexItemFactory().objectType;
+    if (subtype.isIdenticalTo(objectType)) {
       return false;
     }
-    if (supertype == dexItemFactory().objectType) {
+    if (supertype.isIdenticalTo(objectType)) {
       return true;
     }
-    if (!subtype.isClassType() || !supertype.isClassType()) {
+    // No need to traverse the ancestors of `subtype` if the superclass is (effectively) final.
+    if (optionalSuperclass == null) {
+      optionalSuperclass = definitionFor(supertype);
+      if (optionalSuperclass == null) {
+        return false;
+      }
+    }
+    DexClass superclass = optionalSuperclass;
+    if (superclass.isFinal()) {
       return false;
     }
-    DexClass clazz = definitionFor(subtype);
-    if (clazz == null) {
+    if (optionalImmediateSubtypingInfo != null && superclass.isProgramClass()) {
+      DexProgramClass programSuperclass = superclass.asProgramClass();
+      if (optionalImmediateSubtypingInfo.getSubclasses(programSuperclass).isEmpty()) {
+        return false;
+      }
+    }
+    // Fast-past interface less-than non-interface checks.
+    if (optionalSubclass == null) {
+      optionalSubclass = definitionFor(subtype);
+      if (optionalSubclass == null) {
+        return false;
+      }
+    }
+    DexClass subclass = optionalSubclass;
+    if (subclass.isInterface() && !superclass.isInterface()) {
+      assert !superclass.getType().isIdenticalTo(objectType);
       return false;
     }
+    // Check all ancestors of the subclass.
     // TODO(b/123506120): Report missing types when the predicate is inconclusive.
     return traverseSuperTypes(
-            clazz,
-            (superType, subclass, isInterface) -> superType == supertype ? doBreak() : doContinue())
+            subclass,
+            (supertypeOfSubclass, context, isInterface) ->
+                breakIf(supertypeOfSubclass.isIdenticalTo(supertype)))
         .shouldBreak();
   }
 

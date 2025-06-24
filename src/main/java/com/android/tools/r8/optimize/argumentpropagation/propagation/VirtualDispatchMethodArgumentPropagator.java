@@ -91,8 +91,7 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
       timing.begin("Process active until lower bound");
       parentState.activeUntilLowerBound.forEach(
           (lowerBound, activeMethodState) -> {
-            // TODO(422947619): Leverage the immediate subtyping info for final checks.
-            if (appView.appInfo().isSubtype(lowerBound, clazz.getType())) {
+            if (appView.appInfo().isSubtype(lowerBound, clazz, immediateSubtypingInfo)) {
               addActiveUntilCurrentClassOrLowerBound(
                   lowerBound, activeMethodState, clazz, finalMethods);
             } else {
@@ -394,7 +393,7 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
 
     boolean verifyActiveUntilLowerBoundRelevance(DexProgramClass clazz) {
       for (DexType lowerBound : activeUntilLowerBound.keySet()) {
-        assert appView.appInfo().isSubtype(lowerBound, clazz.getType());
+        assert appView.appInfo().isSubtype(lowerBound, clazz, immediateSubtypingInfo);
       }
       return true;
     }
