@@ -111,6 +111,7 @@ public abstract class R8TestBuilder<
   HashMap<String, Path> resourceShrinkerOutputForFeatures = new HashMap<>();
   Box<R8BuildMetadata> buildMetadata;
   private boolean androidPlatformBuild = false;
+  private Box<StringConsumer> proguardMapConsumer = null;
 
   @Override
   public boolean isR8TestBuilder() {
@@ -242,59 +243,32 @@ public abstract class R8TestBuilder<
     return true;
   }
 
-  private static StringBuilder wrapProguardMapConsumer(Builder builder) {
-    StringBuilder pgMapOutput = new StringBuilder();
-    StringConsumer pgMapConsumer = builder.getProguardMapConsumer();
-    builder.setProguardMapConsumer(
-        new StringConsumer.ForwardingConsumer(pgMapConsumer) {
-          @Override
-          public void accept(String string, DiagnosticsHandler handler) {
-            super.accept(string, handler);
-            pgMapOutput.append(string);
-          }
+  private StringBuilder wrapProguardMapConsumer(Builder builder) {
+    if (proguardMapConsumer != null) {
+      builder.setProguardMapConsumer(proguardMapConsumer.get());
+      return null;
+    } else {
+      StringBuilder pgMapOutput = new StringBuilder();
+      StringConsumer pgMapConsumer = builder.getProguardMapConsumer();
+      builder.setProguardMapConsumer(
+          new StringConsumer.ForwardingConsumer(pgMapConsumer) {
+            @Override
+            public void accept(String string, DiagnosticsHandler handler) {
+              super.accept(string, handler);
+              pgMapOutput.append(string);
+            }
 
-          @Override
-          public void finished(DiagnosticsHandler handler) {
-            super.finished(handler);
-          }
-        });
-    return pgMapOutput;
+            @Override
+            public void finished(DiagnosticsHandler handler) {
+              super.finished(handler);
+            }
+          });
+      return pgMapOutput;
+    }
   }
 
   private static StringBuilder wrapProguardConfigConsumer(Builder builder) {
     StringBuilder pgConfOutput = new StringBuilder();
-    StringConsumer pgConfConsumer = builder.getProguardConfigurationConsumer();
-    builder.setProguardConfigurationConsumer(
-        new StringConsumer.ForwardingConsumer(pgConfConsumer) {
-          @Override
-          public void accept(String string, DiagnosticsHandler handler) {
-            super.accept(string, handler);
-            pgConfOutput.append(string);
-          }
-        });
-    return pgConfOutput;
-  }
-
-  private static StringBuilder wrapProguardMapConsumer(Builder builder, StringBuilder pgMapOutput) {
-    StringConsumer pgMapConsumer = builder.getProguardMapConsumer();
-    builder.setProguardMapConsumer(
-        new StringConsumer.ForwardingConsumer(pgMapConsumer) {
-          @Override
-          public void accept(String string, DiagnosticsHandler handler) {
-            super.accept(string, handler);
-            pgMapOutput.append(string);
-          }
-
-          @Override
-          public void finished(DiagnosticsHandler handler) {
-            super.finished(handler);
-          }
-        });
-    return pgMapOutput;
-  }
-
-  private static StringBuilder wrapProguardConfigConsumer(
-      Builder builder, StringBuilder pgConfOutput) {
     StringConsumer pgConfConsumer = builder.getProguardConfigurationConsumer();
     builder.setProguardConfigurationConsumer(
         new StringConsumer.ForwardingConsumer(pgConfConsumer) {
@@ -906,6 +880,11 @@ public abstract class R8TestBuilder<
 
   public T setMapIdTemplate(String mapIdTemplate) {
     builder.setMapIdProvider(MapIdTemplateProvider.create(mapIdTemplate, builder.getReporter()));
+    return self();
+  }
+
+  public T setProguardMapConsumer(StringConsumer proguardMapConsumer) {
+    this.proguardMapConsumer = new Box<>(proguardMapConsumer);
     return self();
   }
 

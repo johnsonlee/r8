@@ -53,7 +53,7 @@ public class R8FullTestBuilder
         app.get(),
         pgConfOutput.toString(),
         syntheticProguardRulesConsumer.get(),
-        proguardMapBuilder.toString(),
+        proguardMapBuilder != null ? proguardMapBuilder.toString() : null,
         graphConsumer,
         getMinApiLevel(),
         features,

@@ -181,7 +181,10 @@ public class CodeInspector {
       throws IOException {
     this(
         new ApplicationReader(app, runOptionsConsumer(optionsConsumer), Timing.empty())
-            .read(StringResource.fromString(proguardMapContent, Origin.unknown())));
+            .read(
+                proguardMapContent != null
+                    ? StringResource.fromString(proguardMapContent, Origin.unknown())
+                    : null));
   }
 
   public CodeInspector(DexApplication application) {

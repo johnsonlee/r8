@@ -149,7 +149,7 @@ public class R8PartialTestBuilder
         app.get(),
         pgConfOutput.toString(),
         syntheticProguardRulesConsumer.get(),
-        proguardMapBuilder.toString(),
+        proguardMapBuilder != null ? proguardMapBuilder.toString() : null,
         graphConsumer,
         getMinApiLevel(),
         features,
