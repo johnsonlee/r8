@@ -710,7 +710,7 @@ public abstract class MethodResolutionResult
         PinnedPredicate pinnedPredicate) {
       // Check that the initial resolution holder is accessible from the context.
       AppInfoWithClassHierarchy appInfo = appView.appInfo();
-      assert appInfo.isSubtype(initialResolutionHolder.type, resolvedHolder.type)
+      assert appInfo.isSubtype(initialResolutionHolder, resolvedHolder)
           : initialResolutionHolder.type + " is not a subtype of " + resolvedHolder.type;
       if (context != null && isAccessibleFrom(context, appView).isFalse()) {
         return LookupResult.createFailedResult();

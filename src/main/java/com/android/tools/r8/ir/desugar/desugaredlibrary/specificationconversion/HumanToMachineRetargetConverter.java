@@ -263,11 +263,11 @@ public class HumanToMachineRetargetConverter {
     return appInfo
         .traverseSuperTypes(
             dexClass,
-            (supertype, subclass, isSupertypeAnInterface) ->
+            (supertype, superclass, context, isSupertypeAnInterface) ->
                 TraversalContinuation.breakIf(
-                    subclass.isInterface()
-                        && emulateLibraryInterface.containsKey(subclass.getType())
-                        && subclass.lookupMethod(methodToFind) != null))
+                    context.isInterface()
+                        && emulateLibraryInterface.containsKey(context.getType())
+                        && context.lookupMethod(methodToFind) != null))
         .shouldBreak();
   }
 

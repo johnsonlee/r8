@@ -107,8 +107,8 @@ public class KeepAnnotationMatcherPredicates {
     return appInfo
         .traverseSuperTypes(
             clazz,
-            (superType, unusedSubClass, unusedIsInterface) -> {
-              if (matchesClassName(superType, pattern.getClassNamePattern())) {
+            (supertype, unusedSuperclass, unusedSubClass, unusedIsInterface) -> {
+              if (matchesClassName(supertype, pattern.getClassNamePattern())) {
                 return TraversalContinuation.doBreak();
               }
               return TraversalContinuation.doContinue();

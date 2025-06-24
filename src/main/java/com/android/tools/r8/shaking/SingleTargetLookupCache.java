@@ -57,10 +57,10 @@ public class SingleTargetLookupCache {
         instance ->
             appInfo.traverseSuperTypes(
                 instance,
-                (superType, subclass, ignore) -> {
-                  if (seen.add(superType)) {
-                    positiveCache.remove(superType);
-                    negativeCache.remove(superType);
+                (supertype, superclass, context, ignore) -> {
+                  if (seen.add(supertype)) {
+                    positiveCache.remove(supertype);
+                    negativeCache.remove(supertype);
                     return TraversalContinuation.doContinue();
                   } else {
                     return TraversalContinuation.doBreak();

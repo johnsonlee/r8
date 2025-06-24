@@ -882,6 +882,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     return forceProguardCompatibility;
   }
 
+  public boolean isFullMode() {
+    return !isForceProguardCompatibilityEnabled();
+  }
+
   public boolean parseSignatureAttribute() {
     return true;
   }

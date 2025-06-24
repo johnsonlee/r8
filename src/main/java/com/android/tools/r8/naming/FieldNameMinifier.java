@@ -164,10 +164,10 @@ class FieldNameMinifier {
         .appInfo()
         .traverseSuperTypes(
             clazz,
-            (superType, superClass, isInterface) -> {
-              if (isInterface && superClass.isNotProgramClass()) {
+            (supertype, superclass, context, isInterface) -> {
+              if (isInterface && context.isNotProgramClass()) {
                 Set<ReservedFieldNamingState> reservedNamingState =
-                    frontierStatesForInterfaces.get(superType);
+                    frontierStatesForInterfaces.get(supertype);
                 if (reservedNamingState != null) {
                   reservedNamingState.add(reservationState);
                 }

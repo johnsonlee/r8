@@ -398,7 +398,7 @@ public class Devirtualizer {
             .isPossiblyFalse()
         || !newResolutionResult
             .getResolvedMethod()
-            .isAtLeastAsVisibleAsOtherInSameHierarchy(resolutionResult.getResolvedMethod(), appView)
+            .isAtLeastAsVisibleAsOtherInSameHierarchy(resolutionResult.getResolutionPair(), appView)
         // isOverriding expects both arguments to be not private.
         || (!newResolutionResult.getResolvedMethod().isPrivateMethod()
             && !isOverriding(

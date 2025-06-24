@@ -96,9 +96,7 @@ public class RedundantBridgeRemover extends MemberRebindingHelper {
     if (targetMethod == null) {
       return null;
     }
-    if (!targetMethod
-        .getDefinition()
-        .isAtLeastAsVisibleAsOtherInSameHierarchy(method.getDefinition(), appView)) {
+    if (!targetMethod.getDefinition().isAtLeastAsVisibleAsOtherInSameHierarchy(method, appView)) {
       return null;
     }
     if (definition.isStatic()
@@ -243,7 +241,7 @@ public class RedundantBridgeRemover extends MemberRebindingHelper {
       if (resolvedMethod.getDefinition().isAbstract()
           && resolvedMethod
               .getDefinition()
-              .isAtLeastAsVisibleAsOtherInSameHierarchy(method.getDefinition(), appView)
+              .isAtLeastAsVisibleAsOtherInSameHierarchy(method, appView)
           && (!resolvedMethod.getHolder().isInterface() || holder.getInterfaces().isEmpty())) {
         return resolvedMethod;
       }
@@ -267,7 +265,7 @@ public class RedundantBridgeRemover extends MemberRebindingHelper {
           || !singleIfaceResult.getResolvedMethod().isAbstract()
           || !singleIfaceResult
               .getResolvedMethod()
-              .isAtLeastAsVisibleAsOtherInSameHierarchy(method.getDefinition(), appView)) {
+              .isAtLeastAsVisibleAsOtherInSameHierarchy(method, appView)) {
         return null;
       }
       if (representativeInterfaceMethod == null) {

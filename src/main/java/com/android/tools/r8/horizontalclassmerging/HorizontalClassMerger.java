@@ -441,8 +441,8 @@ public class HorizontalClassMerger {
           .appInfo()
           .traverseSuperTypes(
               interfaceClass,
-              (superType, subclass, isInterface) -> {
-                assert superType.isNotIdenticalTo(interfaceClass.getType())
+              (supertype, superclass, context, isInterface) -> {
+                assert supertype.isNotIdenticalTo(interfaceClass.getType())
                     : "Interface " + interfaceClass.getTypeName() + " inherits from itself";
                 return TraversalContinuation.doContinue();
               });

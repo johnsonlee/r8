@@ -225,6 +225,8 @@ public class GenerateMainDexListCommand extends BaseCommand {
     internal.minimalMainDex = internal.debug;
     assert internal.retainCompileTimeAnnotations;
     internal.retainCompileTimeAnnotations = false;
+    // Disable fast path in AppInfoWithClassHierarchy#isSubtype.
+    internal.getTestingOptions().allowLibraryExtendsProgramInFullMode = true;
     return internal;
   }
 }

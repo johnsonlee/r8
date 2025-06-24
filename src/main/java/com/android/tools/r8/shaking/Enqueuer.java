@@ -153,6 +153,7 @@ import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.ThreadUtils;
+import com.android.tools.r8.utils.TraversalContinuation;
 import com.android.tools.r8.utils.Visibility;
 import com.android.tools.r8.utils.WorkList;
 import com.android.tools.r8.utils.collections.ProgramFieldSet;
@@ -2717,13 +2718,13 @@ public class Enqueuer {
       // in the tree.
       KeepReason keepReason = KeepReason.reachableFromLiveType(context.type);
       keepClassAndAllMembers(clazz, keepReason);
-      appInfo.forEachSuperType(
+      appInfo.traverseSuperTypes(
           clazz,
-          (superType, subclass, ignored) -> {
-            DexProgramClass superClass = asProgramClassOrNull(appInfo().definitionFor(superType));
-            if (superClass != null) {
-              keepClassAndAllMembers(superClass, keepReason);
+          (supertype, superclass, subclassOfSuperclass, isInterface) -> {
+            if (superclass != null && superclass.isProgramClass()) {
+              keepClassAndAllMembers(superclass.asProgramClass(), keepReason);
             }
+            return TraversalContinuation.doContinue();
           });
     }
     if (appView.getDontWarnConfiguration().matches(context)) {
@@ -3014,8 +3015,7 @@ public class Enqueuer {
 
   private void markProgramMethodOverridesAsLive(
       InstantiatedObject instantiation, DexProgramClass currentClass) {
-    assert instantiation.isLambda()
-        || appInfo.isSubtype(instantiation.asClass().getType(), currentClass.type);
+    assert instantiation.isLambda() || appInfo.isSubtype(instantiation.asClass(), currentClass);
     getReachableVirtualTargets(currentClass)
         .forEach(
             (resolutionSearchKey, contexts) ->
