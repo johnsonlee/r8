@@ -24,7 +24,10 @@ public class SourceFileRewriter {
       if (!options.forceProguardCompatibility
           || !options.getProguardConfiguration().getKeepAttributes().sourceFile) {
         if (options.isMinifying() || options.isOptimizing()) {
-          return env -> "r8-map-id-" + env.getMapId();
+          return env ->
+              env.getMapId() != null
+                  ? "r8-map-id-" + env.getMapId()
+                  : options.dexItemFactory().defaultSourceFileAttributeString;
         }
       }
     }

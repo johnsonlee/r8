@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.naming;
 
+import static org.hamcrest.CoreMatchers.allOf;
+import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.StringContains.containsString;
 import static org.junit.Assert.assertEquals;
@@ -51,7 +53,7 @@ public class DefaultSourceFileWithoutMapOutputTest extends TestBase {
             (stackTrace, inspector) -> {
               assertEquals(1, stackTrace.getStackTraceLines().size());
               StackTraceLine stackTraceLine = stackTrace.getStackTraceLines().get(0);
-              assertEquals("r8-map-id-null", stackTraceLine.fileName);
+              assertEquals("SourceFile", stackTraceLine.fileName);
             });
   }
 
@@ -74,7 +76,8 @@ public class DefaultSourceFileWithoutMapOutputTest extends TestBase {
             ConsumerUtils.emptyConsumer(),
             parameters.getRuntime().asDex().getVm());
     assertNotEquals(0, artResult.exitCode);
-    assertThat(artResult.stderr, containsString("r8-map-id-null"));
+    assertThat(
+        artResult.stderr, allOf(containsString("SourceFile"), not(containsString("r8-map-id"))));
   }
 
   static class Main {
