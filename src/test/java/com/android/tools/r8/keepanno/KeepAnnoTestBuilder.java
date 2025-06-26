@@ -638,7 +638,11 @@ public abstract class KeepAnnoTestBuilder {
       builder =
           TestBase.testForProguard(KeepAnnoTestUtils.PG_VERSION, temp)
               .applyIf(
-                  keepAnnotationLibrary == ANDROIDX, b -> b.addDefaultRuntimeLibrary(parameters()))
+                  keepAnnotationLibrary == ANDROIDX,
+                  b ->
+                      b.addDefaultRuntimeLibrary(parameters())
+                          .addLibraryFiles(
+                              kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar()))
               .addProgramFiles(KeepAnnoTestUtils.getKeepAnnoLib(temp, keepAnnotationLibrary))
               .setMinApi(parameters());
     }
