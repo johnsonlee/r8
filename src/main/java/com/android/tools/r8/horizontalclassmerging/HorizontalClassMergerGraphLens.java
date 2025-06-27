@@ -5,14 +5,20 @@
 package com.android.tools.r8.horizontalclassmerging;
 
 import static com.android.tools.r8.ir.conversion.ExtraUnusedParameter.computeExtraUnusedParameters;
+import static com.android.tools.r8.ir.optimize.templates.CfUtilityMethodsForCodeOptimizations.CfUtilityMethodsForCodeOptimizationsTemplates_throwClassCastExceptionIfNotEquals;
 
+import com.android.tools.r8.cf.CfVersion;
 import com.android.tools.r8.classmerging.ClassMergerGraphLens;
+import com.android.tools.r8.contexts.CompilationContext.UniqueContext;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedMember;
 import com.android.tools.r8.graph.DexField;
+import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMember;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.lens.FieldLookupResult;
 import com.android.tools.r8.graph.lens.GraphLens;
@@ -21,7 +27,9 @@ import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
 import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.conversion.ExtraConstantIntParameter;
 import com.android.tools.r8.ir.conversion.ExtraParameter;
+import com.android.tools.r8.synthesis.SyntheticItems;
 import com.android.tools.r8.utils.IterableUtils;
+import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.collections.BidirectionalManyToOneHashMap;
 import com.android.tools.r8.utils.collections.BidirectionalManyToOneMap;
@@ -29,6 +37,7 @@ import com.android.tools.r8.utils.collections.BidirectionalManyToOneRepresentati
 import com.android.tools.r8.utils.collections.BidirectionalManyToOneRepresentativeMap;
 import com.android.tools.r8.utils.collections.MutableBidirectionalManyToOneMap;
 import com.android.tools.r8.utils.collections.MutableBidirectionalManyToOneRepresentativeMap;
+import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import java.util.IdentityHashMap;
@@ -40,6 +49,13 @@ public class HorizontalClassMergerGraphLens extends ClassMergerGraphLens {
 
   private final Map<DexMethod, ExtraConstantIntParameter> methodExtraParameters;
   private final HorizontallyMergedClasses mergedClasses;
+
+  // Deterministic unique context for synthesizing a throwClassCastExceptionIfNotEquals() synthetic
+  // helper method.
+  private final UniqueContext uniqueContext;
+  private volatile ProgramMethod throwClassCastExceptionIfNotEqualsMethod;
+  private ProgramMethodSet throwClassCastExceptionIfNotEqualsMethodCallers =
+      ProgramMethodSet.createConcurrent();
 
   private HorizontalClassMergerGraphLens(
       AppView<?> appView,
@@ -56,6 +72,15 @@ public class HorizontalClassMergerGraphLens extends ClassMergerGraphLens {
         newMethodSignatures);
     this.methodExtraParameters = methodExtraParameters;
     this.mergedClasses = mergedClasses;
+    DexProgramClass deterministicMergeTarget =
+        appView
+            .definitionFor(ListUtils.sort(mergedClasses.getTargets(), DexType::compareTo).get(0))
+            .asProgramClass();
+    this.uniqueContext =
+        appView
+            .createProcessorContext()
+            .createMainThreadContext()
+            .createUniqueContext(deterministicMergeTarget);
   }
 
   DexMethod getNextMethodToInvoke(DexMethod method) {
@@ -66,6 +91,51 @@ public class HorizontalClassMergerGraphLens extends ClassMergerGraphLens {
   @Override
   public DexType getPreviousClassType(DexType type) {
     return type;
+  }
+
+  // Synthesizes a throwClassCastExceptionIfNotEquals() synthetic helper method if one has not
+  // already been synthesized. This may be called concurrently from lens code rewriting.
+  public DexMethod ensureThrowClassCastExceptionIfNotEqualsMethod(ProgramMethod context) {
+    if (throwClassCastExceptionIfNotEqualsMethod == null) {
+      synchronized (this) {
+        if (throwClassCastExceptionIfNotEqualsMethod == null) {
+          DexItemFactory factory = appView.dexItemFactory();
+          SyntheticItems syntheticItems = appView.getSyntheticItems();
+          throwClassCastExceptionIfNotEqualsMethod =
+              syntheticItems.createMethod(
+                  naming -> naming.THROW_CCE_IF_NOT_EQUALS,
+                  uniqueContext,
+                  appView,
+                  builder ->
+                      builder
+                          .setAccessFlags(MethodAccessFlags.createPublicStaticSynthetic())
+                          .setApiLevelForCode(appView.computedMinApiLevel())
+                          .setApiLevelForDefinition(appView.computedMinApiLevel())
+                          .setClassFileVersion(CfVersion.V1_6)
+                          .setCode(
+                              m ->
+                                  CfUtilityMethodsForCodeOptimizationsTemplates_throwClassCastExceptionIfNotEquals(
+                                      factory, m))
+                          .setProto(
+                              factory.createProto(
+                                  factory.voidType, factory.intType, factory.intType)));
+        }
+      }
+    }
+    throwClassCastExceptionIfNotEqualsMethodCallers.add(context);
+    return throwClassCastExceptionIfNotEqualsMethod.getReference();
+  }
+
+  public ProgramMethod unsetThrowClassCastExceptionIfNotEqualsMethod() {
+    ProgramMethod result = throwClassCastExceptionIfNotEqualsMethod;
+    throwClassCastExceptionIfNotEqualsMethod = null;
+    return result;
+  }
+
+  public ProgramMethodSet unsetThrowClassCastExceptionIfNotEqualsMethodCallers() {
+    ProgramMethodSet result = throwClassCastExceptionIfNotEqualsMethodCallers;
+    throwClassCastExceptionIfNotEqualsMethodCallers = null;
+    return result;
   }
 
   @Override

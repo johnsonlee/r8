@@ -16,6 +16,12 @@ public class CfUtilityMethodsForCodeOptimizationsTemplates {
     }
   }
 
+  public static void throwClassCastExceptionIfNotEquals(int expected, int actual) {
+    if (actual != expected) {
+      throw new ClassCastException();
+    }
+  }
+
   public static void throwClassCastExceptionIfNotNull(Object o) {
     if (o != null) {
       throw new ClassCastException();

@@ -41,6 +41,9 @@ public abstract class ProfileCollectionAdditions {
 
   public abstract void addMethodIfContextIsInProfile(ProgramMethod method, ProgramMethod context);
 
+  public abstract void addMethodAndHolderIfContextIsInProfile(
+      ProgramMethod method, ProgramMethod context);
+
   public abstract void applyIfContextIsInProfile(
       DexMethod context, Consumer<ProfileAdditionsBuilder> builderConsumer);
 

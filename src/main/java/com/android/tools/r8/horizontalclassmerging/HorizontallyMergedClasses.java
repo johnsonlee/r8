@@ -5,6 +5,7 @@
 package com.android.tools.r8.horizontalclassmerging;
 
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.classmerging.MergedClasses;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
@@ -12,15 +13,30 @@ import com.android.tools.r8.utils.collections.BidirectionalManyToOneRepresentati
 import com.android.tools.r8.utils.collections.BidirectionalManyToOneRepresentativeMap;
 import com.android.tools.r8.utils.collections.EmptyBidirectionalOneToOneMap;
 import com.android.tools.r8.utils.collections.MutableBidirectionalManyToOneRepresentativeMap;
+import it.unimi.dsi.fastutil.objects.Reference2IntMap;
+import it.unimi.dsi.fastutil.objects.Reference2IntMaps;
+import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
 
 public class HorizontallyMergedClasses implements MergedClasses {
 
+  // Mapping from source to class ids.
+  private final Reference2IntMap<DexType> classIds;
+  // Mapping from target to class id field.
+  private final Map<DexType, DexField> classIdFields;
+  // Mapping from source to target.
   private final BidirectionalManyToOneRepresentativeMap<DexType, DexType> mergedClasses;
 
   public HorizontallyMergedClasses(
+      Reference2IntMap<DexType> classIds,
+      Map<DexType, DexField> classIdFields,
       BidirectionalManyToOneRepresentativeMap<DexType, DexType> mergedClasses) {
+    this.classIds = classIds;
+    this.classIdFields = classIdFields;
     this.mergedClasses = mergedClasses;
   }
 
@@ -29,12 +45,27 @@ public class HorizontallyMergedClasses implements MergedClasses {
   }
 
   public static HorizontallyMergedClasses empty() {
-    return new HorizontallyMergedClasses(new EmptyBidirectionalOneToOneMap<>());
+    return new HorizontallyMergedClasses(
+        Reference2IntMaps.emptyMap(),
+        Collections.emptyMap(),
+        new EmptyBidirectionalOneToOneMap<>());
   }
 
   @Override
   public void forEachMergeGroup(BiConsumer<Set<DexType>, DexType> consumer) {
     mergedClasses.forEachManyToOneMapping(consumer);
+  }
+
+  public int getClassId(DexType type) {
+    assert classIds.containsKey(type);
+    return classIds.getInt(type);
+  }
+
+  public DexField getClassIdField(DexType type) {
+    assert classIdFields.containsKey(type)
+        : "Expected target class " + type.getTypeName() + " to have a class id";
+    assert mergedClasses.containsValue(type);
+    return classIdFields.get(type);
   }
 
   @Override
@@ -86,8 +117,14 @@ public class HorizontallyMergedClasses implements MergedClasses {
 
   public static class Builder {
 
+    private final Reference2IntMap<DexType> classIds = new Reference2IntOpenHashMap<>();
+    private final Map<DexType, DexField> classIdFields = new IdentityHashMap<>();
     private final MutableBidirectionalManyToOneRepresentativeMap<DexType, DexType> mergedClasses =
         BidirectionalManyToOneRepresentativeHashMap.newIdentityHashMap();
+
+    private Builder() {
+      classIds.defaultReturnValue(-1);
+    }
 
     void add(DexType source, DexType target) {
       assert !mergedClasses.containsKey(source);
@@ -96,6 +133,10 @@ public class HorizontallyMergedClasses implements MergedClasses {
 
     void addMergeGroup(HorizontalMergeGroup group) {
       group.forEachSource(clazz -> add(clazz.getType(), group.getTarget().getType()));
+      if (group.hasClassIdField()) {
+        group.acceptClassIds((clazz, classId) -> classIds.put(clazz.getType(), classId));
+        classIdFields.put(group.getTarget().getType(), group.getClassIdField());
+      }
     }
 
     Builder addMergeGroups(Iterable<HorizontalMergeGroup> groups) {
@@ -104,7 +145,7 @@ public class HorizontallyMergedClasses implements MergedClasses {
     }
 
     HorizontallyMergedClasses build() {
-      return new HorizontallyMergedClasses(mergedClasses);
+      return new HorizontallyMergedClasses(classIds, classIdFields, mergedClasses);
     }
   }
 }

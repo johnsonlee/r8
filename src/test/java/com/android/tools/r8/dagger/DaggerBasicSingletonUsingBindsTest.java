@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.dagger;
 
+import static com.android.tools.r8.synthesis.SyntheticNaming.EXTERNAL_SYNTHETIC_CLASS_SEPARATOR;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assume.assumeTrue;
 
@@ -75,8 +76,6 @@ public class DaggerBasicSingletonUsingBindsTest extends DaggerBasicTestBase {
         ImmutableSet.<String>builder()
             .add(
                 "basic.I1Impl1",
-                "basic.I2Impl1",
-                "basic.I3Impl1",
                 "basic.MainUsingBinds",
                 "dagger.internal.DoubleCheck",
                 "javax.inject.Provider");
@@ -84,7 +83,10 @@ public class DaggerBasicSingletonUsingBindsTest extends DaggerBasicTestBase {
         expectedClasses.build(),
         inspector.allClasses().stream()
             .map(FoundClassSubject::getOriginalTypeName)
-            .filter(name -> !name.contains("_Factory"))
+            .filter(
+                name ->
+                    !name.contains(EXTERNAL_SYNTHETIC_CLASS_SEPARATOR)
+                        && !name.contains("_Factory"))
             .collect(Collectors.toSet()));
   }
 
@@ -101,13 +103,19 @@ public class DaggerBasicSingletonUsingBindsTest extends DaggerBasicTestBase {
                         target.equals("1.8") || parameters.isDexRuntime(),
                         i ->
                             i.assertIsCompleteMergeGroup(
+                                    "basic.I1Impl1",
                                     "basic.I1Impl1_Factory",
+                                    "basic.I2Impl1",
                                     "basic.I2Impl1_Factory",
+                                    "basic.I3Impl1",
                                     "basic.I3Impl1_Factory")
                                 .assertIsCompleteMergeGroup(
                                     "basic.I1Impl1_Factory$InstanceHolder",
                                     "basic.I2Impl1_Factory$InstanceHolder",
-                                    "basic.I3Impl1_Factory$InstanceHolder"))
+                                    "basic.I3Impl1_Factory$InstanceHolder"),
+                        i ->
+                            i.assertIsCompleteMergeGroup(
+                                "basic.I1Impl1", "basic.I2Impl1", "basic.I3Impl1"))
                     .assertNoOtherClassesMerged())
         .addVerticallyMergedClassesInspector(
             inspector ->

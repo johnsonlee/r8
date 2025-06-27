@@ -25,6 +25,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.function.Consumer;
+import java.util.function.ObjIntConsumer;
 import java.util.function.Predicate;
 
 public class HorizontalMergeGroup extends MergeGroup implements Collection<DexProgramClass> {
@@ -55,6 +56,16 @@ public class HorizontalMergeGroup extends MergeGroup implements Collection<DexPr
   public HorizontalMergeGroup(Iterable<DexProgramClass> classes) {
     this();
     Iterables.addAll(this.classes, classes);
+  }
+
+  public void acceptClassIds(ObjIntConsumer<DexProgramClass> consumer) {
+    int nextClassId = 0;
+    consumer.accept(target, nextClassId++);
+    for (DexProgramClass clazz : classes) {
+      if (clazz != target) {
+        consumer.accept(clazz, nextClassId++);
+      }
+    }
   }
 
   public void applyMetadataFrom(HorizontalMergeGroup group) {

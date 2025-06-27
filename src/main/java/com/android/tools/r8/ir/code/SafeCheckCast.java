@@ -19,8 +19,17 @@ public class SafeCheckCast extends CheckCast {
     super(dest, value, type);
   }
 
+  public SafeCheckCast(Value dest, Value value, DexType type, boolean ignoreCompatRules) {
+    super(dest, value, type, ignoreCompatRules);
+  }
+
   public static Builder builder() {
     return new Builder();
+  }
+
+  @Override
+  public Builder newBuilder() {
+    return builder();
   }
 
   @Override
@@ -61,7 +70,7 @@ public class SafeCheckCast extends CheckCast {
 
     @Override
     public CheckCast build() {
-      return amend(new SafeCheckCast(outValue, object, castType));
+      return amend(new SafeCheckCast(outValue, object, castType, ignoreCompatRules));
     }
   }
 }

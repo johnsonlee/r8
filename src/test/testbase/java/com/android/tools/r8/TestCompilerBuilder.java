@@ -75,6 +75,8 @@ public abstract class TestCompilerBuilder<
             options.testing.allowUnnecessaryDontWarnWildcards = false;
             options.horizontalClassMergerOptions().enable();
             options.horizontalClassMergerOptions().setEnableInterfaceMerging();
+            assert !options.horizontalClassMergerOptions().enableCheckCastRewriting;
+            options.horizontalClassMergerOptions().enableCheckCastRewriting = true;
             options.inlinerOptions().enableConstructorInliningWithFinalFields = true;
             options
                 .getCfCodeAnalysisOptions()

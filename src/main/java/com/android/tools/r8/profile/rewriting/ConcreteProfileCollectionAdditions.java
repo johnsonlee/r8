@@ -75,6 +75,7 @@ public class ConcreteProfileCollectionAdditions extends ProfileCollectionAdditio
     }
   }
 
+  @Override
   public void addMethodAndHolderIfContextIsInProfile(ProgramMethod method, ProgramMethod context) {
     applyIfContextIsInProfile(
         context, additionsBuilder -> additionsBuilder.addRule(method).addRule(method.getHolder()));

@@ -25,12 +25,17 @@ public class RuntimeTypeCheckInfo {
 
   private final Set<DexType> instanceOfTypes;
   private final Set<DexType> checkCastTypes;
+  private final Set<DexType> checkCastArrayTypes;
   private final Set<DexType> exceptionGuardTypes;
 
   public RuntimeTypeCheckInfo(
-      Set<DexType> instanceOfTypes, Set<DexType> checkCastTypes, Set<DexType> exceptionGuardTypes) {
+      Set<DexType> instanceOfTypes,
+      Set<DexType> checkCastTypes,
+      Set<DexType> checkCastArrayTypes,
+      Set<DexType> exceptionGuardTypes) {
     this.instanceOfTypes = instanceOfTypes;
     this.checkCastTypes = checkCastTypes;
+    this.checkCastArrayTypes = checkCastArrayTypes;
     this.exceptionGuardTypes = exceptionGuardTypes;
   }
 
@@ -44,19 +49,26 @@ public class RuntimeTypeCheckInfo {
   }
 
   public boolean isCheckCastType(DexProgramClass clazz) {
-    return checkCastTypes.contains(clazz.type);
+    return checkCastTypes.contains(clazz.getType());
+  }
+
+  public boolean isCheckCastArrayType(DexProgramClass clazz) {
+    return checkCastArrayTypes.contains(clazz.getType());
   }
 
   public boolean isInstanceOfType(DexProgramClass clazz) {
-    return instanceOfTypes.contains(clazz.type);
+    return instanceOfTypes.contains(clazz.getType());
   }
 
   public boolean isExceptionGuardType(DexProgramClass clazz) {
-    return exceptionGuardTypes.contains(clazz.type);
+    return exceptionGuardTypes.contains(clazz.getType());
   }
 
   public boolean isRuntimeCheckType(DexProgramClass clazz) {
-    return isInstanceOfType(clazz) || isCheckCastType(clazz) || isExceptionGuardType(clazz);
+    return isInstanceOfType(clazz)
+        || isCheckCastType(clazz)
+        || isCheckCastArrayType(clazz)
+        || isExceptionGuardType(clazz);
   }
 
   public RuntimeTypeCheckInfo rewriteWithLens(
@@ -65,6 +77,7 @@ public class RuntimeTypeCheckInfo {
     return new RuntimeTypeCheckInfo(
         SetUtils.mapIdentityHashSet(instanceOfTypes, typeRewriter),
         SetUtils.mapIdentityHashSet(checkCastTypes, typeRewriter),
+        SetUtils.mapIdentityHashSet(checkCastArrayTypes, typeRewriter),
         SetUtils.mapIdentityHashSet(exceptionGuardTypes, typeRewriter));
   }
 
@@ -78,6 +91,7 @@ public class RuntimeTypeCheckInfo {
 
     private final Set<DexType> instanceOfTypes = Sets.newIdentityHashSet();
     private final Set<DexType> checkCastTypes = Sets.newIdentityHashSet();
+    private final Set<DexType> checkCastArrayTypes = Sets.newIdentityHashSet();
     private final Set<DexType> exceptionGuardTypes = Sets.newIdentityHashSet();
 
     public Builder(AppView<?> appView) {
@@ -87,7 +101,8 @@ public class RuntimeTypeCheckInfo {
 
     public RuntimeTypeCheckInfo build(GraphLens graphLens) {
       RuntimeTypeCheckInfo runtimeTypeCheckInfo =
-          new RuntimeTypeCheckInfo(instanceOfTypes, checkCastTypes, exceptionGuardTypes);
+          new RuntimeTypeCheckInfo(
+              instanceOfTypes, checkCastTypes, checkCastArrayTypes, exceptionGuardTypes);
       return graphLens.isNonIdentityLens() && graphLens != appliedGraphLens
           ? runtimeTypeCheckInfo.rewriteWithLens(graphLens.asNonIdentityLens(), appliedGraphLens)
           : runtimeTypeCheckInfo;
@@ -95,7 +110,7 @@ public class RuntimeTypeCheckInfo {
 
     @Override
     public void traceCheckCast(DexType type, DexClass clazz, ProgramMethod context) {
-      add(type, checkCastTypes);
+      add(type, checkCastTypes, checkCastArrayTypes);
     }
 
     @Override
@@ -105,18 +120,22 @@ public class RuntimeTypeCheckInfo {
 
     @Override
     public void traceInstanceOf(DexType type, DexClass clazz, ProgramMethod context) {
-      add(type, instanceOfTypes);
+      add(type, instanceOfTypes, instanceOfTypes);
     }
 
     @Override
     public void traceExceptionGuard(DexType guard, DexClass clazz, ProgramMethod context) {
-      add(guard, exceptionGuardTypes);
+      add(guard, exceptionGuardTypes, exceptionGuardTypes);
     }
 
-    private void add(DexType type, Set<DexType> set) {
+    private void add(DexType type, Set<DexType> set, Set<DexType> arraySet) {
       DexType baseType = type.toBaseType(factory);
       if (baseType.isClassType()) {
-        set.add(baseType);
+        if (type.isIdenticalTo(baseType)) {
+          set.add(baseType);
+        } else {
+          arraySet.add(baseType);
+        }
       }
     }
   }

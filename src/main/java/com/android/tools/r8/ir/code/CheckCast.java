@@ -54,6 +54,10 @@ public class CheckCast extends Instruction {
     return new Builder();
   }
 
+  public Builder newBuilder() {
+    return builder();
+  }
+
   @SuppressWarnings("ReferenceEquality")
   public boolean isRefiningStaticType(InternalOptions options) {
     TypeElement inType = object().getType();
@@ -288,10 +292,16 @@ public class CheckCast extends Instruction {
   public static class Builder extends BuilderBase<Builder, CheckCast> {
 
     protected DexType castType;
+    protected boolean ignoreCompatRules;
     protected Value object;
 
     public Builder setCastType(DexType castType) {
       this.castType = castType;
+      return this;
+    }
+
+    public Builder setIgnoreCompatRules(boolean ignoreCompatRules) {
+      this.ignoreCompatRules = ignoreCompatRules;
       return this;
     }
 
@@ -302,7 +312,7 @@ public class CheckCast extends Instruction {
 
     @Override
     public CheckCast build() {
-      return amend(new CheckCast(outValue, object, castType));
+      return amend(new CheckCast(outValue, object, castType, ignoreCompatRules));
     }
 
     @Override
