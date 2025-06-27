@@ -351,7 +351,9 @@ public class MainDexInfo {
 
     public Consumer<DexType> addDependencyAllowSyntheticRoot(SyntheticItems syntheticItems) {
       return type -> {
-        assert !roots.contains(type) || syntheticItems.isCommittedSynthetic(type);
+        assert !roots.contains(type)
+            || syntheticItems.isCommittedSynthetic(type)
+            || syntheticItems.isFinalizedSynthetic(type);
         addDependencyIfNotRoot(type);
       };
     }

@@ -29,6 +29,7 @@ public class CommittedItems implements SyntheticDefinitionsProvider {
   final DexApplication application;
   final SyntheticItems.State state;
   final CommittedSyntheticsCollection committed;
+  final CommittedSyntheticsCollection finalized;
   final ImmutableList<DexType> committedProgramTypes;
   final GlobalSyntheticsStrategy globalSyntheticsStrategy;
 
@@ -36,11 +37,13 @@ public class CommittedItems implements SyntheticDefinitionsProvider {
       State state,
       DexApplication application,
       CommittedSyntheticsCollection committed,
+      CommittedSyntheticsCollection finalized,
       ImmutableList<DexType> committedProgramTypes,
       GlobalSyntheticsStrategy globalSyntheticsStrategy) {
     this.state = state;
     this.application = application;
     this.committed = committed;
+    this.finalized = finalized;
     this.committedProgramTypes = committedProgramTypes;
     this.globalSyntheticsStrategy = globalSyntheticsStrategy;
     assert committed.verifyTypesAreInApp(application);

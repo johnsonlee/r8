@@ -24,6 +24,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /**
@@ -32,7 +33,7 @@ import java.util.function.Consumer;
  * <p>This structure is to make it easier to pass the items from SyntheticItems to CommittedItems
  * and back while also providing a builder for updating the committed synthetics.
  */
-class CommittedSyntheticsCollection {
+public class CommittedSyntheticsCollection {
 
   static class Builder {
     private final CommittedSyntheticsCollection parent;
@@ -179,6 +180,37 @@ class CommittedSyntheticsCollection {
     assert verifySyntheticInputsSubsetOfSynthetics();
   }
 
+  public CommittedSyntheticsCollection merge(
+      ImmutableMap<DexType, List<SyntheticMethodReference>> methods,
+      ImmutableMap<DexType, List<SyntheticProgramClassReference>> classes,
+      ImmutableMap<DexType, Set<DexType>> globalContexts,
+      ImmutableSet<DexType> syntheticInputs) {
+    if (isEmpty()) {
+      return new CommittedSyntheticsCollection(methods, classes, globalContexts, syntheticInputs);
+    }
+    return new CommittedSyntheticsCollection(
+        ImmutableMap.<DexType, List<SyntheticMethodReference>>builderWithExpectedSize(
+                this.methods.size() + methods.size())
+            .putAll(this.methods)
+            .putAll(methods)
+            .build(),
+        ImmutableMap.<DexType, List<SyntheticProgramClassReference>>builderWithExpectedSize(
+                this.classes.size() + classes.size())
+            .putAll(this.classes)
+            .putAll(classes)
+            .build(),
+        ImmutableMap.<DexType, Set<DexType>>builderWithExpectedSize(
+                this.globalContexts.size() + globalContexts.size())
+            .putAll(this.globalContexts)
+            .putAll(globalContexts)
+            .build(),
+        ImmutableSet.<DexType>builderWithExpectedSize(
+                this.syntheticInputs.size() + syntheticInputs.size())
+            .addAll(this.syntheticInputs)
+            .addAll(syntheticInputs)
+            .build());
+  }
+
   private boolean verifySyntheticInputsSubsetOfSynthetics() {
     Set<DexType> synthetics =
         ImmutableSet.<DexType>builder().addAll(methods.keySet()).addAll(classes.keySet()).build();
@@ -236,6 +268,32 @@ class CommittedSyntheticsCollection {
     return syntheticInputs.contains(type);
   }
 
+  public void forEachClass(BiConsumer<DexType, List<SyntheticProgramClassReference>> consumer) {
+    classes.forEach(consumer);
+  }
+
+  public void forEachClassFlattened(BiConsumer<DexType, SyntheticProgramClassReference> consumer) {
+    classes.forEach(
+        (type, references) -> {
+          for (SyntheticProgramClassReference reference : references) {
+            consumer.accept(type, reference);
+          }
+        });
+  }
+
+  public void forEachMethod(BiConsumer<DexType, List<SyntheticMethodReference>> consumer) {
+    methods.forEach(consumer);
+  }
+
+  public void forEachMethodFlattened(BiConsumer<DexType, SyntheticMethodReference> consumer) {
+    methods.forEach(
+        (type, references) -> {
+          for (SyntheticMethodReference reference : references) {
+            consumer.accept(type, reference);
+          }
+        });
+  }
+
   public Set<DexType> getContextsForGlobal(DexType globalSynthetic) {
     return globalContexts.get(globalSynthetic);
   }
@@ -267,7 +325,7 @@ class CommittedSyntheticsCollection {
   }
 
   CommittedSyntheticsCollection pruneItems(PrunedItems prunedItems) {
-    Set<DexType> removed = prunedItems.getNoLongerSyntheticItems();
+    Set<DexType> removed = prunedItems.getRemovedClasses();
     if (removed.isEmpty()) {
       return this;
     }
@@ -296,8 +354,6 @@ class CommittedSyntheticsCollection {
     }
     // Global synthetic contexts are only collected for per-file modes which only prune synthetic
     // items, not inputs.
-    assert globalContexts.isEmpty()
-        || prunedItems.getNoLongerSyntheticItems().size() == prunedItems.getRemovedClasses().size();
     return changed ? builder.build() : this;
   }
 

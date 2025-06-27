@@ -86,6 +86,8 @@ public class SyntheticNaming {
   public final SyntheticKind OBJECT_CLONE_OUTLINE = generator.forSingleMethod("ObjectCloneOutline");
   public final SyntheticKind TO_STRING_IF_NOT_NULL =
       generator.forSingleMethodWithGlobalMerging("ToStringIfNotNull");
+  public final SyntheticKind THROW_CCE_IF_NOT_EQUALS =
+      generator.forSingleMethodWithGlobalMerging("ThrowCCEIfNotEquals");
   public final SyntheticKind THROW_CCE_IF_NOT_NULL =
       generator.forSingleMethodWithGlobalMerging("ThrowCCEIfNotNull");
   public final SyntheticKind NON_NULL = generator.forSingleMethodWithGlobalMerging("NonNull");

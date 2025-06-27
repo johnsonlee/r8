@@ -17,7 +17,7 @@ import java.util.function.Consumer;
  *
  * <p>This class is internal to the synthetic items collection, thus package-protected.
  */
-class SyntheticMethodDefinition
+public class SyntheticMethodDefinition
     extends SyntheticDefinition<
         SyntheticMethodReference, SyntheticMethodDefinition, DexProgramClass>
     implements SyntheticProgramDefinition {

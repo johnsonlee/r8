@@ -160,10 +160,15 @@ public class SyntheticFinalization {
 
   private final SyntheticItems synthetics;
   private final CommittedSyntheticsCollection committed;
+  private final CommittedSyntheticsCollection finalized;
 
-  SyntheticFinalization(SyntheticItems synthetics, CommittedSyntheticsCollection committed) {
+  SyntheticFinalization(
+      SyntheticItems synthetics,
+      CommittedSyntheticsCollection committed,
+      CommittedSyntheticsCollection finalized) {
     this.synthetics = synthetics;
     this.committed = committed;
+    this.finalized = finalized;
   }
 
   public static void finalize(
@@ -286,11 +291,9 @@ public class SyntheticFinalization {
         new CommittedItems(
             State.FINALIZED,
             application,
-            new CommittedSyntheticsCollection(
-                finalMethods,
-                finalClasses,
-                committed.getGlobalContexts(),
-                finalInputSynthetics),
+            CommittedSyntheticsCollection.empty(),
+            finalized.merge(
+                finalMethods, finalClasses, committed.getGlobalContexts(), finalInputSynthetics),
             ImmutableList.of(),
             synthetics.getGlobalSyntheticsStrategy()),
         syntheticFinalizationGraphLens,

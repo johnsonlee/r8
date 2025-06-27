@@ -21,7 +21,6 @@ public class PrunedItems {
   private final DexApplication prunedApp;
   private final Set<DexReference> additionalPinnedItems;
   private final Map<DexMethod, ProgramMethod> fullyInlinedMethods;
-  private final Set<DexType> noLongerSyntheticItems;
   private final Set<DexType> removedClasses;
   private final Set<DexField> removedFields;
   private final Set<DexMethod> removedMethods;
@@ -30,14 +29,12 @@ public class PrunedItems {
       DexApplication prunedApp,
       Set<DexReference> additionalPinnedItems,
       Map<DexMethod, ProgramMethod> fullyInlinedMethods,
-      Set<DexType> noLongerSyntheticItems,
       Set<DexType> removedClasses,
       Set<DexField> removedFields,
       Set<DexMethod> removedMethods) {
     this.prunedApp = prunedApp;
     this.additionalPinnedItems = additionalPinnedItems;
     this.fullyInlinedMethods = fullyInlinedMethods;
-    this.noLongerSyntheticItems = noLongerSyntheticItems;
     this.removedClasses = removedClasses;
     this.removedFields = removedFields;
     this.removedMethods = removedMethods;
@@ -62,7 +59,6 @@ public class PrunedItems {
   public boolean isEmpty() {
     return additionalPinnedItems.isEmpty()
         && fullyInlinedMethods.isEmpty()
-        && noLongerSyntheticItems.isEmpty()
         && removedClasses.isEmpty()
         && removedFields.isEmpty()
         && removedMethods.isEmpty();
@@ -105,10 +101,6 @@ public class PrunedItems {
     return fullyInlinedMethods;
   }
 
-  public Set<DexType> getNoLongerSyntheticItems() {
-    return noLongerSyntheticItems;
-  }
-
   public boolean hasRemovedClasses() {
     return !removedClasses.isEmpty();
   }
@@ -143,7 +135,6 @@ public class PrunedItems {
 
     private final Set<DexReference> additionalPinnedItems;
     private Map<DexMethod, ProgramMethod> fullyInlinedMethods;
-    private final Set<DexType> noLongerSyntheticItems;
     private Set<DexType> removedClasses;
     private final Set<DexField> removedFields;
     private Set<DexMethod> removedMethods;
@@ -151,7 +142,6 @@ public class PrunedItems {
     Builder() {
       additionalPinnedItems = newEmptySet();
       fullyInlinedMethods = newEmptyMap();
-      noLongerSyntheticItems = newEmptySet();
       removedClasses = newEmptySet();
       removedFields = newEmptySet();
       removedMethods = newEmptySet();
@@ -161,7 +151,6 @@ public class PrunedItems {
       this();
       assert prunedItems.getFullyInlinedMethods().isEmpty();
       additionalPinnedItems.addAll(prunedItems.getAdditionalPinnedItems());
-      noLongerSyntheticItems.addAll(prunedItems.getNoLongerSyntheticItems());
       prunedApp = prunedItems.getPrunedApp();
       removedClasses.addAll(prunedItems.getRemovedClasses());
       removedFields.addAll(prunedItems.getRemovedFields());
@@ -202,19 +191,12 @@ public class PrunedItems {
       fullyInlinedMethods.clear();
     }
 
-    public Builder addNoLongerSyntheticItems(Set<DexType> noLongerSyntheticItems) {
-      this.noLongerSyntheticItems.addAll(noLongerSyntheticItems);
-      return this;
-    }
-
     public Builder addRemovedClass(DexType removedClass) {
-      this.noLongerSyntheticItems.add(removedClass);
       this.removedClasses.add(removedClass);
       return this;
     }
 
     public Builder addRemovedClasses(Set<DexType> removedClasses) {
-      this.noLongerSyntheticItems.addAll(removedClasses);
       this.removedClasses.addAll(removedClasses);
       return this;
     }
@@ -265,7 +247,6 @@ public class PrunedItems {
           prunedApp,
           additionalPinnedItems,
           fullyInlinedMethods,
-          noLongerSyntheticItems,
           removedClasses,
           removedFields,
           removedMethods);

@@ -18,7 +18,7 @@ import java.util.function.Function;
  *
  * <p>This class is internal to the synthetic items collection, thus package-protected.
  */
-class SyntheticMethodReference
+public class SyntheticMethodReference
     extends SyntheticReference<SyntheticMethodReference, SyntheticMethodDefinition, DexProgramClass>
     implements SyntheticProgramReference, Rewritable<SyntheticMethodReference> {
   final DexMethod method;
@@ -39,7 +39,7 @@ class SyntheticMethodReference
   }
 
   @Override
-  SyntheticMethodDefinition lookupDefinition(Function<DexType, DexClass> definitions) {
+  public SyntheticMethodDefinition lookupDefinition(Function<DexType, DexClass> definitions) {
     DexClass clazz = definitions.apply(method.holder);
     if (clazz == null) {
       return null;
