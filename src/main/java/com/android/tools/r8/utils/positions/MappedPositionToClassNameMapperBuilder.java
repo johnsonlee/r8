@@ -220,7 +220,7 @@ public class MappedPositionToClassNameMapperBuilder {
     public MappedPositionToClassNamingBuilder addMappedPositions(
         ProgramMethod method,
         List<MappedPosition> mappedPositions,
-        ClassPositionRemapper positionRemapper,
+        MethodPositionRemapper positionRemapper,
         boolean canUseDexPc) {
       DexEncodedMethod definition = method.getDefinition();
       DexMethod residualMethod =

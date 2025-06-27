@@ -9,6 +9,7 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexCode;
 import com.android.tools.r8.graph.DexDebugInfo;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.utils.timing.Timing;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -19,10 +20,11 @@ public interface PositionToMappedRangeMapper {
 
   List<MappedPosition> getMappedPositions(
       ProgramMethod method,
-      ClassPositionRemapper positionRemapper,
+      MethodPositionRemapper positionRemapper,
       boolean hasOverloads,
       boolean canUseDexPc,
-      int pcEncodingCutoff);
+      int pcEncodingCutoff,
+      Timing timing);
 
   void updateDebugInfoInCodeObjects();
 
@@ -51,13 +53,15 @@ public interface PositionToMappedRangeMapper {
     @Override
     public List<MappedPosition> getMappedPositions(
         ProgramMethod method,
-        ClassPositionRemapper positionRemapper,
+        MethodPositionRemapper positionRemapper,
         boolean hasOverloads,
         boolean canUseDexPc,
-        int pcEncodingCutoff) {
+        int pcEncodingCutoff,
+        Timing timing) {
       return canUseDexPc
-          ? pcMapper.optimizeDexCodePositionsForPc(method, positionRemapper, pcEncodingCutoff)
-          : noPcMapper.optimizeDexCodePositions(method, positionRemapper);
+          ? pcMapper.optimizeDexCodePositionsForPc(
+              method, positionRemapper, pcEncodingCutoff, timing)
+          : noPcMapper.optimizeDexCodePositions(method, positionRemapper, timing);
     }
 
     @Override

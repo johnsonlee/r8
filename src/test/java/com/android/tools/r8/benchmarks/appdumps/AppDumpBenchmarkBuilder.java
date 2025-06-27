@@ -329,7 +329,7 @@ public class AppDumpBenchmarkBuilder {
       ThrowableConsumer<? super R8FullTestBuilder> configuration) {
     return environment ->
         BenchmarkBase.runner(environment)
-            .setWarmupIterations(builder.warmupIterations)
+            .setWarmupIterations(0)
             .run(
                 results -> {
                   CompilerDump dump = builder.getExtractedDump(environment);
