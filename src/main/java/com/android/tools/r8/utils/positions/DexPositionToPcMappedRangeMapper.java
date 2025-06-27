@@ -34,7 +34,7 @@ public class DexPositionToPcMappedRangeMapper {
   }
 
   public List<MappedPosition> optimizeDexCodePositionsForPc(
-      ProgramMethod method, PositionRemapper positionRemapper, int pcEncodingCutoff) {
+      ProgramMethod method, ClassPositionRemapper positionRemapper, int pcEncodingCutoff) {
     List<MappedPosition> mappedPositions = new ArrayList<>();
     // Do the actual processing for each method.
     DexCode dexCode = method.getDefinition().getCode().asDexCode();
@@ -96,7 +96,7 @@ public class DexPositionToPcMappedRangeMapper {
       int startPc,
       int endPc,
       Position position,
-      PositionRemapper remapper,
+      ClassPositionRemapper remapper,
       List<MappedPosition> mappedPositions) {
     Pair<Position, Position> remappedPosition = remapper.createRemappedPosition(position);
     Position oldPosition = remappedPosition.getFirst();

@@ -19,7 +19,7 @@ public interface PositionToMappedRangeMapper {
 
   List<MappedPosition> getMappedPositions(
       ProgramMethod method,
-      PositionRemapper positionRemapper,
+      ClassPositionRemapper positionRemapper,
       boolean hasOverloads,
       boolean canUseDexPc,
       int pcEncodingCutoff);
@@ -51,7 +51,7 @@ public interface PositionToMappedRangeMapper {
     @Override
     public List<MappedPosition> getMappedPositions(
         ProgramMethod method,
-        PositionRemapper positionRemapper,
+        ClassPositionRemapper positionRemapper,
         boolean hasOverloads,
         boolean canUseDexPc,
         int pcEncodingCutoff) {

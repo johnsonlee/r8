@@ -1,7 +1,6 @@
-// Copyright (c) 2022, the R8 project authors. Please see the AUTHORS file
+// Copyright (c) 2025, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-
 package com.android.tools.r8.utils.positions;
 
 import com.android.tools.r8.ResourceException;
@@ -27,14 +26,14 @@ import java.util.Map.Entry;
 
 // PositionRemapper is a stateful function which takes a position (represented by a
 // DexDebugPositionState) and returns a remapped Position.
-public interface PositionRemapper {
+public interface ClassPositionRemapper {
 
   Pair<Position, Position> createRemappedPosition(Position position);
 
-  static PositionRemapper getPositionRemapper(
+  static ClassPositionRemapper getPositionRemapper(
       AppView<?> appView, CfLineToMethodMapper cfLineToMethodMapper) {
     boolean identityMapping = appView.options().lineNumberOptimization.isOff();
-    PositionRemapper positionRemapper =
+    ClassPositionRemapper positionRemapper =
         identityMapping
             ? new IdentityPositionRemapper()
             : new OptimizingPositionRemapper(appView.options());
@@ -48,7 +47,7 @@ public interface PositionRemapper {
 
   void setCurrentMethod(DexEncodedMethod definition);
 
-  class IdentityPositionRemapper implements PositionRemapper {
+  class IdentityPositionRemapper implements ClassPositionRemapper {
 
     @Override
     public Pair<Position, Position> createRemappedPosition(Position position) {
@@ -63,7 +62,7 @@ public interface PositionRemapper {
     }
   }
 
-  class OptimizingPositionRemapper implements PositionRemapper {
+  class OptimizingPositionRemapper implements ClassPositionRemapper {
     private final int maxLineDelta;
     private DexMethod previousMethod = null;
     private int previousSourceLine = -1;
@@ -104,13 +103,13 @@ public interface PositionRemapper {
     }
   }
 
-  class KotlinInlineFunctionPositionRemapper implements PositionRemapper {
+  class KotlinInlineFunctionPositionRemapper implements ClassPositionRemapper {
 
     private final AppView<?> appView;
     private final DexItemFactory factory;
     private final Map<DexType, Result> parsedKotlinSourceDebugExtensions = new IdentityHashMap<>();
     private final CfLineToMethodMapper lineToMethodMapper;
-    private final PositionRemapper baseRemapper;
+    private final ClassPositionRemapper baseRemapper;
 
     // Fields for the current context.
     private DexEncodedMethod currentMethod;
@@ -118,7 +117,7 @@ public interface PositionRemapper {
 
     private KotlinInlineFunctionPositionRemapper(
         AppView<?> appView,
-        PositionRemapper baseRemapper,
+        ClassPositionRemapper baseRemapper,
         CfLineToMethodMapper lineToMethodMapper) {
       this.appView = appView;
       this.factory = appView.dexItemFactory();

@@ -30,7 +30,7 @@ public class ClassFilePositionToMappedRangeMapper implements PositionToMappedRan
   @Override
   public List<MappedPosition> getMappedPositions(
       ProgramMethod method,
-      PositionRemapper positionRemapper,
+      ClassPositionRemapper positionRemapper,
       boolean hasOverloads,
       boolean canUseDexPc,
       int pcEncodingCutoff) {
@@ -45,7 +45,7 @@ public class ClassFilePositionToMappedRangeMapper implements PositionToMappedRan
   }
 
   private List<MappedPosition> getMappedPositionsRemapped(
-      ProgramMethod method, PositionRemapper positionRemapper, boolean hasOverloads) {
+      ProgramMethod method, ClassPositionRemapper positionRemapper, boolean hasOverloads) {
     List<MappedPosition> mappedPositions = new ArrayList<>();
     // Do the actual processing for each method.
     CfCode oldCode = method.getDefinition().getCode().asCfCode();
@@ -101,7 +101,7 @@ public class ClassFilePositionToMappedRangeMapper implements PositionToMappedRan
 
   @SuppressWarnings("UnusedVariable")
   private List<MappedPosition> getPcEncodedPositions(
-      ProgramMethod method, PositionRemapper positionRemapper) {
+      ProgramMethod method, ClassPositionRemapper positionRemapper) {
     List<MappedPosition> mappedPositions = new ArrayList<>();
     // Do the actual processing for each method.
     CfCode oldCode = method.getDefinition().getCode().asCfCode();

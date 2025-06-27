@@ -185,8 +185,8 @@ public class LineNumberOptimizer {
         assert verifyMethodsAreKeptDirectlyOrIndirectly(appView, methods);
       }
 
-      PositionRemapper positionRemapper =
-          PositionRemapper.getPositionRemapper(appView, cfLineToMethodMapper);
+      ClassPositionRemapper positionRemapper =
+          ClassPositionRemapper.getPositionRemapper(appView, cfLineToMethodMapper);
 
       timing.begin("Process methods");
       for (ProgramMethod method : methods) {
@@ -211,7 +211,7 @@ public class LineNumberOptimizer {
       MappedPositionToClassNamingBuilder classNamingBuilder,
       DexString methodName,
       List<ProgramMethod> methods,
-      PositionRemapper positionRemapper,
+      ClassPositionRemapper positionRemapper,
       PositionToMappedRangeMapper positionToMappedRangeMapper,
       DebugRepresentationPredicate representation,
       Timing timing) {
