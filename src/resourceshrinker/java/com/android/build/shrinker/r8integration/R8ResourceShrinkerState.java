@@ -66,6 +66,7 @@ public class R8ResourceShrinkerState {
   private final Map<String, Supplier<InputStream>> resfileProviders = new HashMap<>();
   private final Map<FeatureSplit, ResourceTable> resourceTables = new HashMap<>();
   private final ShrinkerDebugReporter shrinkerDebugReporter;
+  private final boolean enableXmlInlining;
   private ClassReferenceCallback enqueuerCallback;
   private MethodReferenceCallback methodCallback;
   private Map<Integer, Set<String>> resourceIdToXmlFiles;
@@ -99,10 +100,12 @@ public class R8ResourceShrinkerState {
 
   public R8ResourceShrinkerState(
       Function<Exception, RuntimeException> errorHandler,
-      ShrinkerDebugReporter shrinkerDebugReporter) {
+      ShrinkerDebugReporter shrinkerDebugReporter,
+      boolean enableXmlInlining) {
     r8ResourceShrinkerModel = new R8ResourceShrinkerModel(shrinkerDebugReporter, true);
     this.shrinkerDebugReporter = shrinkerDebugReporter;
     this.errorHandler = errorHandler;
+    this.enableXmlInlining = enableXmlInlining;
   }
 
   public void trace(int id, String reachableFrom) {
@@ -344,6 +347,9 @@ public class R8ResourceShrinkerState {
 
   private boolean tryInlineValues(
       XmlNode.Builder xmlNodeBuilder, Consumer<IntSet> inlinedIdsConsumer) {
+    if (!enableXmlInlining) {
+      return false;
+    }
     XmlElement.Builder elementBuilder = xmlNodeBuilder.getElementBuilder();
     IntSet inlinedIds = null;
     for (XmlAttribute.Builder attributeBuilder : elementBuilder.getAttributeBuilderList()) {

@@ -85,6 +85,10 @@ public class ColorInliningTest extends TestBase {
             AndroidResourceTestingUtils.transformResourcesReferences(FooBar.class))
         .addAndroidResources(testResources)
         .addKeepMainRule(FooBar.class)
+        .applyIf(
+            parameters.getPartialCompilationTestParameters().isSome(),
+            rr -> rr.addR8PartialR8OptionsModification(o -> o.enableXmlInlining = true),
+            rr -> rr.addOptionsModification(o -> o.enableXmlInlining = true))
         .applyIf(optimize, R8TestBuilder::enableOptimizedShrinking)
         .applyIf(
             addResourcesSubclass,
