@@ -61,7 +61,7 @@ public class LineNumberOptimizer {
     // used. We still run the line number optimizer to collect line numbers and inline frame
     // information for the mapping file.
     timing.begin("Line number remapping");
-    ClassNameMapper mapper = run(appView, inputApp, originalSourceFiles, representation);
+    ClassNameMapper mapper = run(appView, inputApp, originalSourceFiles, representation, timing);
     timing.end();
     if (appView.options().mappingComposeOptions().generatedClassNameMapperConsumer != null) {
       appView.options().mappingComposeOptions().generatedClassNameMapperConsumer.accept(mapper);
@@ -104,7 +104,8 @@ public class LineNumberOptimizer {
       AppView<?> appView,
       AndroidApp inputApp,
       OriginalSourceFiles originalSourceFiles,
-      DebugRepresentationPredicate representation) {
+      DebugRepresentationPredicate representation,
+      Timing timing) {
     // For finding methods in kotlin files based on SourceDebugExtensions, we use a line method map.
     // We create it here to ensure it is only reading class files once.
     // TODO(b/220999985): Make this threaded per virtual file. Possibly pull the kotlin line mapping
@@ -118,6 +119,7 @@ public class LineNumberOptimizer {
         MappedPositionToClassNameMapperBuilder.builder(appView, originalSourceFiles);
 
     // Collect which files contain which classes that need to have their line numbers optimized.
+    timing.begin("Process classes");
     for (DexProgramClass clazz : appView.appInfo().classes()) {
       if (shouldRun(clazz, appView)) {
         runForClass(
@@ -126,12 +128,16 @@ public class LineNumberOptimizer {
             representation,
             builder,
             cfLineToMethodMapper,
-            positionToMappedRangeMapper);
+            positionToMappedRangeMapper,
+            timing);
       }
     }
+    timing.end();
 
     // Update all the debug-info objects.
+    timing.begin("Update debug info in code objects");
     positionToMappedRangeMapper.updateDebugInfoInCodeObjects();
+    timing.end();
 
     return builder.build();
   }
@@ -151,7 +157,9 @@ public class LineNumberOptimizer {
       DebugRepresentationPredicate representation,
       MappedPositionToClassNameMapperBuilder builder,
       CfLineToMethodMapper cfLineToMethodMapper,
-      PositionToMappedRangeMapper positionToMappedRangeMapper) {
+      PositionToMappedRangeMapper positionToMappedRangeMapper,
+      Timing timing) {
+    timing.begin("Prelude");
     IdentityHashMap<DexString, List<ProgramMethod>> methodsByRenamedName =
         groupMethodsByRenamedName(appView, clazz);
 
@@ -160,6 +168,8 @@ public class LineNumberOptimizer {
     // Process methods ordered by renamed name.
     List<DexString> renamedMethodNames = new ArrayList<>(methodsByRenamedName.keySet());
     renamedMethodNames.sort(DexString::compareTo);
+    timing.end();
+
     for (DexString methodName : renamedMethodNames) {
       List<ProgramMethod> methods = methodsByRenamedName.get(methodName);
       if (methods.size() > 1) {
@@ -178,33 +188,59 @@ public class LineNumberOptimizer {
       PositionRemapper positionRemapper =
           PositionRemapper.getPositionRemapper(appView, cfLineToMethodMapper);
 
+      timing.begin("Process methods");
       for (ProgramMethod method : methods) {
-        DexEncodedMethod definition = method.getDefinition();
-        if (method.getName().isIdenticalTo(methodName)
-            && !mustHaveResidualDebugInfo(appView.options(), definition)
-            && !definition.isD8R8Synthesized()
-            && methods.size() <= 1) {
-          continue;
-        }
-        positionRemapper.setCurrentMethod(definition);
-        List<MappedPosition> mappedPositions;
-        int pcEncodingCutoff =
-            methods.size() == 1 ? representation.getDexPcEncodingCutoff(method) : -1;
-        boolean canUseDexPc = pcEncodingCutoff > 0;
-        if (definition.getCode() != null
-            && (definition.getCode().isCfCode() || definition.getCode().isDexCode())
-            && !appView.isCfByteCodePassThrough(method)) {
-          mappedPositions =
-              positionToMappedRangeMapper.getMappedPositions(
-                  method, positionRemapper, methods.size() > 1, canUseDexPc, pcEncodingCutoff);
-        } else {
-          mappedPositions = new ArrayList<>();
-        }
-
-        classNamingBuilder.addMappedPositions(
-            method, mappedPositions, positionRemapper, canUseDexPc);
-      } // for each method of the group
+        runForMethod(
+            method,
+            appView,
+            classNamingBuilder,
+            methodName,
+            methods,
+            positionRemapper,
+            positionToMappedRangeMapper,
+            representation,
+            timing);
+      }
+      timing.end();
     } // for each method group, grouped by name
+  }
+
+  private static void runForMethod(
+      ProgramMethod method,
+      AppView<?> appView,
+      MappedPositionToClassNamingBuilder classNamingBuilder,
+      DexString methodName,
+      List<ProgramMethod> methods,
+      PositionRemapper positionRemapper,
+      PositionToMappedRangeMapper positionToMappedRangeMapper,
+      DebugRepresentationPredicate representation,
+      Timing timing) {
+    DexEncodedMethod definition = method.getDefinition();
+    if (method.getName().isIdenticalTo(methodName)
+        && !mustHaveResidualDebugInfo(appView.options(), definition)
+        && !definition.isD8R8Synthesized()
+        && methods.size() <= 1) {
+      return;
+    }
+    positionRemapper.setCurrentMethod(definition);
+    List<MappedPosition> mappedPositions;
+    int pcEncodingCutoff = methods.size() == 1 ? representation.getDexPcEncodingCutoff(method) : -1;
+    boolean canUseDexPc = pcEncodingCutoff > 0;
+    if (definition.getCode() != null
+        && (definition.getCode().isCfCode() || definition.getCode().isDexCode())
+        && !appView.isCfByteCodePassThrough(method)) {
+      timing.begin("Get mapped positions");
+      mappedPositions =
+          positionToMappedRangeMapper.getMappedPositions(
+              method, positionRemapper, methods.size() > 1, canUseDexPc, pcEncodingCutoff);
+      timing.end();
+    } else {
+      mappedPositions = new ArrayList<>();
+    }
+
+    timing.begin("Add mapped positions");
+    classNamingBuilder.addMappedPositions(method, mappedPositions, positionRemapper, canUseDexPc);
+    timing.end();
   }
 
   @SuppressWarnings("ComplexBooleanConstant")
@@ -283,14 +319,12 @@ public class LineNumberOptimizer {
         });
   }
 
-  @SuppressWarnings("UnusedVariable")
   public static IdentityHashMap<DexString, List<ProgramMethod>> groupMethodsByRenamedName(
       AppView<?> appView, DexProgramClass clazz) {
     IdentityHashMap<DexString, List<ProgramMethod>> methodsByRenamedName =
         new IdentityHashMap<>(clazz.getMethodCollection().size());
     for (ProgramMethod programMethod : clazz.programMethods()) {
       // Add method only if renamed, moved, or if it has debug info to map.
-      DexEncodedMethod definition = programMethod.getDefinition();
       DexMethod method = programMethod.getReference();
       DexString renamedName = appView.getNamingLens().lookupName(method);
       methodsByRenamedName
