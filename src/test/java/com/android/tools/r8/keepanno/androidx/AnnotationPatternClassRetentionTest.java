@@ -14,6 +14,7 @@ import androidx.annotation.keep.KeepItemKind;
 import androidx.annotation.keep.KeepTarget;
 import androidx.annotation.keep.UsedByReflection;
 import androidx.annotation.keep.UsesReflection;
+import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
 import com.android.tools.r8.keepanno.KeepAnnoParameters;
 import com.android.tools.r8.keepanno.KeepAnnoTestBase;
 import com.android.tools.r8.utils.StringUtils;
@@ -48,6 +49,12 @@ public class AnnotationPatternClassRetentionTest extends KeepAnnoTestBase {
   public void test() throws Exception {
     testForKeepAnnoAndroidX(parameters)
         .addProgramClasses(getInputClasses())
+        .applyIfPG(
+            b ->
+                b.addProgramFiles(
+                    ImmutableList.of(
+                        KotlinCompilerVersion.latest().getCompiler().getKotlinStdlibJar(),
+                        KotlinCompilerVersion.latest().getCompiler().getKotlinAnnotationJar())))
         .setExcludedOuterClass(getClass())
         .run(TestClass.class)
         .assertSuccessWithOutput(EXPECTED)

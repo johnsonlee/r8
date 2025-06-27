@@ -626,7 +626,7 @@ public abstract class KeepAnnoTestBuilder {
     private final ProguardTestBuilder builder;
     private final List<Consumer<List<String>>> configConsumers = new ArrayList<>();
     private final List<Consumer<List<String>>> extractedRulesConsumers = new ArrayList<>();
-    private final List<String> extractedRules = new ArrayList();
+    private final List<String> extractedRules = new ArrayList<>();
 
     public PGBuilder(
         KeepAnnoParameters params,
@@ -638,11 +638,7 @@ public abstract class KeepAnnoTestBuilder {
       builder =
           TestBase.testForProguard(KeepAnnoTestUtils.PG_VERSION, temp)
               .applyIf(
-                  keepAnnotationLibrary == ANDROIDX,
-                  b ->
-                      b.addDefaultRuntimeLibrary(parameters())
-                          .addLibraryFiles(
-                              kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar()))
+                  keepAnnotationLibrary == ANDROIDX, b -> b.addDefaultRuntimeLibrary(parameters()))
               .addProgramFiles(KeepAnnoTestUtils.getKeepAnnoLib(temp, keepAnnotationLibrary))
               .setMinApi(parameters());
     }
