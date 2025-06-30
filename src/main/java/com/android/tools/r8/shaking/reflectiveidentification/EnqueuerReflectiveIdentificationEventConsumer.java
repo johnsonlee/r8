@@ -58,9 +58,9 @@ public class EnqueuerReflectiveIdentificationEventConsumer
       // To ensure we are not moving the class because we cannot prune it when there is a reflective
       // use of it.
       if (enqueuer.getKeepInfo().getClassInfo(programClass).isShrinkingAllowed(options)) {
-        enqueuer
-            .getKeepInfo()
-            .joinClass(programClass, joiner -> joiner.disallowOptimization().disallowShrinking());
+        enqueuer.mutateKeepInfo(
+            programClass,
+            (k, c) -> k.joinClass(c, joiner -> joiner.disallowOptimization().disallowShrinking()));
       }
     } else {
       enqueuer.recordNonProgramClassWithNoMissingReporting(clazz, context);
@@ -122,19 +122,19 @@ public class EnqueuerReflectiveIdentificationEventConsumer
 
       // Keep this interface to ensure that we do not merge the interface into its unique subtype,
       // or merge other interfaces into it horizontally.
-      enqueuer
-          .getKeepInfo()
-          .joinClass(clazz, joiner -> joiner.disallowOptimization().disallowShrinking());
+      enqueuer.mutateKeepInfo(
+          clazz,
+          (k, c) -> k.joinClass(c, joiner -> joiner.disallowOptimization().disallowShrinking()));
 
       // Also keep all of its virtual methods to ensure that the devirtualizer does not perform
       // illegal rewritings of invoke-interface instructions into invoke-virtual instructions.
       if (enqueuer.getMode().isInitialTreeShaking()) {
         clazz.forEachProgramVirtualMethod(
             virtualMethod -> {
-              enqueuer
-                  .getKeepInfo()
-                  .joinMethod(
-                      virtualMethod, joiner -> joiner.disallowOptimization().disallowShrinking());
+              enqueuer.mutateKeepInfo(
+                  virtualMethod,
+                  (k, m) ->
+                      k.joinMethod(m, joiner -> joiner.disallowOptimization().disallowShrinking()));
               enqueuer.markVirtualMethodAsReachable(
                   virtualMethod.getReference(), true, context, reason);
             });

@@ -145,6 +145,7 @@ import com.android.tools.r8.synthesis.SyntheticItems.SynthesizingContextOracle;
 import com.android.tools.r8.utils.Action;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.Box;
+import com.android.tools.r8.utils.CollectionUtils;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.IteratorUtils;
@@ -167,6 +168,7 @@ import it.unimi.dsi.fastutil.objects.Object2BooleanArrayMap;
 import it.unimi.dsi.fastutil.objects.Object2BooleanMap;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
@@ -250,6 +252,7 @@ public class Enqueuer {
   private AppInfoWithClassHierarchy appInfo;
   private final AppView<AppInfoWithClassHierarchy> appView;
   private final EnqueuerDeferredTracing deferredTracing;
+  private final EnqueuerDeferredAnnotationTracing deferredAnnotationTracing;
   private final ExecutorService executorService;
   private ImmediateAppSubtypingInfo subtypingInfo;
   private final InternalOptions options;
@@ -391,7 +394,7 @@ public class Enqueuer {
   private final Map<DexProgramClass, Map<ResolutionSearchKey, ProgramMethodSet>>
       reachableVirtualTargets = new IdentityHashMap<>();
 
-  /** Collection of keep requirements for the program. */
+  /** Collection of keep requirements for the program. Must only be accessed through its getters. */
   private final MutableKeepInfoCollection keepInfo;
 
   /**
@@ -418,23 +421,6 @@ public class Enqueuer {
    * static field.
    */
   private final Set<DexMethod> recordFieldValuesReferences = Sets.newIdentityHashSet();
-
-  /** Set of annotations that are live (needed for deferred (re)processing). */
-  private final Set<DexType> liveAnnotations = Sets.newIdentityHashSet();
-
-  /**
-   * A map from annotation classes to annotations that need to be processed should the classes ever
-   * become live.
-   */
-  private final Map<DexType, Map<DexAnnotation, List<ProgramDefinition>>> deferredAnnotations =
-      new IdentityHashMap<>();
-
-  /**
-   * A map from annotation classes to parameter annotations that need to be processed should the
-   * classes ever become live.
-   */
-  private final Map<DexType, Map<DexAnnotation, List<ProgramDefinition>>>
-      deferredParameterAnnotations = new IdentityHashMap<>();
 
   /**
    * A cache of ScopedDexMethodSet for each live type used for determining that virtual methods that
@@ -502,6 +488,7 @@ public class Enqueuer {
     this.mode = mode;
     this.profileCollectionAdditions = profileCollectionAdditions;
     this.deferredTracing = EnqueuerDeferredTracing.create(appView, this, mode);
+    this.deferredAnnotationTracing = new EnqueuerDeferredAnnotationTracing(this);
     this.executorService = executorService;
     this.subtypingInfo = subtypingInfo;
     this.forceProguardCompatibility = options.forceProguardCompatibility;
@@ -805,8 +792,14 @@ public class Enqueuer {
     return fieldAccessInfoCollection;
   }
 
-  public MutableKeepInfoCollection getKeepInfo() {
+  public KeepInfoCollection getKeepInfo() {
     return keepInfo;
+  }
+
+  public <T extends ProgramDefinition> void mutateKeepInfo(
+      T itemToChange, BiConsumer<MutableKeepInfoCollection, T> consumer) {
+    consumer.accept(keepInfo, itemToChange);
+    deferredAnnotationTracing.notifyKeepInfoChanged(itemToChange);
   }
 
   public KeepClassInfo getKeepInfo(DexProgramClass clazz) {
@@ -1839,6 +1832,76 @@ public class Enqueuer {
     }
   }
 
+  void traceAnnotationFieldAccess(
+      DexField fieldReference, DexAnnotation annotation, ProgramDefinition context) {
+    recordFieldReference(fieldReference, context);
+    DexProgramClass holder = getProgramHolderOrNull(fieldReference, context);
+    if (holder == null) {
+      return;
+    }
+    ProgramField field = holder.lookupProgramField(fieldReference);
+    if (field == null) {
+      return;
+    }
+    // There is no dispatch on annotations, so only keep what is directly referenced.
+    if (field.getReference().isNotIdenticalTo(fieldReference)) {
+      return;
+    }
+    KeepReason reason = KeepReason.referencedInAnnotation(annotation, context);
+    if (field.getDefinition().isStatic()) {
+      FieldAccessInfoImpl fieldAccessInfo =
+          fieldAccessInfoCollection.contains(fieldReference)
+              ? fieldAccessInfoCollection.get(fieldReference)
+              : fieldAccessInfoCollection.extend(
+                  fieldReference, new FieldAccessInfoImpl(fieldReference));
+      fieldAccessInfo.setReadFromAnnotation();
+      markFieldAsLive(field, context, reason);
+      // In a class file an enum reference in an annotation is written as enum descriptor and
+      // enum name. At runtime the JVM use valueOf on the enum class with the name to get the
+      // instance. This indirectly use the values() method on that enum class. Also keep the
+      // name of the field and the name of the enum in sync as otherwise recovering the field to
+      // name relationship requires analysis of the enum <clinit> when this CF code is processed
+      // again (e.g. as input to D8 for converting to DEX). See b/236691999 for more info.
+      if (options.isGeneratingClassFiles() && field.getHolder().isEnum()) {
+        markEnumValuesAsReachable(field.getHolder(), reason);
+        applyMinimumKeepInfoWhenLive(field, KeepFieldInfo.newEmptyJoiner().disallowMinification());
+      }
+    } else {
+      // There is no dispatch on annotations, so only keep what is directly referenced.
+      worklist.enqueueMarkFieldAsReachableAction(field, context, reason);
+    }
+  }
+
+  void traceAnnotationMethodAccess(
+      DexMethod method, DexAnnotation annotation, ProgramDefinition context) {
+    // Record the references in case they are not program types.
+    recordMethodReference(method, context);
+    DexProgramClass holder = getProgramHolderOrNull(method, context);
+    if (holder == null) {
+      return;
+    }
+    KeepReason reason = KeepReason.referencedInAnnotation(annotation, context);
+    DexEncodedMethod target = holder.lookupDirectMethod(method);
+    if (target != null) {
+      // There is no dispatch on annotations, so only keep what is directly referenced.
+      if (target.getReference().isIdenticalTo(method)) {
+        markDirectStaticOrConstructorMethodAsLive(new ProgramMethod(holder, target), reason);
+      }
+    } else {
+      target = holder.lookupVirtualMethod(method);
+      // There is no dispatch on annotations, so only keep what is directly referenced.
+      if (target != null && target.getReference().isIdenticalTo(method)) {
+        markMethodAsTargeted(new ProgramMethod(holder, target), reason);
+      }
+    }
+  }
+
+  void traceAnnotationTypeAccess(
+      DexType type, DexAnnotation annotation, ProgramDefinition context) {
+    KeepReason reason = KeepReason.referencedInAnnotation(annotation, context);
+    markTypeAsLive(type, context, reason);
+  }
+
   void traceInstanceFieldRead(
       DexField fieldReference, ProgramMethod currentMethod, FieldAccessMetadata metadata) {
     traceInstanceFieldAccess(
@@ -1962,7 +2025,7 @@ public class Enqueuer {
           appView.withGeneratedExtensionRegistryShrinker(
               shrinker ->
                   shrinker.isDeadProtoExtensionField(
-                      resolutionResult, fieldAccessInfoCollection, keepInfo),
+                      resolutionResult, fieldAccessInfoCollection, getKeepInfo()),
               false);
       if (skipTracing) {
         addDeadProtoTypeCandidate(resolutionResult.getSingleProgramField().getHolder());
@@ -2221,13 +2284,13 @@ public class Enqueuer {
     applyMinimumKeepInfo(clazz);
     applyMinimumKeepInfoDependentOn(new LiveClassEnqueuerEvent(clazz));
     if (hasAlternativeLibraryDefinition(clazz)) {
-      getKeepInfo().keepClass(clazz);
+      mutateKeepInfo(clazz, MutableKeepInfoCollection::keepClass);
     }
 
     processAnnotations(clazz);
 
     if (clazz.isAnnotation()) {
-      liveAnnotations.add(clazz.getType());
+      deferredAnnotationTracing.notifyNewlyLiveAnnotation(clazz);
     }
 
     compatEnqueueHolderIfDependentNonStaticMember(
@@ -2236,11 +2299,12 @@ public class Enqueuer {
     analyses.processNewlyLiveClass(clazz, worklist);
   }
 
-  private void processOnClickMethods() {
+  private void processOnClickMethods(Timing timing) {
     if (onClickMethodReferences.isEmpty()) {
       return;
     }
-    for (DexProgramClass item : liveTypes.items) {
+    timing.begin("Process onclick methods");
+    for (DexProgramClass item : liveTypes.getItems()) {
       for (ProgramMethod method :
           item.virtualProgramMethods(
               p ->
@@ -2248,7 +2312,7 @@ public class Enqueuer {
                       && p.getParameter(0)
                           .isIdenticalTo(appInfo.dexItemFactory().androidViewViewType)
                       && onClickMethodReferences.containsKey(p.getName()))) {
-        KeepMethodInfo methodInfo = keepInfo.getMethodInfo(method);
+        KeepMethodInfo methodInfo = getKeepInfo().getMethodInfo(method);
         if (!methodInfo.isOptimizationAllowed(options)
             && !methodInfo.isShrinkingAllowed(options)
             && !methodInfo.isMinificationAllowed(options)) {
@@ -2265,30 +2329,7 @@ public class Enqueuer {
         applyMinimumKeepInfo(method, minimumKeepInfo);
       }
     }
-  }
-
-  private void processDeferredAnnotations(
-      Map<DexType, Map<DexAnnotation, List<ProgramDefinition>>> deferredAnnotations,
-      Function<ProgramDefinition, AnnotatedKind> kindProvider) {
-    // Collect annotations to process as processing the annotation can modify liveAnnotations.
-    Set<Map<DexAnnotation, List<ProgramDefinition>>> toProcess = Sets.newIdentityHashSet();
-    for (DexType annotationType : liveAnnotations) {
-      Map<DexAnnotation, List<ProgramDefinition>> annotations =
-          deferredAnnotations.remove(annotationType);
-      if (annotations != null) {
-        assert annotations.keySet().stream()
-            .allMatch(annotation -> annotationType.isIdenticalTo(annotation.getAnnotationType()));
-        toProcess.add(annotations);
-      }
-    }
-    toProcess.forEach(
-        annotations ->
-            annotations.forEach(
-                (annotation, annotatedItems) ->
-                    annotatedItems.forEach(
-                        annotatedItem ->
-                            processAnnotation(
-                                annotatedItem, annotation, kindProvider.apply(annotatedItem)))));
+    timing.end();
   }
 
   private void ensureMethodsContinueToWidenAccess(ClassDefinition clazz) {
@@ -2412,25 +2453,36 @@ public class Enqueuer {
   void processAnnotation(
       ProgramDefinition annotatedItem, DexAnnotation annotation, AnnotatedKind kind) {
     DexType type = annotation.getAnnotationType();
-    DexClass clazz = definitionFor(type, annotatedItem);
-    boolean annotationTypeIsNotProgramClass = clazz == null || clazz.isNotProgramClass();
-    boolean isLive = annotationTypeIsNotProgramClass || liveTypes.contains(clazz.asProgramClass());
-    if (!shouldKeepAnnotation(annotatedItem, annotation, kind, isLive)) {
-      // Remember this annotation for later.
-      Map<DexType, Map<DexAnnotation, List<ProgramDefinition>>> deferredAnnotations =
-          kind.isParameter() ? deferredParameterAnnotations : this.deferredAnnotations;
-      Map<DexAnnotation, List<ProgramDefinition>> deferredAnnotationsForAnnotationType =
-          deferredAnnotations.computeIfAbsent(type, ignore -> new IdentityHashMap<>());
-      deferredAnnotationsForAnnotationType
-          .computeIfAbsent(annotation, ignore -> new ArrayList<>())
-          .add(annotatedItem);
-      // Also, non-program annotations should be considered live w.r.t the deferred processing.
-      if (annotationTypeIsNotProgramClass) {
-        liveAnnotations.add(type);
-      }
+    DexClass annotationClass = definitionFor(type, annotatedItem);
+    processAnnotation(annotatedItem, annotation, kind, annotationClass);
+  }
+
+  void processAnnotation(
+      ProgramDefinition annotatedItem,
+      DexAnnotation annotation,
+      AnnotatedKind kind,
+      DexClass annotationClass) {
+    boolean annotationTypeIsNotProgramClass =
+        annotationClass == null || annotationClass.isNotProgramClass();
+    boolean isLive =
+        annotationTypeIsNotProgramClass || liveTypes.contains(annotationClass.asProgramClass());
+    if (shouldKeepAnnotation(annotatedItem, annotation, kind, isLive)) {
+      traceAnnotation(annotatedItem, annotation);
       return;
     }
+    if (isLive) {
+      // Enqueue for reprocessing when the keep info of the annotated item changes.
+      deferredAnnotationTracing.enqueueAnnotationForProcessingWhenKeepInfoChanges(
+          annotatedItem, annotation, annotationClass, kind);
+    } else {
+      // Enqueue for reprocessing when the annotation type becomes live.
+      assert annotationClass.isProgramClass();
+      deferredAnnotationTracing.enqueueAnnotationForProcessingWhenAnnotationTypeBecomesLive(
+          annotatedItem, annotation, annotationClass.asProgramClass(), kind);
+    }
+  }
 
+  private void traceAnnotation(ProgramDefinition annotatedItem, DexAnnotation annotation) {
     // Report that the annotation is retained due to the annotated item.
     graphReporter.registerAnnotation(annotation, annotatedItem);
 
@@ -2438,7 +2490,7 @@ public class Enqueuer {
     // annotation.
     AnnotationReferenceMarker referenceMarker =
         new AnnotationReferenceMarker(annotation, annotatedItem);
-    annotation.annotation.collectIndexedItems(appView, referenceMarker);
+    annotation.collectIndexedItems(appView, referenceMarker);
   }
 
   private boolean shouldKeepAnnotation(
@@ -2451,7 +2503,7 @@ public class Enqueuer {
       assert mode.isInitialTreeShaking();
       return true;
     }
-    KeepInfo<?, ?> itemKeepInfo = keepInfo.getInfo(annotatedItem);
+    KeepInfo<?, ?> itemKeepInfo = getKeepInfo().getInfo(annotatedItem);
     return AnnotationRemover.shouldKeepAnnotation(
         appView, annotatedItem, annotation, isLive, annotatedKind, mode, itemKeepInfo);
   }
@@ -2761,17 +2813,17 @@ public class Enqueuer {
   private void keepClassAndAllMembers(DexProgramClass clazz, KeepReason keepReason) {
     KeepReasonWitness keepReasonWitness = graphReporter.registerClass(clazz, keepReason);
     markClassAsInstantiatedWithCompatRule(clazz.asProgramClass(), () -> keepReasonWitness);
-    keepInfo.keepClass(clazz);
+    mutateKeepInfo(clazz, MutableKeepInfoCollection::keepClass);
     shouldNotBeMinified(clazz);
     clazz.forEachProgramField(
         field -> {
-          keepInfo.keepField(field);
+          mutateKeepInfo(field, MutableKeepInfoCollection::keepField);
           shouldNotBeMinified(field);
           markFieldAsKept(field, keepReasonWitness);
         });
     clazz.forEachProgramMethod(
         method -> {
-          keepInfo.keepMethod(method);
+          mutateKeepInfo(method, MutableKeepInfoCollection::keepMethod);
           shouldNotBeMinified(method);
           markMethodAsKept(method, keepReasonWitness);
         });
@@ -3039,7 +3091,8 @@ public class Enqueuer {
                                     context,
                                     appView,
                                     instantiation,
-                                    definition -> keepInfo.isPinned(definition, options, appInfo));
+                                    definition ->
+                                        getKeepInfo().isPinned(definition, options, appInfo));
                             if (lookupResult.isLookupResultSuccess()) {
                               lookupResultSuccess = lookupResult.asLookupResultSuccess();
                               break;
@@ -3306,7 +3359,7 @@ public class Enqueuer {
     // Update keep info.
     applyMinimumKeepInfo(field);
     if (hasAlternativeLibraryDefinition(field.getHolder()) && !field.getDefinition().isPrivate()) {
-      getKeepInfo().keepField(field);
+      mutateKeepInfo(field, MutableKeepInfoCollection::keepField);
     }
 
     // Notify analyses.
@@ -3600,7 +3653,7 @@ public class Enqueuer {
                   (type, subTypeConsumer, lambdaConsumer) ->
                       objectAllocationInfoCollection.forEachInstantiatedSubType(
                           type, subTypeConsumer, lambdaConsumer, appInfo),
-                  definition -> keepInfo.isPinned(definition, options, appInfo));
+                  definition -> getKeepInfo().isPinned(definition, options, appInfo));
           handleVirtualDispatchTargets(lookupResult, resolution);
         });
     return resolutionResults;
@@ -3711,9 +3764,13 @@ public class Enqueuer {
       // TODO(sgjesse): Does this have to be enqueued as a root item? Right now it is done as the
       // marking for not renaming it is in the root set.
       worklist.enqueueMarkMethodKeptAction(valuesMethod, reason);
-      keepInfo.joinMethod(
+      mutateKeepInfo(
           valuesMethod,
-          joiner -> joiner.disallowMinification().disallowOptimization().disallowShrinking());
+          (k, m) ->
+              k.joinMethod(
+                  m,
+                  joiner ->
+                      joiner.disallowMinification().disallowOptimization().disallowShrinking()));
       shouldNotBeMinified(valuesMethod);
     }
   }
@@ -3905,7 +3962,7 @@ public class Enqueuer {
     KeepClassInfo.Joiner minimumKeepInfoForClass =
         dependentMinimumKeepInfo.remove(preconditionEvent, clazz.getType());
     if (minimumKeepInfoForClass != null) {
-      keepInfo.joinClass(clazz, info -> info.merge(minimumKeepInfoForClass));
+      mutateKeepInfo(clazz, (k, c) -> k.joinClass(c, info -> info.merge(minimumKeepInfoForClass)));
       enqueueClassIfShrinkingIsDisallowed(clazz, preconditionEvent, minimumKeepInfoForClass);
     }
   }
@@ -3920,7 +3977,7 @@ public class Enqueuer {
       KeepClassInfo.Joiner minimumKeepInfo,
       EnqueuerEvent preconditionEvent) {
     if (liveTypes.contains(clazz)) {
-      keepInfo.joinClass(clazz, info -> info.merge(minimumKeepInfo));
+      mutateKeepInfo(clazz, (k, c) -> k.joinClass(c, info -> info.merge(minimumKeepInfo)));
     } else {
       dependentMinimumKeepInfo
           .getOrCreateUnconditionalMinimumKeepInfo()
@@ -3961,7 +4018,7 @@ public class Enqueuer {
     KeepFieldInfo.Joiner minimumKeepInfoForField =
         dependentMinimumKeepInfo.remove(preconditionEvent, field.getReference());
     if (minimumKeepInfoForField != null) {
-      keepInfo.joinField(field, info -> info.merge(minimumKeepInfoForField));
+      mutateKeepInfo(field, (k, f) -> k.joinField(f, info -> info.merge(minimumKeepInfoForField)));
       enqueueFieldIfShrinkingIsDisallowed(field, preconditionEvent, minimumKeepInfoForField);
     }
   }
@@ -3974,7 +4031,7 @@ public class Enqueuer {
   private void applyMinimumKeepInfoWhenLive(
       ProgramField field, KeepFieldInfo.Joiner minimumKeepInfo, EnqueuerEvent preconditionEvent) {
     if (liveFields.contains(field)) {
-      keepInfo.joinField(field, info -> info.merge(minimumKeepInfo));
+      mutateKeepInfo(field, (k, f) -> k.joinField(f, info -> info.merge(minimumKeepInfo)));
     } else {
       dependentMinimumKeepInfo
           .getOrCreateUnconditionalMinimumKeepInfo()
@@ -4011,13 +4068,14 @@ public class Enqueuer {
     KeepMethodInfo.Joiner minimumKeepInfoForMethod =
         dependentMinimumKeepInfo.remove(preconditionEvent, method.getReference());
     if (minimumKeepInfoForMethod != null) {
-      keepInfo.joinMethod(method, info -> info.merge(minimumKeepInfoForMethod));
+      mutateKeepInfo(
+          method, (k, m) -> k.joinMethod(m, info -> info.merge(minimumKeepInfoForMethod)));
       enqueueMethodIfShrinkingIsDisallowed(method, preconditionEvent, minimumKeepInfoForMethod);
     }
   }
 
   private void applyMinimumKeepInfo(ProgramMethod method, KeepMethodInfo.Joiner minimumKeepInfo) {
-    keepInfo.joinMethod(method, info -> info.merge(minimumKeepInfo));
+    mutateKeepInfo(method, (k, m) -> k.joinMethod(m, info -> info.merge(minimumKeepInfo)));
     enqueueMethodIfShrinkingIsDisallowed(method, UnconditionalKeepInfoEvent.get(), minimumKeepInfo);
   }
 
@@ -4031,7 +4089,7 @@ public class Enqueuer {
       KeepMethodInfo.Joiner minimumKeepInfo,
       EnqueuerEvent preconditionEvent) {
     if (liveMethods.contains(method) || targetedMethods.contains(method)) {
-      keepInfo.joinMethod(method, info -> info.merge(minimumKeepInfo));
+      mutateKeepInfo(method, (k, m) -> k.joinMethod(m, info -> info.merge(minimumKeepInfo)));
     } else {
       dependentMinimumKeepInfo
           .getOrCreateUnconditionalMinimumKeepInfo()
@@ -4606,7 +4664,7 @@ public class Enqueuer {
             fieldAccessInfoCollection,
             objectAllocationInfoCollection.build(appInfo),
             callSites,
-            keepInfo,
+            getKeepInfo(),
             rootSet.mayHaveSideEffects,
             amendWithCompanionMethods(rootSet.alwaysInline),
             amendWithCompanionMethods(rootSet.whyAreYouNotInlining),
@@ -4640,14 +4698,17 @@ public class Enqueuer {
         (methodReference, companionReference) -> {
           ProgramMethod companion = appView.definitionFor(companionReference).asProgramMethod();
           KeepMethodInfo.Joiner minimumKeepInfoForCompanion =
-              keepInfo.getMethodInfoWithDefinitionLookup(methodReference, appInfo).joiner();
+              getKeepInfo().getMethodInfoWithDefinitionLookup(methodReference, appInfo).joiner();
           KeepMethodInfo.Joiner extraMinimumKeepInfoForCompanion =
               dependentMinimumKeepInfo
                   .getUnconditionalMinimumKeepInfoOrDefault(MinimumKeepInfoCollection.empty())
                   .getOrDefault(methodReference, KeepMethodInfo.newEmptyJoiner())
                   .asMethodJoiner();
-          keepInfo.evaluateMethodRule(
-              companion, minimumKeepInfoForCompanion.merge(extraMinimumKeepInfoForCompanion));
+          mutateKeepInfo(
+              companion,
+              (k, m) ->
+                  k.evaluateMethodRule(
+                      m, minimumKeepInfoForCompanion.merge(extraMinimumKeepInfoForCompanion)));
         });
   }
 
@@ -4776,16 +4837,7 @@ public class Enqueuer {
           }
         }
 
-        // Process all deferred annotations.
-        timing.begin("Process deferred annotations");
-        processDeferredAnnotations(deferredAnnotations, AnnotatedKind::from);
-        processDeferredAnnotations(
-            deferredParameterAnnotations, annotatedItem -> AnnotatedKind.PARAMETER);
-        timing.end();
-
-        timing.begin("Process onclick methods");
-        processOnClickMethods();
-        timing.end();
+        processOnClickMethods(timing);
         if (worklist.hasNext()) {
           timing.end();
           continue;
@@ -4887,7 +4939,7 @@ public class Enqueuer {
             liveMethods::contains, interfaceProcessor);
     CfPostProcessingDesugaringCollection.createForR8CfToCfDesugaring(
             appView, interfaceDesugaring, this)
-        .postProcessingDesugaring(liveTypes.items, eventConsumer, executorService, timing);
+        .postProcessingDesugaring(liveTypes.getItems(), eventConsumer, executorService, timing);
 
     if (syntheticAdditions.isEmpty() && !options.testing.forceEnqueuerFullProcessingDesugaring) {
       return;
@@ -5163,7 +5215,7 @@ public class Enqueuer {
     applyMinimumKeepInfo(method);
     if (hasAlternativeLibraryDefinition(method.getHolder())
         && !method.getDefinition().isPrivateMethod()) {
-      getKeepInfo().keepMethod(method);
+      mutateKeepInfo(method, MutableKeepInfoCollection::keepMethod);
     }
   }
 
@@ -5262,34 +5314,39 @@ public class Enqueuer {
         method, method, graphReporter.reportCompatKeepMethod(method));
   }
 
-  private static class SetWithReportedReason<T> {
+  private static class SetWithReportedReason<T extends DexDefinition> {
 
-    private final Set<T> items = Sets.newIdentityHashSet();
+    private final Map<DexReference, T> items = new IdentityHashMap<>();
     private final Map<T, List<Action>> deferredActions = new IdentityHashMap<>();
 
     boolean add(T item, KeepReasonWitness witness) {
       assert witness != null;
-      if (items.add(item)) {
+      T existing = items.put(item.getReference(), item);
+      if (existing == null) {
         deferredActions.getOrDefault(item, Collections.emptyList()).forEach(Action::execute);
         return true;
       }
       return false;
     }
 
+    boolean contains(DexReference reference) {
+      return items.containsKey(reference);
+    }
+
     boolean contains(T item) {
-      return items.contains(item);
+      return contains(item.getReference());
     }
 
     boolean registerDeferredAction(T item, Action action) {
-      if (!items.contains(item)) {
+      if (!contains(item)) {
         deferredActions.computeIfAbsent(item, ignore -> new ArrayList<>()).add(action);
         return true;
       }
       return false;
     }
 
-    Set<T> getItems() {
-      return SetUtils.unmodifiableForTesting(items);
+    Collection<T> getItems() {
+      return CollectionUtils.unmodifiableForTesting(items.values());
     }
   }
 
@@ -5351,83 +5408,41 @@ public class Enqueuer {
 
   private class AnnotationReferenceMarker implements IndexedItemCollection {
 
+    private final DexAnnotation annotation;
     private final ProgramDefinition context;
-    private final KeepReason reason;
 
     private AnnotationReferenceMarker(DexAnnotation annotation, ProgramDefinition context) {
+      this.annotation = annotation;
       this.context = context;
-      this.reason = KeepReason.referencedInAnnotation(annotation, context);
+    }
+
+    @Override
+    public boolean addField(DexField field) {
+      worklist.enqueueTraceFieldAccessFromAnnotationAction(field, annotation, context);
+      return false;
+    }
+
+    @Override
+    public boolean addMethod(DexMethod method) {
+      worklist.enqueueTraceMethodAccessFromAnnotationAction(method, annotation, context);
+      return false;
+    }
+
+    @Override
+    public boolean addType(DexType type) {
+      DexType baseType = type.toBaseType(appView.dexItemFactory());
+      if (!baseType.isClassType()) {
+        return false;
+      }
+      if (!graphReporter.hasConsumer() && liveTypes.contains(baseType)) {
+        return false;
+      }
+      worklist.enqueueTraceTypeAccessFromAnnotationAction(baseType, annotation, context);
+      return false;
     }
 
     @Override
     public boolean addClass(DexProgramClass dexProgramClass) {
-      return false;
-    }
-
-    @Override
-    @SuppressWarnings("ReferenceEquality")
-    public boolean addField(DexField fieldReference) {
-      recordFieldReference(fieldReference, context);
-      DexProgramClass holder = getProgramHolderOrNull(fieldReference, context);
-      if (holder == null) {
-        return false;
-      }
-      ProgramField field = holder.lookupProgramField(fieldReference);
-      if (field == null) {
-        return false;
-      }
-      // There is no dispatch on annotations, so only keep what is directly referenced.
-      if (field.getReference() != fieldReference) {
-        return false;
-      }
-      if (field.getDefinition().isStatic()) {
-        FieldAccessInfoImpl fieldAccessInfo =
-            fieldAccessInfoCollection.contains(fieldReference)
-                ? fieldAccessInfoCollection.get(fieldReference)
-                : fieldAccessInfoCollection.extend(
-                    fieldReference, new FieldAccessInfoImpl(fieldReference));
-        fieldAccessInfo.setReadFromAnnotation();
-        markFieldAsLive(field, context, reason);
-        // In a class file an enum reference in an annotation is written as enum descriptor and
-        // enum name. At runtime the JVM use valueOf on the enum class with the name to get the
-        // instance. This indirectly use the values() method on that enum class. Also keep the
-        // name of the field and the name of the enum in sync as otherwise recovering the field to
-        // name relationship requires analysis of the enum <clinit> when this CF code is processed
-        // again (e.g. as input to D8 for converting to DEX). See b/236691999 for more info.
-        if (options.isGeneratingClassFiles() && field.getHolder().isEnum()) {
-          markEnumValuesAsReachable(field.getHolder(), reason);
-          applyMinimumKeepInfoWhenLive(
-              field, KeepFieldInfo.newEmptyJoiner().disallowMinification());
-        }
-      } else {
-        // There is no dispatch on annotations, so only keep what is directly referenced.
-        worklist.enqueueMarkFieldAsReachableAction(field, context, reason);
-      }
-      return false;
-    }
-
-    @Override
-    @SuppressWarnings("ReferenceEquality")
-    public boolean addMethod(DexMethod method) {
-      // Record the references in case they are not program types.
-      recordMethodReference(method, context);
-      DexProgramClass holder = getProgramHolderOrNull(method, context);
-      if (holder == null) {
-        return false;
-      }
-      DexEncodedMethod target = holder.lookupDirectMethod(method);
-      if (target != null) {
-        // There is no dispatch on annotations, so only keep what is directly referenced.
-        if (target.getReference() == method) {
-          markDirectStaticOrConstructorMethodAsLive(new ProgramMethod(holder, target), reason);
-        }
-      } else {
-        target = holder.lookupVirtualMethod(method);
-        // There is no dispatch on annotations, so only keep what is directly referenced.
-        if (target != null && target.getReference() == method) {
-          markMethodAsTargeted(new ProgramMethod(holder, target), reason);
-        }
-      }
       return false;
     }
 
@@ -5448,12 +5463,6 @@ public class Enqueuer {
 
     @Override
     public boolean addMethodHandle(DexMethodHandle methodHandle) {
-      return false;
-    }
-
-    @Override
-    public boolean addType(DexType type) {
-      markTypeAsLive(type, context, reason);
       return false;
     }
   }

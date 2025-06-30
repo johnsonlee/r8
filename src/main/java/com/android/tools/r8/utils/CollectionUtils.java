@@ -83,4 +83,8 @@ public class CollectionUtils {
     }
     return returnArr;
   }
+
+  public static <K> Collection<K> unmodifiableForTesting(Collection<K> map) {
+    return InternalOptions.assertionsEnabled() ? Collections.unmodifiableCollection(map) : map;
+  }
 }

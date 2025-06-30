@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.shaking;
 
+import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.graph.UseRegistry.MethodHandleUse.NOT_ARGUMENT_TO_LAMBDA_METAFACTORY;
 import static com.android.tools.r8.ir.desugar.constantdynamic.LibraryConstantDynamic.dispatchEnumDescConstantDynamic;
 import static com.android.tools.r8.ir.desugar.constantdynamic.LibraryConstantDynamic.isEnumDescConstantDynamic;
@@ -17,7 +18,6 @@ import com.android.tools.r8.dex.code.CfOrDexInstruction;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexCallSite;
-import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
@@ -287,15 +287,14 @@ public class DefaultEnqueuerUseRegistry extends ComputeApiLevelUseRegistry {
   }
 
   private void registerEnumReferencedInTypeSwitchBootstrapArguments(DexType enumType) {
-    DexClass dexClass = appView.definitionFor(enumType);
-    if (dexClass == null || dexClass.isNotProgramClass()) {
+    DexProgramClass clazz = asProgramClassOrNull(appView.definitionFor(enumType));
+    if (clazz == null) {
       return;
     }
     // The enum class cannot be unboxed or class merged. It can however be renamed.
-    enqueuer
-        .getKeepInfo()
-        .joinClass(
-            dexClass.asProgramClass(), joiner -> joiner.disallowOptimization().disallowShrinking());
+    enqueuer.mutateKeepInfo(
+        clazz,
+        (k, c) -> k.joinClass(c, joiner -> joiner.disallowOptimization().disallowShrinking()));
     DexItemFactory factory = dexItemFactory();
     DexMethod values =
         factory.createMethod(

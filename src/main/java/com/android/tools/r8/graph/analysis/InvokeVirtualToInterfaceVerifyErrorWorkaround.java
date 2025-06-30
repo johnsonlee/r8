@@ -59,7 +59,7 @@ public class InvokeVirtualToInterfaceVerifyErrorWorkaround implements TraceInvok
   public void traceInvokeVirtual(
       DexMethod invokedMethod, MethodResolutionResult resolutionResult, ProgramMethod context) {
     if (isInterfaceInSomeApiLevel(invokedMethod.getHolderType())) {
-      enqueuer.getKeepInfo().joinMethod(context, Joiner::disallowOptimization);
+      enqueuer.mutateKeepInfo(context, (k, m) -> k.joinMethod(m, Joiner::disallowOptimization));
     }
   }
 

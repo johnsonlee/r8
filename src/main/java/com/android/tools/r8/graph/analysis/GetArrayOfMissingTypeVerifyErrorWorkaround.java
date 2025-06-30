@@ -71,7 +71,7 @@ public class GetArrayOfMissingTypeVerifyErrorWorkaround
       ProgramMethod context,
       EnqueuerWorklist worklist) {
     if (isUnsafeToUseFieldOnDalvik(field)) {
-      enqueuer.getKeepInfo().joinMethod(context, Joiner::disallowOptimization);
+      enqueuer.mutateKeepInfo(context, (k, m) -> k.joinMethod(m, Joiner::disallowOptimization));
     }
   }
 
@@ -82,7 +82,7 @@ public class GetArrayOfMissingTypeVerifyErrorWorkaround
       ProgramMethod context,
       EnqueuerWorklist worklist) {
     if (isUnsafeToUseFieldOnDalvik(field)) {
-      enqueuer.getKeepInfo().joinMethod(context, Joiner::disallowOptimization);
+      enqueuer.mutateKeepInfo(context, (k, m) -> k.joinMethod(m, Joiner::disallowOptimization));
     }
   }
 

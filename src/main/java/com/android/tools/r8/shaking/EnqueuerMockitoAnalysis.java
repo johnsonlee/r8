@@ -181,16 +181,17 @@ class EnqueuerMockitoAnalysis
 
   private void ensureClassIsMockable(DexProgramClass programClass) {
     // Ensures the type is not made final so that it can still be subclassed.
-    enqueuer.getKeepInfo().joinClass(programClass, Joiner::disallowOptimization);
+    enqueuer.mutateKeepInfo(programClass, (k, c) -> k.joinClass(c, Joiner::disallowOptimization));
 
     // disallowOptimization --> prevent method from being marked final.
     // allowCodeReplacement --> do not inline or optimize based on method body.
     programClass.forEachProgramVirtualMethodMatching(
         enqueuer::isMethodLive,
         virtualMethod ->
-            enqueuer.getKeepInfo()
-                .joinMethod(
-                    virtualMethod,
-                    joiner -> joiner.disallowOptimization().allowCodeReplacement()));
+            enqueuer.mutateKeepInfo(
+                virtualMethod,
+                (k, m) ->
+                    k.joinMethod(
+                        m, joiner -> joiner.disallowOptimization().allowCodeReplacement())));
   }
 }

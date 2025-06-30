@@ -34,7 +34,8 @@ public class DexTypeAnnotation extends DexAnnotation {
 
   @Override
   public void collectIndexedItems(AppView<?> appView, IndexedItemCollection indexedItems) {
-    throw new Unreachable("Should not collect type annotation in DEX");
+    assert appView.options().isGeneratingClassFiles() : "Should not collect type annotation in DEX";
+    super.collectIndexedItems(appView, indexedItems);
   }
 
   @Override

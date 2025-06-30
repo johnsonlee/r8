@@ -64,6 +64,19 @@ public abstract class EnqueuerWorklist {
     }
   }
 
+  static class ConditionalRuleConsequencesAction extends EnqueuerAction {
+    private final MinimumKeepInfoCollection consequences;
+
+    ConditionalRuleConsequencesAction(MinimumKeepInfoCollection consequences) {
+      this.consequences = consequences;
+    }
+
+    @Override
+    public void run(Enqueuer enqueuer) {
+      enqueuer.includeMinimumKeepInfo(consequences);
+    }
+  }
+
   static class MarkReachableDirectAction extends EnqueuerAction {
     private final DexMethod target;
     // TODO(b/175854431): Avoid pushing context on worklist.
@@ -245,6 +258,60 @@ public abstract class EnqueuerWorklist {
     @Override
     public void run(Enqueuer enqueuer) {
       enqueuer.processAnnotation(annotatedItem, annotation, annotatedKind);
+    }
+  }
+
+  static class TraceFieldAccessFromAnnotationAction extends EnqueuerAction {
+    private final DexField field;
+    private final DexAnnotation annotation;
+    private final ProgramDefinition context;
+
+    TraceFieldAccessFromAnnotationAction(
+        DexField field, DexAnnotation annotation, ProgramDefinition context) {
+      this.field = field;
+      this.annotation = annotation;
+      this.context = context;
+    }
+
+    @Override
+    public void run(Enqueuer enqueuer) {
+      enqueuer.traceAnnotationFieldAccess(field, annotation, context);
+    }
+  }
+
+  static class TraceMethodAccessFromAnnotationAction extends EnqueuerAction {
+    private final DexMethod method;
+    private final DexAnnotation annotation;
+    private final ProgramDefinition context;
+
+    TraceMethodAccessFromAnnotationAction(
+        DexMethod method, DexAnnotation annotation, ProgramDefinition context) {
+      this.method = method;
+      this.annotation = annotation;
+      this.context = context;
+    }
+
+    @Override
+    public void run(Enqueuer enqueuer) {
+      enqueuer.traceAnnotationMethodAccess(method, annotation, context);
+    }
+  }
+
+  static class TraceTypeAccessFromAnnotationAction extends EnqueuerAction {
+    private final DexType type;
+    private final DexAnnotation annotation;
+    private final ProgramDefinition context;
+
+    TraceTypeAccessFromAnnotationAction(
+        DexType type, DexAnnotation annotation, ProgramDefinition context) {
+      this.type = type;
+      this.annotation = annotation;
+      this.context = context;
+    }
+
+    @Override
+    public void run(Enqueuer enqueuer) {
+      enqueuer.traceAnnotationTypeAccess(type, annotation, context);
     }
   }
 
@@ -636,6 +703,11 @@ public abstract class EnqueuerWorklist {
 
   abstract boolean enqueueAssertAction(Action assertion);
 
+  public final void enqueueConditionalRuleConsequencesAction(
+      MinimumKeepInfoCollection consequences) {
+    enqueue(new ConditionalRuleConsequencesAction(consequences));
+  }
+
   abstract void enqueueFuture(Action action);
 
   abstract void enqueueMarkReachableDirectAction(
@@ -667,6 +739,15 @@ public abstract class EnqueuerWorklist {
 
   abstract void enqueueTraceAnnotationAction(
       ProgramDefinition annotatedItem, DexAnnotation annotation, AnnotatedKind annotatedKind);
+
+  abstract void enqueueTraceFieldAccessFromAnnotationAction(
+      DexField field, DexAnnotation annotation, ProgramDefinition context);
+
+  abstract void enqueueTraceMethodAccessFromAnnotationAction(
+      DexMethod method, DexAnnotation annotation, ProgramDefinition context);
+
+  abstract void enqueueTraceTypeAccessFromAnnotationAction(
+      DexType type, DexAnnotation annotation, ProgramDefinition context);
 
   public abstract void enqueueTraceCodeAction(ProgramMethod method);
 
@@ -807,6 +888,24 @@ public abstract class EnqueuerWorklist {
     void enqueueTraceAnnotationAction(
         ProgramDefinition annotatedItem, DexAnnotation annotation, AnnotatedKind annotatedKind) {
       queue.add(new TraceAnnotationAction(annotatedItem, annotation, annotatedKind));
+    }
+
+    @Override
+    void enqueueTraceFieldAccessFromAnnotationAction(
+        DexField field, DexAnnotation annotation, ProgramDefinition context) {
+      queue.add(new TraceFieldAccessFromAnnotationAction(field, annotation, context));
+    }
+
+    @Override
+    void enqueueTraceMethodAccessFromAnnotationAction(
+        DexMethod method, DexAnnotation annotation, ProgramDefinition context) {
+      queue.add(new TraceMethodAccessFromAnnotationAction(method, annotation, context));
+    }
+
+    @Override
+    void enqueueTraceTypeAccessFromAnnotationAction(
+        DexType type, DexAnnotation annotation, ProgramDefinition context) {
+      queue.add(new TraceTypeAccessFromAnnotationAction(type, annotation, context));
     }
 
     @Override
@@ -980,6 +1079,24 @@ public abstract class EnqueuerWorklist {
     void enqueueTraceAnnotationAction(
         ProgramDefinition annotatedItem, DexAnnotation annotation, AnnotatedKind annotatedKind) {
       throw attemptToEnqueue("TraceAnnotationAction " + annotation + " from " + annotatedItem);
+    }
+
+    @Override
+    void enqueueTraceFieldAccessFromAnnotationAction(
+        DexField field, DexAnnotation annotation, ProgramDefinition context) {
+      throw attemptToEnqueue("TraceFieldAccessFromAnnotationAction " + field);
+    }
+
+    @Override
+    void enqueueTraceMethodAccessFromAnnotationAction(
+        DexMethod method, DexAnnotation annotation, ProgramDefinition context) {
+      throw attemptToEnqueue("TraceMethodAccessFromAnnotationAction " + method);
+    }
+
+    @Override
+    void enqueueTraceTypeAccessFromAnnotationAction(
+        DexType type, DexAnnotation annotation, ProgramDefinition context) {
+      throw attemptToEnqueue("TraceTypeAccessFromAnnotationAction " + type);
     }
 
     @Override

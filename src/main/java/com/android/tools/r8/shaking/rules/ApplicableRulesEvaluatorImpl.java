@@ -58,15 +58,22 @@ public class ApplicableRulesEvaluatorImpl<T, R extends PendingConditionalRuleBas
     }
     // TODO(b/323816623): If we tracked newly live, we could speed up finding rules.
     // TODO(b/323816623): Parallelize this.
+    MinimumKeepInfoCollection consequences = null;
     for (int i = 0; i < pendingConditionalRules.size(); i++) {
       R rule = pendingConditionalRules.get(i);
       if (rule != null && rule.isSatisfiedAfterUpdate(enqueuer)) {
         ++prunedCount;
         pendingConditionalRules.set(i, null);
-        enqueuer.includeMinimumKeepInfo(rule.getConsequences());
         materializedRules.add(rule.asMaterialized());
         onSatisfiedRuleCallback.accept(rule, enqueuer);
+        if (consequences == null) {
+          consequences = MinimumKeepInfoCollection.create();
+        }
+        consequences.merge(rule.getConsequences());
       }
+    }
+    if (consequences != null) {
+      enqueuer.getWorklist().enqueueConditionalRuleConsequencesAction(consequences);
     }
 
     if (prunedCount == pendingConditionalRules.size()) {
