@@ -140,13 +140,20 @@ public class SingleNumberValue extends SingleConstValue
   }
 
   @Override
-  public boolean equals(Object o) {
-    return this == o;
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (!(obj instanceof SingleNumberValue)) {
+      return false;
+    }
+    SingleNumberValue other = (SingleNumberValue) obj;
+    return value == other.value;
   }
 
   @Override
   public int hashCode() {
-    return System.identityHashCode(this);
+    return 31 * (31 + Long.hashCode(value)) + getClass().hashCode();
   }
 
   @Override

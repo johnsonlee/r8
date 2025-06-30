@@ -85,7 +85,6 @@ public class CheckCastAndInstanceOfMethodSpecialization {
     }
   }
 
-  @SuppressWarnings("ReferenceEquality")
   private void processCandidateForInstanceOfOptimization(
       ProgramMethod method, PrimaryMethodProcessor methodProcessor) {
     DexEncodedMethod definition = method.getDefinition();
@@ -132,7 +131,7 @@ public class CheckCastAndInstanceOfMethodSpecialization {
     }
 
     DexEncodedMethod parentMethodDefinition = parentMethod.getDefinition();
-    if (abstractParentReturnValue == abstractReturnValue) {
+    if (abstractParentReturnValue.equals(abstractReturnValue)) {
       // The parent method is already guaranteed to return the same value.
     } else if (isClassAccessible(method.getHolder(), parentMethod, appView).isTrue()) {
       parentMethod.setCode(

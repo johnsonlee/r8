@@ -51,8 +51,15 @@ public class SingleStringValue extends SingleConstValue {
   }
 
   @Override
-  public boolean equals(Object o) {
-    return this == o;
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (!(obj instanceof SingleStringValue)) {
+      return false;
+    }
+    SingleStringValue other = (SingleStringValue) obj;
+    return string.isIdenticalTo(other.string);
   }
 
   @Override

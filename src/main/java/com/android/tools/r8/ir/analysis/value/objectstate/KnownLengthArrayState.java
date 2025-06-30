@@ -52,13 +52,20 @@ public class KnownLengthArrayState extends ObjectState {
   }
 
   @Override
-  public boolean equals(Object o) {
-    return this == o;
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (!(obj instanceof KnownLengthArrayState)) {
+      return false;
+    }
+    KnownLengthArrayState other = (KnownLengthArrayState) obj;
+    return length == other.length;
   }
 
   @Override
   public int hashCode() {
-    return System.identityHashCode(this);
+    return 31 * (31 + length) + getClass().hashCode();
   }
 
   @Override

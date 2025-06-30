@@ -55,8 +55,15 @@ public class SingleConstClassValue extends SingleConstValue {
   }
 
   @Override
-  public boolean equals(Object o) {
-    return this == o;
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (!(obj instanceof SingleConstClassValue)) {
+      return false;
+    }
+    SingleConstClassValue other = (SingleConstClassValue) obj;
+    return type.isIdenticalTo(other.type);
   }
 
   @Override
