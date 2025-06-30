@@ -9,7 +9,6 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.regress.b426351560.testclasses.Regress426351560TestClasses;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -38,11 +37,7 @@ public class Regress426351560Test extends TestBase {
         .addInnerClasses(Regress426351560TestClasses.class, getClass())
         .addKeepRules("-keep class " + Main.class.getTypeName() + " { *; }")
         .run(parameters.getRuntime(), Main.class)
-        .applyIf(
-            parameters.isDexRuntime()
-                && parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.N),
-            rr -> rr.assertFailureWithErrorThatThrows(IllegalAccessError.class),
-            rr -> rr.assertSuccessWithOutput(EXPECTED_OUTPUT));
+        .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   public static class Main extends Regress426351560TestClasses.A {

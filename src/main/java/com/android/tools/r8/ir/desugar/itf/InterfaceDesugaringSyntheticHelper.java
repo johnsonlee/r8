@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.desugar.itf;
 
+import static com.android.tools.r8.graph.InvalidCode.isInvalidCode;
 import static com.android.tools.r8.ir.desugar.itf.InterfaceMethodDesugaringEventConsumer.emptyInterfaceMethodDesugaringEventConsumer;
 
 import com.android.tools.r8.cf.CfVersion;
@@ -558,14 +559,21 @@ public class InterfaceDesugaringSyntheticHelper {
     assert method.getHolder().isInterface();
     assert definition.isNonAbstractNonNativeMethod();
     assert definition.getCode() != null;
-    assert !InvalidCode.isInvalidCode(definition.getCode());
     if (definition.isStatic()) {
+      assert !isInvalidCode(definition.getCode())
+          || appView.definitionFor(staticAsMethodOfCompanionClass(method)) != null;
       return ensureStaticAsMethodOfProgramCompanionClassStub(method, eventConsumer);
-    }
-    if (definition.isPrivate()) {
+    } else if (definition.isPrivate()) {
+      assert !isInvalidCode(definition.getCode())
+          || appView.definitionFor(privateAsMethodOfCompanionClass(method)) != null;
       return ensurePrivateAsMethodOfProgramCompanionClassStub(method, eventConsumer);
+    } else {
+      assert !isInvalidCode(definition.getCode())
+          || appView.definitionFor(
+                  defaultAsMethodOfCompanionClass(method.getReference(), appView.dexItemFactory()))
+              != null;
+      return ensureDefaultAsMethodOfProgramCompanionClassStub(method, eventConsumer);
     }
-    return ensureDefaultAsMethodOfProgramCompanionClassStub(method, eventConsumer);
   }
 
   private void ensureCompanionClassInitializesInterface(

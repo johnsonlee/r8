@@ -229,7 +229,7 @@ public class MemberRebindingAnalysis extends MemberRebindingHelper {
                       builder -> {
                         if (!targetDefinition.isAbstract()
                             && targetDefinition.getApiLevelForCode().isNotSetApiLevel()) {
-                          assert target.isLibraryMethod()
+                          assert !target.isProgramMethod()
                               || !appView.options().apiModelingOptions().isApiModelingEnabled();
                           builder.setApiLevelForCode(
                               appView

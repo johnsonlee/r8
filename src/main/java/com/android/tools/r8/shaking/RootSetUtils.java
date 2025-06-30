@@ -16,6 +16,7 @@ import com.android.tools.r8.errors.AssumeValuesMissingStaticFieldDiagnostic;
 import com.android.tools.r8.errors.InlinableStaticFinalFieldPreconditionDiagnostic;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.errors.UnusedProguardKeepRuleDiagnostic;
+import com.android.tools.r8.graph.AccessControl;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.BottomUpClassHierarchyTraversal;
@@ -43,6 +44,7 @@ import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.graph.ImmediateAppSubtypingInfo;
+import com.android.tools.r8.graph.InvalidCode;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramField;
@@ -855,7 +857,7 @@ public class RootSetUtils {
         }
         ProgramMethod resolutionMethod = resolutionResult.getResolvedProgramMethod();
         ProgramMethod methodToKeep;
-        if (canInsertForwardingMethod(originalClazz, resolutionMethod.getDefinition())) {
+        if (canInsertForwardingMethod(originalClazz, resolutionMethod)) {
           DexMethod methodToKeepReference =
               resolutionMethod.getReference().withHolder(originalClazz, appView.dexItemFactory());
           methodToKeep =
@@ -885,9 +887,14 @@ public class RootSetUtils {
       }
     }
 
-    private boolean canInsertForwardingMethod(DexClass holder, DexEncodedMethod target) {
+    private boolean canInsertForwardingMethod(DexProgramClass holder, ProgramMethod method) {
+      DexProgramClass resolvedHolder = method.getHolder();
+      if (AccessControl.isMemberAccessible(method, resolvedHolder, holder, appView)
+          .isPossiblyFalse()) {
+        return false;
+      }
       return appView.options().isGeneratingDex()
-          || ArrayUtils.contains(holder.interfaces.values, target.getHolderType());
+          || ArrayUtils.contains(holder.interfaces.values, resolvedHolder.getType());
     }
 
     private void markMatchingOverriddenMethods(
@@ -1877,7 +1884,9 @@ public class RootSetUtils {
             interfaceDesugaringSyntheticHelper.ensureMethodOfProgramCompanionClassStub(
                 method, eventConsumer);
         // Add the method to the inverse map as tracing will now directly target the CC method.
-        pendingMethodMoveInverse.put(companion, method);
+        if (InvalidCode.isInvalidCode(companion.getDefinition().getCode())) {
+          pendingMethodMoveInverse.put(companion, method);
+        }
 
         LazyBox<Joiner<?, ?, ?>> companionJoiner =
             new LazyBox<>(
