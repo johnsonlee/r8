@@ -111,10 +111,6 @@ public class KotlinCompilerTool {
       this.defaultTargetVersion = defaultTargetVersion;
     }
 
-    public static KotlinCompilerVersion latest() {
-      return ArrayUtils.last(values());
-    }
-
     public KotlinCompiler getCompiler() {
       return new KotlinCompiler(this);
     }

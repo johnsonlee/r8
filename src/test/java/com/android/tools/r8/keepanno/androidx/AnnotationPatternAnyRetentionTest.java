@@ -52,8 +52,12 @@ public class AnnotationPatternAnyRetentionTest extends KeepAnnoTestBase {
             b ->
                 b.addProgramFiles(
                     ImmutableList.of(
-                        KotlinCompilerVersion.latest().getCompiler().getKotlinStdlibJar(),
-                        KotlinCompilerVersion.latest().getCompiler().getKotlinAnnotationJar())))
+                        KotlinCompilerVersion.MAX_SUPPORTED_VERSION
+                            .getCompiler()
+                            .getKotlinStdlibJar(),
+                        KotlinCompilerVersion.MAX_SUPPORTED_VERSION
+                            .getCompiler()
+                            .getKotlinAnnotationJar())))
         .setExcludedOuterClass(getClass())
         .run(TestClass.class)
         .assertSuccessWithOutput(EXPECTED)
