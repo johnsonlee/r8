@@ -384,6 +384,7 @@ fun Project.createR8LibCommandLine(
   classpath: List<File> = listOf(),
   pgInputMap: File? = null,
   replaceFromJar: File? = null,
+  versionJar: File? = null,
 ): List<String> {
   return buildList {
     add("python3")
@@ -419,6 +420,10 @@ fun Project.createR8LibCommandLine(
     if (replaceFromJar != null) {
       add("--replace-from-jar")
       add("$replaceFromJar")
+    }
+    if (versionJar != null) {
+      add("--r8-version-jar")
+      add("$versionJar")
     }
   }
 }

@@ -92,4 +92,75 @@ tasks {
     source = sourceSets.main.get().allJava
     include("com/android/tools/r8/keepanno/annotations/*")
   }
+
+  fun dependenciesExceptAsm() : FileCollection {
+    return sourceSets
+      .main
+      .get()
+      .compileClasspath
+      .filter({ "$it".contains("third_party")
+          && "$it".contains("dependencies")
+          && !("$it".contains("errorprone") || "$it".contains("ow2"))
+      })
+  }
+
+  fun dependenciesOnlyAsm() : FileCollection {
+    return sourceSets
+      .main
+      .get()
+      .compileClasspath
+      .filter({ "$it".contains("third_party")
+          && "$it".contains("dependencies")
+          && ("$it".contains("errorprone") || "$it".contains("ow2"))
+      })
+  }
+
+  val depsJarExceptAsm by registering(Jar::class) {
+    dependsOn(gradle.includedBuild("shared").task(":downloadDeps"))
+    from(dependenciesExceptAsm().map(::zipTree))
+    // TODO(b/428166503): Add license information.
+    exclude("META-INF/*.kotlin_module")
+    exclude("META-INF/com.android.tools/**")
+    exclude("META-INF/LICENSE*")
+    exclude("META-INF/MANIFEST.MF")
+    exclude("META-INF/maven/**")
+    exclude("META-INF/proguard/**")
+    exclude("META-INF/versions/**")
+    exclude("META-INF/services/kotlin.reflect.**")
+    exclude("javax/annotation/**")
+    exclude("google/protobuf/**")
+    duplicatesStrategy = DuplicatesStrategy.FAIL
+    archiveFileName.set("keepanno-deps-except-asm.jar")
+  }
+
+  val depsJarOnlyAsm by registering(Jar::class) {
+    dependsOn(gradle.includedBuild("shared").task(":downloadDeps"))
+    from(dependenciesOnlyAsm().map(::zipTree))
+    // TODO(b/428166503): Add license information if needed.
+    exclude("META-INF/*.kotlin_module")
+    exclude("META-INF/com.android.tools/**")
+    exclude("META-INF/LICENSE*")
+    exclude("META-INF/MANIFEST.MF")
+    exclude("META-INF/maven/**")
+    exclude("META-INF/proguard/**")
+    exclude("META-INF/versions/**")
+    exclude("META-INF/services/kotlin.reflect.**")
+    exclude("javax/annotation/**")
+    exclude("google/protobuf/**")
+    duplicatesStrategy = DuplicatesStrategy.FAIL
+    archiveFileName.set("keepanno-deps-only-asm.jar")
+  }
+
+  val toolsJar by registering(Jar::class) {
+    dependsOn(gradle.includedBuild("shared").task(":downloadDeps"))
+    from(sourceSets.main.get().output)
+    // TODO(b/428166503): Add license information.
+    entryCompression = ZipEntryCompression.STORED
+    exclude("META-INF/*.kotlin_module")
+    exclude("**/*.kotlin_metadata")
+    exclude("keepspec.proto")
+    exclude("com/android/tools/r8/keepanno/annotations/**")
+    exclude("androidx/**")
+    archiveFileName.set("keepanno-tools.jar")
+  }
 }

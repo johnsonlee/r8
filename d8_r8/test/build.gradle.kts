@@ -41,6 +41,8 @@ val bootstrapTestsDepsJarTask = projectTask("tests_bootstrap", "depsJar")
 val bootstrapTestJarTask = projectTask("tests_bootstrap", "testJar")
 val testsJava8SourceSetDependenciesTask = projectTask("tests_java_8", "sourceSetDependencyTask")
 val keepAnnoAndroidXAnnotationsJar = projectTask("keepanno", "keepAnnoAndroidXAnnotationsJar")
+val keepAnnoToolsWithRelocatedDepsTask = projectTask("main", "keepAnnoToolsWithRelocatedDeps")
+val depsJarOnlyAsmTask = projectTask("keepanno", "depsJarOnlyAsm")
 
 tasks {
   withType<Exec> {
@@ -244,6 +246,29 @@ tasks {
             generateKeepRulesForR8LibWithRelocatedDeps,
             listOf(),
             "r8lib.jar")
+  }
+
+  val keepAnnoToolsLib by registering(Exec::class) {
+    dependsOn(r8WithRelocatedDepsTask)
+    dependsOn(keepAnnoToolsWithRelocatedDepsTask)
+    dependsOn(depsJarOnlyAsmTask)
+    val inputJar = keepAnnoToolsWithRelocatedDepsTask.getSingleOutputFile()
+    val r8WithRelocatedDepsJar = r8WithRelocatedDepsTask.getSingleOutputFile()
+    val keepRuleFiles = listOf(getRoot().resolveAll("src", "keepanno", "keep.txt"))
+    inputs.files(listOf(r8WithRelocatedDepsJar, inputJar,
+                        getRoot().resolveAll("tools", "create_r8lib.py"))
+                   .union(keepRuleFiles))
+    val outputJar = getRoot().resolveAll("build", "libs", "keepanno-toolslib.jar")
+    outputs.file(outputJar)
+    commandLine = createR8LibCommandLine(
+      r8WithRelocatedDepsJar,
+      inputJar,
+      outputJar,
+      keepRuleFiles,
+      excludingDepsVariant = false,
+      debugVariant = false,
+      classpath = listOf(depsJarOnlyAsmTask.getSingleOutputFile()),
+      versionJar = r8WithRelocatedDepsJar)
   }
 
   fun Task.generateTestKeepRulesForR8Lib(

@@ -89,6 +89,8 @@ spdxSbom {
 
 val assistantJarTask = projectTask("assistant", "jar")
 val keepAnnoJarTask = projectTask("keepanno", "jar")
+val keepAnnoDepsJarExceptAsm = projectTask("keepanno", "depsJarExceptAsm")
+val keepAnnoToolsJar = projectTask("keepanno", "toolsJar")
 val resourceShrinkerJarTask = projectTask("resourceshrinker", "jar")
 val resourceShrinkerDepsTask = projectTask("resourceshrinker", "depsJar")
 
@@ -277,7 +279,6 @@ tasks {
     archiveFileName.set("deps.jar")
   }
 
-
 val swissArmyKnifeWithoutLicense by registering(Zip::class) {
     dependsOn(swissArmyKnife)
     from(swissArmyKnife.get().outputs.files.map(::zipTree))
@@ -288,6 +289,37 @@ val swissArmyKnifeWithoutLicense by registering(Zip::class) {
     archiveFileName.set("swiss-army-no-license.jar")
 }
 
+fun relocateDepsExceptAsm(pkg: String): List<String> {
+  return listOf("--map",
+                "com.android.**->${pkg}.com.android",
+                "--map",
+                "com.android.build.shrinker.**->${pkg}.resourceshrinker",
+                "--map",
+                "com.google.common.**->${pkg}.com.google.common",
+                "--map",
+                "com.google.gson.**->${pkg}.com.google.gson",
+                "--map",
+                "com.google.thirdparty.**->${pkg}.com.google.thirdparty",
+                "--map",
+                "it.unimi.dsi.fastutil.**->${pkg}.it.unimi.dsi.fastutil",
+                "--map",
+                "kotlin.**->${pkg}.jetbrains.kotlin",
+                "--map",
+                "kotlinx.**->${pkg}.jetbrains.kotlinx",
+                "--map",
+                "org.jetbrains.**->${pkg}.org.jetbrains",
+                "--map",
+                "org.intellij.**->${pkg}.org.intellij",
+                "--map",
+                "org.checkerframework.**->${pkg}.org.checkerframework",
+                "--map",
+                "com.google.j2objc.**->${pkg}.com.google.j2objc",
+                "--map",
+                "com.google.protobuf.**->${pkg}.com.google.protobuf",
+                 "--map",
+                "android.aapt.**->${pkg}.android.aapt")
+}
+
 val r8WithRelocatedDeps by registering(Exec::class) {
     dependsOn(depsJar)
     dependsOn(swissArmyKnifeWithoutLicense)
@@ -296,6 +328,7 @@ val r8WithRelocatedDeps by registering(Exec::class) {
     inputs.files(listOf(swissArmy, deps))
     val output = getRoot().resolveAll("build", "libs", "r8.jar")
     outputs.file(output)
+    val pkg = "com.android.tools.r8"
     commandLine = baseCompilerCommandLine(
       swissArmy,
       deps,
@@ -308,45 +341,50 @@ val r8WithRelocatedDeps by registering(Exec::class) {
              "$output",
              // Add identity mapping to enforce no relocation of things already in package
              // com.android.tools.r8.
+              "--map",
+             "com.android.tools.r8.**->${pkg}",
+              // Add identity for the public annotation surface of keepanno
+              "--map",
+             "com.android.tools.r8.keepanno.annotations.**->${pkg}.keepanno.annotations",
+              // Explicitly move all other keepanno utilities.
+              "--map",
+             "com.android.tools.r8.keepanno.**->${pkg}.relocated.keepanno",
              "--map",
-             "com.android.tools.r8.**->com.android.tools.r8",
-             // Add identify for the public annotation surface of keepanno
-             "--map",
-             "com.android.tools.r8.keepanno.annotations.**->com.android.tools.r8.keepanno.annotations",
-             // Explicitly move all other keepanno utilities.
-             "--map",
-             "com.android.tools.r8.keepanno.**->com.android.tools.r8.relocated.keepanno",
-             "--map",
-             "com.android.**->com.android.tools.r8.com.android",
-             "--map",
-             "com.android.build.shrinker.**->com.android.tools.r8.resourceshrinker",
-             "--map",
-             "com.google.common.**->com.android.tools.r8.com.google.common",
-             "--map",
-             "com.google.gson.**->com.android.tools.r8.com.google.gson",
-             "--map",
-             "com.google.thirdparty.**->com.android.tools.r8.com.google.thirdparty",
-             "--map",
-             "org.objectweb.asm.**->com.android.tools.r8.org.objectweb.asm",
-             "--map",
-             "it.unimi.dsi.fastutil.**->com.android.tools.r8.it.unimi.dsi.fastutil",
-             "--map",
-             "kotlin.**->com.android.tools.r8.jetbrains.kotlin",
-             "--map",
-             "kotlinx.**->com.android.tools.r8.jetbrains.kotlinx",
-             "--map",
-             "org.jetbrains.**->com.android.tools.r8.org.jetbrains",
-             "--map",
-             "org.intellij.**->com.android.tools.r8.org.intellij",
-             "--map",
-             "org.checkerframework.**->com.android.tools.r8.org.checkerframework",
-             "--map",
-             "com.google.j2objc.**->com.android.tools.r8.com.google.j2objc",
-             "--map",
-             "com.google.protobuf.**->com.android.tools.r8.com.google.protobuf",
-             "--map",
-             "android.aapt.**->com.android.tools.r8.android.aapt"
-      ))
+             "org.objectweb.asm.**->${pkg}.org.objectweb.asm")
+             + relocateDepsExceptAsm(pkg)
+      )
+  }
+
+
+val keepAnnoToolsWithRelocatedDeps by registering(Exec::class) {
+    dependsOn(depsJar)
+    dependsOn(swissArmyKnifeWithoutLicense)
+    dependsOn(keepAnnoDepsJarExceptAsm)
+    dependsOn(keepAnnoToolsJar)
+    val swissArmy = swissArmyKnifeWithoutLicense.get().outputs.files.singleFile
+    val deps = depsJar.get().outputs.files.singleFile
+    val keepAnnoDeps = keepAnnoDepsJarExceptAsm.outputs.files.singleFile
+    val tools = keepAnnoToolsJar.outputs.files.singleFile
+    inputs.files(listOf(tools, keepAnnoDeps))
+    val output = getRoot().resolveAll("build", "libs", "keepanno-tools.jar")
+    outputs.file(output)
+    val pkg = "com.android.tools.r8.keepanno"
+    commandLine = baseCompilerCommandLine(
+      swissArmy,
+      deps,
+      "relocator",
+      listOf("--input",
+             "$tools",
+             "--input",
+             "$keepAnnoDeps",
+             "--output",
+             "$output",
+             // Add identity mapping to enforce no relocation of things already in package
+             // com.android.tools.r8.keepanno
+              "--map",
+             "com.android.tools.r8.keepanno.**->${pkg}")
+             + relocateDepsExceptAsm(pkg)
+      )
   }
 }
 

@@ -56,6 +56,7 @@ def parse_options():
                         default=None,
                         help='Input map for distribution and composition')
     parser.add_argument('--r8jar', required=True, help='The R8 jar to compile')
+    parser.add_argument('--r8-version-jar', required=True, help='The R8 jar to provide version')
     parser.add_argument('--r8compiler',
                         default='build/libs/r8_with_deps.jar',
                         help='The R8 compiler to use')
@@ -109,7 +110,7 @@ def main():
     if not os.path.exists(args.r8jar):
         print("Could not find jar: " + args.r8jar)
         return 1
-    version = get_r8_version(args.r8jar)
+    version = get_r8_version(args.r8_version_jar if args.r8_version_jar else args.r8jar)
     variant = '+excldeps' if args.excldeps_variant else ''
     map_id_template = version + variant
     source_file_template = 'R8_%MAP_ID_%MAP_HASH'

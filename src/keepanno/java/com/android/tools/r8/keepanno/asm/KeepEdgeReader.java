@@ -119,6 +119,10 @@ public class KeepEdgeReader implements Opcodes {
     return internalReadKeepEdges(classFileBytes, true);
   }
 
+  public static ClassVisitor getClassVisitor(Parent<KeepDeclaration> consumer) {
+    return new KeepEdgeClassVisitor(true, consumer);
+  }
+
   private static List<KeepDeclaration> internalReadKeepEdges(
       byte[] classFileBytes, boolean readEmbedded) {
     ClassReader reader = new ClassReader(classFileBytes);
@@ -291,7 +295,7 @@ public class KeepEdgeReader implements Opcodes {
     private String className;
     private ClassParsingContext parsingContext;
 
-    KeepEdgeClassVisitor(boolean readEmbedded, Parent<KeepDeclaration> parent) {
+    public KeepEdgeClassVisitor(boolean readEmbedded, Parent<KeepDeclaration> parent) {
       super(ASM_VERSION);
       this.readEmbedded = readEmbedded;
       this.parent = parent;
