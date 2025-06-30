@@ -1949,9 +1949,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     private boolean enableSyntheticMerging = true;
     private boolean restrictToSynthetics = false;
 
-    // TODO(b/418674622): Enable check-cast-rewriting.
-    public boolean enableCheckCastRewriting = false;
-
     public void disable() {
       enable = false;
     }

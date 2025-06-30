@@ -3,8 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.conversion;
 
-import static com.google.common.base.Predicates.alwaysTrue;
-
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
@@ -51,8 +49,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.function.Consumer;
-import java.util.function.Predicate;
 
 public class LirConverter {
 
@@ -148,28 +144,24 @@ public class LirConverter {
     }
 
     timing.begin("LIR->LIR@" + graphLens.getClass().getName());
-    rewriteLirWithUnappliedLens(appView, alwaysTrue(), executorService);
+    rewriteLirWithUnappliedLens(appView, executorService);
     timing.end();
 
     onChangedAction.execute();
   }
 
-  public static void rewriteLirWithUnappliedLens(
-      AppView<? extends AppInfoWithClassHierarchy> appView,
-      Predicate<DexEncodedMethod> needsRewriting,
-      ExecutorService executorService)
+  private static void rewriteLirWithUnappliedLens(
+      AppView<? extends AppInfoWithClassHierarchy> appView, ExecutorService executorService)
       throws ExecutionException {
     LensCodeRewriterUtils rewriterUtils = new LensCodeRewriterUtils(appView, true);
     ThreadUtils.processItems(
-        (Consumer<ProgramMethod> consumer) -> {
-          for (DexProgramClass clazz : appView.appInfo().classes()) {
+        appView.appInfo().classes(),
+        clazz ->
             clazz.forEachProgramMethodMatching(
-                m -> m.hasCode() && m.getCode().isLirCode() && needsRewriting.test(m), consumer);
-          }
-        },
-        method ->
-            rewriteLirMethodWithLens(
-                method, appView, appView.graphLens(), rewriterUtils, Timing.empty()),
+                m -> m.hasCode() && m.getCode().isLirCode(),
+                m ->
+                    rewriteLirMethodWithLens(
+                        m, appView, appView.graphLens(), rewriterUtils, Timing.empty())),
         appView.options().getThreadingModule(),
         executorService);
 

@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.classmerging.horizontal;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
@@ -11,7 +13,6 @@ import com.android.tools.r8.TestParameters;
 import org.junit.Test;
 
 public class ClassesDistinguishedByDirectCheckCastTest extends HorizontalClassMergingTestBase {
-
   public ClassesDistinguishedByDirectCheckCastTest(TestParameters parameters) {
     super(parameters);
   }
@@ -21,14 +22,17 @@ public class ClassesDistinguishedByDirectCheckCastTest extends HorizontalClassMe
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
-        .addHorizontallyMergedClassesInspector(
-            inspector ->
-                inspector.assertIsCompleteMergeGroup(A.class, B.class).assertNoOtherClassesMerged())
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
         .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutputLines("fail", "bar");
+        .assertSuccessWithOutputLines("fail", "bar")
+        .inspect(
+            codeInspector -> {
+              // The two classes should not be merged.
+              assertThat(codeInspector.clazz(A.class), isPresent());
+              assertThat(codeInspector.clazz(B.class), isPresent());
+            });
   }
 
   @NeverClassInline
@@ -50,23 +54,19 @@ public class ClassesDistinguishedByDirectCheckCastTest extends HorizontalClassMe
   public static class Main {
     @NeverInline
     public static void checkObject(Object o) {
-      B b = (B) o;
-      b.bar();
+      try {
+        B b = (B) o;
+        b.bar();
+      } catch (ClassCastException ex) {
+        System.out.println("fail");
+      }
     }
 
     public static void main(String[] args) {
       A a = new A();
       B b = new B();
-      try {
-        checkObject(a);
-      } catch (ClassCastException ex) {
-        System.out.println("fail");
-      }
-      try {
-        checkObject(b);
-      } catch (ClassCastException ex) {
-        System.out.println("fail");
-      }
+      checkObject(a);
+      checkObject(b);
     }
   }
 }

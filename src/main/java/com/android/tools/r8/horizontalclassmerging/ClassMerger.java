@@ -32,7 +32,6 @@ import com.android.tools.r8.ir.analysis.value.NumberFromIntervalValue;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
-import com.android.tools.r8.shaking.RuntimeTypeCheckInfo;
 import com.android.tools.r8.utils.SetUtils;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -100,7 +99,8 @@ public class ClassMerger {
   }
 
   void buildClassIdentifierMap() {
-    group.acceptClassIds((clazz, classId) -> classIdentifiers.put(clazz.getType(), classId));
+    classIdentifiers.put(group.getTarget().getType(), 0);
+    group.forEachSource(clazz -> classIdentifiers.put(clazz.getType(), classIdentifiers.size()));
   }
 
   void mergeDirectMethods(
@@ -433,23 +433,14 @@ public class ClassMerger {
       return virtualMethodMergerBuilders;
     }
 
-    public void initializeClassIdField(RuntimeTypeCheckInfo runtimeTypeCheckInfo) {
-      if (requiresClassIdField(runtimeTypeCheckInfo)) {
+    public void initializeClassIdField() {
+      boolean requiresClassIdField =
+          virtualMethodMergers.stream()
+              .anyMatch(virtualMethodMerger -> !virtualMethodMerger.isNopOrTrivial());
+      if (requiresClassIdField) {
         assert appView.enableWholeProgramOptimizations();
         createClassIdField();
       }
-    }
-
-    private boolean requiresClassIdField(RuntimeTypeCheckInfo runtimeTypeCheckInfo) {
-      if (runtimeTypeCheckInfo != null
-          && Iterables.any(group, runtimeTypeCheckInfo::isCheckCastType)) {
-        return true;
-      }
-      if (virtualMethodMergers.stream()
-          .anyMatch(virtualMethodMerger -> !virtualMethodMerger.isNopOrTrivial())) {
-        return true;
-      }
-      return false;
     }
 
     private void createClassIdField() {

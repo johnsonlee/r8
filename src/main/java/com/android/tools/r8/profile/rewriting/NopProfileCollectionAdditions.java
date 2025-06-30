@@ -29,11 +29,6 @@ public class NopProfileCollectionAdditions extends ProfileCollectionAdditions {
   }
 
   @Override
-  public void addMethodAndHolderIfContextIsInProfile(ProgramMethod method, ProgramMethod context) {
-    // Intentionally empty.
-  }
-
-  @Override
   public void applyIfContextIsInProfile(
       DexMethod context, Consumer<ProfileAdditionsBuilder> builderConsumer) {
     // Intentionally empty.

@@ -12,7 +12,6 @@ import com.android.tools.r8.cf.code.CfConstNumber;
 import com.android.tools.r8.cf.code.CfFrame;
 import com.android.tools.r8.cf.code.CfGoto;
 import com.android.tools.r8.cf.code.CfIf;
-import com.android.tools.r8.cf.code.CfIfCmp;
 import com.android.tools.r8.cf.code.CfInvoke;
 import com.android.tools.r8.cf.code.CfLabel;
 import com.android.tools.r8.cf.code.CfLoad;
@@ -96,43 +95,6 @@ public final class CfUtilityMethodsForCodeOptimizations {
                     factory.createString("<init>")),
                 false),
             new CfThrow()),
-        ImmutableList.of(),
-        ImmutableList.of());
-  }
-
-  public static CfCode
-      CfUtilityMethodsForCodeOptimizationsTemplates_throwClassCastExceptionIfNotEquals(
-          DexItemFactory factory, DexMethod method) {
-    CfLabel label0 = new CfLabel();
-    CfLabel label1 = new CfLabel();
-    CfLabel label2 = new CfLabel();
-    CfLabel label3 = new CfLabel();
-    return new CfCode(
-        method.holder,
-        2,
-        2,
-        ImmutableList.of(
-            label0,
-            new CfLoad(ValueType.INT, 1),
-            new CfLoad(ValueType.INT, 0),
-            new CfIfCmp(IfType.EQ, ValueType.INT, label2),
-            label1,
-            new CfNew(factory.createType("Ljava/lang/ClassCastException;")),
-            new CfStackInstruction(CfStackInstruction.Opcode.Dup),
-            new CfInvoke(
-                183,
-                factory.createMethod(
-                    factory.createType("Ljava/lang/ClassCastException;"),
-                    factory.createProto(factory.voidType),
-                    factory.createString("<init>")),
-                false),
-            new CfThrow(),
-            label2,
-            new CfFrame(
-                new Int2ObjectAVLTreeMap<>(
-                    new int[] {0, 1}, new FrameType[] {FrameType.intType(), FrameType.intType()})),
-            new CfReturnVoid(),
-            label3),
         ImmutableList.of(),
         ImmutableList.of());
   }

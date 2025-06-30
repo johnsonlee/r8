@@ -33,7 +33,6 @@ import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.desugar.apimodel.ApiInvokeOutlinerDesugaring.InstructionKind;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.R8LibraryDesugaringGraphLens;
 import com.android.tools.r8.ir.optimize.AffectedValues;
 import com.android.tools.r8.ir.optimize.DeadCodeRemover;
 import com.android.tools.r8.lightir.LirBuilder.NameComputationPayload;
@@ -261,16 +260,11 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
 
   @Override
   public void onCheckCast(DexType type, EV value, boolean ignoreCompatRules) {
-    if (graphLens.isHorizontalClassMergerGraphLens()) {
-      DexType rewrittenType = graphLens.lookupType(type, codeLens);
-      if (rewrittenType.isNotIdenticalTo(type)) {
-        addTypeInstructionToRewrite(type);
-      }
-    } else if (graphLens.isLirToLirDesugaringLens()) {
-      R8LibraryDesugaringGraphLens desugaringLens = graphLens.asLirToLirDesugaringLens();
-      if (desugaringLens.needsApiOutlining(InstructionKind.CHECKCAST, type, context)) {
-        addTypeInstructionToRewrite(type);
-      }
+    if (graphLens.isLirToLirDesugaringLens()
+        && graphLens
+            .asLirToLirDesugaringLens()
+            .needsApiOutlining(InstructionKind.CHECKCAST, type, context)) {
+      addTypeInstructionToRewrite(type);
     }
   }
 
@@ -620,9 +614,7 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
             hasFieldReference
                 && (graphLens.isClassMergerLens() || graphLens.isLirToLirDesugaringLens());
         boolean hasPotentialRewrittenTypeInstruction =
-            hasTypeReference
-                && (graphLens.isHorizontalClassMergerGraphLens()
-                    || graphLens.isLirToLirDesugaringLens());
+            hasTypeReference && graphLens.isLirToLirDesugaringLens();
         if (hasDexItemBasedConstString
             || hasPotentialRewrittenFieldInstruction
             || hasPotentialRewrittenMethod

@@ -59,7 +59,6 @@ import com.android.tools.r8.graph.proto.ArgumentInfoCollection;
 import com.android.tools.r8.graph.proto.RemovedArgumentInfo;
 import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
 import com.android.tools.r8.graph.proto.RewrittenTypeInfo;
-import com.android.tools.r8.horizontalclassmerging.HorizontallyMergedClasses;
 import com.android.tools.r8.ir.analysis.type.DestructivePhiTypeUpdater;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
 import com.android.tools.r8.ir.analysis.type.Nullability;
@@ -81,8 +80,6 @@ import com.android.tools.r8.ir.code.FieldGet;
 import com.android.tools.r8.ir.code.FieldInstruction;
 import com.android.tools.r8.ir.code.FieldPut;
 import com.android.tools.r8.ir.code.IRCode;
-import com.android.tools.r8.ir.code.If;
-import com.android.tools.r8.ir.code.IfType;
 import com.android.tools.r8.ir.code.InitClass;
 import com.android.tools.r8.ir.code.InstanceGet;
 import com.android.tools.r8.ir.code.InstanceOf;
@@ -94,7 +91,6 @@ import com.android.tools.r8.ir.code.InvokeCustom;
 import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.code.InvokeMultiNewArray;
 import com.android.tools.r8.ir.code.InvokePolymorphic;
-import com.android.tools.r8.ir.code.InvokeStatic;
 import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.code.MaterializingInstructionsInfo;
 import com.android.tools.r8.ir.code.MoveException;
@@ -729,107 +725,13 @@ public class LensCodeRewriter {
           case CHECK_CAST:
             {
               CheckCast checkCast = current.asCheckCast();
-              Instruction replacement =
-                  new InstructionReplacer(code, current, iterator, affectedPhis)
-                      .replaceInstructionIfTypeChanged(
-                          checkCast.getType(),
-                          (t, v) ->
-                              checkCast
-                                  .newBuilder()
-                                  .setCastType(t)
-                                  .setIgnoreCompatRules(checkCast.ignoreCompatRules())
-                                  .setObject(checkCast.object())
-                                  .setOutValue(v)
-                                  .build(),
-                          graphLens,
-                          codeLens);
-              if (replacement != null
-                  && !replacement.isSafeCheckCast()
-                  && graphLens.isHorizontalClassMergerGraphLens()) {
-                HorizontallyMergedClasses horizontallyMergedClasses =
-                    appView.horizontallyMergedClasses();
-
-                // Get the class id from the object.
-                InstanceGet instanceGet =
-                    InstanceGet.builder()
-                        .setField(
-                            horizontallyMergedClasses.getClassIdField(
-                                replacement.asCheckCast().getType()))
-                        .setFreshOutValue(code, TypeElement.getInt())
-                        .setObject(replacement.outValue())
-                        .setPosition(checkCast)
-                        .build();
-
-                // Load the class id of the source class.
-                ConstNumber constNumber =
-                    ConstNumber.builder()
-                        .setFreshOutValue(code, TypeElement.getInt())
-                        .setValue(horizontallyMergedClasses.getClassId(checkCast.getType()))
-                        .setPositionForNonThrowingInstruction(checkCast.getPosition(), options)
-                        .build();
-
-                // Call a synthetic helper method that throws a ClassCastException if the loaded
-                // class id is different from the class id of the source class.
-                InvokeStatic invoke =
-                    InvokeStatic.builder()
-                        .setArguments(instanceGet.outValue(), constNumber.outValue())
-                        .setIsInterface(false)
-                        .setMethod(
-                            graphLens
-                                .asHorizontalClassMergerGraphLens()
-                                .ensureThrowClassCastExceptionIfNotEqualsMethod(method))
-                        .setPosition(checkCast)
-                        .build();
-
-                if (replacement.outValue().isNeverNull()) {
-                  iterator.addPossiblyThrowingInstructionsToPossiblyThrowingBlock(
-                      code, blocks, ImmutableList.of(instanceGet, constNumber, invoke), options);
-                } else if (!replacement.outValue().isAlwaysNull(appView)) {
-                  If ifNe = new If(IfType.EQ, replacement.outValue());
-                  ifNe.setPosition(Position.none());
-
-                  BasicBlock ifBlock = iterator.split(code, blocks);
-                  assert !ifBlock.hasCatchHandlers();
-
-                  BasicBlock nullBlock = ifBlock.listIterator().split(code, blocks);
-                  assert !nullBlock.hasCatchHandlers();
-
-                  BasicBlock nonNullBlock = nullBlock.listIterator().split(code, blocks);
-                  assert !nonNullBlock.hasCatchHandlers();
-                  assert blocks.peekPrevious() == nonNullBlock;
-
-                  BasicBlock nonNullContinuationBlock =
-                      nonNullBlock.listIterator().split(code, blocks);
-                  assert !nonNullContinuationBlock.hasCatchHandlers();
-
-                  BasicBlock continuationBlock =
-                      nonNullContinuationBlock.listIterator().split(code, blocks);
-                  if (block.hasCatchHandlers()) {
-                    nonNullBlock.copyCatchHandlers(code, blocks, block, options);
-                    continuationBlock.copyCatchHandlers(code, blocks, block, options);
-                  }
-
-                  ifBlock.exit().replace(ifNe);
-                  ifBlock.link(nonNullBlock);
-                  assert ifNe.targetFromNonNullObject() == nonNullBlock;
-                  assert ifNe.targetFromNullObject() == nullBlock;
-
-                  nullBlock.detachAllSuccessors();
-                  nullBlock.link(continuationBlock);
-
-                  blocks.positionAfterPreviousBlock(nonNullBlock);
-                  nonNullBlock
-                      .listIterator()
-                      .addPossiblyThrowingInstructionsToPossiblyThrowingBlock(
-                          code,
-                          blocks,
-                          ImmutableList.of(instanceGet, constNumber, invoke),
-                          options);
-
-                  blocks.positionBeforeSubsequentBlock(continuationBlock);
-                  assert blocks.peekNext() == continuationBlock;
-                }
-              }
+              new InstructionReplacer(code, current, iterator, affectedPhis)
+                  .replaceInstructionIfTypeChanged(
+                      checkCast.getType(),
+                      (t, v) ->
+                          new CheckCast(v, checkCast.object(), t, checkCast.ignoreCompatRules()),
+                      graphLens,
+                      codeLens);
             }
             break;
 
