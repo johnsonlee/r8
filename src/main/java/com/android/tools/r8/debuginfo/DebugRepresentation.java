@@ -475,13 +475,13 @@ public class DebugRepresentation {
   }
 
   public static DexInstruction getLastExecutableInstruction(DexInstruction[] instructions) {
-    for (int i = instructions.length - 1; i >= 0; i--) {
-      DexInstruction instruction = instructions[i];
+    DexInstruction lastInstruction = null;
+    for (DexInstruction instruction : instructions) {
       if (!instruction.isPayload()) {
-        return instruction;
+        lastInstruction = instruction;
       }
     }
-    return null;
+    return lastInstruction;
   }
 
   private static int estimatedDebugInfoSize(DexDebugInfo info) {

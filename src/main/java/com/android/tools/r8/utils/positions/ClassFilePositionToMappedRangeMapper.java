@@ -16,7 +16,6 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.code.Position.SyntheticPosition;
 import com.android.tools.r8.utils.Pair;
-import com.android.tools.r8.utils.timing.Timing;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -31,11 +30,10 @@ public class ClassFilePositionToMappedRangeMapper implements PositionToMappedRan
   @Override
   public List<MappedPosition> getMappedPositions(
       ProgramMethod method,
-      MethodPositionRemapper positionRemapper,
+      ClassPositionRemapper positionRemapper,
       boolean hasOverloads,
       boolean canUseDexPc,
-      int pcEncodingCutoff,
-      Timing timing) {
+      int pcEncodingCutoff) {
     return appView.options().getTestingOptions().usePcEncodingInCfForTesting
         ? getPcEncodedPositions(method, positionRemapper)
         : getMappedPositionsRemapped(method, positionRemapper, hasOverloads);
@@ -47,7 +45,7 @@ public class ClassFilePositionToMappedRangeMapper implements PositionToMappedRan
   }
 
   private List<MappedPosition> getMappedPositionsRemapped(
-      ProgramMethod method, MethodPositionRemapper positionRemapper, boolean hasOverloads) {
+      ProgramMethod method, ClassPositionRemapper positionRemapper, boolean hasOverloads) {
     List<MappedPosition> mappedPositions = new ArrayList<>();
     // Do the actual processing for each method.
     CfCode oldCode = method.getDefinition().getCode().asCfCode();
@@ -101,18 +99,21 @@ public class ClassFilePositionToMappedRangeMapper implements PositionToMappedRan
     return mappedPositions;
   }
 
+  @SuppressWarnings("UnusedVariable")
   private List<MappedPosition> getPcEncodedPositions(
-      ProgramMethod method, MethodPositionRemapper positionRemapper) {
+      ProgramMethod method, ClassPositionRemapper positionRemapper) {
     List<MappedPosition> mappedPositions = new ArrayList<>();
     // Do the actual processing for each method.
     CfCode oldCode = method.getDefinition().getCode().asCfCode();
     List<CfInstruction> oldInstructions = oldCode.getInstructions();
     List<CfInstruction> newInstructions = new ArrayList<>(oldInstructions.size() * 3);
     Position currentPosition = null;
+    boolean isFirstEntry = false;
     for (CfInstruction oldInstruction : oldInstructions) {
       if (oldInstruction.isPosition()) {
         CfPosition cfPosition = oldInstruction.asPosition();
         currentPosition = cfPosition.getPosition();
+        isFirstEntry = true;
       } else {
         if (currentPosition != null) {
           Pair<Position, Position> remappedPosition =
@@ -124,6 +125,7 @@ public class ClassFilePositionToMappedRangeMapper implements PositionToMappedRan
           newInstructions.add(position);
           newInstructions.add(position.getLabel());
         }
+        isFirstEntry = false;
         newInstructions.add(oldInstruction);
       }
     }

@@ -26,7 +26,6 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.code.Position.SourcePosition;
-import com.android.tools.r8.utils.timing.Timing;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -85,7 +84,7 @@ public class DexPositionToNoPcMappedRangeMapper {
 
     private final PositionEventEmitter positionEventEmitter;
     private final List<MappedPosition> mappedPositions;
-    private final MethodPositionRemapper positionRemapper;
+    private final ClassPositionRemapper positionRemapper;
     private final List<DexDebugEvent> processedEvents;
 
     // Keep track of what PC has been emitted.
@@ -96,7 +95,7 @@ public class DexPositionToNoPcMappedRangeMapper {
     public DexDebugPositionStateVisitor(
         PositionEventEmitter positionEventEmitter,
         List<MappedPosition> mappedPositions,
-        MethodPositionRemapper positionRemapper,
+        ClassPositionRemapper positionRemapper,
         List<DexDebugEvent> processedEvents,
         DexItemFactory factory,
         int startLine,
@@ -182,8 +181,7 @@ public class DexPositionToNoPcMappedRangeMapper {
   }
 
   public List<MappedPosition> optimizeDexCodePositions(
-      ProgramMethod method, MethodPositionRemapper positionRemapper, Timing timing) {
-    timing.begin("No pc mapper");
+      ProgramMethod method, ClassPositionRemapper positionRemapper) {
     List<MappedPosition> mappedPositions = new ArrayList<>();
     // Do the actual processing for each method.
     DexApplication application = appView.appInfo().app();
@@ -223,7 +221,6 @@ public class DexPositionToNoPcMappedRangeMapper {
         || verifyIdentityMapping(method, debugInfo, optimizedDebugInfo);
 
     dexCode.setDebugInfo(optimizedDebugInfo);
-    timing.end();
     return mappedPositions;
   }
 
