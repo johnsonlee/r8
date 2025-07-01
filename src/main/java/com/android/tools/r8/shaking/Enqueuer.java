@@ -117,7 +117,6 @@ import com.android.tools.r8.kotlin.KotlinMetadataEnqueuerExtension;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.shaking.AnnotationMatchResult.MatchedAnnotation;
-import com.android.tools.r8.shaking.DelayedRootSetActionItem.InterfaceMethodSyntheticBridgeAction;
 import com.android.tools.r8.shaking.EnqueuerEvent.ClassEnqueuerEvent;
 import com.android.tools.r8.shaking.EnqueuerEvent.InstantiatedClassEnqueuerEvent;
 import com.android.tools.r8.shaking.EnqueuerEvent.LiveClassEnqueuerEvent;
@@ -4869,12 +4868,9 @@ public class Enqueuer {
         }
 
         timing.begin("Process delayed root set items");
-        for (DelayedRootSetActionItem delayedRootSetActionItem :
-            rootSet.delayedRootSetActionItems) {
-          if (delayedRootSetActionItem.isInterfaceMethodSyntheticBridgeAction()) {
-            identifySyntheticInterfaceMethodBridges(
-                delayedRootSetActionItem.asInterfaceMethodSyntheticBridgeAction());
-          }
+        for (InterfaceMethodSyntheticBridgeAction delayedRootSetActionItem :
+            rootSet.delayedInterfaceMethodSyntheticBridgeActions) {
+          identifySyntheticInterfaceMethodBridges(delayedRootSetActionItem);
         }
         timing.end();
 
@@ -4886,7 +4882,7 @@ public class Enqueuer {
         rootSet
             .getDependentMinimumKeepInfo()
             .merge(consequentRootSet.getDependentMinimumKeepInfo());
-        rootSet.delayedRootSetActionItems.clear();
+        rootSet.delayedInterfaceMethodSyntheticBridgeActions.clear();
         timing.end();
 
         if (worklist.hasNext()) {
@@ -4989,11 +4985,10 @@ public class Enqueuer {
 
   private ConsequentRootSet computeDelayedInterfaceMethodSyntheticBridges() {
     RootSetBuilder builder = RootSet.builder(appView, this, subtypingInfo);
-    for (DelayedRootSetActionItem delayedRootSetActionItem : rootSet.delayedRootSetActionItems) {
-      if (delayedRootSetActionItem.isInterfaceMethodSyntheticBridgeAction()) {
-        handleInterfaceMethodSyntheticBridgeAction(
-            delayedRootSetActionItem.asInterfaceMethodSyntheticBridgeAction(), builder);
-      }
+    for (InterfaceMethodSyntheticBridgeAction delayedInterfaceMethodSyntheticBridgeAction :
+        rootSet.delayedInterfaceMethodSyntheticBridgeActions) {
+      handleInterfaceMethodSyntheticBridgeAction(
+          delayedInterfaceMethodSyntheticBridgeAction, builder);
     }
     return builder.buildConsequentRootSet();
   }
@@ -5027,7 +5022,12 @@ public class Enqueuer {
     if (singleTargetMethod.isLibraryMethodOverride().isTrue()) {
       methodToKeep.getDefinition().setLibraryMethodOverride(OptionalBool.TRUE);
     }
-    action.getAction().accept(builder);
+    builder.addItemToSets(
+        methodToKeep,
+        action.getContext(),
+        action.getRule(),
+        action.getPrecondition(),
+        action.getIfRulePreconditionMatch());
   }
 
   void retainAnnotationForFinalTreeShaking(List<MatchedAnnotation> matchedAnnotations) {

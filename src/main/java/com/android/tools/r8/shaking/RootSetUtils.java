@@ -70,7 +70,6 @@ import com.android.tools.r8.repackaging.RepackagingUtils;
 import com.android.tools.r8.shaking.AnnotationMatchResult.AnnotationsIgnoredMatchResult;
 import com.android.tools.r8.shaking.AnnotationMatchResult.ConcreteAnnotationMatchResult;
 import com.android.tools.r8.shaking.AnnotationMatchResult.MatchedAnnotation;
-import com.android.tools.r8.shaking.DelayedRootSetActionItem.InterfaceMethodSyntheticBridgeAction;
 import com.android.tools.r8.shaking.EnqueuerEvent.InstantiatedClassEnqueuerEvent;
 import com.android.tools.r8.shaking.EnqueuerEvent.LiveClassEnqueuerEvent;
 import com.android.tools.r8.shaking.EnqueuerEvent.UnconditionalKeepInfoEvent;
@@ -148,8 +147,8 @@ public class RootSetUtils {
         new IdentityHashMap<>();
     private final Set<DexMember<?, ?>> identifierNameStrings = Sets.newIdentityHashSet();
     private final Map<DexMethod, ProgramMethod> keptMethodBridges = new ConcurrentHashMap<>();
-    private final Queue<DelayedRootSetActionItem> delayedRootSetActionItems =
-        new ConcurrentLinkedQueue<>();
+    private final Queue<InterfaceMethodSyntheticBridgeAction>
+        delayedInterfaceMethodSyntheticBridgeActions = new ConcurrentLinkedQueue<>();
     private final InternalOptions options;
     private final IntSet resourceRootIds = new IntOpenHashSet();
 
@@ -607,7 +606,7 @@ public class RootSetUtils {
           dependentKeepClassCompatRule,
           identifierNameStrings,
           ifRules,
-          Lists.newArrayList(delayedRootSetActionItems),
+          Lists.newArrayList(delayedInterfaceMethodSyntheticBridgeActions),
           pendingMethodMoveInverse,
           resourceRootIds,
           rootNonProgramTypes);
@@ -681,7 +680,7 @@ public class RootSetUtils {
       return new ConsequentRootSet(
           dependentMinimumKeepInfo,
           dependentKeepClassCompatRule,
-          Lists.newArrayList(delayedRootSetActionItems),
+          Lists.newArrayList(delayedInterfaceMethodSyntheticBridgeActions),
           pendingMethodMoveInverse);
     }
 
@@ -874,16 +873,14 @@ public class RootSetUtils {
           methodToKeep = resolutionMethod;
         }
 
-        delayedRootSetActionItems.add(
+        delayedInterfaceMethodSyntheticBridgeActions.add(
             new InterfaceMethodSyntheticBridgeAction(
                 methodToKeep,
                 resolutionMethod,
-                (rootSetBuilder) -> {
-                  DexClass precondition =
-                      testAndGetPrecondition(methodToKeep.getDefinition(), preconditionSupplier);
-                  rootSetBuilder.addItemToSets(
-                      methodToKeep, context, rule, precondition, ifRulePreconditionMatch);
-                }));
+                context,
+                rule,
+                ifRulePreconditionMatch,
+                testAndGetPrecondition(methodToKeep.getDefinition(), preconditionSupplier)));
       }
     }
 
@@ -1387,7 +1384,7 @@ public class RootSetUtils {
       }
     }
 
-    private synchronized void addItemToSets(
+    synchronized void addItemToSets(
         Definition item,
         ProguardConfigurationRule context,
         ProguardMemberRule rule,
@@ -2152,17 +2149,18 @@ public class RootSetUtils {
 
     private final DependentMinimumKeepInfoCollection dependentMinimumKeepInfo;
     final Map<DexType, Set<ProguardKeepRuleBase>> dependentKeepClassCompatRule;
-    final List<DelayedRootSetActionItem> delayedRootSetActionItems;
+    final List<InterfaceMethodSyntheticBridgeAction> delayedInterfaceMethodSyntheticBridgeActions;
     public final ProgramMethodMap<ProgramMethod> pendingMethodMoveInverse;
 
     RootSetBase(
         DependentMinimumKeepInfoCollection dependentMinimumKeepInfo,
         Map<DexType, Set<ProguardKeepRuleBase>> dependentKeepClassCompatRule,
-        List<DelayedRootSetActionItem> delayedRootSetActionItems,
+        List<InterfaceMethodSyntheticBridgeAction> delayedInterfaceMethodSyntheticBridgeActions,
         ProgramMethodMap<ProgramMethod> pendingMethodMoveInverse) {
       this.dependentMinimumKeepInfo = dependentMinimumKeepInfo;
       this.dependentKeepClassCompatRule = dependentKeepClassCompatRule;
-      this.delayedRootSetActionItems = delayedRootSetActionItems;
+      this.delayedInterfaceMethodSyntheticBridgeActions =
+          delayedInterfaceMethodSyntheticBridgeActions;
       this.pendingMethodMoveInverse = pendingMethodMoveInverse;
     }
 
@@ -2199,14 +2197,14 @@ public class RootSetUtils {
         Map<DexType, Set<ProguardKeepRuleBase>> dependentKeepClassCompatRule,
         Set<DexMember<?, ?>> identifierNameStrings,
         Set<ProguardIfRule> ifRules,
-        List<DelayedRootSetActionItem> delayedRootSetActionItems,
+        List<InterfaceMethodSyntheticBridgeAction> delayedInterfaceMethodSyntheticBridgeActions,
         ProgramMethodMap<ProgramMethod> pendingMethodMoveInverse,
         IntSet resourceIds,
         Set<DexType> rootNonProgramTypes) {
       super(
           dependentMinimumKeepInfo,
           dependentKeepClassCompatRule,
-          delayedRootSetActionItems,
+          delayedInterfaceMethodSyntheticBridgeActions,
           pendingMethodMoveInverse);
       this.reasonAsked = reasonAsked;
       this.alwaysInline = alwaysInline;
@@ -2255,7 +2253,8 @@ public class RootSetUtils {
               dependentKeepClassCompatRule
                   .computeIfAbsent(type, k -> new HashSet<>())
                   .addAll(rules));
-      delayedRootSetActionItems.addAll(consequentRootSet.delayedRootSetActionItems);
+      delayedInterfaceMethodSyntheticBridgeActions.addAll(
+          consequentRootSet.delayedInterfaceMethodSyntheticBridgeActions);
     }
 
     public boolean isShrinkingDisallowedUnconditionally(
@@ -2330,7 +2329,7 @@ public class RootSetUtils {
                 dependentKeepClassCompatRule,
                 identifierNameStrings,
                 ifRules,
-                delayedRootSetActionItems,
+                delayedInterfaceMethodSyntheticBridgeActions,
                 pendingMethodMoveInverse,
                 resourceIds,
                 rootNonProgramTypes);
@@ -2565,12 +2564,12 @@ public class RootSetUtils {
     ConsequentRootSet(
         DependentMinimumKeepInfoCollection dependentMinimumKeepInfo,
         Map<DexType, Set<ProguardKeepRuleBase>> dependentKeepClassCompatRule,
-        List<DelayedRootSetActionItem> delayedRootSetActionItems,
+        List<InterfaceMethodSyntheticBridgeAction> delayedInterfaceMethodSyntheticBridgeActions,
         ProgramMethodMap<ProgramMethod> pendingMethodMoveInverse) {
       super(
           dependentMinimumKeepInfo,
           dependentKeepClassCompatRule,
-          delayedRootSetActionItems,
+          delayedInterfaceMethodSyntheticBridgeActions,
           pendingMethodMoveInverse);
     }
 
@@ -2608,7 +2607,7 @@ public class RootSetUtils {
           rootSet.getDependentMinimumKeepInfo(),
           rootSet.reasonAsked,
           rootSet.ifRules,
-          rootSet.delayedRootSetActionItems);
+          rootSet.delayedInterfaceMethodSyntheticBridgeActions);
     }
   }
 
@@ -2618,7 +2617,7 @@ public class RootSetUtils {
         DependentMinimumKeepInfoCollection dependentMinimumKeepInfo,
         ImmutableList<DexReference> reasonAsked,
         Set<ProguardIfRule> ifRules,
-        List<DelayedRootSetActionItem> delayedRootSetActionItems) {
+        List<InterfaceMethodSyntheticBridgeAction> delayedInterfaceMethodSyntheticBridgeActions) {
       super(
           dependentMinimumKeepInfo,
           reasonAsked,
@@ -2630,7 +2629,7 @@ public class RootSetUtils {
           emptyMap(),
           Collections.emptySet(),
           ifRules,
-          delayedRootSetActionItems,
+          delayedInterfaceMethodSyntheticBridgeActions,
           ProgramMethodMap.empty(),
           IntSets.EMPTY_SET,
           Collections.emptySet());
@@ -2664,13 +2663,13 @@ public class RootSetUtils {
         //  rewritten
         ifRules.forEach(ProguardIfRule::canReferenceDeadTypes);
         // All delayed root set actions should have been processed at this point.
-        assert delayedRootSetActionItems.isEmpty();
+        assert delayedInterfaceMethodSyntheticBridgeActions.isEmpty();
         rewrittenMainDexRootSet =
             new MainDexRootSet(
                 getDependentMinimumKeepInfo().rewrittenWithLens(graphLens, timing),
                 rewrittenReasonAsked.build(),
                 ifRules,
-                delayedRootSetActionItems);
+                delayedInterfaceMethodSyntheticBridgeActions);
       }
       timing.end();
       return rewrittenMainDexRootSet;
@@ -2685,10 +2684,13 @@ public class RootSetUtils {
       //  rewritten.
       ifRules.forEach(ProguardIfRule::canReferenceDeadTypes);
       // All delayed root set actions should have been processed at this point.
-      assert delayedRootSetActionItems.isEmpty();
+      assert delayedInterfaceMethodSyntheticBridgeActions.isEmpty();
       MainDexRootSet result =
           new MainDexRootSet(
-              getDependentMinimumKeepInfo(), reasonAsked, ifRules, delayedRootSetActionItems);
+              getDependentMinimumKeepInfo(),
+              reasonAsked,
+              ifRules,
+              delayedInterfaceMethodSyntheticBridgeActions);
       timing.end();
       return result;
     }
