@@ -19,6 +19,7 @@ import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.utils.IntBox;
 import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.positions.PositionToMappedRangeMapper.PcBasedDebugInfoRecorder;
+import com.android.tools.r8.utils.timing.Timing;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -34,12 +35,18 @@ public class DexPositionToPcMappedRangeMapper {
   }
 
   public List<MappedPosition> optimizeDexCodePositionsForPc(
-      ProgramMethod method, ClassPositionRemapper positionRemapper, int pcEncodingCutoff) {
+      ProgramMethod method,
+      MethodPositionRemapper positionRemapper,
+      int pcEncodingCutoff,
+      Timing timing) {
+    timing.begin("Pc mapper");
     List<MappedPosition> mappedPositions = new ArrayList<>();
     // Do the actual processing for each method.
     DexCode dexCode = method.getDefinition().getCode().asDexCode();
+    timing.begin("Convert to event based debug info");
     EventBasedDebugInfo debugInfo =
         getEventBasedDebugInfo(method.getDefinition(), dexCode, appView);
+    timing.end();
     IntBox firstDefaultEventPc = new IntBox(-1);
     Pair<Integer, Position> lastPosition = new Pair<>();
     DexDebugEventVisitor visitor =
@@ -62,17 +69,21 @@ public class DexPositionToPcMappedRangeMapper {
                   getCurrentPc(),
                   lastPosition.getSecond(),
                   positionRemapper,
-                  mappedPositions);
+                  mappedPositions,
+                  timing);
             }
             lastPosition.setFirst(getCurrentPc());
             lastPosition.setSecond(currentPosition);
           }
         };
 
+    timing.begin("Visit events");
     for (DexDebugEvent event : debugInfo.events) {
       event.accept(visitor);
     }
+    timing.end();
 
+    timing.begin("Flush");
     int lastInstructionPc = DebugRepresentation.getLastExecutableInstruction(dexCode).getOffset();
     if (lastPosition.getSecond() != null) {
       remapAndAddForPc(
@@ -81,13 +92,18 @@ public class DexPositionToPcMappedRangeMapper {
           lastInstructionPc + 1,
           lastPosition.getSecond(),
           positionRemapper,
-          mappedPositions);
+          mappedPositions,
+          timing);
     }
+    timing.end();
 
     assert !mappedPositions.isEmpty()
         || dexCode.instructions.length == 1
         || !dexCode.hasThrowingInstructions();
+    timing.begin("Record pc mapping");
     pcBasedDebugInfo.recordPcMappingFor(method, pcEncodingCutoff);
+    timing.end();
+    timing.end();
     return mappedPositions;
   }
 
@@ -96,14 +112,19 @@ public class DexPositionToPcMappedRangeMapper {
       int startPc,
       int endPc,
       Position position,
-      ClassPositionRemapper remapper,
-      List<MappedPosition> mappedPositions) {
+      MethodPositionRemapper remapper,
+      List<MappedPosition> mappedPositions,
+      Timing timing) {
+    timing.begin("Remap position");
     Pair<Position, Position> remappedPosition = remapper.createRemappedPosition(position);
+    timing.end();
+    timing.begin("Update mapped positions");
     Position oldPosition = remappedPosition.getFirst();
     for (int currentPc = startPc; currentPc < endPc; currentPc++) {
       mappedPositions.add(
           new MappedPosition(oldPosition, debugInfoProvider.getPcEncoding(currentPc)));
     }
+    timing.end();
   }
 
   // This conversion *always* creates an event based debug info encoding as any non-info will

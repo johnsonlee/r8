@@ -11,8 +11,8 @@ import static org.junit.Assert.assertNull;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.kotlin.KotlinSourceDebugExtensionParser.KotlinSourceDebugExtensionParserResult;
 import com.android.tools.r8.kotlin.KotlinSourceDebugExtensionParser.Position;
-import com.android.tools.r8.kotlin.KotlinSourceDebugExtensionParser.Result;
 import com.android.tools.r8.utils.StringUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -33,7 +33,7 @@ public class KotlinSourceDebugExtensionParserTest extends TestBase {
 
   @Test
   public void testParsingEmpty() {
-    assertNull(KotlinSourceDebugExtensionParser.parse(null));
+    assertNull(KotlinSourceDebugExtensionParser.parse((String) null));
   }
 
   @Test
@@ -51,7 +51,8 @@ public class KotlinSourceDebugExtensionParserTest extends TestBase {
             "*L",
             "1#1,38:1",
             "*E");
-    Result result = KotlinSourceDebugExtensionParser.parse(annotationData);
+    KotlinSourceDebugExtensionParserResult result =
+        KotlinSourceDebugExtensionParser.parse(annotationData);
     assertNotNull(result);
     assertEquals(1, result.inlinePositionsCount());
     assertEquals(1, (int) result.lookupInlinedPosition(1).getKey());
@@ -92,7 +93,8 @@ public class KotlinSourceDebugExtensionParserTest extends TestBase {
             "12#1:23",
             "18#1:24",
             "*E");
-    Result result = KotlinSourceDebugExtensionParser.parse(annotationData);
+    KotlinSourceDebugExtensionParserResult result =
+        KotlinSourceDebugExtensionParser.parse(annotationData);
     assertNotNull(result);
     assertEquals(3, result.inlinePositionsCount());
     assertEquals(1, (int) result.lookupInlinedPosition(1).getKey());
@@ -313,7 +315,8 @@ public class KotlinSourceDebugExtensionParserTest extends TestBase {
             "12#1:23",
             "18#1:24",
             "*E");
-    Result parsedResult = KotlinSourceDebugExtensionParser.parse(annotationData);
+    KotlinSourceDebugExtensionParserResult parsedResult =
+        KotlinSourceDebugExtensionParser.parse(annotationData);
     assertNotNull(parsedResult);
     assertEquals(24, (int) parsedResult.lookupInlinedPosition(25).getKey());
     Position value = parsedResult.lookupInlinedPosition(25).getValue();

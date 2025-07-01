@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.kotlin;
 
+import com.android.tools.r8.graph.DexValue.DexValueString;
 import com.android.tools.r8.naming.Range;
 import com.android.tools.r8.utils.SegmentTree;
 import com.android.tools.r8.utils.StringUtils;
@@ -121,7 +122,11 @@ public class KotlinSourceDebugExtensionParser {
     }
   }
 
-  public static Result parse(String annotationData) {
+  public static KotlinSourceDebugExtensionParserResult parse(DexValueString annotationData) {
+    return annotationData != null ? parse(annotationData.getValue().toString()) : null;
+  }
+
+  public static KotlinSourceDebugExtensionParserResult parse(String annotationData) {
     if (annotationData == null || annotationData.isEmpty()) {
       return null;
     }
@@ -166,7 +171,8 @@ public class KotlinSourceDebugExtensionParser {
         // for mapping the resulting positions obtained from the inlineePositions.
         if (reader.isEOF()) {
           assert nextLine == null;
-          return new Result(inlineePositions.segmentTree, calleePositions.segmentTree);
+          return new KotlinSourceDebugExtensionParserResult(
+              inlineePositions.segmentTree, calleePositions.segmentTree);
         }
         if (!nextLine.equals(SMAP_SECTION_KOTLIN_DEBUG_START)) {
           return null;
@@ -181,7 +187,8 @@ public class KotlinSourceDebugExtensionParser {
         throw new KotlinSourceDebugExtensionParserException(
             "Unexpected EOF when parsing SMAP debug entries");
       }
-      return new Result(inlineePositions.segmentTree, calleePositions.segmentTree);
+      return new KotlinSourceDebugExtensionParserResult(
+          inlineePositions.segmentTree, calleePositions.segmentTree);
     } catch (IOException | KotlinSourceDebugExtensionParserException e) {
       return null;
     }
@@ -297,12 +304,13 @@ public class KotlinSourceDebugExtensionParser {
     }
   }
 
-  public static class Result {
+  public static class KotlinSourceDebugExtensionParserResult {
 
     private final SegmentTree<Position> inlineePositions;
     private final SegmentTree<Position> calleePositions;
 
-    public Result(SegmentTree<Position> inlineePositions, SegmentTree<Position> calleePositions) {
+    public KotlinSourceDebugExtensionParserResult(
+        SegmentTree<Position> inlineePositions, SegmentTree<Position> calleePositions) {
       this.inlineePositions = inlineePositions;
       this.calleePositions = calleePositions;
     }

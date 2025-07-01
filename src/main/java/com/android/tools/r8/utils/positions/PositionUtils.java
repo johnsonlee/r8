@@ -20,7 +20,7 @@ import java.util.List;
 public class PositionUtils {
 
   public static Position remapAndAdd(
-      Position position, ClassPositionRemapper remapper, List<MappedPosition> mappedPositions) {
+      Position position, MethodPositionRemapper remapper, List<MappedPosition> mappedPositions) {
     Pair<Position, Position> remappedPosition = remapper.createRemappedPosition(position);
     Position oldPosition = remappedPosition.getFirst();
     Position newPosition = remappedPosition.getSecond();
