@@ -281,7 +281,7 @@ public abstract class TestCompileResult<
     return addRunClasspathClasses(Arrays.asList(classpath));
   }
 
-  public CR addRunClasspathClasses(List<Class<?>> classpath) throws Exception {
+  public CR addRunClasspathClasses(Collection<Class<?>> classpath) throws Exception {
     if (getBackend() == Backend.DEX) {
       return addRunClasspathFiles(
           testForD8(state.getTempFolder())
