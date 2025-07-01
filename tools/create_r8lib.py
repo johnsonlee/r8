@@ -56,7 +56,7 @@ def parse_options():
                         default=None,
                         help='Input map for distribution and composition')
     parser.add_argument('--r8jar', required=True, help='The R8 jar to compile')
-    parser.add_argument('--r8-version-jar', required=True, help='The R8 jar to provide version')
+    parser.add_argument('--r8-version-jar', default=None, help='The R8 jar to provide version')
     parser.add_argument('--r8compiler',
                         default='build/libs/r8_with_deps.jar',
                         help='The R8 compiler to use')
