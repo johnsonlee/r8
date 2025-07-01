@@ -1860,24 +1860,24 @@ public class KeepItemAnnotationGenerator {
     }
 
     private Group createAndroidXParameterSelection(
-        Consumer<GroupMember> paramsConsumer, Consumer<GroupMember> paramClassNamesConsumer) {
+        Consumer<GroupMember> paramsConsumer, Consumer<GroupMember> paramTypeNamesConsumer) {
       GroupMember params = new GroupMember("params").defaultUnspecifiedArray();
       paramsConsumer.accept(params);
-      GroupMember paramClassNames =
-          new GroupMember("paramClassNames")
+      GroupMember paramTypeNames =
+          new GroupMember("paramTypeNames")
               .defaultArrayValue(Reference.classFromClass(String.class), "\"\"");
-      paramClassNamesConsumer.accept(paramClassNames);
+      paramTypeNamesConsumer.accept(paramTypeNames);
       return new Group("constructor-parameters")
           .forAndroidX()
           .addMember(params)
-          .addMember(paramClassNames);
+          .addMember(paramTypeNames);
     }
 
     private Group createMethodNameSelection() {
       return new Group("method-name")
           .addMember(
               new GroupMember("methodName")
-                  .setDocTitle("Method name (or pattern) accessed by reflection.")
+                  .setDocTitle("Name (or name pattern) of method accessed by reflection.")
                   .requiredStringValue());
     }
 
@@ -1885,14 +1885,14 @@ public class KeepItemAnnotationGenerator {
       return new Group("return-selection")
           .forAndroidX()
           .addMember(
-              new GroupMember("returnClass")
+              new GroupMember("returnType")
                   .setDocTitle("Return type of the method accessed by reflection.")
                   .addSection("Ignored if not specified.")
                   .defaultUnspecifiedClass())
           .addMember(
-              new GroupMember("returnClassName")
+              new GroupMember("returnTypeName")
                   .setDocTitle(
-                      "Return type (or type pattern) of the method accessed by" + " reflection.")
+                      "Return type (or type pattern) of the method accessed by reflection.")
                   .addSection("Ignored if not specified.")
                   .defaultEmptyString());
     }
@@ -1901,7 +1901,7 @@ public class KeepItemAnnotationGenerator {
       return new Group("field-name")
           .addMember(
               new GroupMember("fieldName")
-                  .setDocTitle("Field name (or pattern) accessed by reflection.")
+                  .setDocTitle("Name (or name pattern) of field accessed by reflection.")
                   .requiredStringValue());
     }
 
@@ -1909,13 +1909,13 @@ public class KeepItemAnnotationGenerator {
       return new Group("field-type-selection")
           .forAndroidX()
           .addMember(
-              new GroupMember("fieldClass")
-                  .setDocTitle("Class of field accessed by reflection.")
+              new GroupMember("fieldType")
+                  .setDocTitle("Type of field accessed by reflection.")
                   .addSection("Ignored if not specified.")
                   .defaultUnspecifiedClass())
           .addMember(
-              new GroupMember("fieldClassName")
-                  .setDocTitle("Class (or class pattern) of field accessed by reflection.")
+              new GroupMember("fieldTypeName")
+                  .setDocTitle("Type (or type pattern) of field accessed by reflection.")
                   .addSection("Ignored if not specified.")
                   .defaultEmptyString());
     }
@@ -1958,14 +1958,14 @@ public class KeepItemAnnotationGenerator {
                                 "Defines which constructor to keep by specifying the parameter list"
                                     + " types.")
                             .addSection(
-                                "If neither `param` nor `paramClassNames` is specified then"
+                                "If neither `param` nor `paramTypeNames` is specified then"
                                     + " constructors with all parameter lists are kept."),
                     g ->
                         g.setDocTitle(
                                 "Defines which constructor to keep by specifying the parameter list"
                                     + " types.")
                             .addSection(
-                                "If neither `param` nor `paramClassNames` is specified then"
+                                "If neither `param` nor `paramTypeNames` is specified then"
                                     + " constructors with all parameter lists are kept."))
                 .generate(this);
           });
@@ -2000,7 +2000,7 @@ public class KeepItemAnnotationGenerator {
                     g -> g.setDocTitle("Class containing the method accessed by reflection."),
                     g ->
                         g.setDocTitle(
-                            "Class name (or pattern) containing the method accessed by"
+                            "Class name (or class name pattern) containing the method accessed by"
                                 + " reflection."))
                 .generate(this);
             println();
@@ -2012,14 +2012,14 @@ public class KeepItemAnnotationGenerator {
                                 "Defines which method to keep by specifying set of parameter"
                                     + " classes passed.")
                             .addSection(
-                                "If neither `param` nor `paramClassNames` is specified then"
+                                "If neither `param` nor `paramTypeNames` is specified then"
                                     + " methods with all parameter lists are kept."),
                     g ->
                         g.setDocTitle(
                                 "Defines which method to keep by specifying set of parameter"
                                     + " classes passed.")
                             .addSection(
-                                "If neither `param` nor `paramClassNames` is specified then"
+                                "If neither `param` nor `paramTypeNames` is specified then"
                                     + " methods with all parameter lists are kept."))
                 .generate(this);
             println();
@@ -2054,7 +2054,7 @@ public class KeepItemAnnotationGenerator {
                     g -> g.setDocTitle("Class containing the field accessed by reflection."),
                     g ->
                         g.setDocTitle(
-                            "Class name (or pattern) containing the field accessed by"
+                            "Class name (or class name pattern) containing the field accessed by"
                                 + " reflection."))
                 .generate(this);
             println();
@@ -2414,7 +2414,7 @@ public class KeepItemAnnotationGenerator {
       withIndent(
           () -> {
             generateAnnotationConstants(USES_REFLECTION_TO_ACCESS_METHOD);
-            forEachUsesReflectionToConstructGroup(g -> g.generateConstants(this));
+            forEachUsesReflectionToAccessMethodGroup(g -> g.generateConstants(this));
           });
       println("}");
       println();
@@ -2425,7 +2425,7 @@ public class KeepItemAnnotationGenerator {
       withIndent(
           () -> {
             generateAnnotationConstants(USES_REFLECTION_TO_ACCESS_FIELD);
-            forEachUsesReflectionToConstructGroup(g -> g.generateConstants(this));
+            forEachUsesReflectionToAccessFieldGroup(g -> g.generateConstants(this));
           });
       println("}");
       println();

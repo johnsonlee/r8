@@ -66,20 +66,20 @@ public annotation class UsesReflectionToConstruct(
     /**
      * Defines which constructor to keep by specifying the parameter list types.
      *
-     * If neither `param` nor `paramClassNames` is specified then constructors with all parameter
+     * If neither `param` nor `paramTypeNames` is specified then constructors with all parameter
      * lists are kept.
      *
-     * Mutually exclusive with [paramClassNames].
+     * Mutually exclusive with [paramTypeNames].
      */
     val params: Array<KClass<*>> = [Unspecified::class],
 
     /**
      * Defines which constructor to keep by specifying the parameter list types.
      *
-     * If neither `param` nor `paramClassNames` is specified then constructors with all parameter
+     * If neither `param` nor `paramTypeNames` is specified then constructors with all parameter
      * lists are kept.
      *
      * Mutually exclusive with [params].
      */
-    val paramClassNames: Array<String> = [""],
+    val paramTypeNames: Array<String> = [""],
 )

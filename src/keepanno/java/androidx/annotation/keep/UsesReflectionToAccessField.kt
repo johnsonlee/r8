@@ -54,30 +54,30 @@ public annotation class UsesReflectionToAccessField(
     val classConstant: KClass<*> = Unspecified::class,
 
     /**
-     * Class name (or pattern) containing the field accessed by reflection.
+     * Class name (or class name pattern) containing the field accessed by reflection.
      *
      * Mutually exclusive with [classConstant].
      */
     val className: String = "",
 
-    /** Field name (or pattern) accessed by reflection. */
+    /** Name (or name pattern) of field accessed by reflection. */
     val fieldName: String,
 
     /**
-     * Class of field accessed by reflection.
+     * Type of field accessed by reflection.
      *
      * Ignored if not specified.
      *
-     * Mutually exclusive with [fieldClassName].
+     * Mutually exclusive with [fieldTypeName].
      */
-    val fieldClass: KClass<*> = Unspecified::class,
+    val fieldType: KClass<*> = Unspecified::class,
 
     /**
-     * Class (or class pattern) of field accessed by reflection.
+     * Type (or type pattern) of field accessed by reflection.
      *
      * Ignored if not specified.
      *
-     * Mutually exclusive with [fieldClass].
+     * Mutually exclusive with [fieldType].
      */
-    val fieldClassName: String = "",
+    val fieldTypeName: String = "",
 )

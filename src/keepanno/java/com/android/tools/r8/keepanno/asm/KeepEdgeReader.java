@@ -1548,7 +1548,7 @@ public class KeepEdgeReader implements Opcodes {
         return new ParametersClassVisitor(
             propertyParsingContext, parameters -> this.parameters = parameters);
       }
-      if (name.equals(UsesReflectionToConstruct.paramClassNames)) {
+      if (name.equals(UsesReflectionToConstruct.paramTypeNames)) {
         return new ParametersClassNamesVisitor(
             propertyParsingContext, parameters -> this.parameters = parameters);
       }

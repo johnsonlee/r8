@@ -155,7 +155,7 @@ public final class AnnotationConstants {
     public static final String className = "className";
     public static final String constructorParametersGroup = "constructor-parameters";
     public static final String params = "params";
-    public static final String paramClassNames = "paramClassNames";
+    public static final String paramTypeNames = "paramTypeNames";
   }
 
   public static final class UsesReflectionToAccessMethod {
@@ -181,9 +181,13 @@ public final class AnnotationConstants {
     public static final String classSelectionGroup = "class-selection";
     public static final String classConstant = "classConstant";
     public static final String className = "className";
+    public static final String methodName = "methodName";
     public static final String constructorParametersGroup = "constructor-parameters";
     public static final String params = "params";
-    public static final String paramClassNames = "paramClassNames";
+    public static final String paramTypeNames = "paramTypeNames";
+    public static final String returnSelectionGroup = "return-selection";
+    public static final String returnType = "returnType";
+    public static final String returnTypeName = "returnTypeName";
   }
 
   public static final class UsesReflectionToAccessField {
@@ -209,9 +213,10 @@ public final class AnnotationConstants {
     public static final String classSelectionGroup = "class-selection";
     public static final String classConstant = "classConstant";
     public static final String className = "className";
-    public static final String constructorParametersGroup = "constructor-parameters";
-    public static final String params = "params";
-    public static final String paramClassNames = "paramClassNames";
+    public static final String fieldName = "fieldName";
+    public static final String fieldTypeSelectionGroup = "field-type-selection";
+    public static final String fieldType = "fieldType";
+    public static final String fieldTypeName = "fieldTypeName";
   }
 
   /** Item properties common to binding items, conditions and targets. */

@@ -54,50 +54,50 @@ public annotation class UsesReflectionToAccessMethod(
     val classConstant: KClass<*> = Unspecified::class,
 
     /**
-     * Class name (or pattern) containing the method accessed by reflection.
+     * Class name (or class name pattern) containing the method accessed by reflection.
      *
      * Mutually exclusive with [classConstant].
      */
     val className: String = "",
 
-    /** Method name (or pattern) accessed by reflection. */
+    /** Name (or name pattern) of method accessed by reflection. */
     val methodName: String,
 
     /**
      * Defines which method to keep by specifying set of parameter classes passed.
      *
-     * If neither `param` nor `paramClassNames` is specified then methods with all parameter lists
+     * If neither `param` nor `paramTypeNames` is specified then methods with all parameter lists
      * are kept.
      *
-     * Mutually exclusive with [paramClassNames].
+     * Mutually exclusive with [paramTypeNames].
      */
     val params: Array<KClass<*>> = [Unspecified::class],
 
     /**
      * Defines which method to keep by specifying set of parameter classes passed.
      *
-     * If neither `param` nor `paramClassNames` is specified then methods with all parameter lists
+     * If neither `param` nor `paramTypeNames` is specified then methods with all parameter lists
      * are kept.
      *
      * Mutually exclusive with [params].
      */
-    val paramClassNames: Array<String> = [""],
+    val paramTypeNames: Array<String> = [""],
 
     /**
      * Return type of the method accessed by reflection.
      *
      * Ignored if not specified.
      *
-     * Mutually exclusive with [returnClassName].
+     * Mutually exclusive with [returnTypeName].
      */
-    val returnClass: KClass<*> = Unspecified::class,
+    val returnType: KClass<*> = Unspecified::class,
 
     /**
      * Return type (or type pattern) of the method accessed by reflection.
      *
      * Ignored if not specified.
      *
-     * Mutually exclusive with [returnClass].
+     * Mutually exclusive with [returnType].
      */
-    val returnClassName: String = "",
+    val returnTypeName: String = "",
 )
