@@ -2410,6 +2410,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean placeExceptionalBlocksLast = false;
     public boolean forceJumboStringProcessing = false;
     public boolean forcePcBasedEncoding = false;
+    public boolean forcePruneMetaInfManifestMf = false;
     public int pcBasedDebugEncodingOverheadThreshold =
         System.getProperty("com.android.tools.r8.pc2pcOverheadThreshold") != null
             ? Integer.parseInt(System.getProperty("com.android.tools.r8.pc2pcOverheadThreshold"))

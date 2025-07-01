@@ -682,7 +682,10 @@ public class ApplicationWriter {
                 if ("META-INF/MANIFEST.MF".equals(file.getName())) {
                   // Many android library input .jar files contain a MANIFEST.MF. It does not make
                   // sense to propagate them since they are manifests of the input libraries.
-                  return;
+                  if (options.isGeneratingDex()
+                      || options.getTestingOptions().forcePruneMetaInfManifestMf) {
+                    return;
+                  }
                 }
                 if (file.getName().startsWith(AppServices.SERVICE_DIRECTORY_NAME)) {
                   // META-INF/services resources are handled separately.
