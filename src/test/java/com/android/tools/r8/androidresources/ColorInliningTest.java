@@ -87,8 +87,18 @@ public class ColorInliningTest extends TestBase {
         .addKeepMainRule(FooBar.class)
         .applyIf(
             parameters.getPartialCompilationTestParameters().isSome(),
-            rr -> rr.addR8PartialR8OptionsModification(o -> o.enableXmlInlining = true),
-            rr -> rr.addOptionsModification(o -> o.enableXmlInlining = true))
+            rr ->
+                rr.addR8PartialR8OptionsModification(
+                    o -> {
+                      o.enableXmlInlining = true;
+                      o.enableColorInlining = true;
+                    }),
+            rr ->
+                rr.addOptionsModification(
+                    o -> {
+                      o.enableXmlInlining = true;
+                      o.enableColorInlining = true;
+                    }))
         .applyIf(optimize, R8TestBuilder::enableOptimizedShrinking)
         .applyIf(
             addResourcesSubclass,

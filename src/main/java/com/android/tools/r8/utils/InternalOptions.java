@@ -785,6 +785,9 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
       System.getProperty("com.android.tools.r8.experimentalTraceAndroidEnumSerialization") != null;
   public boolean enableXmlInlining =
       System.getProperty("com.android.tools.r8.enableXmlInlining") != null;
+  // Enable color inlining in code, i.e `getResources().getColor(..)`.
+  public boolean enableColorInlining =
+      System.getProperty("com.android.tools.r8.enableColorInlining") != null;
 
   // Flag to turn on/offLoad/store optimization in the Cf back-end.
   public boolean enableLoadStoreOptimization = true;

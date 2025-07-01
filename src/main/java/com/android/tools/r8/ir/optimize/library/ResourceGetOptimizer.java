@@ -58,7 +58,7 @@ abstract class ResourceGetOptimizer extends StatelessLibraryMethodModelCollectio
     // TODO(b/312406163): Allow androidx classes that overwrite this, but don't change the value
     // or have side effects.
     allowStringInlining = Optional.of(true);
-    allowColorInlining = Optional.of(true);
+    allowColorInlining = Optional.of(appView.options().enableColorInlining);
     Map<DexClass, Boolean> cachedResults = new IdentityHashMap<>();
     for (DexClass clazz :
         Iterables.concat(
