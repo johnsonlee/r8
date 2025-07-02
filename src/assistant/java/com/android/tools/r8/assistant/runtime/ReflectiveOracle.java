@@ -65,6 +65,14 @@ public class ReflectiveOracle {
       }
       return sb.toString();
     }
+
+    public String[] stackTraceElementsAsString() {
+      String[] result = new String[stackTraceElements.length];
+      for (int i = 0; i < stackTraceElements.length; i++) {
+        result[i] = stackTraceElements[i].toString();
+      }
+      return result;
+    }
   }
 
   public static void onClassNewInstance(Class<?> clazz) {
