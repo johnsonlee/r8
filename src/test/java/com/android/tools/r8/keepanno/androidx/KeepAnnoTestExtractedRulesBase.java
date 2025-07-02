@@ -11,10 +11,8 @@ import com.android.tools.r8.KotlinCompilerTool.KotlinCompiler;
 import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.R8TestBuilder;
-import com.android.tools.r8.Version;
 import com.android.tools.r8.keepanno.KeepAnnoParameters;
 import com.android.tools.r8.keepanno.KeepAnnoTestBase;
-import com.android.tools.r8.utils.SemanticVersion;
 import com.google.common.collect.ImmutableList;
 import java.util.Arrays;
 import java.util.List;
@@ -158,14 +156,7 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
                 kotlinParameters.getCompiler().getKotlinStdlibJar(),
                 kotlinParameters.getCompiler().getKotlinReflectJar(),
                 kotlinParameters.getCompiler().getKotlinAnnotationJar()))
-        .applyIfR8(
-            b ->
-                b.applyIf(
-                    b instanceof R8TestBuilder && Version.isMainVersion(),
-                    bb ->
-                        ((R8TestBuilder<?, ?, ?>) bb)
-                            .setFakeCompilerVersion(SemanticVersion.max())
-                            .allowDiagnosticMessages()))
+        .applyIfR8Current(R8TestBuilder::allowDiagnosticWarningMessages)
         .addKeepRules("-keepattributes RuntimeVisibleAnnotations")
         .addKeepRules("-keep class kotlin.Metadata { *; }")
         .addKeepRules(
