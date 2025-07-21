@@ -186,6 +186,10 @@ public class KotlinTestParameters {
     }
 
     public Builder withLatestCompiler() {
+      if (withDevCompiler) {
+        assert KotlinCompilerVersion.DEV_COMPILERS.length > 0;
+        return withCompiler(KotlinCompilerVersion.DEV_COMPILERS[0]);
+      }
       return withCompiler(KotlinCompilerVersion.MAX_SUPPORTED_VERSION);
     }
 
