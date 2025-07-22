@@ -6,11 +6,8 @@ package com.android.tools.r8.shaking;
 import static com.android.tools.r8.DiagnosticsChecker.checkDiagnostics;
 import static com.android.tools.r8.shaking.ProguardConfigurationSourceStrings.createConfigurationForTesting;
 import static com.android.tools.r8.utils.BooleanUtils.intValue;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.core.StringContains.containsString;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
@@ -21,7 +18,6 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
-import com.android.tools.r8.ToolHelper.ProcessResult;
 import com.android.tools.r8.errors.dontwarn.DontWarnConfiguration;
 import com.android.tools.r8.graph.ClassAccessFlags;
 import com.android.tools.r8.graph.DexItemFactory;
@@ -42,7 +38,6 @@ import com.android.tools.r8.utils.KeepingDiagnosticHandler;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.StringUtils;
-import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.io.File;
@@ -2349,12 +2344,9 @@ public class ProguardConfigurationParserTest extends TestBase {
 
   @Test
   public void parse_regress110021323() throws Exception {
-    Path proguardConfig = writeTextToTempFile(
-      "-keepclassmembernames class A {",
-      "  <public methods>;",
-      "  <public fields>;",
-      "}"
-    );
+    Path proguardConfig =
+        writeTextToTempFile(
+            "-keepclassmembernames class A {", "  <public methods>;", "  <public fields>;", "}");
     ProguardConfigurationParser parser =
         new ProguardConfigurationParser(new DexItemFactory(), reporter);
     parser.parse(proguardConfig);
@@ -2363,6 +2355,21 @@ public class ProguardConfigurationParserTest extends TestBase {
     checkDiagnostics(handler.warnings, 1, proguardConfig, 2, 11, "The field name \"methods>\" is");
     checkDiagnostics(handler.warnings, 2, proguardConfig, 3, 3, "The type \"<public\" is");
     checkDiagnostics(handler.warnings, 3, proguardConfig, 3, 11, "The field name \"fields>\" is");
+  }
+
+  @Test
+  public void parse_regress433451526() throws Exception {
+    Path proguardConfig =
+        writeTextToTempFile(
+            "-if @kotlinx.serialization.Serializable class **",
+            "-keepclassmembers class <1> {",
+            "  static <1>$* Companion;",
+            "}");
+    ProguardConfigurationParser parser =
+        new ProguardConfigurationParser(new DexItemFactory(), reporter);
+    parser.parse(proguardConfig);
+    assertEquals(1, handler.warnings.size());
+    checkDiagnostics(handler.warnings, 0, proguardConfig, 3, 10, "The type \"<1>$*\" is");
   }
 
   private void checkRulesSourceSnippet(List<String> sourceRules) {
