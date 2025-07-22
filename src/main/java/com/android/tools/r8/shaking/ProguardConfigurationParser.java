@@ -2330,7 +2330,9 @@ public class ProguardConfigurationParser {
         }
         // Check that start/end angles are matched, and *only* used for well-formed wildcard
         // backreferences (e.g. '<1>', but not '<<1>>', '<<*>>' or '>1<').
-        return !(angleStartCount == angleEndCount && angleStartCount == wildcards.size());
+        long backreferenceCount =
+            wildcards.stream().filter(ProguardWildcard::isBackReference).count();
+        return !(angleStartCount == angleEndCount && angleStartCount == backreferenceCount);
       }
       return false;
     }

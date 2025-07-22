@@ -2368,8 +2368,7 @@ public class ProguardConfigurationParserTest extends TestBase {
     ProguardConfigurationParser parser =
         new ProguardConfigurationParser(new DexItemFactory(), reporter);
     parser.parse(proguardConfig);
-    assertEquals(1, handler.warnings.size());
-    checkDiagnostics(handler.warnings, 0, proguardConfig, 3, 10, "The type \"<1>$*\" is");
+    assertEquals(0, handler.warnings.size());
   }
 
   private void checkRulesSourceSnippet(List<String> sourceRules) {
