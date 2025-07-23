@@ -57,6 +57,8 @@ GRADLE_TASK_THREADING_MODULE_BLOCKING = ':main:threadingModuleBlockingJar'
 GRADLE_TASK_THREADING_MODULE_SINGLE_THREADED = ':main:threadingModuleSingleThreadedJar'
 GRADLE_TASK_SOURCE_JAR = ':test:packageSources'
 GRADLE_TASK_SWISS_ARMY_KNIFE = ':main:swissArmyKnife'
+GRADLE_TASK_KEEPANNOTOOLS = 'main:keepAnnoToolsWithRelocatedDeps'
+GRADLE_TASK_KEEPANNOTOOLSLIB = 'test:keepAnnoToolsLib'
 GRADLE_TASK_TEST = ':test:test'
 GRADLE_TASK_ALL_TESTS_WITH_APPLY_MAPPING_JAR = ':test:rewriteTestsForR8LibWithRelocatedDeps'
 GRADLE_TASK_TESTBASE_WITH_APPLY_MAPPING_JAR = ':test:rewriteTestBaseForR8LibWithRelocatedDeps'
@@ -79,6 +81,11 @@ THREADING_MODULE_BLOCKING_JAR = os.path.join(LIBS,
                                              'threading-module-blocking.jar')
 THREADING_MODULE_SINGLE_THREADED_JAR = os.path.join(
     LIBS, 'threading-module-single-threaded.jar')
+KEEPANNOTOOLS_JAR = os.path.join(LIBS, 'keepanno-tools.jar')
+KEEPANNOTOOLSLIB_JAR = os.path.join(LIBS, 'keepanno-toolslib.jar')
+KEEPANNOTOOLSLIB_MAP = '%s.map' % R8LIB_JAR
+KEEPANNOTOOLS_SRC_JAR = os.path.join(LIBS, 'r8-src.jar')
+
 R8_TESTS_JAR = os.path.join(LIBS, 'r8tests.jar')
 R8_TESTBASE_JAR = os.path.join(LIBS, 'r8test_base.jar')
 R8LIB_TESTBASE_JAR = os.path.join(LIBS, 'r8libtestbase-cf.jar')

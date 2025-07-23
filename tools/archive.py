@@ -165,6 +165,13 @@ def RunGradleBuild(options, timing):
     timing.begin("Build swiss army knife")
     gradle.RunGradle([utils.GRADLE_TASK_SWISS_ARMY_KNIFE, '-Pno_internal'])
     timing.end()
+    timing.begin("Build keepanno tools")
+    gradle.RunGradle([
+        utils.GRADLE_TASK_KEEPANNOTOOLS,
+        utils.GRADLE_TASK_KEEPANNOTOOLSLIB,
+        '-Pno_internal',
+    ])
+    timing.end()
 
 
 def RSyncDir(src_dir, version_or_path, dst_dir, is_main, options):
@@ -322,6 +329,8 @@ def Run(options):
             utils.R8LIB_EXCLUDE_DEPS_JAR + '_map.zip', utils.MAVEN_ZIP_LIB,
             utils.THREADING_MODULE_BLOCKING_JAR,
             utils.THREADING_MODULE_SINGLE_THREADED_JAR,
+            utils.KEEPANNOTOOLS_JAR, utils.KEEPANNOTOOLSLIB_JAR,
+            utils.KEEPANNOTOOLSLIB_JAR + '.map', utils.KEEPANNOTOOLSLIB_JAR + '_map.zip',
             utils.DESUGAR_CONFIGURATION, utils.DESUGAR_CONFIGURATION_MAVEN_ZIP,
             utils.DESUGAR_CONFIGURATION_JDK11_LEGACY,
             utils.DESUGAR_CONFIGURATION_JDK11_LEGACY_MAVEN_ZIP,
