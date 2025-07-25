@@ -104,21 +104,10 @@ public class PermittedSubclassesAttributeInDexTest extends TestBase {
                     .transform())
             .addProgramClasses(Sub1.class, Sub2.class)
             .compile()
-            .inspect(
-                inspector ->
-                    // TODO(b/434135087): This should not always be empty.
-                    assertEquals(
-                        0, inspector.clazz(C.class).getFinalPermittedSubclassAttributes().size()))
+            .inspect(this::inspect)
             .writeToZip();
 
-    testForD8(parameters)
-        .addProgramFiles(dex)
-        .compile()
-        .inspect(
-            inspector ->
-                // TODO(b/434135087): This should not always be empty.
-                assertEquals(
-                    0, inspector.clazz(C.class).getFinalPermittedSubclassAttributes().size()));
+    testForD8(parameters).addProgramFiles(dex).compile().inspect(this::inspect);
   }
 
   public Collection<byte[]> getTransformedClasses() throws Exception {

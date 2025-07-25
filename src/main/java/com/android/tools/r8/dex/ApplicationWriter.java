@@ -728,7 +728,8 @@ public class ApplicationWriter {
         && innerClasses.isEmpty()
         && clazz.getClassSignature().hasNoSignature()
         && !clazz.isInANest()
-        && !clazz.isRecord()) {
+        && !clazz.isRecord()
+        && !clazz.hasPermittedSubclassAttributes()) {
       return;
     }
 
