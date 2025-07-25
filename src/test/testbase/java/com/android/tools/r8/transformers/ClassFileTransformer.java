@@ -4,7 +4,6 @@
 package com.android.tools.r8.transformers;
 
 import static com.android.tools.r8.references.Reference.classFromTypeName;
-import static com.android.tools.r8.transformers.ClassFileTransformer.InnerClassPredicate.always;
 import static com.android.tools.r8.utils.DescriptorUtils.getBinaryNameFromDescriptor;
 import static com.android.tools.r8.utils.InternalOptions.ASM_VERSION;
 import static com.android.tools.r8.utils.StringUtils.replaceAll;
@@ -768,7 +767,7 @@ public class ClassFileTransformer {
   }
 
   public ClassFileTransformer removeInnerClasses() {
-    return removeInnerClasses(always());
+    return removeInnerClasses(InnerClassPredicate.always());
   }
 
   public ClassFileTransformer removeInnerClasses(InnerClassPredicate predicate) {
@@ -815,6 +814,32 @@ public class ClassFileTransformer {
           @Override
           public void visitNestHost(String nestHost) {
             super.visitNestHost(rewrite.apply(nestHost));
+          }
+        });
+  }
+
+  @FunctionalInterface
+  public interface EnclosingMethodPredicate {
+    boolean test(String owner, String name, String descriptor);
+
+    static EnclosingMethodPredicate always() {
+      return (String owner, String name, String descriptor) -> true;
+    }
+  }
+
+  public ClassFileTransformer removeEnclosingMethod() {
+    return removeEnclosingMethod(EnclosingMethodPredicate.always());
+  }
+
+  public ClassFileTransformer removeEnclosingMethod(EnclosingMethodPredicate predicate) {
+    return addClassTransformer(
+        new ClassTransformer() {
+
+          @Override
+          public void visitOuterClass(String owner, String name, String descriptor) {
+            if (!predicate.test(owner, name, descriptor)) {
+              super.visitOuterClass(owner, name, descriptor);
+            }
           }
         });
   }

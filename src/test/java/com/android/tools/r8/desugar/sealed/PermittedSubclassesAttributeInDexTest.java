@@ -18,6 +18,7 @@ import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.google.common.collect.ImmutableList;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
@@ -86,6 +87,38 @@ public class PermittedSubclassesAttributeInDexTest extends TestBase {
                         ? EXPECTED_OUTPUT
                         : EXPECTED_OUTPUT_PRE_34),
             r -> r.assertFailureWithErrorThatThrows(NoSuchMethodError.class));
+  }
+
+  @Test
+  public void testD8WithOnlyPermittedSubclassesAttribute() throws Exception {
+    parameters.assumeDexRuntime();
+    parameters.assumeNoPartialCompilation();
+    Path dex =
+        testForD8(parameters)
+            .addProgramClassFileData(
+                transformer(C.class)
+                    .setPermittedSubclasses(C.class, Sub1.class, Sub2.class)
+                    // Remove all other attributes.
+                    .removeEnclosingMethod()
+                    .removeInnerClasses()
+                    .transform())
+            .addProgramClasses(Sub1.class, Sub2.class)
+            .compile()
+            .inspect(
+                inspector ->
+                    // TODO(b/434135087): This should not always be empty.
+                    assertEquals(
+                        0, inspector.clazz(C.class).getFinalPermittedSubclassAttributes().size()))
+            .writeToZip();
+
+    testForD8(parameters)
+        .addProgramFiles(dex)
+        .compile()
+        .inspect(
+            inspector ->
+                // TODO(b/434135087): This should not always be empty.
+                assertEquals(
+                    0, inspector.clazz(C.class).getFinalPermittedSubclassAttributes().size()));
   }
 
   public Collection<byte[]> getTransformedClasses() throws Exception {
