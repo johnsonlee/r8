@@ -101,7 +101,7 @@ public class SealedClassesExtendsTest extends TestBase {
       assertTrue(sub1.getFinalName().startsWith(getClass().getPackage().getName()));
     }
     assertEquals(
-        parameters.isCfRuntime() && keepPermittedSubclassesAttribute
+        hasSealedClassesSupport(parameters) && keepPermittedSubclassesAttribute
             ? ImmutableList.of(sub1.asTypeSubject(), sub2.asTypeSubject())
             : ImmutableList.of(),
         clazz.getFinalPermittedSubclassAttributes());
@@ -110,6 +110,8 @@ public class SealedClassesExtendsTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
+    assumeTrue(
+        parameters.isDexRuntime() || parameters.asCfRuntime().isNewerThanOrEqual(CfVm.JDK17));
     testForR8(parameters)
         .apply(this::addTestClasses)
         .applyIf(
@@ -122,10 +124,7 @@ public class SealedClassesExtendsTest extends TestBase {
         .compile()
         .inspectIf(!parameters.isRandomPartialCompilation(), this::inspect)
         .run(parameters.getRuntime(), TestClass.class)
-        .applyIf(
-            !parameters.isCfRuntime() || parameters.asCfRuntime().isNewerThanOrEqual(CfVm.JDK17),
-            r -> r.assertSuccessWithOutput(EXPECTED),
-            r -> r.assertFailureWithErrorThatThrows(UnsupportedClassVersionError.class));
+        .assertSuccessWithOutput(EXPECTED);
   }
 
   public byte[] getTransformedClasses() throws Exception {

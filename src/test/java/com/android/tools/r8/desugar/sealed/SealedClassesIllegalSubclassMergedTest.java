@@ -39,8 +39,9 @@ public class SealedClassesIllegalSubclassMergedTest extends TestBase {
   @Parameters(name = "{0}, keepPermittedSubclasses = {1}")
   public static TestParametersCollection data() {
     return getTestParameters()
-        .withAllRuntimes()
-        .withAllApiLevelsAlsoForCf()
+        .withCfRuntimesStartingFromIncluding(CfVm.JDK17)
+        .withDexRuntimes()
+        .withAllApiLevels()
         .withPartialCompilation()
         .build();
   }
@@ -67,13 +68,14 @@ public class SealedClassesIllegalSubclassMergedTest extends TestBase {
     ClassSubject sub1 = inspector.clazz(Sub1.class);
     assertThat(sub1, isPresentAndRenamed());
     assertEquals(
-        parameters.isCfRuntime() ? ImmutableList.of(sub1.asTypeSubject()) : ImmutableList.of(),
+        hasSealedClassesSupport(parameters)
+            ? ImmutableList.of(sub1.asTypeSubject())
+            : ImmutableList.of(),
         clazz.getFinalPermittedSubclassAttributes());
   }
 
   @Test
   public void testR8() throws Exception {
-    parameters.assumeR8TestParameters();
     testForR8(parameters)
         .apply(this::addTestClasses)
         .addKeepAttributePermittedSubclasses()
@@ -88,13 +90,9 @@ public class SealedClassesIllegalSubclassMergedTest extends TestBase {
         .compile()
         .inspectIf(!parameters.isRandomPartialCompilation(), this::inspect)
         .run(parameters.getRuntime(), TestClass.class)
-        .applyIf(
-            !parameters.isCfRuntime() || parameters.asCfRuntime().isNewerThanOrEqual(CfVm.JDK17),
-            // On JDK 17 the class merging also prevents "cannot inherit from sealed class".
-            r ->
-                r.assertSuccessWithOutput(
-                    EXPECTED_WITHOUT_PERMITTED_SUBCLASSES_ATTRIBUTE_OR_FIXED_ATTRIBUTE),
-            r -> r.assertFailureWithErrorThatThrows(UnsupportedClassVersionError.class));
+        // On JDK 17 the class merging also prevents "cannot inherit from sealed class".
+        .assertSuccessWithOutput(
+            EXPECTED_WITHOUT_PERMITTED_SUBCLASSES_ATTRIBUTE_OR_FIXED_ATTRIBUTE);
   }
 
   public byte[] getTransformedClasses() throws Exception {

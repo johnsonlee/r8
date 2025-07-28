@@ -33,8 +33,9 @@ public class SealedClassesHorizontalMergeTest extends TestBase {
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters()
-        .withAllRuntimes()
-        .withAllApiLevelsAlsoForCf()
+        .withCfRuntimesStartingFromIncluding(CfVm.JDK17)
+        .withDexRuntimes()
+        .withAllApiLevels()
         .withPartialCompilation()
         .build();
   }
@@ -45,13 +46,14 @@ public class SealedClassesHorizontalMergeTest extends TestBase {
     ClassSubject sub1 = inspector.clazz(Sub1.class);
     assertThat(sub1, isPresentAndRenamed());
     assertEquals(
-        parameters.isCfRuntime() ? ImmutableList.of(sub1.asTypeSubject()) : ImmutableList.of(),
+        hasSealedClassesSupport(parameters)
+            ? ImmutableList.of(sub1.asTypeSubject())
+            : ImmutableList.of(),
         clazz.getFinalPermittedSubclassAttributes());
   }
 
   @Test
   public void testR8() throws Exception {
-    parameters.assumeR8TestParameters();
     testForR8(parameters)
         .addProgramClasses(TestClass.class, Sub1.class, Sub2.class)
         .addProgramClassFileData(getTransformedClasses())
@@ -67,10 +69,7 @@ public class SealedClassesHorizontalMergeTest extends TestBase {
         .compile()
         .inspectIf(!parameters.isRandomPartialCompilation(), this::inspect)
         .run(parameters.getRuntime(), TestClass.class)
-        .applyIf(
-            !parameters.isCfRuntime() || parameters.asCfRuntime().isNewerThanOrEqual(CfVm.JDK17),
-            r -> r.assertSuccessWithOutput(EXPECTED),
-            r -> r.assertFailureWithErrorThatThrows(UnsupportedClassVersionError.class));
+        .assertSuccessWithOutput(EXPECTED);
   }
 
   public byte[] getTransformedClasses() throws Exception {

@@ -34,8 +34,9 @@ public class SealedClassesTestAllowPermittedSubclassesRemovalTest extends TestBa
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters()
-        .withAllRuntimes()
-        .withAllApiLevelsAlsoForCf()
+        .withCfRuntimesStartingFromIncluding(CfVm.JDK17)
+        .withDexRuntimes()
+        .withAllApiLevels()
         .withPartialCompilation()
         .build();
   }
@@ -48,7 +49,7 @@ public class SealedClassesTestAllowPermittedSubclassesRemovalTest extends TestBa
     assertThat(sub1, isPresentAndRenamed());
     assertThat(sub2, isPresentAndRenamed());
     assertEquals(
-        parameters.isCfRuntime()
+        hasSealedClassesSupport(parameters)
             ? ImmutableList.of(sub1.asTypeSubject(), sub2.asTypeSubject())
             : ImmutableList.of(),
         clazz.getFinalPermittedSubclassAttributes());
@@ -56,7 +57,6 @@ public class SealedClassesTestAllowPermittedSubclassesRemovalTest extends TestBa
 
   @Test
   public void testR8() throws Exception {
-    parameters.assumeR8TestParameters();
     testForR8(parameters)
         .addProgramClasses(TestClass.class, Sub1.class, Sub2.class)
         .addProgramClassFileData(getTransformedClasses())
@@ -67,10 +67,7 @@ public class SealedClassesTestAllowPermittedSubclassesRemovalTest extends TestBa
         .compile()
         .inspectIf(!parameters.isRandomPartialCompilation(), this::inspect)
         .run(parameters.getRuntime(), TestClass.class)
-        .applyIf(
-            !parameters.isCfRuntime() || parameters.asCfRuntime().isNewerThanOrEqual(CfVm.JDK17),
-            r -> r.assertSuccessWithOutput(EXPECTED),
-            r -> r.assertFailureWithErrorThatThrows(UnsupportedClassVersionError.class));
+        .assertSuccessWithOutput(EXPECTED);
   }
 
   public byte[] getTransformedClasses() throws Exception {

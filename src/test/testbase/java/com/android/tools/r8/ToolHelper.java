@@ -436,6 +436,11 @@ public class ToolHelper {
         return isNewerThanOrEqual(V14_0_0);
       }
 
+      public boolean hasSealedClassesSupport() {
+        // Records support is present from Android U.
+        return isNewerThanOrEqual(V14_0_0);
+      }
+
       public String toString() {
         return shortName;
       }

@@ -35,8 +35,9 @@ public class SealedClassesExtendsVerticalMergeTest extends TestBase {
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters()
-        .withAllRuntimes()
-        .withAllApiLevelsAlsoForCf()
+        .withCfRuntimesStartingFromIncluding(CfVm.JDK17)
+        .withDexRuntimes()
+        .withAllApiLevels()
         .withPartialCompilation()
         .build();
   }
@@ -52,7 +53,7 @@ public class SealedClassesExtendsVerticalMergeTest extends TestBase {
     assertThat(subSub, isPresentAndRenamed());
     for (ClassSubject clazz : ImmutableList.of(superClass, unrelated)) {
       assertEquals(
-          parameters.isCfRuntime()
+          hasSealedClassesSupport(parameters)
               ? ImmutableList.of(subSub.asTypeSubject(), sub2.asTypeSubject())
               : ImmutableList.of(),
           clazz.getFinalPermittedSubclassAttributes());
@@ -61,7 +62,6 @@ public class SealedClassesExtendsVerticalMergeTest extends TestBase {
 
   @Test
   public void testR8() throws Exception {
-    parameters.assumeR8TestParameters();
     testForR8(parameters)
         .addProgramClasses(TestClass.class, Sub1.class, Sub2.class, SubSub.class)
         .addProgramClassFileData(getTransformedClasses())
@@ -76,10 +76,7 @@ public class SealedClassesExtendsVerticalMergeTest extends TestBase {
         .compile()
         .inspectIf(!parameters.isRandomPartialCompilation(), this::inspect)
         .run(parameters.getRuntime(), TestClass.class)
-        .applyIf(
-            parameters.isDexRuntime() || parameters.asCfRuntime().isNewerThanOrEqual(CfVm.JDK17),
-            r -> r.assertSuccessWithOutput(EXPECTED),
-            r -> r.assertFailureWithErrorThatThrows(UnsupportedClassVersionError.class));
+        .assertSuccessWithOutput(EXPECTED);
   }
 
   public List<byte[]> getTransformedClasses() throws Exception {

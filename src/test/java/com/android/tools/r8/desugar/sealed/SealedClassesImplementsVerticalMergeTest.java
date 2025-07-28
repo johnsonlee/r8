@@ -7,6 +7,7 @@ package com.android.tools.r8.desugar.sealed;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndRenamed;
 import static junit.framework.Assert.assertEquals;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.NoUnusedInterfaceRemoval;
 import com.android.tools.r8.TestBase;
@@ -37,8 +38,9 @@ public class SealedClassesImplementsVerticalMergeTest extends TestBase {
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters()
-        .withAllRuntimes()
-        .withAllApiLevelsAlsoForCf()
+        .withCfRuntimesStartingFromIncluding(CfVm.JDK17)
+        .withDexRuntimes()
+        .withAllApiLevels()
         .withPartialCompilation()
         .build();
   }
@@ -56,7 +58,7 @@ public class SealedClassesImplementsVerticalMergeTest extends TestBase {
     assertThat(subSub, Matchers.isPresentAndRenamed());
     for (ClassSubject clazz : ImmutableList.of(iface1, iface2, ifaceUnrelated)) {
       assertEquals(
-          parameters.isCfRuntime()
+          hasSealedClassesSupport(parameters)
               ? ImmutableList.of(subSub.asTypeSubject(), sub2.asTypeSubject())
               : ImmutableList.of(),
           clazz.getFinalPermittedSubclassAttributes());
@@ -65,7 +67,8 @@ public class SealedClassesImplementsVerticalMergeTest extends TestBase {
 
   @Test
   public void testR8() throws Exception {
-    parameters.assumeR8TestParameters();
+    assumeTrue(
+        parameters.isDexRuntime() || parameters.asCfRuntime().isNewerThanOrEqual(CfVm.JDK17));
     testForR8(parameters)
         .addProgramClasses(TestClass.class, Super.class, Sub1.class, Sub2.class, SubSub.class)
         .addProgramClassFileData(getTransformedClasses())
@@ -82,10 +85,7 @@ public class SealedClassesImplementsVerticalMergeTest extends TestBase {
         .compile()
         .inspectIf(!parameters.isRandomPartialCompilation(), this::inspect)
         .run(parameters.getRuntime(), TestClass.class)
-        .applyIf(
-            parameters.isDexRuntime() || parameters.asCfRuntime().isNewerThanOrEqual(CfVm.JDK17),
-            r -> r.assertSuccessWithOutput(EXPECTED),
-            r -> r.assertFailureWithErrorThatThrows(UnsupportedClassVersionError.class));
+        .assertSuccessWithOutput(EXPECTED);
   }
 
   public List<byte[]> getTransformedClasses() throws Exception {

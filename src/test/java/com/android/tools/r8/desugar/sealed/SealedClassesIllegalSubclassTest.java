@@ -96,7 +96,7 @@ public class SealedClassesIllegalSubclassTest extends TestBase {
     assertThat(sub2, isPresentAndNotRenamed());
     assertThat(sub3, isPresentAndNotRenamed());
     assertEquals(
-        parameters.isCfRuntime() && keepPermittedSubclassesAttribute
+        hasSealedClassesSupport(parameters) && keepPermittedSubclassesAttribute
             ? ImmutableList.of(sub1.asTypeSubject(), sub2.asTypeSubject())
             : ImmutableList.of(),
         clazz.getFinalPermittedSubclassAttributes());
@@ -105,6 +105,8 @@ public class SealedClassesIllegalSubclassTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
+    assumeTrue(
+        parameters.isDexRuntime() || parameters.asCfRuntime().isNewerThanOrEqual(CfVm.JDK17));
     assumeFalse(parameters.isDexRuntime() && keepPermittedSubclassesAttribute);
     testForR8(parameters)
         .apply(this::addTestClasses)
@@ -123,7 +125,6 @@ public class SealedClassesIllegalSubclassTest extends TestBase {
                     && parameters.asCfRuntime().isNewerThanOrEqual(CfVm.JDK17)),
             r -> r.assertSuccessWithOutput(EXPECTED_WITHOUT_PERMITTED_SUBCLASSES_ATTRIBUTE),
             parameters.isCfRuntime()
-                && parameters.asCfRuntime().isNewerThanOrEqual(CfVm.JDK17)
                 && keepPermittedSubclassesAttribute,
             r -> r.assertFailureWithErrorThatMatches(EXPECTED),
             r -> r.assertFailureWithErrorThatThrows(UnsupportedClassVersionError.class));

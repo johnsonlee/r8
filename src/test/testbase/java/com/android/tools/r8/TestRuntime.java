@@ -89,6 +89,10 @@ public abstract class TestRuntime {
     public boolean hasRecordsSupport() {
       return isGreaterThanOrEqualTo(JDK17);
     }
+
+    public boolean hasSealedClassesSupport() {
+      return isGreaterThanOrEqualTo(JDK17);
+    }
   }
 
   private static final Path JDK8_PATH = Paths.get(ToolHelper.THIRD_PARTY_DIR, "openjdk", "jdk8");
@@ -429,6 +433,10 @@ public abstract class TestRuntime {
 
     public boolean hasRecordsSupport() {
       return getVm().hasRecordsSupport();
+    }
+
+    public boolean hasSealedClassesSupport() {
+      return getVm().hasSealedClassesSupport();
     }
   }
 

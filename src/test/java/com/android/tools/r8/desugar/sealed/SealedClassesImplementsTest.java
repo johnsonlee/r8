@@ -92,12 +92,12 @@ public class SealedClassesImplementsTest extends TestBase {
     assertThat(sub1, isPresentAndRenamed());
     assertThat(sub2, isPresentAndRenamed());
     assertEquals(
-        parameters.isCfRuntime() && keepPermittedSubclassesAttribute
+        hasSealedClassesSupport(parameters) && keepPermittedSubclassesAttribute
             ? ImmutableList.of(sub1.asTypeSubject(), sub2.asTypeSubject())
             : ImmutableList.of(),
         iface1.getFinalPermittedSubclassAttributes());
     assertEquals(
-        parameters.isCfRuntime() && keepPermittedSubclassesAttribute
+        hasSealedClassesSupport(parameters) && keepPermittedSubclassesAttribute
             ? ImmutableList.of(sub1.asTypeSubject(), sub2.asTypeSubject())
             : ImmutableList.of(),
         iface2.getFinalPermittedSubclassAttributes());
@@ -106,6 +106,8 @@ public class SealedClassesImplementsTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
+    assumeTrue(
+        parameters.isDexRuntime() || parameters.asCfRuntime().isNewerThanOrEqual(CfVm.JDK17));
     testForR8(parameters)
         .apply(this::addTestClasses)
         .applyIf(
@@ -121,10 +123,7 @@ public class SealedClassesImplementsTest extends TestBase {
         .compile()
         .inspectIf(!parameters.isRandomPartialCompilation(), this::inspect)
         .run(parameters.getRuntime(), TestClass.class)
-        .applyIf(
-            !parameters.isCfRuntime() || parameters.asCfRuntime().isNewerThanOrEqual(CfVm.JDK17),
-            r -> r.assertSuccessWithOutput(EXPECTED),
-            r -> r.assertFailureWithErrorThatThrows(UnsupportedClassVersionError.class));
+        .assertSuccessWithOutput(EXPECTED);
   }
 
   public List<byte[]> getTransformedClasses() throws Exception {

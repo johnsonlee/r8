@@ -1869,6 +1869,15 @@ public class TestBase {
     throw new Unreachable();
   }
 
+  public static AndroidApiLevel apiLevelWithSealedClassesSupport() {
+    return AndroidApiLevel.U;
+  }
+
+  public static boolean hasSealedClassesSupport(TestParameters parameters) {
+    return (parameters.isCfRuntime() && parameters.getCfRuntime().hasRecordsSupport())
+        || parameters.getApiLevel().isGreaterThanOrEqualTo(apiLevelWithSealedClassesSupport());
+  }
+
   public static boolean isRecordsFullyDesugaredForD8(TestParameters parameters) {
     assert parameters.getApiLevel() != null;
     return parameters.getApiLevel().isLessThan(AndroidApiLevel.V);
