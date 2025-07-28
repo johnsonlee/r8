@@ -12,7 +12,6 @@ import com.android.tools.r8.keepanno.annotations.KeepItemKind;
 import com.android.tools.r8.keepanno.annotations.UsedByReflection;
 import com.android.tools.r8.metadata.R8BaselineProfileRewritingMetadata;
 import com.android.tools.r8.metadata.R8BuildMetadata;
-import com.android.tools.r8.metadata.R8CompilationMetadata;
 import com.android.tools.r8.metadata.R8DexFileMetadata;
 import com.android.tools.r8.metadata.R8FeatureSplitsMetadata;
 import com.android.tools.r8.metadata.R8OptionsMetadata;
@@ -45,10 +44,6 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
   private final R8BaselineProfileRewritingMetadata baselineProfileRewritingMetadata;
 
   @Expose
-  @SerializedName("compilation")
-  private final R8CompilationMetadata compilationMetadata;
-
-  @Expose
   @SerializedName("dexFiles")
   private final List<R8DexFileMetadata> dexFilesMetadata;
 
@@ -79,7 +74,6 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
   public R8BuildMetadataImpl(
       R8OptionsMetadata options,
       R8BaselineProfileRewritingMetadata baselineProfileRewritingOptions,
-      R8CompilationMetadata compilationMetadata,
       List<R8DexFileMetadata> dexFilesMetadata,
       R8StatsMetadata statsMetadata,
       R8FeatureSplitsMetadata featureSplitsMetadata,
@@ -89,7 +83,6 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
       String version) {
     this.optionsMetadata = options;
     this.baselineProfileRewritingMetadata = baselineProfileRewritingOptions;
-    this.compilationMetadata = compilationMetadata;
     this.dexFilesMetadata = dexFilesMetadata;
     this.statsMetadata = statsMetadata;
     this.featureSplitsMetadata = featureSplitsMetadata;
@@ -111,11 +104,6 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
   @Override
   public R8BaselineProfileRewritingMetadata getBaselineProfileRewritingMetadata() {
     return baselineProfileRewritingMetadata;
-  }
-
-  @Override
-  public R8CompilationMetadata getCompilationMetadata() {
-    return compilationMetadata;
   }
 
   @Override
@@ -162,7 +150,6 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
 
     private R8OptionsMetadata options;
     private R8BaselineProfileRewritingMetadata baselineProfileRewritingOptions;
-    private R8CompilationMetadata compilationInfo;
     private List<R8DexFileMetadata> dexFilesMetadata;
     private R8StatsMetadata statsMetadata;
     private R8FeatureSplitsMetadata featureSplitsMetadata;
@@ -186,11 +173,6 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
     public Builder setBaselineProfileRewritingOptions(
         R8BaselineProfileRewritingMetadata baselineProfileRewritingOptions) {
       this.baselineProfileRewritingOptions = baselineProfileRewritingOptions;
-      return this;
-    }
-
-    public Builder setCompilationInfo(R8CompilationMetadata compilationInfo) {
-      this.compilationInfo = compilationInfo;
       return this;
     }
 
@@ -236,7 +218,6 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
       return new R8BuildMetadataImpl(
           options,
           baselineProfileRewritingOptions,
-          compilationInfo,
           dexFilesMetadata,
           statsMetadata,
           featureSplitsMetadata,

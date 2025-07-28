@@ -7,7 +7,6 @@ import com.android.tools.r8.keepanno.annotations.KeepForApi;
 import com.android.tools.r8.metadata.impl.R8ApiModelingMetadataImpl;
 import com.android.tools.r8.metadata.impl.R8BaselineProfileRewritingMetadataImpl;
 import com.android.tools.r8.metadata.impl.R8BuildMetadataImpl;
-import com.android.tools.r8.metadata.impl.R8CompilationMetadataImpl;
 import com.android.tools.r8.metadata.impl.R8DexFileMetadataImpl;
 import com.android.tools.r8.metadata.impl.R8FeatureSplitMetadataImpl;
 import com.android.tools.r8.metadata.impl.R8FeatureSplitsMetadataImpl;
@@ -35,8 +34,6 @@ public interface R8BuildMetadata {
         .registerTypeAdapter(
             R8BaselineProfileRewritingMetadata.class,
             deserializeTo(R8BaselineProfileRewritingMetadataImpl.class))
-        .registerTypeAdapter(
-            R8CompilationMetadata.class, deserializeTo(R8CompilationMetadataImpl.class))
         .registerTypeAdapter(R8DexFileMetadata.class, deserializeTo(R8DexFileMetadataImpl.class))
         .registerTypeAdapter(R8StatsMetadata.class, deserializeTo(R8StatsMetadataImpl.class))
         .registerTypeAdapter(
@@ -74,8 +71,6 @@ public interface R8BuildMetadata {
    * @return null if baseline profile rewriting is disabled.
    */
   R8BaselineProfileRewritingMetadata getBaselineProfileRewritingMetadata();
-
-  R8CompilationMetadata getCompilationMetadata();
 
   /**
    * @return null if not compiling to dex.

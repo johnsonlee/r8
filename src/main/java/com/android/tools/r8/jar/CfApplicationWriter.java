@@ -125,7 +125,7 @@ public class CfApplicationWriter {
           executorService);
       globalsConsumer.finished(appView);
     }
-    ApplicationWriter.supplyAdditionalConsumers(appView, executorService, Collections.emptyList());
+    ApplicationWriter.supplyAdditionalConsumers(appView, Collections.emptyList());
   }
 
   private void supplyConsumer(

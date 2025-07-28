@@ -21,7 +21,6 @@ import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
 
 public class BuildMetadataFactory {
 
@@ -34,7 +33,6 @@ public class BuildMetadataFactory {
 
   public static R8BuildMetadata create(
       AppView<? extends AppInfoWithClassHierarchy> appView,
-      ExecutorService executorService,
       List<VirtualFile> virtualFiles) {
     Map<FeatureSplit, List<VirtualFile>> virtualFilesForFeatureSplit = new IdentityHashMap<>();
     for (VirtualFile virtualFile : Iterables.filter(virtualFiles, not(VirtualFile::isEmpty))) {
@@ -49,7 +47,6 @@ public class BuildMetadataFactory {
     return R8BuildMetadataImpl.builder()
         .setOptions(new R8OptionsMetadataImpl(options))
         .setBaselineProfileRewritingOptions(R8BaselineProfileRewritingMetadataImpl.create(options))
-        .setCompilationInfo(R8CompilationMetadataImpl.create(appView, executorService))
         .applyIf(
             options.isGeneratingDex(), builder -> builder.setDexFilesMetadata(baseVirtualFiles))
         .applyIf(
