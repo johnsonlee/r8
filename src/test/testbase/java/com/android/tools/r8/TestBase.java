@@ -1874,8 +1874,9 @@ public class TestBase {
   }
 
   public static boolean hasSealedClassesSupport(TestParameters parameters) {
-    return (parameters.isCfRuntime() && parameters.getCfRuntime().hasRecordsSupport())
-        || parameters.getApiLevel().isGreaterThanOrEqualTo(apiLevelWithSealedClassesSupport());
+    return (parameters.isCfRuntime() && parameters.getCfRuntime().hasSealedClassesSupport())
+        || (parameters.isDexRuntime()
+            && parameters.getApiLevel().isGreaterThanOrEqualTo(apiLevelWithSealedClassesSupport()));
   }
 
   public static boolean isRecordsFullyDesugaredForD8(TestParameters parameters) {

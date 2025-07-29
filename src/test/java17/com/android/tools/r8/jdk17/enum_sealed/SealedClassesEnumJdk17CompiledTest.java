@@ -79,7 +79,7 @@ public class SealedClassesEnumJdk17CompiledTest extends TestBase {
     ClassSubject sub1 = inspector.clazz(Enum.B.getClass());
     assertThat(sub1, isPresentAndRenamed());
     assertEquals(
-        parameters.isCfRuntime() && keepPermittedSubclassesAttribute
+        hasSealedClassesSupport(parameters) && keepPermittedSubclassesAttribute
             ? ImmutableList.of(sub1.asTypeSubject())
             : ImmutableList.of(),
         clazz.getFinalPermittedSubclassAttributes());
@@ -88,6 +88,8 @@ public class SealedClassesEnumJdk17CompiledTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
+    assumeTrue(
+        parameters.isDexRuntime() || parameters.asCfRuntime().isNewerThanOrEqual(CfVm.JDK17));
     parameters.assumeNoPartialCompilation("TODO");
     testForR8(parameters.getBackend())
         .addInnerClassesAndStrippedOuter(getClass())
@@ -100,10 +102,7 @@ public class SealedClassesEnumJdk17CompiledTest extends TestBase {
         .compile()
         .inspect(this::inspect)
         .run(parameters.getRuntime(), Main.class)
-        .applyIf(
-            parameters.isDexRuntime() || parameters.asCfRuntime().isNewerThanOrEqual(CfVm.JDK17),
-            r -> r.assertSuccessWithOutput(EXPECTED),
-            r -> r.assertFailureWithErrorThatThrows(UnsupportedClassVersionError.class));
+        .assertSuccessWithOutput(EXPECTED);
   }
 
   public enum Enum {

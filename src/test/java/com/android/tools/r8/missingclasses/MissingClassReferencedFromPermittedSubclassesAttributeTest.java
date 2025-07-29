@@ -48,9 +48,11 @@ public class MissingClassReferencedFromPermittedSubclassesAttributeTest
   }
 
   private void inspect(CodeInspector inspector) {
-    // Missing classes stays in the PermittedSubclasses attribute.
+    // Missing classes stays in the PermittedSubclasses attribute. This test does not validate
+    // the class file version, so for testing JDK's below 17 the PermittedSubclasses attributes is
+    // still present (the code will not run, but the tests does not run the code).
     assertEquals(
-        parameters.isCfRuntime()
+        hasSealedClassesSupport(parameters) || parameters.isCfRuntime()
             ? ImmutableList.of(
                 inspector.clazz(Sub.class).asTypeSubject(),
                 inspector.getTypeSubject(MissingSub.class.getTypeName()))
