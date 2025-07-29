@@ -81,7 +81,7 @@ public class SealedClassesJdk17CompiledTest extends TestBase {
     assertThat(sub1, isPresentAndRenamed());
     assertThat(sub2, isPresentAndRenamed());
     assertEquals(
-        parameters.isCfRuntime() && keepPermittedSubclassesAttribute
+        hasSealedClassesSupport(parameters) && keepPermittedSubclassesAttribute
             ? ImmutableList.of(sub1.asTypeSubject(), sub2.asTypeSubject())
             : ImmutableList.of(),
         clazz.getFinalPermittedSubclassAttributes());
@@ -90,6 +90,8 @@ public class SealedClassesJdk17CompiledTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
+    assumeTrue(
+        parameters.isDexRuntime() || parameters.asCfRuntime().isNewerThanOrEqual(CfVm.JDK17));
     parameters.assumeNoPartialCompilation("TODO");
     testForR8(parameters.getBackend())
         .addProgramClassesAndInnerClasses(Helper.getSealedClasses())
