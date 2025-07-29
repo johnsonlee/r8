@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.naming.b155249069;
 
-import static junit.framework.TestCase.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 
 import com.android.tools.r8.CompilationFailedException;
@@ -68,6 +67,7 @@ public class DontUseMixedCaseClassNamesExistingClassPackageTest extends TestBase
         .addKeepClassRulesWithAllowObfuscation(A.class)
         .addKeepMainRule(Main.class)
         .addKeepRules("-packageobfuscationdictionary " + packageDictionary.toString())
+        // b/434863985: -dontusemixedcaseclassnames is ignored and always applied.
         .applyIf(dontUseMixedCase, b -> b.addKeepRules("-dontusemixedcaseclassnames"))
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("A.A.foo()", "package_b.B.foo()")
@@ -75,15 +75,11 @@ public class DontUseMixedCaseClassNamesExistingClassPackageTest extends TestBase
             inspector -> {
               ClassSubject aSubject = inspector.clazz(renamedATypeName);
               ClassSubject bSubject = inspector.clazz(A.class);
-              if (dontUseMixedCase) {
-                assertNotEquals(
-                    StringUtils.toLowerCase(aSubject.getFinalName()),
-                    StringUtils.toLowerCase(bSubject.getFinalName()));
-              } else {
-                assertEquals(
-                    StringUtils.toLowerCase(aSubject.getFinalName()),
-                    StringUtils.toLowerCase(bSubject.getFinalName()));
-              }
+              assertNotEquals(
+                  // As -dontusemixedcaseclassnames is ignored and always applied there will be
+                  // no case-insensitive collision.
+                  StringUtils.toLowerCase(aSubject.getFinalName()),
+                  StringUtils.toLowerCase(bSubject.getFinalName()));
             });
   }
 

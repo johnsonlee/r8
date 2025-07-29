@@ -52,7 +52,8 @@ public class DontUseMixedCaseClassNamesExistingClassTest extends TestBase {
         .addKeepClassRulesWithAllowObfuscation(A.class)
         .addKeepMainRule(Main.class)
         .addKeepPackageNamesRule(Main.class.getPackage())
-        .addKeepRules("-classobfuscationdictionary " + dictionary.toString())
+        .addKeepRules("-classobfuscationdictionary " + dictionary)
+        // b/434863985: -dontusemixedcaseclassnames is ignored and always applied.
         .applyIf(dontUseMixedCase, b -> b.addKeepRules("-dontusemixedcaseclassnames"))
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines(EXPECTED)
@@ -62,11 +63,10 @@ public class DontUseMixedCaseClassNamesExistingClassTest extends TestBase {
               assertEquals(
                   StringUtils.toLowerCase(finalName),
                   StringUtils.toLowerCase(Main.class.getTypeName()));
-              if (dontUseMixedCase) {
-                assertNotEquals(finalName, inspector.clazz(A.class).getFinalName());
-              } else {
-                assertEquals(finalName, inspector.clazz(A.class).getFinalName());
-              }
+              // As -dontusemixedcaseclassnames is ignored and always applied then A will not be
+              // renamed to DontUseMixedCaseClassNamesExistingClassTest$main - even when the names
+              // are provided from -classobfuscationdictionary.
+              assertNotEquals(finalName, inspector.clazz(A.class).getFinalName());
             });
   }
 

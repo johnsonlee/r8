@@ -55,6 +55,7 @@ public class MinificationMixedCaseAndNumbersTest extends TestBase {
         .addInnerClasses(MinificationMixedCaseAndNumbersTest.class)
         .addKeepMainRule(Main.class)
         .addDontShrink()
+        // b/434863985: -dontusemixedcaseclassnames is ignored and is always applied.
         .addKeepRules(
             "-dontusemixedcaseclassnames", "-keeppackagenames com.android.tools.r8.naming")
         .setMinApi(parameters)

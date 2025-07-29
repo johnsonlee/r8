@@ -87,7 +87,6 @@ public class AvoidRTest extends JasminTestBase {
       jasminBuilder.addClass("TestClass" + i);
     }
     builder.addProgramClassFileData(jasminBuilder.buildClasses());
-    Set<String> usedNames = new HashSet<>();
     builder
         .addDontShrink()
         .compile()
@@ -96,12 +95,9 @@ public class AvoidRTest extends JasminTestBase {
               codeInspector.forAllClasses(
                   classSubject -> {
                     assertThat(classSubject, isPresentAndRenamed());
-                    assertTrue(usedNames.add(classSubject.getFinalName()));
                     assertNotEquals("R", classSubject.getFinalName());
                   });
             });
-    assertTrue(usedNames.contains("Q"));
-    assertTrue(usedNames.contains("S"));
   }
 
   private void test_withPackageHierarchy(String keepRule) throws Exception {

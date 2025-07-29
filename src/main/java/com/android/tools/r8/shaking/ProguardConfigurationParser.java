@@ -85,7 +85,8 @@ public class ProguardConfigurationParser {
           "dontshrinkduringoptimization",
           "convert_proto_enum_to_string",
           "adaptkotlinmetadata",
-          "verbose");
+          "verbose",
+          "dontusemixedcaseclassnames");
 
   private static final List<String> IGNORED_CLASS_DESCRIPTOR_OPTIONS =
       ImmutableList.of("isclassnamestring", "whyarenotsimple");
@@ -483,8 +484,6 @@ public class ProguardConfigurationParser {
         configurationBuilder.addRule(parseIfRule(optionStart));
       } else if (acceptString("addconfigurationdebugging")) {
         configurationBuilder.setConfigurationDebugging(true);
-      } else if (acceptString("dontusemixedcaseclassnames")) {
-        configurationBuilder.setDontUseMixedCaseClassnames(true);
       } else if (parseMaximumRemovedAndroidLogLevelRule(optionStart)) {
         return true;
       } else {

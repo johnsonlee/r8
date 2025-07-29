@@ -45,8 +45,6 @@ class ClassNameMinifier {
   private final boolean keepInnerClassStructure;
 
   private final Namespace topLevelState;
-  private final boolean allowMixedCaseNaming;
-  private final Predicate<String> isUsed;
 
   ClassNameMinifier(
       AppView<AppInfoWithLiveness> appView,
@@ -61,18 +59,10 @@ class ClassNameMinifier {
     // Initialize top-level naming state.
     topLevelState = new Namespace("");
     states.put("", topLevelState);
-
-    if (options.getProguardConfiguration().hasDontUseMixedCaseClassnames()) {
-      allowMixedCaseNaming = false;
-      isUsed = candidate -> usedTypeNames.contains(StringUtils.toLowerCase(candidate));
-    } else {
-      allowMixedCaseNaming = true;
-      isUsed = usedTypeNames::contains;
-    }
   }
 
   private void setUsedTypeName(String typeName) {
-    usedTypeNames.add(allowMixedCaseNaming ? typeName : StringUtils.toLowerCase(typeName));
+    usedTypeNames.add(StringUtils.toLowerCase(typeName));
   }
 
   static class ClassRenaming {
@@ -300,7 +290,9 @@ class ClassNameMinifier {
     }
 
     DexString nextTypeName(DexType type) {
-      DexString candidate = classNamingStrategy.next(type, packagePrefix, this, isUsed);
+      DexString candidate =
+          classNamingStrategy.next(
+              type, packagePrefix, this, c -> usedTypeNames.contains(StringUtils.toLowerCase(c)));
       assert !usedTypeNames.contains(candidate.toString());
       setUsedTypeName(candidate.toString());
       return candidate;

@@ -187,12 +187,11 @@ public class Minifier {
     private final Set<String> obfuscationDictionaryForLookup;
     private final MixedCasing mixedCasing;
 
-    BaseMinificationNamingStrategy(List<String> obfuscationDictionary, boolean dontUseMixedCasing) {
+    BaseMinificationNamingStrategy(List<String> obfuscationDictionary, MixedCasing mixedCasing) {
       assert obfuscationDictionary != null;
       this.obfuscationDictionary = obfuscationDictionary;
       this.obfuscationDictionaryForLookup = new HashSet<>(obfuscationDictionary);
-      this.mixedCasing =
-          dontUseMixedCasing ? MixedCasing.DONT_USE_MIXED_CASE : MixedCasing.USE_MIXED_CASE;
+      this.mixedCasing = mixedCasing;
     }
 
     /** TODO(b/182992598): using char[] could give problems with unicode */
@@ -258,7 +257,7 @@ public class Minifier {
     MinificationClassNamingStrategy(AppView<AppInfoWithLiveness> appView) {
       super(
           appView.options().getProguardConfiguration().getClassObfuscationDictionary(),
-          appView.options().getProguardConfiguration().hasDontUseMixedCaseClassnames());
+          MixedCasing.DONT_USE_MIXED_CASE);
       this.appView = appView;
       this.factory = appView.dexItemFactory();
     }
@@ -333,7 +332,7 @@ public class Minifier {
     public MinificationPackageNamingStrategy(AppView<?> appView) {
       super(
           appView.options().getProguardConfiguration().getPackageObfuscationDictionary(),
-          appView.options().getProguardConfiguration().hasDontUseMixedCaseClassnames());
+          MixedCasing.DONT_USE_MIXED_CASE);
     }
 
     public String next(String packagePrefix, Predicate<String> isUsed) {
@@ -357,7 +356,9 @@ public class Minifier {
     private final boolean desugaredLibraryRenaming;
 
     public MinifierMemberNamingStrategy(AppView<AppInfoWithLiveness> appView) {
-      super(appView.options().getProguardConfiguration().getObfuscationDictionary(), false);
+      super(
+          appView.options().getProguardConfiguration().getObfuscationDictionary(),
+          MixedCasing.USE_MIXED_CASE);
       this.appView = appView;
       this.factory = appView.dexItemFactory();
       this.desugaredLibraryRenaming =
