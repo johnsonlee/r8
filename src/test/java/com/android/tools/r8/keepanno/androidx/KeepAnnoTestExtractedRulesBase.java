@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.androidx;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assume.assumeFalse;
 
 import com.android.tools.r8.KotlinCompileMemoizer;
@@ -20,6 +19,7 @@ import java.util.stream.Collectors;
 import org.junit.runners.Parameterized.Parameter;
 
 public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
+
   @Parameter(0)
   public KeepAnnoParameters parameters;
 
@@ -54,6 +54,7 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
   }
 
   public static class ExpectedRule {
+
     private final String conditionClass;
     private final String conditionMembers;
     private final String consequentClass;
@@ -84,6 +85,7 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
     }
 
     public static class Builder {
+
       private String conditionClass;
       private String conditionMembers;
       private String consequentClass;
@@ -127,7 +129,42 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
     }
   }
 
-  protected void runTestExtractedRulesJava(List<Class<?>> testClasses, ExpectedRule expectedRule)
+  public static class ExpectedRules {
+
+    private final ImmutableList<ExpectedRule> rules;
+
+    private ExpectedRules(Builder builder) {
+      this.rules = builder.rules.build();
+    }
+
+    public ImmutableList<String> getRules(boolean r8) {
+      return rules.stream().map(rule -> rule.getRule(r8)).collect(ImmutableList.toImmutableList());
+    }
+
+    public static Builder builder() {
+      return new Builder();
+    }
+
+    public static ExpectedRules singleRule(ExpectedRule rule) {
+      return new Builder().add(rule).build();
+    }
+
+    public static class Builder {
+
+      private final ImmutableList.Builder<ExpectedRule> rules = ImmutableList.builder();
+
+      public Builder add(ExpectedRule rule) {
+        rules.add(rule);
+        return this;
+      }
+
+      public ExpectedRules build() {
+        return new ExpectedRules(this);
+      }
+    }
+  }
+
+  protected void runTestExtractedRulesJava(List<Class<?>> testClasses, ExpectedRules expectedRules)
       throws Exception {
     Class<?> mainClass = testClasses.iterator().next();
     testForKeepAnnoAndroidX(parameters)
@@ -143,8 +180,7 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
         .inspectExtractedRules(
             rules -> {
               if (parameters.isExtractRules()) {
-                assertEquals(
-                    ImmutableList.of(expectedRule.getRule(parameters.isR8())), trimRules(rules));
+                assertListsAreEqual(expectedRules.getRules(parameters.isR8()), trimRules(rules));
               }
             })
         .run(mainClass)
@@ -152,7 +188,7 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
   }
 
   protected void runTestExtractedRulesKotlin(
-      KotlinCompileMemoizer compilation, String mainClass, ExpectedRule expectedRule)
+      KotlinCompileMemoizer compilation, String mainClass, ExpectedRules expectedRules)
       throws Exception {
     // TODO(b/392865072): Legacy R8 fails with AssertionError: Synthetic class kinds should agree.
     assumeFalse(parameters.isLegacyR8());
@@ -192,8 +228,7 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
         .inspectExtractedRules(
             rules -> {
               if (parameters.isExtractRules()) {
-                assertEquals(
-                    ImmutableList.of(expectedRule.getRule(parameters.isR8())), trimRules(rules));
+                assertListsAreEqual(expectedRules.getRules(parameters.isR8()), trimRules(rules));
               }
             })
         .run(mainClass)

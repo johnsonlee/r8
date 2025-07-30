@@ -88,12 +88,13 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
   public void testOnlyNoArgsConstructor() throws Exception {
     runTestExtractedRulesJava(
         ImmutableList.of(OnlyNoArgsConstructor.class, KeptClass.class),
-        ExpectedRule.builder()
-            .setConditionClass(OnlyNoArgsConstructor.class)
-            .setConditionMembers("{ void foo(java.lang.Class); }")
-            .setConsequentClass(KeptClass.class)
-            .setConsequentMembers("{ void <init>(); }")
-            .build());
+        ExpectedRules.singleRule(
+            ExpectedRule.builder()
+                .setConditionClass(OnlyNoArgsConstructor.class)
+                .setConditionMembers("{ void foo(java.lang.Class); }")
+                .setConsequentClass(KeptClass.class)
+                .setConsequentMembers("{ void <init>(); }")
+                .build()));
   }
 
   static class OnlyNoArgsConstructor {
@@ -116,12 +117,13 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
   public void testOnlyNoArgsConstructorClassNames() throws Exception {
     runTestExtractedRulesJava(
         ImmutableList.of(OnlyNoArgsConstructorClassNames.class, KeptClass.class),
-        ExpectedRule.builder()
-            .setConditionClass(OnlyNoArgsConstructorClassNames.class)
-            .setConditionMembers("{ void foo(java.lang.Class); }")
-            .setConsequentClass(KeptClass.class)
-            .setConsequentMembers("{ void <init>(); }")
-            .build());
+        ExpectedRules.singleRule(
+            ExpectedRule.builder()
+                .setConditionClass(OnlyNoArgsConstructorClassNames.class)
+                .setConditionMembers("{ void foo(java.lang.Class); }")
+                .setConsequentClass(KeptClass.class)
+                .setConsequentMembers("{ void <init>(); }")
+                .build()));
   }
 
   static class OnlyNoArgsConstructorClassNames {
@@ -145,12 +147,14 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
     runTestExtractedRulesKotlin(
         compilationResults,
         "com.android.tools.r8.keepanno.androidx.kt.OnlyNoArgsConstructorKt",
-        ExpectedRule.builder()
-            .setConditionClass("com.android.tools.r8.keepanno.androidx.kt.OnlyNoArgsConstructor")
-            .setConditionMembers("{ void foo(kotlin.reflect.KClass); }")
-            .setConsequentClass("com.android.tools.r8.keepanno.androidx.kt.KeptClass")
-            .setConsequentMembers("{ void <init>(); }")
-            .build());
+        ExpectedRules.singleRule(
+            ExpectedRule.builder()
+                .setConditionClass(
+                    "com.android.tools.r8.keepanno.androidx.kt.OnlyNoArgsConstructor")
+                .setConditionMembers("{ void foo(kotlin.reflect.KClass); }")
+                .setConsequentClass("com.android.tools.r8.keepanno.androidx.kt.KeptClass")
+                .setConsequentMembers("{ void <init>(); }")
+                .build()));
   }
 
   @Test
@@ -158,13 +162,14 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
     runTestExtractedRulesKotlin(
         compilationResultsClassName,
         "com.android.tools.r8.keepanno.androidx.kt.OnlyNoArgsConstructorClassNameKt",
-        ExpectedRule.builder()
-            .setConditionClass(
-                "com.android.tools.r8.keepanno.androidx.kt.OnlyNoArgsConstructorClassName")
-            .setConditionMembers("{ void foo(kotlin.reflect.KClass); }")
-            .setConsequentClass("com.android.tools.r8.keepanno.androidx.kt.KeptClass")
-            .setConsequentMembers("{ void <init>(); }")
-            .build());
+        ExpectedRules.singleRule(
+            ExpectedRule.builder()
+                .setConditionClass(
+                    "com.android.tools.r8.keepanno.androidx.kt.OnlyNoArgsConstructorClassName")
+                .setConditionMembers("{ void foo(kotlin.reflect.KClass); }")
+                .setConsequentClass("com.android.tools.r8.keepanno.androidx.kt.KeptClass")
+                .setConsequentMembers("{ void <init>(); }")
+                .build()));
   }
 
   static class KeptClass {
