@@ -29,7 +29,20 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
   protected static KotlinCompileMemoizer compilationResults;
   protected static KotlinCompileMemoizer compilationResultsClassName;
 
-  protected abstract String getExpectedOutput();
+  protected String getExpectedOutput() {
+    assert false
+        : "implement either this or both of getExpectedOutputForJava and"
+            + " getExpectedOutputForKotlin";
+    return null;
+  }
+
+  protected String getExpectedOutputForJava() {
+    return getExpectedOutput();
+  }
+
+  protected String getExpectedOutputForKotlin() {
+    return getExpectedOutput();
+  }
 
   protected static List<String> trimRules(List<String> rules) {
     List<String> trimmedRules =
@@ -135,7 +148,7 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
               }
             })
         .run(mainClass)
-        .assertSuccessWithOutput(getExpectedOutput());
+        .assertSuccessWithOutput(getExpectedOutputForJava());
   }
 
   protected void runTestExtractedRulesKotlin(
@@ -184,9 +197,6 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
               }
             })
         .run(mainClass)
-        .applyIf(
-            parameters.isExtractRules(),
-            b -> b.assertSuccessWithOutput(getExpectedOutput()),
-            b -> b.assertSuccessWithOutput(""));
+        .assertSuccessWithOutput(getExpectedOutputForKotlin());
   }
 }

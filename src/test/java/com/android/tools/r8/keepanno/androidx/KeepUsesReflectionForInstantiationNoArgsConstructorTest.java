@@ -33,8 +33,25 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
         getKotlinTestParameters().withLatestCompiler().build());
   }
 
-  protected String getExpectedOutput() {
+  @Override
+  protected String getExpectedOutputForJava() {
     return StringUtils.lines("<init>()");
+  }
+
+  @Override
+  protected String getExpectedOutputForKotlin() {
+    if (parameters.isNativeR8()) {
+      // TODO(b/429389513): This is not expected.
+      return StringUtils.lines(
+          "null",
+          "fun `<init>`(): com.android.tools.r8.keepanno.androidx.kt.KeptClass",
+          "<init>()");
+    }
+    return StringUtils.lines(
+        "fun `<init>`(): com.android.tools.r8.keepanno.androidx.kt.KeptClass",
+        "<init>()",
+        "fun `<init>`(): com.android.tools.r8.keepanno.androidx.kt.KeptClass",
+        "<init>()");
   }
 
   private static Collection<Path> getKotlinSources() {
@@ -82,7 +99,7 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
   static class OnlyNoArgsConstructor {
 
     @UsesReflectionToConstruct(
-        className = classNameOfKeptClass,
+        classConstant = KeptClass.class,
         params = {})
     public void foo(Class<KeptClass> clazz) throws Exception {
       if (clazz != null) {
