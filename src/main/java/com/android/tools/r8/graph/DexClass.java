@@ -569,6 +569,10 @@ public abstract class DexClass extends DexDefinition
     return methodCollection.getMethod(method);
   }
 
+  public DexEncodedMethod lookupMethod(DexMethodSignature method) {
+    return lookupMethod(method.getProto(), method.getName());
+  }
+
   public DexEncodedMethod lookupMethod(DexProto methodProto, DexString methodName) {
     return methodCollection.getMethod(methodProto, methodName);
   }

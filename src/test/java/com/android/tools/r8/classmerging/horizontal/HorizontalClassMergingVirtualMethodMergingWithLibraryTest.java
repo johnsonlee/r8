@@ -50,11 +50,7 @@ public class HorizontalClassMergingVirtualMethodMergingWithLibraryTest extends T
         .enableNoVerticalClassMergingAnnotations()
         .compile()
         .run(parameters.getRuntime(), Main.class)
-        .applyIf(
-            parameters.canUseDefaultAndStaticInterfaceMethods(),
-            // TODO(b/369040938): Disallow bridge hoisting of B.m().
-            rr -> rr.assertSuccessWithOutputLines("A.bridgeTarget()", "A.bridgeTarget()"),
-            rr -> rr.assertSuccessWithOutputLines("A.bridgeTarget()", "I.m()"));
+        .assertSuccessWithOutputLines("A.bridgeTarget()", "I.m()");
   }
 
   static class Main {
