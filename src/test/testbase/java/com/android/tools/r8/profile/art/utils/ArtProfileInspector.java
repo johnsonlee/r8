@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.profile.art.utils;
 
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 
@@ -120,6 +119,11 @@ public class ArtProfileInspector {
     ExternalArtProfileClassRule classRule = artProfile.getClassRule(classReference);
     inspector.accept(new ArtProfileClassRuleInspector(classRule));
     return this;
+  }
+
+  public ArtProfileInspector inspectMethodRule(
+      MethodSubject methodSubject, Consumer<ArtProfileMethodRuleInspector> inspector) {
+    return inspectMethodRule(methodSubject.getFinalReference(), inspector);
   }
 
   public ArtProfileInspector inspectMethodRule(
