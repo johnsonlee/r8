@@ -2043,7 +2043,17 @@ public class ProguardConfigurationParserTest extends TestBase {
     ProguardConfigurationParser parser =
         new ProguardConfigurationParser(new DexItemFactory(), reporter);
     parser.parse(proguardConfig);
-    checkDiagnostics(handler.warnings, proguardConfig, 3, 7, "The field name \"id<<*>>\" is");
+    verifyParserEndsCleanly();
+  }
+
+  @Test
+  public void parse_if_closeBracketBeforeOpenBracket_inMemberName() throws Exception {
+    Path proguardConfig =
+        writeTextToTempFile("-if class **$R**", "-keep class **D<2> {", "  int id>1<;", "}");
+    ProguardConfigurationParser parser =
+        new ProguardConfigurationParser(new DexItemFactory(), reporter);
+    parser.parse(proguardConfig);
+    verifyParserEndsCleanly();
   }
 
   @Test
@@ -2323,7 +2333,7 @@ public class ProguardConfigurationParserTest extends TestBase {
     ProguardConfigurationParser parser =
         new ProguardConfigurationParser(new DexItemFactory(), reporter);
     parser.parse(proguardConfig);
-    checkDiagnostics(handler.warnings, proguardConfig, 2, 5, "The field name \"<fields>\" is");
+    verifyParserEndsCleanly();
   }
 
   @Test
@@ -2350,11 +2360,7 @@ public class ProguardConfigurationParserTest extends TestBase {
     ProguardConfigurationParser parser =
         new ProguardConfigurationParser(new DexItemFactory(), reporter);
     parser.parse(proguardConfig);
-    assertEquals(4, handler.warnings.size());
-    checkDiagnostics(handler.warnings, 0, proguardConfig, 2, 3, "The type \"<public\" is");
-    checkDiagnostics(handler.warnings, 1, proguardConfig, 2, 11, "The field name \"methods>\" is");
-    checkDiagnostics(handler.warnings, 2, proguardConfig, 3, 3, "The type \"<public\" is");
-    checkDiagnostics(handler.warnings, 3, proguardConfig, 3, 11, "The field name \"fields>\" is");
+    verifyParserEndsCleanly();
   }
 
   @Test

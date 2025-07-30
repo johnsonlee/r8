@@ -1406,12 +1406,6 @@ public class ProguardConfigurationParser {
                             ProguardTypeMatcher.create(first, ClassOrType.TYPE, dexItemFactory));
                     ruleBuilder.setArguments(parseArgumentList());
                   } else {
-                    if (first.hasUnusualCharacters()) {
-                      warnUnusualCharacters("type", first.pattern, "field", firstStart);
-                    }
-                    if (second.hasUnusualCharacters()) {
-                      warnUnusualCharacters("field name", second.pattern, "field", secondStart);
-                    }
                     ruleBuilder.setRuleType(ProguardMemberType.FIELD);
                     ruleBuilder.setName(second);
                     ruleBuilder
@@ -2238,16 +2232,6 @@ public class ProguardConfigurationParser {
     private void warnOverridingOptions(String optionName, String victim, TextPosition start) {
       reporter.warning(new StringDiagnostic(
           "Option -" + optionName + " overrides -" + victim, origin, getPosition(start)));
-    }
-
-    private void warnUnusualCharacters(
-        String kind, String pattern, String ruleType, TextPosition start) {
-      reporter.warning(new StringDiagnostic(
-          "The " + kind + " \"" + pattern + "\" is used in a " + ruleType + " rule. The "
-              + "characters in this " + kind + " are legal for the JVM, "
-              + "but unlikely to originate from a source language. "
-              + "Maybe this is not the rule you are looking for.",
-          origin, getPosition(start)));
     }
 
     private void infoIgnoringModifier(String modifier, TextPosition start) {
