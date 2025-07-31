@@ -33,6 +33,10 @@ public abstract class CodeRewriterPass<T extends AppInfo> {
     return (AppView<T>) appView;
   }
 
+  protected T appInfo() {
+    return appView().appInfo();
+  }
+
   public final CodeRewriterResult run(
       IRCode code,
       MethodProcessor methodProcessor,

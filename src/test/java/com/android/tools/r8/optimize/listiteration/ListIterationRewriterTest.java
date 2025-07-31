@@ -4,12 +4,14 @@
 
 package com.android.tools.r8.optimize.listiteration;
 
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.codeinspector.FoundClassSubject;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
 import java.util.ArrayList;
@@ -548,16 +550,34 @@ public class ListIterationRewriterTest extends TestBase {
   }
 
   @Test
-  public void testRewrites() throws Exception {
+  public void testRewritesD8() throws Exception {
+    parameters.assumeDexRuntime();
     // Run all test classes in one compilation for faster tests compared to compiling each one
     // separately.
-    Class[] classes =
-        Arrays.stream(RewritesMain.CASES).map(x -> x.getClass()).toArray(Class[]::new);
-    String[] expectedOutput = getExpectedTestOutput(RewritesMain.CASES);
+    testForD8(parameters)
+        .addProgramClassesAndInnerClasses(ListUtils.map(RewritesMain.CASES, TestCase::getClass))
+        .addProgramClasses(RewritesMain.class, TestCase.class)
+        .addOptionsModification(
+            o -> {
+              assertFalse(o.testing.listIterationRewritingRewriteCustomIterators);
+              o.testing.listIterationRewritingRewriteCustomIterators = true;
+              assertFalse(o.testing.listIterationRewritingRewriteInterfaces);
+              o.testing.listIterationRewritingRewriteInterfaces = true;
+            })
+        .release()
+        .compile()
+        .run(parameters.getRuntime(), RewritesMain.class)
+        .assertSuccessWithOutputLines(getExpectedTestOutput(RewritesMain.CASES))
+        .inspect(
+            inspector -> inspector.forAllClasses(ListIterationRewriterTest::checkNoIteratorInvoke));
+  }
 
-    testForR8(parameters.getBackend())
-        .setMinApi(parameters)
-        .addProgramClassesAndInnerClasses(classes)
+  @Test
+  public void testRewritesR8() throws Exception {
+    // Run all test classes in one compilation for faster tests compared to compiling each one
+    // separately.
+    testForR8(parameters)
+        .addProgramClassesAndInnerClasses(ListUtils.map(RewritesMain.CASES, TestCase::getClass))
         .addProgramClasses(RewritesMain.class, TestCase.class)
         .addKeepMainRule(RewritesMain.class)
         .addDontObfuscate()
@@ -565,7 +585,7 @@ public class ListIterationRewriterTest extends TestBase {
         .enableInliningAnnotations()
         .compile()
         .run(parameters.getRuntime(), RewritesMain.class)
-        .assertSuccessWithOutputLines(expectedOutput)
+        .assertSuccessWithOutputLines(getExpectedTestOutput(RewritesMain.CASES))
         .inspect(
             inspector -> inspector.forAllClasses(ListIterationRewriterTest::checkNoIteratorInvoke));
   }
@@ -620,21 +640,39 @@ public class ListIterationRewriterTest extends TestBase {
   }
 
   @Test
-  public void testNoRewrites() throws Exception {
+  public void testNoRewritesD8() throws Exception {
+    parameters.assumeDexRuntime();
     // Run all test classes in one compilation for faster tests compared to compiling each one
     // separately.
-    Class[] classes =
-        Arrays.stream(NoRewritesMain.CASES).map(x -> x.getClass()).toArray(Class[]::new);
-    String[] expectedOutput = getExpectedTestOutput(NoRewritesMain.CASES);
+    testForD8(parameters)
+        .addOptionsModification(
+            o -> {
+              // Ensure tests do not pass due to the optimization being disabled.
+              assertFalse(o.testing.listIterationRewritingRewriteCustomIterators);
+              o.testing.listIterationRewritingRewriteCustomIterators = true;
+              assertFalse(o.testing.listIterationRewritingRewriteInterfaces);
+              o.testing.listIterationRewritingRewriteInterfaces = true;
+            })
+        .addProgramClassesAndInnerClasses(ListUtils.map(NoRewritesMain.CASES, TestCase::getClass))
+        .addProgramClasses(NoRewritesMain.class, TestCase.class)
+        .release()
+        .compile()
+        .run(parameters.getRuntime(), NoRewritesMain.class)
+        .assertSuccessWithOutputLines(getExpectedTestOutput(NoRewritesMain.CASES))
+        .inspect(
+            inspector ->
+                inspector.forAllClasses(ListIterationRewriterTest::checkIteratorInvokeExists));
+  }
 
-    testForR8(parameters.getBackend())
-        .setMinApi(parameters)
+  @Test
+  public void testNoRewritesR8() throws Exception {
+    testForR8(parameters)
         .addOptionsModification(
             o -> {
               // Ensure tests do not pass due to the optimization being disabled.
               o.testing.listIterationRewritingRewriteCustomIterators = true;
             })
-        .addProgramClassesAndInnerClasses(classes)
+        .addProgramClassesAndInnerClasses(ListUtils.map(NoRewritesMain.CASES, TestCase::getClass))
         .addProgramClasses(NoRewritesMain.class, TestCase.class)
         .addKeepMainRule(NoRewritesMain.class)
         .addDontObfuscate()
@@ -642,7 +680,7 @@ public class ListIterationRewriterTest extends TestBase {
         .noHorizontalClassMerging()
         .compile()
         .run(parameters.getRuntime(), NoRewritesMain.class)
-        .assertSuccessWithOutputLines(expectedOutput)
+        .assertSuccessWithOutputLines(getExpectedTestOutput(NoRewritesMain.CASES))
         .inspect(
             inspector ->
                 inspector.forAllClasses(ListIterationRewriterTest::checkIteratorInvokeExists));

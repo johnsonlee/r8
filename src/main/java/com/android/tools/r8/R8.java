@@ -467,7 +467,8 @@ public class R8 {
         }
 
         // Compute after initial round of tree shaking to not trigger on pruned classes.
-        enableListIterationRewriter = ListIterationRewriter.shouldEnable(appView, subtypingInfo);
+        enableListIterationRewriter =
+            ListIterationRewriter.shouldEnableForR8(appView, subtypingInfo);
 
         timing.end();
       } finally {

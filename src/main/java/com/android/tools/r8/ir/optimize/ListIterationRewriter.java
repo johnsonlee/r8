@@ -5,6 +5,7 @@
 package com.android.tools.r8.ir.optimize;
 
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
+import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
@@ -34,7 +35,6 @@ import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.conversion.passes.CodeRewriterPass;
 import com.android.tools.r8.ir.conversion.passes.result.CodeRewriterResult;
-import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.InternalOptions.TestingOptions;
 import com.android.tools.r8.utils.TraversalContinuation;
 import com.google.common.collect.ImmutableList;
@@ -82,7 +82,7 @@ import java.util.List;
  * The reason for the transformation is that the code runs ~3x faster and saves an allocation.
  * This transformation requires 2 extra registers and saves 2 bytes.
  */
-public class ListIterationRewriter extends CodeRewriterPass<AppInfoWithLiveness> {
+public class ListIterationRewriter extends CodeRewriterPass<AppInfo> {
   private final DexString iteratorName;
   private final DexProto iteratorProto;
   private final DexType listType;
@@ -114,12 +114,17 @@ public class ListIterationRewriter extends CodeRewriterPass<AppInfoWithLiveness>
     this.immutableListType = dexItemFactory.comGoogleCommonCollectImmutableListType;
   }
 
+  public static boolean shouldEnableForD8(AppView<AppInfo> appView) {
+    return appView.options().isRelease()
+        && appView.testing().listIterationRewritingRewriteCustomIterators;
+  }
+
   /**
    * Returns whether to enable the optimization.
    *
    * @param subtypingInfo May contain pruned items, but must not be missing any types.
    */
-  public static boolean shouldEnable(
+  public static boolean shouldEnableForR8(
       AppView<? extends AppInfoWithClassHierarchy> appView,
       ImmediateAppSubtypingInfo subtypingInfo) {
     TestingOptions opts = appView.options().testing;
@@ -151,6 +156,11 @@ public class ListIterationRewriter extends CodeRewriterPass<AppInfoWithLiveness>
                                         || listMembers.get.match(m)
                                         || listMembers.size.match(m))))
         .shouldContinue();
+  }
+
+  @Override
+  protected AppInfoWithClassHierarchy appInfo() {
+    return appView.appInfoForDesugaring();
   }
 
   @Override
@@ -211,14 +221,14 @@ public class ListIterationRewriter extends CodeRewriterPass<AppInfoWithLiveness>
       // go to from 1010 to 1731.
       // While this would be safe for lists like: List.of(), singletonList(), etc, it would require
       // expensive intra-procedural analysis to track when it is safe.
-      return appView().appInfo().isSubtype(valueType, listType)
+      return appInfo().isSubtype(valueType, listType)
           // LinkedList.get() is not O(1).
           && valueType.isNotIdenticalTo(linkedListType)
           // CopyOnWriteArrayList.iterator() provides a snapshot of the list.
           && valueType.isNotIdenticalTo(copyOnWriteArrayListType);
     }
     // TODO(b/145280859): Add support for kotlin.collections.ArrayList.
-    return appView().appInfo().isSubtype(valueType, arrayListType)
+    return appInfo().isSubtype(valueType, arrayListType)
         || valueType.isIdenticalTo(immutableListType);
   }
 
@@ -379,7 +389,7 @@ public class ListIterationRewriter extends CodeRewriterPass<AppInfoWithLiveness>
     MethodResolutionResult resolvedSizeMethod =
         listClass == null || listClass.isInterface()
             ? null
-            : appView().appInfo().resolveMethodOnClass(listClass, sizeMethod);
+            : appInfo().resolveMethodOnClass(listClass, sizeMethod);
     InvokeMethodWithReceiver sizeInstr =
         resolvedSizeMethod == null || resolvedSizeMethod.getResolvedHolder().isInterface()
             ? new InvokeInterface(sizeMethod, sizeValue, sizeArgs)
@@ -426,7 +436,7 @@ public class ListIterationRewriter extends CodeRewriterPass<AppInfoWithLiveness>
     MethodResolutionResult resolvedGetMethod =
         listClass == null || listClass.isInterface()
             ? null
-            : appView().appInfo().resolveMethodOnClass(listClass, getMethod);
+            : appInfo().resolveMethodOnClass(listClass, getMethod);
     InvokeMethodWithReceiver getInstr =
         resolvedGetMethod == null || resolvedGetMethod.getResolvedHolder().isInterface()
             ? new InvokeInterface(getMethod, elementValue, getArgs)

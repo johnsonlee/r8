@@ -30,6 +30,7 @@ import com.android.tools.r8.ir.desugar.itf.InterfaceMethodProcessorFacade;
 import com.android.tools.r8.ir.desugar.itf.InterfaceProcessor;
 import com.android.tools.r8.ir.desugar.itf.L8InnerOuterAttributeEraser;
 import com.android.tools.r8.ir.desugar.lambda.LambdaDeserializationMethodRemover;
+import com.android.tools.r8.ir.optimize.ListIterationRewriter;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
 import com.android.tools.r8.position.MethodPosition;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
@@ -51,6 +52,9 @@ public class PrimaryD8L8IRConverter extends IRConverter {
   public PrimaryD8L8IRConverter(AppView<AppInfo> appView, Timing timing) {
     super(appView);
     this.timing = timing;
+    if (ListIterationRewriter.shouldEnableForD8(appView)) {
+      rewriterPassCollection.enableListIterationRewriter(appView);
+    }
   }
 
   @SuppressWarnings("BadImport")
