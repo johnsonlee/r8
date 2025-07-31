@@ -134,6 +134,7 @@ public class KeepItemAnnotationGenerator {
     final String kotlinName;
     String valueType = null;
     String valueDefault = null;
+    boolean suppressKotlinDefaultParameterOrder = false;
 
     GroupMember(String name) {
       this(name, name);
@@ -154,6 +155,11 @@ public class KeepItemAnnotationGenerator {
       return this;
     }
 
+    public GroupMember setSuppressKotlinDefaultParameterOrder() {
+      this.suppressKotlinDefaultParameterOrder = true;
+      return this;
+    }
+
     @Override
     public GroupMember self() {
       return this;
@@ -165,12 +171,17 @@ public class KeepItemAnnotationGenerator {
         generator.println("@Deprecated");
       }
       if (generator.generateKotlin()) {
-        if (kotlinValueDefault() == null) {
-          generator.println("val " + kotlinName + ": " + kotlinValueType() + ",");
-        } else {
-          generator.println(
-              "val " + kotlinName + ": " + kotlinValueType() + " = " + kotlinValueDefault() + ",");
+        StringBuilder builder = new StringBuilder();
+        if (suppressKotlinDefaultParameterOrder) {
+          builder.append("@Suppress(\"KotlinDefaultParameterOrder\") ");
         }
+        builder.append("val ").append(kotlinName).append(": ").append(kotlinValueType());
+        if (kotlinValueDefault() == null) {
+          builder.append(",");
+        } else {
+          builder.append(" = ").append(kotlinValueDefault()).append(",");
+        }
+        generator.println(builder.toString());
       } else {
         if (valueDefault == null) {
           generator.println(valueType + " " + name + "();");
@@ -688,22 +699,30 @@ public class KeepItemAnnotationGenerator {
       }
     }
 
-    private void printOpenAnnotationClassTargetingClassFieldMethodCtor(String clazz) {
+    private void printOpenAnnotationClassTargetingClassFieldMethodCtor(ClassReference clazz) {
+      String unqualifiedName = getUnqualifiedName(clazz);
       if (generateKotlin()) {
         println("@Retention(AnnotationRetention.BINARY)");
+        if (REPEATABLE_ANNOTATIONS.contains(clazz)) {
+          println("@Repeatable");
+        }
         println("@Target(");
         println("  AnnotationTarget.CLASS,");
         println("  AnnotationTarget.FIELD,");
         println("  AnnotationTarget.FUNCTION,");
         println("  AnnotationTarget.CONSTRUCTOR,");
         println(")");
-        println("public annotation class " + clazz + "(");
+        println("public annotation class " + unqualifiedName + "(");
       } else {
+        if (REPEATABLE_ANNOTATIONS.contains(clazz)) {
+          throw new RuntimeException(
+              "Repeatable annotations not supported for Java code generation");
+        }
         println(
             "@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD,"
                 + " ElementType.CONSTRUCTOR})");
         println("@Retention(RetentionPolicy.CLASS)");
-        println("public @interface " + clazz + " {");
+        println("public @interface " + unqualifiedName + " {");
       }
     }
 
@@ -1745,7 +1764,7 @@ public class KeepItemAnnotationGenerator {
               "When a member is annotated, the member patterns cannot be used as the annotated"
                   + " member itself fully defines the item to be kept (i.e., itself).")
           .printDoc(this::println);
-      printOpenAnnotationClassTargetingClassFieldMethodCtor("KeepForApi");
+      printOpenAnnotationClassTargetingClassFieldMethodCtor(KEEP_FOR_API);
       println();
       withIndent(
           () -> {
@@ -1834,7 +1853,7 @@ public class KeepItemAnnotationGenerator {
               "    // unreachable",
               "  }")
           .printDoc(this::println);
-      printOpenAnnotationClassTargetingClassFieldMethodCtor(getUnqualifiedName(USES_REFLECTION));
+      printOpenAnnotationClassTargetingClassFieldMethodCtor(USES_REFLECTION);
       println();
       withIndent(
           () -> {
@@ -1941,9 +1960,7 @@ public class KeepItemAnnotationGenerator {
           .addSection("@see UsesReflectionToAccessMethod")
           .addSection("@see UsesReflectionToAccessField")
           .printDoc(this::println);
-      println("@Repeatable");
-      printOpenAnnotationClassTargetingClassFieldMethodCtor(
-          getUnqualifiedName(USES_REFLECTION_TO_CONSTRUCT));
+      printOpenAnnotationClassTargetingClassFieldMethodCtor(USES_REFLECTION_TO_CONSTRUCT);
       println();
       withIndent(
           () -> {
@@ -1990,18 +2007,19 @@ public class KeepItemAnnotationGenerator {
           .addSection("@see UsesReflectionToConstruct")
           .addSection("@see UsesReflectionToAccessField")
           .printDoc(this::println);
-      println("@Repeatable");
-      printOpenAnnotationClassTargetingClassFieldMethodCtor(
-          getUnqualifiedName(USES_REFLECTION_TO_ACCESS_METHOD));
+      printOpenAnnotationClassTargetingClassFieldMethodCtor(USES_REFLECTION_TO_ACCESS_METHOD);
       println();
       withIndent(
           () -> {
             createAndroidXClassSelection(
-                    g -> g.setDocTitle("Class containing the method accessed by reflection."),
                     g ->
-                        g.setDocTitle(
-                            "Class name (or class name pattern) containing the method accessed by"
-                                + " reflection."))
+                        g.setSuppressKotlinDefaultParameterOrder()
+                            .setDocTitle("Class containing the method accessed by reflection."),
+                    g ->
+                        g.setSuppressKotlinDefaultParameterOrder()
+                            .setDocTitle(
+                                "Class name (or class name pattern) containing the method accessed"
+                                    + " by reflection."))
                 .generate(this);
             println();
             createMethodNameSelection().generate(this);
@@ -2044,18 +2062,19 @@ public class KeepItemAnnotationGenerator {
                   + " preserved if the annotated code is reachable in the final application build.")
           .addSection("@see UsesReflectionToConstruct", "@see UsesReflectionToAccessMethod")
           .printDoc(this::println);
-      println("@Repeatable");
-      printOpenAnnotationClassTargetingClassFieldMethodCtor(
-          getUnqualifiedName(USES_REFLECTION_TO_ACCESS_FIELD));
+      printOpenAnnotationClassTargetingClassFieldMethodCtor(USES_REFLECTION_TO_ACCESS_FIELD);
       println();
       withIndent(
           () -> {
             createAndroidXClassSelection(
-                    g -> g.setDocTitle("Class containing the field accessed by reflection."),
                     g ->
-                        g.setDocTitle(
-                            "Class name (or class name pattern) containing the field accessed by"
-                                + " reflection."))
+                        g.setSuppressKotlinDefaultParameterOrder()
+                            .setDocTitle("Class containing the field accessed by reflection."),
+                    g ->
+                        g.setSuppressKotlinDefaultParameterOrder()
+                            .setDocTitle(
+                                "Class name (or class name pattern) containing the field accessed"
+                                    + " by reflection."))
                 .generate(this);
             println();
             createAndroidXFieldNameSelection().generate(this);
@@ -2090,8 +2109,7 @@ public class KeepItemAnnotationGenerator {
               "@see UsesReflectionToAccessMethod",
               "@see UsesReflectionToAccessField")
           .printDoc(this::println);
-      printOpenAnnotationClassTargetingClassFieldMethodCtor(
-          getUnqualifiedName(UNCONDITIONALLY_KEEP));
+      printOpenAnnotationClassTargetingClassFieldMethodCtor(UNCONDITIONALLY_KEEP);
       println();
       withIndent(
           () -> {
@@ -2108,7 +2126,7 @@ public class KeepItemAnnotationGenerator {
       printCloseAnnotationClass();
     }
 
-    private void generateUsedByX(String annotationClassName, String doc) {
+    private void generateUsedByX(ClassReference clazz, String doc) {
       printCopyRight(2023);
       printPackage();
       printAnnotationImports();
@@ -2137,7 +2155,7 @@ public class KeepItemAnnotationGenerator {
               "When a member is annotated, the member patterns cannot be used as the annotated"
                   + " member itself fully defines the item to be kept (i.e., itself).")
           .printDoc(this::println);
-      printOpenAnnotationClassTargetingClassFieldMethodCtor(annotationClassName);
+      printOpenAnnotationClassTargetingClassFieldMethodCtor(clazz);
       println();
       withIndent(
           () -> {
@@ -2746,15 +2764,16 @@ public class KeepItemAnnotationGenerator {
     private static void writeFile(
         String pkg,
         Function<Generator, ClassReference> f,
-        Consumer<Generator> fn,
+        BiConsumer<Generator, ClassReference> fn,
         BiConsumer<Path, String> write)
         throws IOException {
       ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
       PrintStream printStream = new PrintStream(byteStream);
       Generator generator = new Generator(printStream, pkg);
-      fn.accept(generator);
+      ClassReference clazz = f.apply(generator);
+      fn.accept(generator, clazz);
       String formatted = byteStream.toString();
-      Path file = source(f.apply(generator));
+      Path file = source(clazz);
       if (file.toString().endsWith(".kt")) {
         formatted = CodeGenerationBase.kotlinFormatRawOutput(formatted);
       } else if (file.toString().endsWith(".java")) {
@@ -2783,7 +2802,7 @@ public class KeepItemAnnotationGenerator {
       writeFile(
           ANDROIDX_ANNO_PKG,
           generator -> generator.ANNOTATION_CONSTANTS,
-          Generator::generateConstants,
+          (generator, clazz) -> generator.generateConstants(),
           write);
       // Create a copy of the non-generated classes in the androidx namespace.
       // This is currently disabled. Will potentially be re-introduced by converting these classes
@@ -2791,61 +2810,86 @@ public class KeepItemAnnotationGenerator {
       // copyNonGeneratedMethods();
       for (String pkg : new String[] {R8_ANNO_PKG, ANDROIDX_ANNO_PKG}) {
         writeFile(
-            pkg, generator -> generator.STRING_PATTERN, Generator::generateStringPattern, write);
-        writeFile(pkg, generator -> generator.TYPE_PATTERN, Generator::generateTypePattern, write);
+            pkg,
+            generator -> generator.STRING_PATTERN,
+            (generator, clazz) -> generator.generateStringPattern(),
+            write);
+        writeFile(
+            pkg,
+            generator -> generator.TYPE_PATTERN,
+            (generator, clazz) -> generator.generateTypePattern(),
+            write);
         writeFile(
             pkg,
             generator -> generator.CLASS_NAME_PATTERN,
-            Generator::generateClassNamePattern,
+            (generator, clazz) -> generator.generateClassNamePattern(),
             write);
         writeFile(
             pkg,
             generator -> generator.INSTANCE_OF_PATTERN,
-            Generator::generateInstanceOfPattern,
+            (generator, clazz) -> generator.generateInstanceOfPattern(),
             write);
         writeFile(
             pkg,
             generator -> generator.ANNOTATION_PATTERN,
-            Generator::generateAnnotationPattern,
+            (generator, clazz) -> generator.generateAnnotationPattern(),
             write);
-        writeFile(pkg, generator -> generator.KEEP_BINDING, Generator::generateKeepBinding, write);
-        writeFile(pkg, generator -> generator.KEEP_TARGET, Generator::generateKeepTarget, write);
         writeFile(
-            pkg, generator -> generator.KEEP_CONDITION, Generator::generateKeepCondition, write);
-        writeFile(pkg, generator -> generator.KEEP_FOR_API, Generator::generateKeepForApi, write);
+            pkg,
+            generator -> generator.KEEP_BINDING,
+            (generator, clazz) -> generator.generateKeepBinding(),
+            write);
         writeFile(
-            pkg, generator -> generator.USES_REFLECTION, Generator::generateUsesReflection, write);
+            pkg,
+            generator -> generator.KEEP_TARGET,
+            (generator, clazz) -> generator.generateKeepTarget(),
+            write);
+        writeFile(
+            pkg,
+            generator -> generator.KEEP_CONDITION,
+            (generator, clazz) -> generator.generateKeepCondition(),
+            write);
+        writeFile(
+            pkg,
+            generator -> generator.KEEP_FOR_API,
+            (generator, clazz) -> generator.generateKeepForApi(),
+            write);
+        writeFile(
+            pkg,
+            generator -> generator.USES_REFLECTION,
+            (generator, clazz) -> generator.generateUsesReflection(),
+            write);
         writeFile(
             pkg,
             generator -> generator.USED_BY_REFLECTION,
-            generator -> generator.generateUsedByX("UsedByReflection", "accessed reflectively"),
+            (generator, clazz) -> generator.generateUsedByX(clazz, "accessed reflectively"),
             write);
         writeFile(
             pkg,
             generator -> generator.USED_BY_NATIVE,
-            generator ->
-                generator.generateUsedByX("UsedByNative", "accessed from native code via JNI"),
+            (generator, clazz) ->
+                generator.generateUsedByX(clazz, "accessed from native code via JNI"),
             write);
       }
       writeFile(
           ANDROIDX_ANNO_PKG,
           generator -> generator.USES_REFLECTION_TO_CONSTRUCT,
-          Generator::generateUsesReflectionToConstruct,
+          (generator, clazz) -> generator.generateUsesReflectionToConstruct(),
           write);
       writeFile(
           ANDROIDX_ANNO_PKG,
           generator -> generator.USES_REFLECTION_TO_ACCESS_METHOD,
-          Generator::generateUsesReflectionToAccessMethod,
+          (generator, clazz) -> generator.generateUsesReflectionToAccessMethod(),
           write);
       writeFile(
           ANDROIDX_ANNO_PKG,
           generator -> generator.USES_REFLECTION_TO_ACCESS_FIELD,
-          Generator::generateUsesReflectionToAccessField,
+          (generator, clazz) -> generator.generateUsesReflectionToAccessField(),
           write);
       writeFile(
           ANDROIDX_ANNO_PKG,
           generator -> generator.UNCONDITIONALLY_KEEP,
-          Generator::generateUnconditionallyKeep,
+          (generator, clazz) -> generator.generateUnconditionallyKeep(),
           write);
     }
   }

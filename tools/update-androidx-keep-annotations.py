@@ -15,10 +15,17 @@ KOTLIN_EXTENSION = '.kt'
 
 def parse_options():
     parser = argparse.ArgumentParser(description='Update androidx keep annotations')
-    parser.add_argument('--androidx',
-                        metavar=('<path>'),
-                        required=True,
-                        help='Path to the androidx checkout')
+    parser.add_argument(
+        '--androidx',
+        metavar=('<path>'),
+        required=True,
+        help='Path to the androidx checkout')
+    parser.add_argument(
+        '--dry-run',
+        '--dry_run',
+        help="Don't copy, just print what to copy",
+        default=False,
+        action='store_true')
     return parser.parse_args()
 
 
@@ -59,9 +66,22 @@ def main():
                     .format(filename=os.path.join(root, filename)))
                 sys.exit(1)
 
-            shutil.copyfile(
-                os.path.join(root, filename),
-                os.path.join(dest_dir, filename))
+            files = (
+                'UnconditionallyKeep.kt',
+                'Unspecified.kt',
+                'UsesReflectionToAccessField.kt',
+                'UsesReflectionToAccessMethod.kt',
+                'UsesReflectionToConstruct.kt',
+            )
+            if not filename in files:
+                print('Skipping {filename}'.format(filename=filename))
+                continue
+
+            src = os.path.join(root, filename)
+            dest = os.path.join(dest_dir, filename)
+            print("Copying '{src}' to '{dest}'".format(src=src, dest=dest))
+            if not args.dry_run:
+                shutil.copyfile(src, dest)
 
 
 if __name__ == '__main__':

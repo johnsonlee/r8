@@ -36,8 +36,8 @@ import kotlin.reflect.KClass
  * @see UsesReflectionToConstruct
  * @see UsesReflectionToAccessField
  */
-@Repeatable
 @Retention(AnnotationRetention.BINARY)
+@Repeatable
 @Target(
     AnnotationTarget.CLASS,
     AnnotationTarget.FIELD,
@@ -51,14 +51,14 @@ public annotation class UsesReflectionToAccessMethod(
      *
      * Mutually exclusive with [className].
      */
-    val classConstant: KClass<*> = Unspecified::class,
+    @Suppress("KotlinDefaultParameterOrder") val classConstant: KClass<*> = Unspecified::class,
 
     /**
      * Class name (or class name pattern) containing the method accessed by reflection.
      *
      * Mutually exclusive with [classConstant].
      */
-    val className: String = "",
+    @Suppress("KotlinDefaultParameterOrder") val className: String = "",
 
     /** Name (or name pattern) of method accessed by reflection. */
     val methodName: String,

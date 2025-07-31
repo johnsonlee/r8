@@ -39,8 +39,8 @@ import kotlin.reflect.KClass
  * @see UsesReflectionToAccessMethod
  * @see UsesReflectionToAccessField
  */
-@Repeatable
 @Retention(AnnotationRetention.BINARY)
+@Repeatable
 @Target(
     AnnotationTarget.CLASS,
     AnnotationTarget.FIELD,
