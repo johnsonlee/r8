@@ -15,4 +15,8 @@ class KeptClass() {
   constructor(l: Long) : this() {
     println("<init>(Long)")
   }
+
+  constructor(s: String) : this() {
+    println("<init>(String)")
+  }
 }

@@ -109,7 +109,9 @@ public class KeepEdgeReader implements Opcodes {
         || AnnotationConstants.UsedByReflection.isDescriptor(descriptor)
         || AnnotationConstants.UsedByNative.isDescriptor(descriptor)
         || AnnotationConstants.CheckRemoved.isDescriptor(descriptor)
-        || AnnotationConstants.CheckOptimizedOut.isDescriptor(descriptor)) {
+        || AnnotationConstants.CheckOptimizedOut.isDescriptor(descriptor)
+        || AnnotationConstants.UsesReflectionToConstruct.isKotlinRepeatableContainerDescriptor(
+            descriptor)) {
       return true;
     }
     return false;
