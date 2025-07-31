@@ -1546,11 +1546,11 @@ public class KeepEdgeReader implements Opcodes {
     @Override
     public AnnotationVisitor visitArray(String name) {
       PropertyParsingContext propertyParsingContext = parsingContext.property(name);
-      if (name.equals(UsesReflectionToConstruct.params)) {
+      if (name.equals(UsesReflectionToConstruct.parameterTypes)) {
         return new ParametersClassVisitor(
             propertyParsingContext, parameters -> this.parameters = parameters);
       }
-      if (name.equals(UsesReflectionToConstruct.paramTypeNames)) {
+      if (name.equals(UsesReflectionToConstruct.parameterTypeNames)) {
         return new ParametersClassNamesVisitor(
             propertyParsingContext, parameters -> this.parameters = parameters);
       }

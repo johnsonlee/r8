@@ -129,10 +129,10 @@ public class KeepUsesReflectionForInstantiationMultipleConstructorsTest
 
     @UsesReflectionToConstruct(
         classConstant = KeptClass.class,
-        params = {int.class})
+        parameterTypes = {int.class})
     @UsesReflectionToConstruct(
         classConstant = KeptClass.class,
-        params = {long.class})
+        parameterTypes = {long.class})
     public void foo(Class<KeptClass> clazz) throws Exception {
       if (clazz != null) {
         clazz.getDeclaredConstructor(int.class).newInstance(1);
@@ -156,10 +156,10 @@ public class KeepUsesReflectionForInstantiationMultipleConstructorsTest
 
     @UsesReflectionToConstruct(
         className = classNameOfKeptClass,
-        params = {int.class})
+        parameterTypes = {int.class})
     @UsesReflectionToConstruct(
         className = classNameOfKeptClass,
-        params = {long.class})
+        parameterTypes = {long.class})
     public void foo(Class<KeptClass> clazz) throws Exception {
       if (clazz != null) {
         clazz.getDeclaredConstructor(int.class).newInstance(1);

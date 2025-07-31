@@ -1880,10 +1880,10 @@ public class KeepItemAnnotationGenerator {
 
     private Group createAndroidXParameterSelection(
         Consumer<GroupMember> paramsConsumer, Consumer<GroupMember> paramTypeNamesConsumer) {
-      GroupMember params = new GroupMember("params").defaultUnspecifiedArray();
+      GroupMember params = new GroupMember("parameterTypes").defaultUnspecifiedArray();
       paramsConsumer.accept(params);
       GroupMember paramTypeNames =
-          new GroupMember("paramTypeNames")
+          new GroupMember("parameterTypeNames")
               .defaultArrayValue(Reference.classFromClass(String.class), "\"\"");
       paramTypeNamesConsumer.accept(paramTypeNames);
       return new Group("constructor-parameters")
@@ -1975,15 +1975,15 @@ public class KeepItemAnnotationGenerator {
                                 "Defines which constructor to keep by specifying the parameter list"
                                     + " types.")
                             .addSection(
-                                "If neither `param` nor `paramTypeNames` is specified then"
-                                    + " constructors with all parameter lists are kept."),
+                                "If neither `parameterTypes` nor `parameterTypeNames` is specified"
+                                    + " then constructors with all parameter lists are kept."),
                     g ->
                         g.setDocTitle(
                                 "Defines which constructor to keep by specifying the parameter list"
                                     + " types.")
                             .addSection(
-                                "If neither `param` nor `paramTypeNames` is specified then"
-                                    + " constructors with all parameter lists are kept."))
+                                "If neither `parameterTypes` nor `parameterTypeNames` is specified"
+                                    + " then constructors with all parameter lists are kept."))
                 .generate(this);
           });
       printCloseAnnotationClass();
@@ -2030,15 +2030,15 @@ public class KeepItemAnnotationGenerator {
                                 "Defines which method to keep by specifying set of parameter"
                                     + " classes passed.")
                             .addSection(
-                                "If neither `param` nor `paramTypeNames` is specified then"
-                                    + " methods with all parameter lists are kept."),
+                                "If neither `parameterTypes` nor `parameterTypeNames` is specified"
+                                    + " then methods with all parameter lists are kept."),
                     g ->
                         g.setDocTitle(
                                 "Defines which method to keep by specifying set of parameter"
                                     + " classes passed.")
                             .addSection(
-                                "If neither `param` nor `paramTypeNames` is specified then"
-                                    + " methods with all parameter lists are kept."))
+                                "If neither `parameterTypes` nor `parameterTypeNames` is specified"
+                                    + " then methods with all parameter lists are kept."))
                 .generate(this);
             println();
             createAndroidXReturnTypeSelection().generate(this);

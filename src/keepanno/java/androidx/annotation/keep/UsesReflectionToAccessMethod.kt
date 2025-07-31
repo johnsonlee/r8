@@ -66,22 +66,22 @@ public annotation class UsesReflectionToAccessMethod(
     /**
      * Defines which method to keep by specifying set of parameter classes passed.
      *
-     * If neither `param` nor `paramTypeNames` is specified then methods with all parameter lists
-     * are kept.
+     * If neither `parameterTypes` nor `parameterTypeNames` is specified then methods with all
+     * parameter lists are kept.
      *
-     * Mutually exclusive with [paramTypeNames].
+     * Mutually exclusive with [parameterTypeNames].
      */
-    val params: Array<KClass<*>> = [Unspecified::class],
+    val parameterTypes: Array<KClass<*>> = [Unspecified::class],
 
     /**
      * Defines which method to keep by specifying set of parameter classes passed.
      *
-     * If neither `param` nor `paramTypeNames` is specified then methods with all parameter lists
-     * are kept.
+     * If neither `parameterTypes` nor `parameterTypeNames` is specified then methods with all
+     * parameter lists are kept.
      *
-     * Mutually exclusive with [params].
+     * Mutually exclusive with [parameterTypes].
      */
-    val paramTypeNames: Array<String> = [""],
+    val parameterTypeNames: Array<String> = [""],
 
     /**
      * Return type of the method accessed by reflection.

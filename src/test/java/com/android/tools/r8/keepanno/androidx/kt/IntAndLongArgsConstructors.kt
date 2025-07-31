@@ -9,8 +9,8 @@ import kotlin.reflect.full.createType
 
 class IntAndLongArgsConstructors {
 
-  @UsesReflectionToConstruct(classConstant = KeptClass::class, params = [Int::class])
-  @UsesReflectionToConstruct(classConstant = KeptClass::class, params = [Long::class])
+  @UsesReflectionToConstruct(classConstant = KeptClass::class, parameterTypes = [Int::class])
+  @UsesReflectionToConstruct(classConstant = KeptClass::class, parameterTypes = [Long::class])
   fun foo(clazz: KClass<KeptClass>?) {
     val intConstructor =
       clazz?.constructors?.first {

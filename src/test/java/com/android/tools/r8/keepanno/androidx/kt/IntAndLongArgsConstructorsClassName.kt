@@ -11,11 +11,11 @@ class IntAndLongArgsConstructorsClassName {
 
   @UsesReflectionToConstruct(
     className = "com.android.tools.r8.keepanno.androidx.kt.KeptClass",
-    params = [Int::class],
+    parameterTypes = [Int::class],
   )
   @UsesReflectionToConstruct(
     className = "com.android.tools.r8.keepanno.androidx.kt.KeptClass",
-    params = [Long::class],
+    parameterTypes = [Long::class],
   )
   fun foo(clazz: KClass<KeptClass>?) {
     val intConstructor =

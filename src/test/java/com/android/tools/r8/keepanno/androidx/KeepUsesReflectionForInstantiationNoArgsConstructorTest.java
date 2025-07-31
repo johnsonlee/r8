@@ -101,7 +101,7 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
 
     @UsesReflectionToConstruct(
         classConstant = KeptClass.class,
-        params = {})
+        parameterTypes = {})
     public void foo(Class<KeptClass> clazz) throws Exception {
       if (clazz != null) {
         clazz.getDeclaredConstructor().newInstance();
@@ -130,7 +130,7 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
 
     @UsesReflectionToConstruct(
         className = classNameOfKeptClass,
-        params = {})
+        parameterTypes = {})
     public void foo(Class<KeptClass> clazz) throws Exception {
       if (clazz != null) {
         clazz.getDeclaredConstructor().newInstance();

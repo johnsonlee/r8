@@ -154,8 +154,8 @@ public final class AnnotationConstants {
     public static final String classConstant = "classConstant";
     public static final String className = "className";
     public static final String constructorParametersGroup = "constructor-parameters";
-    public static final String params = "params";
-    public static final String paramTypeNames = "paramTypeNames";
+    public static final String parameterTypes = "parameterTypes";
+    public static final String parameterTypeNames = "parameterTypeNames";
   }
 
   public static final class UsesReflectionToAccessMethod {
@@ -183,8 +183,8 @@ public final class AnnotationConstants {
     public static final String className = "className";
     public static final String methodName = "methodName";
     public static final String constructorParametersGroup = "constructor-parameters";
-    public static final String params = "params";
-    public static final String paramTypeNames = "paramTypeNames";
+    public static final String parameterTypes = "parameterTypes";
+    public static final String parameterTypeNames = "parameterTypeNames";
     public static final String returnSelectionGroup = "return-selection";
     public static final String returnType = "returnType";
     public static final String returnTypeName = "returnTypeName";

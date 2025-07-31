@@ -8,7 +8,7 @@ import kotlin.reflect.KClass
 import kotlin.reflect.full.primaryConstructor
 
 class OnlyNoArgsConstructor {
-  @UsesReflectionToConstruct(classConstant = KeptClass::class, params = [])
+  @UsesReflectionToConstruct(classConstant = KeptClass::class, parameterTypes = [])
   fun foo(clazz: KClass<KeptClass>?) {
     println(clazz?.primaryConstructor)
     clazz?.primaryConstructor?.call()

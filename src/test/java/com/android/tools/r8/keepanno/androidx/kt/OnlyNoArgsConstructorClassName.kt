@@ -10,7 +10,7 @@ import kotlin.reflect.full.primaryConstructor
 class OnlyNoArgsConstructorClassName {
   @UsesReflectionToConstruct(
     className = "com.android.tools.r8.keepanno.androidx.kt.KeptClass",
-    params = [],
+    parameterTypes = [],
   )
   fun foo(clazz: KClass<KeptClass>?) {
     println(clazz?.primaryConstructor)
