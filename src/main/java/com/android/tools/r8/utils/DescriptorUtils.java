@@ -734,22 +734,7 @@ public class DescriptorUtils {
   }
 
   public static boolean isValidClassDescriptor(String string) {
-    if (string.length() < 3
-        || string.charAt(0) != 'L'
-        || string.charAt(string.length() - 1) != ';') {
-      return false;
-    }
-    if (string.charAt(1) == '/' || string.charAt(string.length() - 2) == '/') {
-      return false;
-    }
-    int cp;
-    for (int i = 1; i < string.length() - 1; i += Character.charCount(cp)) {
-      cp = string.codePointAt(i);
-      if (cp != '/' && !IdentifierUtils.isRelaxedDexIdentifierPart(cp)) {
-        return false;
-      }
-    }
-    return true;
+    return com.android.tools.r8.keepanno.utils.DescriptorUtils.isValidClassDescriptor(string);
   }
 
   public static boolean isValidBinaryName(String binaryName) {

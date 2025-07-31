@@ -82,15 +82,16 @@ public class KeepUsesReflectionForInstantiationMultipleConstructorsTest
 
   private ExpectedRules expectedRulesJava(Class<?> conditionClass) {
     return ExpectedRules.builder()
+        .add(ExpectedKeepAttributesRule.buildAllRuntimeVisibleAnnotations())
         .add(
-            ExpectedRule.builder()
+            ExpectedKeepRule.builder()
                 .setConditionClass(conditionClass)
                 .setConditionMembers("{ void foo(java.lang.Class); }")
                 .setConsequentClass(KeptClass.class)
                 .setConsequentMembers("{ void <init>(int); }")
                 .build())
         .add(
-            ExpectedRule.builder()
+            ExpectedKeepRule.builder()
                 .setConditionClass(conditionClass)
                 .setConditionMembers("{ void foo(java.lang.Class); }")
                 .setConsequentClass(KeptClass.class)
@@ -101,15 +102,16 @@ public class KeepUsesReflectionForInstantiationMultipleConstructorsTest
 
   private ExpectedRules expectedRulesKotlin(String conditionClass) {
     return ExpectedRules.builder()
+        .add(ExpectedKeepAttributesRule.buildAllRuntimeVisibleAnnotations())
         .add(
-            ExpectedRule.builder()
+            ExpectedKeepRule.builder()
                 .setConditionClass(conditionClass)
                 .setConditionMembers("{ void foo(kotlin.reflect.KClass); }")
                 .setConsequentClass("com.android.tools.r8.keepanno.androidx.kt.KeptClass")
                 .setConsequentMembers("{ void <init>(int); }")
                 .build())
         .add(
-            ExpectedRule.builder()
+            ExpectedKeepRule.builder()
                 .setConditionClass(conditionClass)
                 .setConditionMembers("{ void foo(kotlin.reflect.KClass); }")
                 .setConsequentClass("com.android.tools.r8.keepanno.androidx.kt.KeptClass")

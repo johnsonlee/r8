@@ -34,6 +34,7 @@ import com.android.tools.r8.keepanno.ast.KeepClassPattern;
 import com.android.tools.r8.keepanno.ast.KeepCondition;
 import com.android.tools.r8.keepanno.ast.KeepConsequences;
 import com.android.tools.r8.keepanno.ast.KeepConstraint;
+import com.android.tools.r8.keepanno.ast.KeepConstraint.Annotation;
 import com.android.tools.r8.keepanno.ast.KeepConstraints;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.keepanno.ast.KeepEdge;
@@ -67,6 +68,7 @@ import com.android.tools.r8.keepanno.ast.ParsingContext.FieldParsingContext;
 import com.android.tools.r8.keepanno.ast.ParsingContext.MethodParsingContext;
 import com.android.tools.r8.keepanno.ast.ParsingContext.PropertyParsingContext;
 import com.google.common.collect.ImmutableList;
+import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -1578,14 +1580,36 @@ public class KeepEdgeReader implements Opcodes {
               .build();
       KeepMemberBindingReference memberBinding =
           bindingsHelper.defineFreshMemberBinding(keepMemberItemPattern);
+
+      Annotation keepConstraintKotlinMetadataAnnotation =
+          KeepConstraint.annotation(
+              KeepAnnotationPattern.builder()
+                  .setNamePattern(
+                      KeepQualifiedClassNamePattern.exactFromDescriptor("Lkotlin/Metadata;"))
+                  .addRetentionPolicy(RetentionPolicy.RUNTIME)
+                  .build());
+
       builder.setConsequences(
           KeepConsequences.builder()
               .addTarget(
                   KeepTarget.builder()
                       .setItemReference(classBinding)
                       .setItemReference(memberBinding)
+                      .setConstraints(
+                          KeepConstraints.defaultAdditions(
+                              KeepConstraints.builder()
+                                  .add(keepConstraintKotlinMetadataAnnotation)
+                                  .build()))
                       .build())
-              .addTarget(KeepTarget.builder().setItemReference(classBinding).build())
+              .addTarget(
+                  KeepTarget.builder()
+                      .setItemReference(classBinding)
+                      .setConstraints(
+                          KeepConstraints.defaultAdditions(
+                              KeepConstraints.builder()
+                                  .add(keepConstraintKotlinMetadataAnnotation)
+                                  .build()))
+                      .build())
               .build());
       parent.accept(
           builder

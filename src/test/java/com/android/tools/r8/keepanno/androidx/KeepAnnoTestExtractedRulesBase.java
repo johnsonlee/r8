@@ -49,24 +49,31 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
         rules.stream()
             .flatMap(s -> Arrays.stream(s.split("\n")))
             .filter(rule -> !rule.startsWith("#"))
+            .sorted()
+            .distinct()
             .collect(Collectors.toList());
     return trimmedRules;
   }
 
-  public static class ExpectedRule {
+  public abstract static class ExpectedRule {
+    public abstract String getRule(boolean r8);
+  }
+
+  public static class ExpectedKeepRule extends ExpectedRule {
 
     private final String conditionClass;
     private final String conditionMembers;
     private final String consequentClass;
     private final String consequentMembers;
 
-    private ExpectedRule(Builder builder) {
+    private ExpectedKeepRule(Builder builder) {
       this.conditionClass = builder.conditionClass;
       this.conditionMembers = builder.conditionMembers;
       this.consequentClass = builder.consequentClass;
       this.consequentMembers = builder.consequentMembers;
     }
 
+    @Override
     public String getRule(boolean r8) {
       return "-if class "
           + conditionClass
@@ -123,8 +130,74 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
         return this;
       }
 
-      public ExpectedRule build() {
-        return new ExpectedRule(this);
+      public ExpectedKeepRule build() {
+        return new ExpectedKeepRule(this);
+      }
+    }
+  }
+
+  public static class ExpectedKeepAttributesRule extends ExpectedRule {
+
+    private final boolean runtimeVisibleAnnotations;
+    private final boolean runtimeVisibleParameterAnnotations;
+    private final boolean runtimeVisibleTypeAnnotations;
+
+    private ExpectedKeepAttributesRule(Builder builder) {
+      this.runtimeVisibleAnnotations = builder.runtimeVisibleAnnotations;
+      this.runtimeVisibleParameterAnnotations = builder.runtimeVisibleParameterAnnotations;
+      this.runtimeVisibleTypeAnnotations = builder.runtimeVisibleTypeAnnotations;
+    }
+
+    @Override
+    public String getRule(boolean r8) {
+      StringBuilder builder = new StringBuilder("-keepattributes");
+      if (runtimeVisibleAnnotations) {
+        builder.append(" RuntimeVisibleAnnotations");
+      }
+      if (runtimeVisibleParameterAnnotations) {
+        builder.append(",RuntimeVisibleParameterAnnotations");
+      }
+      if (runtimeVisibleTypeAnnotations) {
+        builder.append(",RuntimeVisibleTypeAnnotations");
+      }
+      return builder.toString();
+    }
+
+    public static Builder builder() {
+      return new Builder();
+    }
+
+    public static ExpectedKeepAttributesRule buildAllRuntimeVisibleAnnotations() {
+      return builder()
+          .setRuntimeVisibleAnnotations()
+          .setRuntimeVisibleParameterAnnotations()
+          .setRuntimeVisibleTypeAnnotations()
+          .build();
+    }
+
+    public static class Builder {
+
+      private boolean runtimeVisibleAnnotations = false;
+      private boolean runtimeVisibleParameterAnnotations = false;
+      private boolean runtimeVisibleTypeAnnotations = false;
+
+      public Builder setRuntimeVisibleAnnotations() {
+        this.runtimeVisibleAnnotations = true;
+        return this;
+      }
+
+      public Builder setRuntimeVisibleParameterAnnotations() {
+        this.runtimeVisibleParameterAnnotations = true;
+        return this;
+      }
+
+      public Builder setRuntimeVisibleTypeAnnotations() {
+        this.runtimeVisibleTypeAnnotations = true;
+        return this;
+      }
+
+      public ExpectedKeepAttributesRule build() {
+        return new ExpectedKeepAttributesRule(this);
       }
     }
   }
@@ -138,7 +211,10 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
     }
 
     public ImmutableList<String> getRules(boolean r8) {
-      return rules.stream().map(rule -> rule.getRule(r8)).collect(ImmutableList.toImmutableList());
+      return rules.stream()
+          .map(rule -> rule.getRule(r8))
+          .sorted()
+          .collect(ImmutableList.toImmutableList());
     }
 
     public static Builder builder() {

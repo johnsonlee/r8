@@ -4,6 +4,7 @@
 package com.android.tools.r8.keepanno.ast;
 
 import com.android.tools.r8.keepanno.proto.KeepSpecProtos.ClassNamePattern;
+import com.android.tools.r8.keepanno.utils.DescriptorUtils;
 import java.util.Objects;
 import java.util.function.Consumer;
 
@@ -21,7 +22,7 @@ public final class KeepQualifiedClassNamePattern {
   }
 
   public static KeepQualifiedClassNamePattern exactFromDescriptor(String classDescriptor) {
-    if (!classDescriptor.startsWith("L") && classDescriptor.endsWith(";")) {
+    if (!DescriptorUtils.isValidClassDescriptor(classDescriptor)) {
       throw new KeepEdgeException("Invalid class descriptor: " + classDescriptor);
     }
     return exact(classDescriptor.substring(1, classDescriptor.length() - 1).replace('/', '.'));
