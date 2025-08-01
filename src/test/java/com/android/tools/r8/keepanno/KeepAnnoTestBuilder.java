@@ -130,6 +130,14 @@ public abstract class KeepAnnoTestBuilder {
 
   public abstract SingleTestRunResult<?> run(String mainClass) throws Exception;
 
+  public KeepAnnoTestBuilder applyIf(
+      boolean condition, ThrowableConsumer<KeepAnnoTestBuilder> consumer) {
+    if (condition) {
+      consumer.acceptWithRuntimeException(this);
+    }
+    return this;
+  }
+
   public KeepAnnoTestBuilder applyIfShrinker(
       ThrowableConsumer<TestShrinkerBuilder<?, ?, ?, ?, ?>> builderConsumer) {
     applyIfR8(builderConsumer);

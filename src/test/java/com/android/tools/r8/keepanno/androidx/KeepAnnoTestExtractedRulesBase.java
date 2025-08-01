@@ -15,7 +15,11 @@ import com.android.tools.r8.ResourceException;
 import com.android.tools.r8.keepanno.KeepAnnoParameters;
 import com.android.tools.r8.keepanno.KeepAnnoTestBase;
 import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.shaking.ProguardKeepAttributes;
+import com.android.tools.r8.transformers.ClassFileTransformer;
+import com.android.tools.r8.transformers.ClassFileTransformer.AnnotationBuilder;
+import com.android.tools.r8.transformers.ClassFileTransformer.MethodPredicate;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.ZipUtils;
@@ -28,6 +32,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.junit.runners.Parameterized.Parameter;
@@ -69,6 +74,67 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
     return trimmedRules;
   }
 
+  protected static byte[] setAnnotationOnClass(
+      ClassFileTransformer transformer,
+      Class<?> annotationClass,
+      Consumer<AnnotationBuilder> builderConsumer) {
+    return transformer.setAnnotation(annotationClass, builderConsumer).transform();
+  }
+
+  protected static byte[] setAnnotationOnMethod(
+      ClassFileTransformer transformer,
+      MethodPredicate methodPredicate,
+      Class<?> annotationClass,
+      Consumer<AnnotationBuilder> builderConsumer) {
+    return transformer.setAnnotation(methodPredicate, annotationClass, builderConsumer).transform();
+  }
+
+  protected static byte[] setAnnotationOnClass(
+      Class<?> clazz, Class<?> annotationClass, Consumer<AnnotationBuilder> builderConsumer)
+      throws IOException {
+    return setAnnotationOnClass(transformer(clazz), annotationClass, builderConsumer);
+  }
+
+  protected static byte[] setAnnotationOnMethod(
+      Class<?> clazz,
+      MethodPredicate methodPredicate,
+      Class<?> annotationClass,
+      Consumer<AnnotationBuilder> builderConsumer)
+      throws IOException {
+    return setAnnotationOnMethod(
+        transformer(clazz), methodPredicate, annotationClass, builderConsumer);
+  }
+
+  protected static byte[] setAnnotationOnClass(
+      ClassReference classReference,
+      byte[] classFileBytes,
+      ClassReference classReferenceToTransform,
+      Class<?> annotationClass,
+      Consumer<AnnotationBuilder> builderConsumer) {
+    if (!classReference.equals(classReferenceToTransform)) {
+      return classFileBytes;
+    }
+    return setAnnotationOnClass(
+        transformer(classFileBytes, classReference), annotationClass, builderConsumer);
+  }
+
+  protected static byte[] setAnnotationOnMethod(
+      ClassReference classReference,
+      byte[] classFileBytes,
+      ClassReference classReferenceToTransform,
+      MethodPredicate methodPredicate,
+      Class<?> annotationClass,
+      Consumer<AnnotationBuilder> builderConsumer) {
+    if (!classReference.equals(classReferenceToTransform)) {
+      return classFileBytes;
+    }
+    return setAnnotationOnMethod(
+        transformer(classFileBytes, classReference),
+        methodPredicate,
+        annotationClass,
+        builderConsumer);
+  }
+
   public abstract static class ExpectedRule {
     public abstract String getRule(boolean r8);
   }
@@ -93,8 +159,7 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
     public String getRule(boolean r8) {
       return "-if class "
           + conditionClass
-          + " "
-          + conditionMembers
+          + (conditionMembers != null ? " " + conditionMembers : "")
           + " "
           + keepVariant
           + (r8 ? ",allowaccessmodification" : "")
@@ -337,15 +402,19 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
     }
   }
 
-  protected void runTestExtractedRulesJava(List<Class<?>> testClasses, ExpectedRules expectedRules)
+  protected void runTestExtractedRulesJava(
+      Class<?> mainClass,
+      List<Class<?>> testClasses,
+      List<byte[]> testClassFileData,
+      ExpectedRules expectedRules)
       throws Exception {
     // TODO(b/392865072): Proguard 7.4.1 fails with "Encountered corrupt @kotlin/Metadata for class
     // <binary name> (version 2.1.0)", as ti avoid missing classes warnings from ProGuard some of
     // the Kotlin libraries has to be included.
     assumeFalse(parameters.isPG());
-    Class<?> mainClass = testClasses.iterator().next();
     testForKeepAnnoAndroidX(parameters)
         .addProgramClasses(testClasses)
+        .addProgramClassFileData(testClassFileData)
         .addKeepMainRule(mainClass)
         .setExcludedOuterClass(getClass())
         .inspectExtractedRules(
@@ -358,8 +427,17 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
         .assertSuccessWithOutput(getExpectedOutputForJava());
   }
 
+  protected void runTestExtractedRulesJava(List<Class<?>> testClasses, ExpectedRules expectedRules)
+      throws Exception {
+    runTestExtractedRulesJava(
+        testClasses.iterator().next(), testClasses, ImmutableList.of(), expectedRules);
+  }
+
   protected void runTestExtractedRulesKotlin(
-      KotlinCompileMemoizer compilation, String mainClass, ExpectedRules expectedRules)
+      KotlinCompileMemoizer compilation,
+      List<byte[]> classFileData,
+      String mainClass,
+      ExpectedRules expectedRules)
       throws Exception {
     // TODO(b/392865072): Legacy R8 fails with AssertionError: Synthetic class kinds should agree.
     assumeFalse(parameters.isLegacyR8());
@@ -370,7 +448,11 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
     //  "java.lang.annotation.IncompleteAnnotationException: kotlin.Metadata missing element bv".
     assumeFalse(parameters.isPG());
     testForKeepAnnoAndroidX(parameters)
-        .addProgramFiles(ImmutableList.of(compilation.getForConfiguration(kotlinParameters)))
+        .applyIf(
+            compilation != null,
+            b ->
+                b.addProgramFiles(
+                    ImmutableList.of(compilation.getForConfiguration(kotlinParameters))))
         .applyIfPG(
             b ->
                 b.addProgramFiles(
@@ -391,6 +473,7 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
                 kotlinParameters.getCompiler().getKotlinReflectJar()),
             new ArchiveResourceProviderClassFilesOnly(
                 kotlinParameters.getCompiler().getKotlinAnnotationJar()))
+        .addProgramClassFileData(classFileData)
         // TODO(b/323816623): With native interpretation kotlin.Metadata still gets stripped
         //  without -keepattributes RuntimeVisibleAnnotations`.
         .applyIfR8(
@@ -409,5 +492,31 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
             })
         .run(mainClass)
         .assertSuccessWithOutput(getExpectedOutputForKotlin());
+  }
+
+  protected void runTestExtractedRulesKotlin(
+      KotlinCompileMemoizer compilation, String mainClass, ExpectedRules expectedRules)
+      throws Exception {
+    runTestExtractedRulesKotlin(compilation, ImmutableList.of(), mainClass, expectedRules);
+  }
+
+  protected void runTestExtractedRulesKotlin(
+      KotlinCompileMemoizer compilation,
+      BiFunction<ClassReference, byte[], byte[]> transformerForClass,
+      String mainClass,
+      ExpectedRules expectedRules)
+      throws Exception {
+    List<byte[]> result = new ArrayList<>();
+    ZipUtils.iter(
+        compilation.getForConfiguration(kotlinParameters),
+        (entry, inputStream) -> {
+          ClassReference classReference = ZipUtils.entryToClassReference(entry);
+          if (classReference == null) {
+            return;
+          }
+          result.add(
+              transformerForClass.apply(classReference, ByteStreams.toByteArray(inputStream)));
+        });
+    runTestExtractedRulesKotlin(null, result, mainClass, expectedRules);
   }
 }

@@ -15,6 +15,7 @@ import com.android.tools.r8.ResourceException;
 import com.android.tools.r8.androidapi.AndroidApiDataAccess;
 import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.references.ClassReference;
+import com.android.tools.r8.references.Reference;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closer;
 import java.io.BufferedOutputStream;
@@ -391,5 +392,13 @@ public class ZipUtils {
       }
     }
     return -1;
+  }
+
+  public static ClassReference entryToClassReference(ZipEntry entry) {
+    if (!FileUtils.isClassFile(entry.getName())) {
+      return null;
+    }
+    return Reference.classFromBinaryName(
+        entry.getName().substring(0, entry.getName().length() - CLASS_EXTENSION.length()));
   }
 }

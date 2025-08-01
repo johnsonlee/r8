@@ -1772,4 +1772,86 @@ public class ClassFileTransformer {
           }
         });
   }
+
+  public static class AnnotationBuilder {
+    private final AnnotationVisitor av;
+
+    private AnnotationBuilder(AnnotationVisitor av) {
+      this.av = av;
+    }
+
+    public AnnotationBuilder setField(String name, Object value) {
+      if (value instanceof Class) {
+        av.visit(name, Type.getType((Class<?>) value));
+      } else {
+        av.visit(name, value);
+      }
+      return this;
+    }
+
+    public AnnotationBuilder setArray(String name, Object... values) {
+      AnnotationVisitor subAv = av.visitArray(name);
+      Arrays.stream(values).forEach(value -> subAv.visit(null, value));
+      return this;
+    }
+  }
+
+  public ClassFileTransformer setAnnotation(
+      Class<?> annotationClass, Consumer<AnnotationBuilder> annotationBuilderConsumer) {
+    return addClassTransformer(
+        new ClassTransformer() {
+
+          @Override
+          public void visit(
+              int version,
+              int access,
+              String name,
+              String signature,
+              String superName,
+              String[] interfaces) {
+            super.visit(version, access, name, signature, superName, interfaces);
+            AnnotationVisitor av =
+                super.visitAnnotation(
+                    Reference.classFromClass(annotationClass).getDescriptor(), false);
+            annotationBuilderConsumer.accept(new AnnotationBuilder(av));
+            av.visitEnd();
+          }
+
+          @Override
+          public AnnotationVisitor visitAnnotation(final String descriptor, final boolean visible) {
+            return null;
+            // Remove all other annotations.
+          }
+        });
+  }
+
+  public ClassFileTransformer setAnnotation(
+      MethodPredicate predicate,
+      Class<?> annotationClass,
+      Consumer<AnnotationBuilder> annotationBuilderConsumer) {
+    return addClassTransformer(
+        new ClassTransformer() {
+          @Override
+          public MethodVisitor visitMethod(
+              int access, String name, String descriptor, String signature, String[] exceptions) {
+            MethodVisitor mv = super.visitMethod(access, name, descriptor, signature, exceptions);
+            if (predicate.test(access, name, descriptor, signature, exceptions)) {
+              AnnotationVisitor av =
+                  mv.visitAnnotation(
+                      Reference.classFromClass(annotationClass).getDescriptor(), false);
+              annotationBuilderConsumer.accept(new AnnotationBuilder(av));
+              av.visitEnd();
+              return new MethodVisitor(ASM_VERSION, mv) {
+                @Override
+                public AnnotationVisitor visitAnnotation(
+                    final String descriptor, final boolean visible) {
+                  return null;
+                  // Remove all other annotations.
+                }
+              };
+            }
+            return mv;
+          }
+        });
+  }
 }
