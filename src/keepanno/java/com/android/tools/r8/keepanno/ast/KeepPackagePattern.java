@@ -209,4 +209,11 @@ public class KeepPackagePattern {
   public int hashCode() {
     return Objects.hash(isExact, componentPatterns);
   }
+
+  @Override
+  public String toString() {
+    StringBuilder sb = new StringBuilder();
+    componentPatterns.forEach(p -> sb.append(p).append("|"));
+    return sb.toString();
+  }
 }

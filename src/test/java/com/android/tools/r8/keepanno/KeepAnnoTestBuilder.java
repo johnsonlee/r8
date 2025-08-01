@@ -12,6 +12,7 @@ import static com.android.tools.r8.utils.FileUtils.isZipFile;
 import com.android.tools.r8.ExternalR8TestBuilder;
 import com.android.tools.r8.KotlinCompilerTool.KotlinCompiler;
 import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
+import com.android.tools.r8.ProgramResourceProvider;
 import com.android.tools.r8.ProguardTestBuilder;
 import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.R8PartialTestBuilder;
@@ -88,6 +89,9 @@ public abstract class KeepAnnoTestBuilder {
   }
 
   public abstract KeepAnnoTestBuilder addProgramFiles(List<Path> programFiles) throws IOException;
+
+  public abstract KeepAnnoTestBuilder addProgramResourceProviders(
+      ProgramResourceProvider... providers);
 
   public final KeepAnnoTestBuilder addProgramClasses(Class<?>... programClasses)
       throws IOException {
@@ -222,6 +226,12 @@ public abstract class KeepAnnoTestBuilder {
     }
 
     @Override
+    public KeepAnnoTestBuilder addProgramResourceProviders(ProgramResourceProvider... providers) {
+      assert false : "not supported";
+      return this;
+    }
+
+    @Override
     public KeepAnnoTestBuilder addProgramClasses(List<Class<?>> programClasses) {
       builder.addProgramClasses(programClasses);
       return this;
@@ -339,6 +349,12 @@ public abstract class KeepAnnoTestBuilder {
           assert false : "Unsupported file format";
         }
       }
+      return this;
+    }
+
+    @Override
+    public KeepAnnoTestBuilder addProgramResourceProviders(ProgramResourceProvider... providers) {
+      builder.addProgramResourceProviders(Arrays.asList(providers));
       return this;
     }
 
@@ -561,6 +577,12 @@ public abstract class KeepAnnoTestBuilder {
     }
 
     @Override
+    public KeepAnnoTestBuilder addProgramResourceProviders(ProgramResourceProvider... providers) {
+      builder.addProgramResourceProviders(Arrays.asList(providers));
+      return this;
+    }
+
+    @Override
     public KeepAnnoTestBuilder addProgramClasses(List<Class<?>> programClasses) throws IOException {
       List<String> rules = KeepAnnoTestUtils.extractRules(programClasses, extractorOptions);
       builder.addProgramClasses(programClasses);
@@ -655,6 +677,12 @@ public abstract class KeepAnnoTestBuilder {
       builder.addProgramFiles(programFiles);
       builder.addKeepRules(rules);
       extractedRules.addAll(rules);
+      return this;
+    }
+
+    @Override
+    public KeepAnnoTestBuilder addProgramResourceProviders(ProgramResourceProvider... providers) {
+      builder.addProgramResourceProviders(Arrays.asList(providers));
       return this;
     }
 

@@ -2210,13 +2210,9 @@ public class TestBase {
   }
 
   protected void assertListsAreEqual(List<String> expected, List<String> actual) {
-    int minLines = Math.min(expected.size(), actual.size());
-    for (int i = 0; i < minLines; i++) {
-      assertEquals(expected.get(i), actual.get(i));
-    }
-    if (expected.size() != actual.size()) {
-      assertEquals(
-          "", expected.size() > actual.size() ? expected.get(minLines) : actual.get(minLines));
+    assertEquals("List sizes differ: ", expected.size(), actual.size());
+    for (int i = 0; i < expected.size(); i++) {
+      assertEquals("Index: " + i, expected.get(i), actual.get(i));
     }
   }
 

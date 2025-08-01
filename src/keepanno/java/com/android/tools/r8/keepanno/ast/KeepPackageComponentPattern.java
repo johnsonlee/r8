@@ -85,4 +85,12 @@ public class KeepPackageComponentPattern {
     KeepPackageComponentPattern other = (KeepPackageComponentPattern) obj;
     return Objects.equals(singlePattern, other.singlePattern);
   }
+
+  @Override
+  public String toString() {
+    if (isZeroOrMore()) {
+      return "**";
+    }
+    return singlePattern.toString();
+  }
 }

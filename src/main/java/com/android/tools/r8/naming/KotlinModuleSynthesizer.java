@@ -16,6 +16,7 @@ import com.android.tools.r8.kotlin.KotlinClassLevelInfo;
 import com.android.tools.r8.kotlin.KotlinMultiFileClassPartInfo;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.Box;
+import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.Pair;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
@@ -43,7 +44,7 @@ public class KotlinModuleSynthesizer {
   }
 
   public boolean isKotlinModuleFile(DataEntryResource file) {
-    return file.getName().endsWith(".kotlin_module");
+    return FileUtils.isKotlinModuleFile(file.getName());
   }
 
   public List<DataEntryResource> synthesizeKotlinModuleFiles() {

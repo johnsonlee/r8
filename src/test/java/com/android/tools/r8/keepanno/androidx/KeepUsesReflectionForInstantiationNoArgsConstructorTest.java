@@ -7,11 +7,13 @@ import static com.android.tools.r8.ToolHelper.getFilesInTestFolderRelativeToClas
 import static org.junit.Assert.assertEquals;
 
 import androidx.annotation.keep.UsesReflectionToConstruct;
+import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Collection;
+import java.util.function.Consumer;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -28,8 +30,15 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
   @Parameterized.Parameters(name = "{0}, {1}")
   public static Collection<Object[]> data() {
     assertEquals(KeptClass.class.getTypeName(), classNameOfKeptClass);
+    // Test with Android 14, which has `java.lang.ClassValue` to avoid having to deal with R8
+    // missing class warnings for tests using the kotlin-reflect library.
     return buildParameters(
-        createParameters(getTestParameters().withDefaultRuntimes().withMaximumApiLevel().build()),
+        createParameters(
+            getTestParameters()
+                .withDexRuntime(Version.V14_0_0)
+                .withDefaultCfRuntime()
+                .withMaximumApiLevel()
+                .build()),
         getKotlinTestParameters().withLatestCompiler().build());
   }
 
@@ -79,18 +88,21 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
 
   @Test
   public void testOnlyNoArgsConstructor() throws Exception {
-    runTestExtractedRulesJava(
-        ImmutableList.of(OnlyNoArgsConstructor.class, KeptClass.class),
+    String conditionMember = "{ void foo(java.lang.Class); }";
+    ExpectedRules.Builder builder =
         ExpectedRules.builder()
-            .add(ExpectedKeepAttributesRule.buildAllRuntimeVisibleAnnotations())
             .add(
                 ExpectedKeepRule.builder()
                     .setConditionClass(OnlyNoArgsConstructor.class)
-                    .setConditionMembers("{ void foo(java.lang.Class); }")
+                    .setConditionMembers(conditionMember)
                     .setConsequentClass(KeptClass.class)
                     .setConsequentMembers("{ void <init>(); }")
-                    .build())
-            .build());
+                    .build());
+    addConsequentKotlinMetadata(
+        builder,
+        b -> b.setConditionClass(OnlyNoArgsConstructor.class).setConditionMembers(conditionMember));
+    runTestExtractedRulesJava(
+        ImmutableList.of(OnlyNoArgsConstructor.class, KeptClass.class), builder.build());
   }
 
   static class OnlyNoArgsConstructor {
@@ -111,18 +123,21 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
 
   @Test
   public void testOnlyNoArgsConstructorClassNames() throws Exception {
-    runTestExtractedRulesJava(
-        ImmutableList.of(OnlyNoArgsConstructorClassNames.class, KeptClass.class),
+    Consumer<ExpectedKeepRule.Builder> setCondition =
+        b ->
+            b.setConditionClass(OnlyNoArgsConstructorClassNames.class)
+                .setConditionMembers("{ void foo(java.lang.Class); }");
+    ExpectedRules.Builder builder =
         ExpectedRules.builder()
-            .add(ExpectedKeepAttributesRule.buildAllRuntimeVisibleAnnotations())
             .add(
                 ExpectedKeepRule.builder()
-                    .setConditionClass(OnlyNoArgsConstructorClassNames.class)
-                    .setConditionMembers("{ void foo(java.lang.Class); }")
+                    .apply(setCondition)
                     .setConsequentClass(KeptClass.class)
                     .setConsequentMembers("{ void <init>(); }")
-                    .build())
-            .build());
+                    .build());
+    addConsequentKotlinMetadata(builder, b -> b.apply(setCondition));
+    runTestExtractedRulesJava(
+        ImmutableList.of(OnlyNoArgsConstructorClassNames.class, KeptClass.class), builder.build());
   }
 
   static class OnlyNoArgsConstructorClassNames {
@@ -143,38 +158,45 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
 
   @Test
   public void testOnlyNoArgsConstructorKotlin() throws Exception {
+    Consumer<ExpectedKeepRule.Builder> setCondition =
+        b ->
+            b.setConditionClass("com.android.tools.r8.keepanno.androidx.kt.OnlyNoArgsConstructor")
+                .setConditionMembers("{ void foo(kotlin.reflect.KClass); }");
+    ExpectedRules.Builder builder =
+        ExpectedRules.builder()
+            .add(
+                ExpectedKeepRule.builder()
+                    .apply(setCondition)
+                    .setConsequentClass("com.android.tools.r8.keepanno.androidx.kt.KeptClass")
+                    .setConsequentMembers("{ void <init>(); }")
+                    .build());
+    addConsequentKotlinMetadata(builder, b -> b.apply(setCondition));
     runTestExtractedRulesKotlin(
         compilationResults,
         "com.android.tools.r8.keepanno.androidx.kt.OnlyNoArgsConstructorKt",
-        ExpectedRules.builder()
-            .add(ExpectedKeepAttributesRule.buildAllRuntimeVisibleAnnotations())
-            .add(
-                ExpectedKeepRule.builder()
-                    .setConditionClass(
-                        "com.android.tools.r8.keepanno.androidx.kt.OnlyNoArgsConstructor")
-                    .setConditionMembers("{ void foo(kotlin.reflect.KClass); }")
-                    .setConsequentClass("com.android.tools.r8.keepanno.androidx.kt.KeptClass")
-                    .setConsequentMembers("{ void <init>(); }")
-                    .build())
-            .build());
+        builder.build());
   }
 
   @Test
   public void testOnlyNoArgsConstructorKotlinClassName() throws Exception {
+    Consumer<ExpectedKeepRule.Builder> setCondition =
+        b ->
+            b.setConditionClass(
+                    "com.android.tools.r8.keepanno.androidx.kt.OnlyNoArgsConstructorClassName")
+                .setConditionMembers("{ void foo(kotlin.reflect.KClass); }");
+    ExpectedRules.Builder builder =
+        ExpectedRules.builder()
+            .add(
+                ExpectedKeepRule.builder()
+                    .apply(setCondition)
+                    .setConsequentClass("com.android.tools.r8.keepanno.androidx.kt.KeptClass")
+                    .setConsequentMembers("{ void <init>(); }")
+                    .build());
+    addConsequentKotlinMetadata(builder, b -> b.apply(setCondition));
     runTestExtractedRulesKotlin(
         compilationResultsClassName,
         "com.android.tools.r8.keepanno.androidx.kt.OnlyNoArgsConstructorClassNameKt",
-        ExpectedRules.builder()
-            .add(ExpectedKeepAttributesRule.buildAllRuntimeVisibleAnnotations())
-            .add(
-                ExpectedKeepRule.builder()
-                    .setConditionClass(
-                        "com.android.tools.r8.keepanno.androidx.kt.OnlyNoArgsConstructorClassName")
-                    .setConditionMembers("{ void foo(kotlin.reflect.KClass); }")
-                    .setConsequentClass("com.android.tools.r8.keepanno.androidx.kt.KeptClass")
-                    .setConsequentMembers("{ void <init>(); }")
-                    .build())
-            .build());
+        builder.build());
   }
 
   static class KeptClass {

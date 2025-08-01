@@ -16,6 +16,7 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.naming.ClassNameMapper;
+import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.ZipUtils;
 import com.google.common.collect.Sets;
 import java.io.IOException;
@@ -70,7 +71,7 @@ public class SanityCheck extends TestBase {
     while (entries.hasMoreElements()) {
       ZipEntry entry = entries.nextElement();
       String name = entry.getName();
-      if (ZipUtils.isClassFile(name) || name.endsWith(".kotlin_builtins")) {
+      if (ZipUtils.isClassFile(name) || FileUtils.isKotlinBuiltinsFile(name)) {
         assertThat(name, startsWith("com/android/tools/r8/"));
       } else if (name.equals("META-INF/MANIFEST.MF")) {
         // Allow.

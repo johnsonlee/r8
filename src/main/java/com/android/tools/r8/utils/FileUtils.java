@@ -31,6 +31,9 @@ public class FileUtils {
   public static final String JAVA_EXTENSION = ".java";
   public static final String KT_EXTENSION = ".kt";
   public static final String MODULE_INFO_CLASS = "module-info.class";
+  public static final String KOTLIN_MODULE = ".kotlin_module";
+  public static final String KOTLIN_BUILTINS = ".kotlin_builtins";
+
   public static final String MODULES_PREFIX = "/modules";
   public static final String GLOBAL_SYNTHETIC_EXTENSION = ".global";
 
@@ -91,6 +94,14 @@ public class FileUtils {
         || name.endsWith(JAR_EXTENSION)
         || name.endsWith(ZIP_EXTENSION)
         || name.endsWith(AAR_EXTENSION);
+  }
+
+  public static boolean isKotlinModuleFile(String name) {
+    return name.endsWith(KOTLIN_MODULE);
+  }
+
+  public static boolean isKotlinBuiltinsFile(String name) {
+    return name.endsWith(KOTLIN_BUILTINS);
   }
 
   public static String readTextFile(Path file) throws IOException {

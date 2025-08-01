@@ -5,16 +5,30 @@ package com.android.tools.r8.keepanno.androidx;
 
 import static org.junit.Assume.assumeFalse;
 
+import com.android.tools.r8.DataEntryResource;
+import com.android.tools.r8.DataResourceProvider;
 import com.android.tools.r8.KotlinCompileMemoizer;
-import com.android.tools.r8.KotlinCompilerTool.KotlinCompiler;
-import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
 import com.android.tools.r8.KotlinTestParameters;
-import com.android.tools.r8.R8TestBuilder;
+import com.android.tools.r8.ProgramResource;
+import com.android.tools.r8.ProgramResourceProvider;
+import com.android.tools.r8.ResourceException;
 import com.android.tools.r8.keepanno.KeepAnnoParameters;
 import com.android.tools.r8.keepanno.KeepAnnoTestBase;
+import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.shaking.ProguardKeepAttributes;
+import com.android.tools.r8.utils.DescriptorUtils;
+import com.android.tools.r8.utils.FileUtils;
+import com.android.tools.r8.utils.ZipUtils;
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.ByteStreams;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.junit.runners.Parameterized.Parameter;
 
@@ -61,12 +75,14 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
 
   public static class ExpectedKeepRule extends ExpectedRule {
 
+    private final String keepVariant;
     private final String conditionClass;
     private final String conditionMembers;
     private final String consequentClass;
     private final String consequentMembers;
 
     private ExpectedKeepRule(Builder builder) {
+      this.keepVariant = builder.keepVariant;
       this.conditionClass = builder.conditionClass;
       this.conditionMembers = builder.conditionMembers;
       this.consequentClass = builder.consequentClass;
@@ -79,7 +95,8 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
           + conditionClass
           + " "
           + conditionMembers
-          + " -keepclasseswithmembers"
+          + " "
+          + keepVariant
           + (r8 ? ",allowaccessmodification" : "")
           + " class "
           + consequentClass
@@ -93,12 +110,18 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
 
     public static class Builder {
 
+      private String keepVariant = "-keepclasseswithmembers";
       private String conditionClass;
       private String conditionMembers;
       private String consequentClass;
       private String consequentMembers;
 
       private Builder() {}
+
+      public Builder setKeepVariant(String keepVariant) {
+        this.keepVariant = keepVariant;
+        return this;
+      }
 
       public Builder setConditionClass(Class<?> conditionClass) {
         this.conditionClass = conditionClass.getTypeName();
@@ -130,6 +153,11 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
         return this;
       }
 
+      public Builder apply(Consumer<Builder> fn) {
+        fn.accept(this);
+        return this;
+      }
+
       public ExpectedKeepRule build() {
         return new ExpectedKeepRule(this);
       }
@@ -150,17 +178,17 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
 
     @Override
     public String getRule(boolean r8) {
-      StringBuilder builder = new StringBuilder("-keepattributes");
+      List<String> attributes = new ArrayList<>();
       if (runtimeVisibleAnnotations) {
-        builder.append(" RuntimeVisibleAnnotations");
+        attributes.add(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS);
       }
       if (runtimeVisibleParameterAnnotations) {
-        builder.append(",RuntimeVisibleParameterAnnotations");
+        attributes.add(ProguardKeepAttributes.RUNTIME_VISIBLE_PARAMETER_ANNOTATIONS);
       }
       if (runtimeVisibleTypeAnnotations) {
-        builder.append(",RuntimeVisibleTypeAnnotations");
+        attributes.add(ProguardKeepAttributes.RUNTIME_VISIBLE_TYPE_ANNOTATIONS);
       }
-      return builder.toString();
+      return "-keepattributes " + String.join(",", attributes);
     }
 
     public static Builder builder() {
@@ -234,22 +262,89 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
         return this;
       }
 
+      public Builder apply(Consumer<Builder> fn) {
+        fn.accept(this);
+        return this;
+      }
+
       public ExpectedRules build() {
         return new ExpectedRules(this);
       }
     }
   }
 
+  // Add the expected rules for kotlin.Metadata (the class with members and the required
+  // attributes).
+  protected static void addConsequentKotlinMetadata(
+      ExpectedRules.Builder b, Consumer<ExpectedKeepRule.Builder> fn) {
+    b.add(ExpectedKeepAttributesRule.buildAllRuntimeVisibleAnnotations())
+        .add(
+            ExpectedKeepRule.builder()
+                .setKeepVariant("-keep")
+                .setConsequentClass("kotlin.Metadata")
+                .setConsequentMembers("{ *; }")
+                .apply(fn)
+                .build());
+  }
+
+  static class ArchiveResourceProviderClassFilesOnly
+      implements ProgramResourceProvider, DataResourceProvider {
+
+    private final List<ProgramResource> programResources = new ArrayList<>();
+    private final List<DataEntryResource> dataResources = new ArrayList<>();
+
+    ArchiveResourceProviderClassFilesOnly(Path path) throws ResourceException {
+      try {
+        ZipUtils.iter(
+            path,
+            (entry, inputStream) -> {
+              if (ZipUtils.isClassFile(entry.getName())) {
+                programResources.add(
+                    ProgramResource.fromBytes(
+                        Origin.unknown(),
+                        ProgramResource.Kind.CF,
+                        ByteStreams.toByteArray(inputStream),
+                        Collections.singleton(
+                            DescriptorUtils.guessTypeDescriptor(entry.getName()))));
+              } else if (FileUtils.isKotlinModuleFile(entry.getName())) {
+                dataResources.add(
+                    DataEntryResource.fromBytes(
+                        ByteStreams.toByteArray(inputStream), entry.getName(), Origin.unknown()));
+              } else if (FileUtils.isKotlinBuiltinsFile(entry.getName())) {
+                dataResources.add(
+                    DataEntryResource.fromBytes(
+                        ByteStreams.toByteArray(inputStream), entry.getName(), Origin.unknown()));
+              }
+            });
+      } catch (IOException e) {
+        throw new ResourceException(Origin.unknown(), "Caught IOException", e);
+      }
+    }
+
+    @Override
+    public Collection<ProgramResource> getProgramResources() throws ResourceException {
+      return programResources;
+    }
+
+    @Override
+    public DataResourceProvider getDataResourceProvider() {
+      return this;
+    }
+
+    @Override
+    public void accept(Visitor visitor) throws ResourceException {
+      dataResources.forEach(visitor::visit);
+    }
+  }
+
   protected void runTestExtractedRulesJava(List<Class<?>> testClasses, ExpectedRules expectedRules)
       throws Exception {
+    // TODO(b/392865072): Proguard 7.4.1 fails with "Encountered corrupt @kotlin/Metadata for class
+    // <binary name> (version 2.1.0)", as ti avoid missing classes warnings from ProGuard some of
+    // the Kotlin libraries has to be included.
+    assumeFalse(parameters.isPG());
     Class<?> mainClass = testClasses.iterator().next();
     testForKeepAnnoAndroidX(parameters)
-        .applyIfPG(
-            b -> {
-              KotlinCompiler kotlinc =
-                  new KotlinCompiler(KotlinCompilerVersion.MAX_SUPPORTED_VERSION);
-              b.addLibraryFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar());
-            })
         .addProgramClasses(testClasses)
         .addKeepMainRule(mainClass)
         .setExcludedOuterClass(getClass())
@@ -276,31 +371,26 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
     assumeFalse(parameters.isPG());
     testForKeepAnnoAndroidX(parameters)
         .addProgramFiles(ImmutableList.of(compilation.getForConfiguration(kotlinParameters)))
-        .addProgramFilesWithoutAnnotations(
-            ImmutableList.of(
-                kotlinParameters.getCompiler().getKotlinStdlibJar(),
-                kotlinParameters.getCompiler().getKotlinReflectJar(),
+        .addProgramResourceProviders(
+            // Only add class files from Kotlin libraries to ensure the keep annotations does not
+            // rely on rules like `-keepattributes RuntimeVisibleAnnotations` and
+            // `-keep class kotlin.Metadata { *; }` but are self-contained.
+            new ArchiveResourceProviderClassFilesOnly(
+                kotlinParameters.getCompiler().getKotlinStdlibJar()),
+            new ArchiveResourceProviderClassFilesOnly(
+                kotlinParameters.getCompiler().getKotlinReflectJar()),
+            new ArchiveResourceProviderClassFilesOnly(
                 kotlinParameters.getCompiler().getKotlinAnnotationJar()))
-        .applyIfR8Current(R8TestBuilder::allowDiagnosticWarningMessages)
-        .addKeepRules("-keepattributes RuntimeVisibleAnnotations")
-        .addKeepRules("-keep class kotlin.Metadata { *; }")
+        // TODO(b/323816623): With native interpretation kotlin.Metadata still gets stripped
+        //  without -keepattributes RuntimeVisibleAnnotations`.
+        .applyIfR8(
+            b ->
+                b.applyIf(
+                    parameters.isNativeR8(),
+                    bb -> bb.addKeepRules("-keepattributes RuntimeVisibleAnnotations")))
+        // Keep the main entry point for the test.
         .addKeepRules(
             "-keep class " + mainClass + " { public static void main(java.lang.String[]); }")
-        .applyIfR8OrR8Partial(
-            b ->
-                b.addOptionsModification(
-                    options -> {
-                      options.testing.allowedUnusedDontWarnPatterns.add(
-                          "kotlin.reflect.jvm.internal.**");
-                      options.testing.allowedUnusedDontWarnPatterns.add("java.lang.ClassValue");
-                    }),
-            b ->
-                b.addR8PartialR8OptionsModification(
-                    options -> {
-                      options.testing.allowedUnusedDontWarnPatterns.add(
-                          "kotlin.reflect.jvm.internal.**");
-                      options.testing.allowedUnusedDontWarnPatterns.add("java.lang.ClassValue");
-                    }))
         .inspectExtractedRules(
             rules -> {
               if (parameters.isExtractRules()) {
