@@ -870,7 +870,6 @@ public class SyntheticFinalization {
     return true;
   }
 
-  @SuppressWarnings("MixedMutabilityReturnType")
   private DexType createExternalType(
       SyntheticKind kind,
       String externalSyntheticTypePrefix,
@@ -879,7 +878,8 @@ public class SyntheticFinalization {
       Predicate<DexType> reserved) {
     DexItemFactory factory = appView.dexItemFactory();
     if (kind.isFixedSuffixSynthetic()) {
-      return SyntheticNaming.createExternalType(kind, externalSyntheticTypePrefix, "", factory);
+      return SyntheticNaming.createExternalType(
+          kind, externalSyntheticTypePrefix, "", factory, appView.options());
     }
     NumberGenerator generator =
         generators.computeIfAbsent(externalSyntheticTypePrefix, k -> new NumberGenerator());
@@ -887,7 +887,11 @@ public class SyntheticFinalization {
     do {
       externalType =
           SyntheticNaming.createExternalType(
-              kind, externalSyntheticTypePrefix, Integer.toString(generator.next()), factory);
+              kind,
+              externalSyntheticTypePrefix,
+              Integer.toString(generator.next()),
+              factory,
+              appView.options());
       // If the generated external type matches an external synthetic from the input, which is kept,
       // then continue.
       if (reserved.test(externalType)) {

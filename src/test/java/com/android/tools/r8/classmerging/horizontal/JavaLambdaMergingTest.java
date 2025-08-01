@@ -24,6 +24,7 @@ public class JavaLambdaMergingTest extends HorizontalClassMergingTestBase {
 
   @Test
   public void test() throws Exception {
+    parameters.assumeDexRuntime();
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)

@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.synthesis;
 
+import static com.android.tools.r8.utils.DescriptorUtils.INNER_CLASS_SEPARATOR;
+
 import com.android.tools.r8.Version;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
@@ -12,6 +14,7 @@ import com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringForTesting;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.utils.DescriptorUtils;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.structural.Equatable;
 import com.android.tools.r8.utils.structural.Ordered;
 import com.google.common.hash.Hasher;
@@ -478,14 +481,23 @@ public class SyntheticNaming {
   }
 
   static DexType createExternalType(
-      SyntheticKind kind, String externalSyntheticTypePrefix, String id, DexItemFactory factory) {
+      SyntheticKind kind,
+      String externalSyntheticTypePrefix,
+      String id,
+      DexItemFactory factory,
+      InternalOptions options) {
     assert kind.isFixedSuffixSynthetic() == id.isEmpty();
-    return createType(
-        kind.isFixedSuffixSynthetic() ? "" : EXTERNAL_SYNTHETIC_CLASS_SEPARATOR,
-        kind,
-        externalSyntheticTypePrefix,
-        id,
-        factory);
+    if (kind.isFixedSuffixSynthetic()) {
+      assert id.isEmpty();
+      return createType("", kind, externalSyntheticTypePrefix, id, factory);
+    } else if (options.desugarSpecificOptions().minimizeSyntheticNames) {
+      return factory.createType(
+          DescriptorUtils.getDescriptorFromClassBinaryName(
+              externalSyntheticTypePrefix + INNER_CLASS_SEPARATOR + id));
+    } else {
+      return createType(
+          EXTERNAL_SYNTHETIC_CLASS_SEPARATOR, kind, externalSyntheticTypePrefix, id, factory);
+    }
   }
 
   private static DexType createType(
@@ -505,7 +517,7 @@ public class SyntheticNaming {
   public static String createDescriptor(
       String separator, SyntheticKind kind, String externalSyntheticTypePrefix, String id) {
     return DescriptorUtils.getDescriptorFromClassBinaryName(
-        externalSyntheticTypePrefix + separator + kind.descriptor + id);
+        externalSyntheticTypePrefix + separator + (kind != null ? kind.descriptor : "") + id);
   }
 
   public static boolean verifyNotInternalSynthetic(DexType type) {
@@ -540,6 +552,12 @@ public class SyntheticNaming {
       ClassReference context, SyntheticKind kind, String id) {
     return Reference.classFromDescriptor(
         createDescriptor(EXTERNAL_SYNTHETIC_CLASS_SEPARATOR, kind, context.getBinaryName(), id));
+  }
+
+  static ClassReference makeMinimalSyntheticReferenceForTest(ClassReference context, String id) {
+    return Reference.classFromDescriptor(
+        createDescriptor(
+            Character.toString(INNER_CLASS_SEPARATOR), null, context.getBinaryName(), id));
   }
 
   static boolean isSynthetic(ClassReference clazz, Phase phase, SyntheticKind kind) {

@@ -52,6 +52,11 @@ public class SyntheticItemsTestUtils {
         InterfaceDesugaringForTesting.getCompanionClassDescriptor(clazz.getDescriptor()));
   }
 
+  public static ClassReference syntheticClassWithMinimalName(Class<?> clazz, int id) {
+    return SyntheticNaming.makeMinimalSyntheticReferenceForTest(
+        Reference.classFromClass(clazz), Integer.toString(id));
+  }
+
   private static ClassReference syntheticClass(Class<?> clazz, SyntheticKind kind, int id) {
     return syntheticClass(Reference.classFromClass(clazz), kind, id);
   }
