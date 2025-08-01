@@ -1,9 +1,8 @@
 URL: https://github.com/Guardsquare/proguard/releases/download/v7.0.0/proguard-7.0.0.tar.gz
-URL: https://github.com/Guardsquare/proguard/releases/download/v7.3.2/proguard-7.3.2.tar.gz
-URL: https://github.com/Guardsquare/proguard/releases/download/v7.4.1/proguard-7.4.1.tar.gz
-Version: 7.0.0, 7.3.2, 7.4.1
+URL: https://github.com/Guardsquare/proguard/releases/download/v7.4.1/proguard-7.7.0.tar.gz
+Version: 7.0.0, 7.7.0
 License: GPL
-License File: proguard-7.0.0/docs/license.md, proguard-7.3.2/LICENSE, proguard-7.4.1/LICENSE
+License File: proguard-7.0.0/docs/license.md, proguard-7.7.0/LICENSE
 
 Description:
 ProGuard Java Optimizer and Obfuscator

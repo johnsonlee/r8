@@ -1089,7 +1089,7 @@ fun getJdks(): List<ThirdPartyDependency> {
 }
 
 fun getThirdPartyProguards(): List<ThirdPartyDependency> {
-  return listOf("proguard-7.0.0", "proguard-7.3.2", "proguard-7.4.1").map {
+  return listOf("proguard-7.0.0", "proguard-7.7.0").map {
     ThirdPartyDependency(
       it,
       Paths.get("third_party", "proguard", it).toFile(),

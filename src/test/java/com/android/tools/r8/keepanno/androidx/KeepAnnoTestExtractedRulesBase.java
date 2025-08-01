@@ -366,11 +366,21 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
     // TODO(b/392865072): Reference fails with AssertionError: Built-in class kotlin.Any is not
     // found (in kotlin.reflect code).
     assumeFalse(parameters.isReference());
-    // TODO(b/392865072): Proguard 7.4.1 fails with "Encountered corrupt @kotlin/Metadata for class
-    // <binary name> (version 2.1.0)".
+    // TODO(b/392865072): Proguard 7.7.0 compiled code fails with fails with
+    //  "java.lang.annotation.IncompleteAnnotationException: kotlin.Metadata missing element bv".
     assumeFalse(parameters.isPG());
     testForKeepAnnoAndroidX(parameters)
         .addProgramFiles(ImmutableList.of(compilation.getForConfiguration(kotlinParameters)))
+        .applyIfPG(
+            b ->
+                b.addProgramFiles(
+                        ImmutableList.of(
+                            kotlinParameters.getCompiler().getKotlinStdlibJar(),
+                            kotlinParameters.getCompiler().getKotlinReflectJar(),
+                            kotlinParameters.getCompiler().getKotlinAnnotationJar()))
+                    .addKeepEnumsRule())
+        // addProgramResourceProviders is not implemented for ProGuard, so effectively exclusive
+        // from addProgramFiles above. If this changed ProGuard will report duplicate classes.
         .addProgramResourceProviders(
             // Only add class files from Kotlin libraries to ensure the keep annotations does not
             // rely on rules like `-keepattributes RuntimeVisibleAnnotations` and

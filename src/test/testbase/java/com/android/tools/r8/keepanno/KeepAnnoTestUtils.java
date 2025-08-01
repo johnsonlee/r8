@@ -36,7 +36,7 @@ import org.junit.rules.TemporaryFolder;
 
 public class KeepAnnoTestUtils {
 
-  public static ProguardVersion PG_VERSION = ProguardVersion.V7_4_1;
+  public static ProguardVersion PG_VERSION = ProguardVersion.V7_7_0;
 
   public static final String DESCRIPTOR_PREFIX = "Landroidx/annotation/keep/";
   public static final String DESCRIPTOR_LEGACY_PREFIX =

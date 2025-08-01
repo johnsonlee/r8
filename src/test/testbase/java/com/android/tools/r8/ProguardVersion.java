@@ -11,8 +11,7 @@ import java.nio.file.Paths;
 
 public enum ProguardVersion {
   V7_0_0("7.0.0"),
-  V7_3_2("7.3.2"),
-  V7_4_1("7.4.1");
+  V7_7_0("7.7.0");
 
   private final String version;
 
@@ -21,7 +20,7 @@ public enum ProguardVersion {
   }
 
   public static ProguardVersion getLatest() {
-    return V7_4_1;
+    return V7_7_0;
   }
 
   public Path getProguardScript() {
