@@ -509,7 +509,7 @@ public class MethodResolution {
    * Section 5.4.3.4 of the JVM Spec</a>.
    *
    * <p>The resolved method is not the method that will actually be invoked. Which methods gets
-   * invoked depends on the invoke instruction used. However, it is always save to rewrite any
+   * invoked depends on the invoke instruction used. However, it is always safe to rewrite any
    * invoke on the given descriptor to a corresponding invoke on the resolved descriptor, as the
    * resolved method is used as basis for dispatch.
    */

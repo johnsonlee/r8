@@ -321,40 +321,58 @@ public class MemberRebindingAnalysis extends MemberRebindingHelper {
         originalClass.accessFlags.isPublic() ? null : method.holder.getPackageDescriptor();
     if (packageDescriptor == null
         || !packageDescriptor.equals(target.getHolderType().getPackageDescriptor())) {
-      DexProgramClass bridgeHolder =
+      DexClass bridgeHolder =
           findHolderForVisibilityBridge(originalClass, target.getHolder(), packageDescriptor);
       assert bridgeHolder != null;
-      bridges.accept(bridgeHolder, method, target);
-      return target.getReference().withHolder(bridgeHolder.getType(), appView.dexItemFactory());
+      if (bridgeHolder.isClasspathClass()) {
+        // Intentionally empty. We do not need to insert a bridge on a classpath class.
+      } else if (bridgeHolder.isLibraryClass()) {
+        // Caution is needed when member rebinding into the library.
+        // This is handled by validMemberRebindingTargetForNonProgramMethod.
+        return null;
+      } else {
+        // Insert a bridge on this program class.
+        bridges.accept(bridgeHolder.asProgramClass(), method, target);
+      }
+      return target.getReference().withHolder(bridgeHolder, appView.dexItemFactory());
     }
     return target.getReference();
   }
 
-  private DexProgramClass findHolderForVisibilityBridge(
-      DexClass originalClass, DexClass targetClass, String packageDescriptor) {
-    if (originalClass == targetClass || originalClass.isNotProgramClass()) {
+  private DexClass findHolderForVisibilityBridge(
+      DexClass currentClass, DexClass resolvedHolder, String initialResolutionPackage) {
+    if (currentClass == resolvedHolder) {
       return null;
     }
-    DexProgramClass newHolder = null;
+    DexClass newHolder = null;
     // Recurse through supertype chain.
-    if (appView.appInfo().isSubtype(originalClass.superType, targetClass.type)) {
-      DexClass superClass = appView.definitionFor(originalClass.superType);
-      newHolder = findHolderForVisibilityBridge(superClass, targetClass, packageDescriptor);
+    if (appView.appInfo().isSubtype(currentClass.superType, resolvedHolder.type)) {
+      DexClass superClass = appView.definitionFor(currentClass.superType);
+      newHolder =
+          findHolderForVisibilityBridge(superClass, resolvedHolder, initialResolutionPackage);
     } else {
-      for (DexType iface : originalClass.interfaces.values) {
-        if (appView.appInfo().isSubtype(iface, targetClass.type)) {
+      for (DexType iface : currentClass.interfaces.values) {
+        if (appView.appInfo().isSubtype(iface, resolvedHolder.type)) {
           DexClass interfaceClass = appView.definitionFor(iface);
-          newHolder = findHolderForVisibilityBridge(interfaceClass, targetClass, packageDescriptor);
+          newHolder =
+              findHolderForVisibilityBridge(
+                  interfaceClass, resolvedHolder, initialResolutionPackage);
         }
       }
     }
     if (newHolder != null) {
       // A supertype fulfills the visibility requirements.
       return newHolder;
-    } else if (originalClass.accessFlags.isPublic()
-        || originalClass.type.getPackageDescriptor().equals(packageDescriptor)) {
-      // This class is visible. Return it if it is a program class, otherwise null.
-      return originalClass.asProgramClass();
+    } else {
+      boolean hasAccessToTarget =
+          AccessControl.isClassAccessible(resolvedHolder, currentClass, appView).isTrue();
+      boolean isVisibleToCallers =
+          currentClass.isPublic()
+              || currentClass.type.getPackageDescriptor().equals(initialResolutionPackage);
+      if (hasAccessToTarget && isVisibleToCallers) {
+        // This class is visible and can access the target class.
+        return currentClass;
+      }
     }
     return null;
   }

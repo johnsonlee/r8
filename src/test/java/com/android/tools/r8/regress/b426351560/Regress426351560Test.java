@@ -31,8 +31,6 @@ public class Regress426351560Test extends TestBase {
 
   @Test
   public void testR8() throws Exception {
-    // TODO(b/427887773)
-    assumeFalse(parameters.isRandomPartialCompilation());
     testForR8(parameters)
         .addInnerClasses(Regress426351560TestClasses.class, getClass())
         .addKeepRules("-keep class " + Main.class.getTypeName() + " { *; }")

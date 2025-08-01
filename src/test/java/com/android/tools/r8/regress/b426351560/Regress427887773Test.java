@@ -40,13 +40,7 @@ public class Regress427887773Test extends TestBase {
           .compile()
           .addRunClasspathClasses(Regress426351560TestClasses.getClasses())
           .run(parameters.getRuntime(), Main.class)
-          .applyIf(
-              parameters.isDexRuntime()
-                  && parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.N),
-              rr -> rr.assertFailureWithErrorThatThrows(IllegalAccessError.class),
-              // for jdk based tests: java.lang.VerifyError: Bad invokespecial instruction:
-              // interface method reference is in an indirect superinterface.
-              rr -> rr.assertFailureWithErrorThatThrows(VerifyError.class));
+          .assertSuccessWithOutputLines("Hello, world!");
     } catch (CompilationFailedException e) {
       if (parameters.isDexRuntime() && parameters.getApiLevel().isLessThan(AndroidApiLevel.N)) {
         assertTrue(e.getCause() instanceof AssertionError);
