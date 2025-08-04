@@ -10,7 +10,6 @@ import static org.junit.Assume.assumeTrue;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.profile.art.ArtProfileMethodRuleInfoImpl;
 import com.android.tools.r8.profile.art.model.ExternalArtProfile;
 import com.android.tools.r8.references.Reference;
@@ -68,14 +67,11 @@ public class UndoConstructorInliningProfileFlagsTest extends TestBase {
                   .assertContainsMethodRule(initializerSubject)
                   .inspectMethodRule(
                       initializerSubject,
-                      methodRuleInspector -> {
-                        try {
-                          methodRuleInspector.assertIsHot().assertIsPostStartup().assertIsStartup();
-                          throw new Unreachable();
-                        } catch (AssertionError e) {
-                          // Expected.
-                        }
-                      });
+                      methodRuleInspector ->
+                          methodRuleInspector
+                              .assertIsHot()
+                              .assertIsPostStartup()
+                              .assertIsStartup());
             });
   }
 

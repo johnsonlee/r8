@@ -63,7 +63,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -247,9 +246,8 @@ public class UndoConstructorInlining {
                     info.getProgramClass(),
                     info.getInvokedMethod(),
                     ensureConstructorsOnClasses,
-                    newConstructor ->
-                        profileCollectionAdditions.addMethodIfContextIsInProfile(
-                            newConstructor, method));
+                    method,
+                    profileCollectionAdditions);
         if (newInvokedMethod.getArity() != info.getInvokedMethod().getArity()) {
           assert newInvokedMethod.getArity() > info.getInvokedMethod().getArity();
           return rewriteIR(method, code);
@@ -310,9 +308,8 @@ public class UndoConstructorInlining {
                       noSkipClass,
                       invokedMethod,
                       ensureConstructorsOnClasses,
-                      newConstructor ->
-                          profileCollectionAdditions.addMethodIfContextIsInProfile(
-                              newConstructor, method));
+                      method,
+                      profileCollectionAdditions);
           InvokeDirect.Builder invokeDirectBuilder =
               InvokeDirect.builder()
                   .setArguments(invoke.arguments())
@@ -484,19 +481,30 @@ public class UndoConstructorInlining {
         DexProgramClass clazz,
         DexMethod target,
         Map<DexType, DexProgramClass> ensureConstructorsOnClasses,
-        Consumer<ProgramMethod> creationConsumer) {
-      return constructorCache
-          .computeIfAbsent(clazz, ignoreKey(IdentityHashMap::new))
-          .computeIfAbsent(
-              target,
-              k -> createConstructor(clazz, target, ensureConstructorsOnClasses, creationConsumer));
+        ProgramMethod context,
+        ProfileCollectionAdditions profileCollectionAdditions) {
+      ProgramMethod constructor =
+          constructorCache
+              .computeIfAbsent(clazz, ignoreKey(IdentityHashMap::new))
+              .computeIfAbsent(
+                  target,
+                  k ->
+                      createConstructor(
+                          clazz,
+                          target,
+                          ensureConstructorsOnClasses,
+                          context,
+                          profileCollectionAdditions));
+      profileCollectionAdditions.addMethodIfContextIsInProfile(constructor, context);
+      return constructor;
     }
 
     private ProgramMethod createConstructor(
         DexProgramClass clazz,
         DexMethod target,
         Map<DexType, DexProgramClass> ensureConstructorsOnClasses,
-        Consumer<ProgramMethod> creationConsumer) {
+        ProgramMethod context,
+        ProfileCollectionAdditions profileCollectionAdditions) {
       // Create a fresh constructor on the given class that calls target. If there is a class in the
       // hierarchy inbetween `clazz` and `target.holder`, which is also subject to class merging,
       // then we must create a constructor that calls a constructor on that intermediate class,
@@ -510,7 +518,11 @@ public class UndoConstructorInlining {
         if (ensureConstructorsOnClasses.containsKey(currentType)) {
           target =
               getOrCreateConstructor(
-                      currentClass, target, ensureConstructorsOnClasses, creationConsumer)
+                      currentClass,
+                      target,
+                      ensureConstructorsOnClasses,
+                      context,
+                      profileCollectionAdditions)
                   .getReference();
           break;
         }
@@ -538,9 +550,7 @@ public class UndoConstructorInlining {
               .setApiLevelForDefinition(
                   appView.apiLevelCompute().computeInitialMinApiLevel(appView.options()))
               .build();
-      ProgramMethod programMethod = method.asProgramMethod(clazz);
-      creationConsumer.accept(programMethod);
-      return programMethod;
+      return method.asProgramMethod(clazz);
     }
 
     private LirCode<Integer> createConstructorCode(DexMethod methodReference, DexMethod target) {
