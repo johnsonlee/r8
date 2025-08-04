@@ -52,6 +52,7 @@ import com.android.tools.r8.profile.startup.profile.StartupProfile;
 import com.android.tools.r8.shaking.MainDexInfo;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.ArrayUtils;
+import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.DexVersion;
 import com.android.tools.r8.utils.ExceptionUtils;
@@ -66,6 +67,7 @@ import com.android.tools.r8.utils.OriginalSourceFiles;
 import com.android.tools.r8.utils.PredicateUtils;
 import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.StringDiagnostic;
+import com.android.tools.r8.utils.SupplierUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.timing.Timing;
 import com.android.tools.r8.utils.timing.TimingMerger;
@@ -88,6 +90,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 public class ApplicationWriter {
 
@@ -723,18 +726,25 @@ public class ApplicationWriter {
   private void insertAttributeAnnotationsForClass(DexProgramClass clazz) {
     EnclosingMethodAttribute enclosingMethod = clazz.getEnclosingMethodAttribute();
     List<InnerClassAttribute> innerClasses = clazz.getInnerClasses();
-    if (enclosingMethod == null
-        && innerClasses.isEmpty()
-        && clazz.getClassSignature().hasNoSignature()
-        && !clazz.isInANest()
-        && !clazz.isRecord()
-        && !clazz.hasPermittedSubclassAttributes()) {
-      return;
-    }
+
+    IntBox allocatedSize = new IntBox();
+    Supplier<List<DexAnnotation>> annotationsSupplier =
+        SupplierUtils.nonThreadSafeMemoize(
+            () -> {
+              allocatedSize.set(
+                  BooleanUtils.intValue(enclosingMethod != null)
+                      + innerClasses.size()
+                      + 1
+                      + BooleanUtils.intValue(clazz.getClassSignature().hasSignature())
+                      + BooleanUtils.intValue(options.canUseNestBasedAccess() && clazz.isInANest())
+                      + BooleanUtils.intValue(
+                          clazz.hasPermittedSubclassAttributes() && options.canUseSealedClasses()));
+              return new ArrayList<>(allocatedSize.get());
+            });
 
     // EnclosingMember translates directly to an enclosing class/method if present.
-    List<DexAnnotation> annotations = new ArrayList<>(2 + innerClasses.size());
     if (enclosingMethod != null) {
+      List<DexAnnotation> annotations = annotationsSupplier.get();
       if (enclosingMethod.getEnclosingMethod() != null) {
         annotations.add(
             DexAnnotation.createEnclosingMethodAnnotation(
@@ -752,6 +762,7 @@ public class ApplicationWriter {
     // it relates to the present class. If it relates to the outer-type (and is named) it becomes
     // part of the member-classes annotation.
     if (!innerClasses.isEmpty()) {
+      List<DexAnnotation> annotations = annotationsSupplier.get();
       List<DexType> memberClasses = new ArrayList<>(innerClasses.size());
       for (InnerClassAttribute innerClass : innerClasses) {
         if (clazz.type == innerClass.getInner()) {
@@ -782,6 +793,7 @@ public class ApplicationWriter {
     }
 
     if (clazz.getClassSignature().hasSignature()) {
+      List<DexAnnotation> annotations = annotationsSupplier.get();
       annotations.add(
           DexAnnotation.createSignatureAnnotation(
               clazz.getClassSignature().toRenamedString(getNamingLens(), isTypeMissing),
@@ -790,12 +802,14 @@ public class ApplicationWriter {
 
     if (options.canUseNestBasedAccess()) {
       if (clazz.isNestHost()) {
+        List<DexAnnotation> annotations = annotationsSupplier.get();
         annotations.add(
             DexAnnotation.createNestMembersAnnotation(
                 clazz.getNestMembersClassAttributes(), options.itemFactory));
       }
 
       if (clazz.isNestMember()) {
+        List<DexAnnotation> annotations = annotationsSupplier.get();
         annotations.add(
             DexAnnotation.createNestHostAnnotation(
                 clazz.getNestHostClassAttribute(), options.itemFactory));
@@ -803,16 +817,21 @@ public class ApplicationWriter {
     }
 
     if (clazz.hasPermittedSubclassAttributes() && options.canUseSealedClasses()) {
+      List<DexAnnotation> annotations = annotationsSupplier.get();
       annotations.add(
           DexAnnotation.createPermittedSubclassesAnnotation(
               clazz.getPermittedSubclassAttributes(), options.itemFactory));
     }
 
     if (clazz.isRecord() && options.emitRecordAnnotationsInDex) {
+      List<DexAnnotation> annotations = annotationsSupplier.get();
       annotations.add(DexAnnotation.createRecordAnnotation(clazz, appView));
     }
 
-    if (!annotations.isEmpty()) {
+    if (allocatedSize.get() > 0) {
+      List<DexAnnotation> annotations = annotationsSupplier.get();
+      assert allocatedSize.get() >= annotations.size();
+
       // Append the annotations to annotations array of the class.
       DexAnnotation[] copy =
           ObjectArrays.concat(
