@@ -404,7 +404,7 @@ r8_tester_with_default(
 r8_tester_with_default(
     "linux-android-5",
     ["--dex_vm=5.1.1", "--all_tests", "--command_cache_dir=/tmp/ccache"],
-    dimensions = get_dimensions(noble=False),
+    dimensions = get_dimensions(noble=True),
 )
 
 r8_tester_with_default(
