@@ -3,16 +3,10 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.regress.b426351560;
 
-import static org.hamcrest.CoreMatchers.containsString;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.Assert.assertTrue;
-
-import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.regress.b426351560.testclasses.Regress426351560TestClasses;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -32,23 +26,14 @@ public class Regress427887773Test extends TestBase {
 
   @Test
   public void testR8() throws Exception {
-    try {
-      testForR8(parameters)
-          .addInnerClasses(getClass())
-          .addClasspathClasses(Regress426351560TestClasses.getClasses())
-          .addKeepRules("-keep class " + Main.class.getTypeName() + " { *; }")
-          .compile()
-          .addRunClasspathClasses(Regress426351560TestClasses.getClasses())
-          .run(parameters.getRuntime(), Main.class)
-          .assertSuccessWithOutputLines("Hello, world!");
-    } catch (CompilationFailedException e) {
-      if (parameters.isDexRuntime() && parameters.getApiLevel().isLessThan(AndroidApiLevel.N)) {
-        assertTrue(e.getCause() instanceof AssertionError);
-        assertThat(e.getCause().getMessage(), containsString("CC was already present."));
-      } else {
-        throw e;
-      }
-    }
+    testForR8(parameters)
+        .addInnerClasses(getClass())
+        .addClasspathClasses(Regress426351560TestClasses.getClasses())
+        .addKeepRules("-keep class " + Main.class.getTypeName() + " { *; }")
+        .compile()
+        .addRunClasspathClasses(Regress426351560TestClasses.getClasses())
+        .run(parameters.getRuntime(), Main.class)
+        .assertSuccessWithOutputLines("Hello, world!");
   }
 
   public static class Main extends Regress426351560TestClasses.A {

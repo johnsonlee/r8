@@ -4600,11 +4600,20 @@ public class Enqueuer {
       if (clazz.isLibraryClass()) {
         libraryClasses.add(clazz.asLibraryClass());
       } else if (clazz.isClasspathClass()) {
-        classpathClasses.add(clazz.asClasspathClass());
+        DexClasspathClass classpathClass = clazz.asClasspathClass();
+        if (appView.getSyntheticItems().isPendingSynthetic(classpathClass.getType())) {
+          // This class will be committed later.
+        } else {
+          classpathClasses.add(classpathClass);
+        }
       } else {
         assert false;
       }
     }
+    // Verify the synthetic classpath classes are live before we commit them to the app below.
+    assert appView.getSyntheticItems().getPendingSyntheticClasses().stream()
+        .filter(DexClass::isClasspathClass)
+        .allMatch(liveNonProgramTypes::contains);
 
     // Add just referenced non-program types. We can't replace the program classes at this point as
     // they are needed in tree pruning.
