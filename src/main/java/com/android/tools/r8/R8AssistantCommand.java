@@ -5,6 +5,8 @@ package com.android.tools.r8;
 
 import com.android.tools.r8.assistant.ClassInjectionHelper;
 import com.android.tools.r8.assistant.runtime.EmptyReflectiveOperationReceiver;
+import com.android.tools.r8.assistant.runtime.ReflectiveEventType;
+import com.android.tools.r8.assistant.runtime.ReflectiveOperationJsonLogger;
 import com.android.tools.r8.assistant.runtime.ReflectiveOperationLogger;
 import com.android.tools.r8.assistant.runtime.ReflectiveOperationReceiver;
 import com.android.tools.r8.assistant.runtime.ReflectiveOracle;
@@ -148,6 +150,8 @@ public class R8AssistantCommand extends BaseCompilerCommand {
     R8AssistantCommand makeCommand() {
       injectClasses(
           EmptyReflectiveOperationReceiver.class,
+          ReflectiveEventType.class,
+          ReflectiveOperationJsonLogger.class,
           ReflectiveOperationLogger.class,
           ReflectiveOperationReceiver.NameLookupType.class,
           ReflectiveOperationReceiver.ClassFlag.class,

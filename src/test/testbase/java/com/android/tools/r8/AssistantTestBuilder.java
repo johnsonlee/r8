@@ -11,6 +11,7 @@ import com.android.tools.r8.TestBase.Backend;
 import com.android.tools.r8.benchmarks.BenchmarkResults;
 import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.utils.AndroidApp;
+import com.android.tools.r8.utils.ExceptionUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -100,7 +101,13 @@ public class AssistantTestBuilder
     if (customReflectiveOperationReceiver != null) {
       builder.setReflectiveReceiverClassDescriptor(customReflectiveOperationReceiver);
     }
-    R8Assistant.run(builder.build());
+    R8AssistantCommand build = builder.build();
+    InternalOptions options = build.getInternalOptions();
+    if (optionsConsumer != null) {
+      ExceptionUtils.withCompilationHandler(
+          options.reporter, () -> optionsConsumer.accept(options));
+    }
+    R8Assistant.runForTest(build, options);
     return new AssistantTestCompileResult(
         initialCompilation,
         getState(),

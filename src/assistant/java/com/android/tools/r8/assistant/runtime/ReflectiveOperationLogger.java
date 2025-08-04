@@ -168,20 +168,8 @@ public class ReflectiveOperationLogger implements ReflectiveOperationReceiver {
   }
 
   @Override
-  public void onAtomicIntegerFieldUpdaterNewUpdater(Stack stack, Class<?> clazz, String name) {
-    System.out.println(
-        "Reflectively got AtomicIntegerFieldUpdater.newUpdater on " + clazz + "#" + name);
-  }
-
-  @Override
-  public void onAtomicLongFieldUpdaterNewUpdater(Stack stack, Class<?> clazz, String name) {
-    System.out.println(
-        "Reflectively got AtomicLongFieldUpdater.newUpdater on " + clazz + "#" + name);
-  }
-
-  @Override
-  public void onAtomicReferenceFieldUpdaterNewUpdater(
-      Stack stack, Class<?> clazz, Class<?> fieldClass, String name) {
+  public void onAtomicFieldUpdaterNewUpdater(
+      Stack stack, Class<?> fieldClass, Class<?> clazz, String name) {
     System.out.println(
         "Reflectively got AtomicReferenceFieldUpdater.newUpdater on "
             + fieldClass

@@ -60,12 +60,8 @@ public interface ReflectiveOperationReceiver {
 
   void onClassIsAssignableFrom(Stack stack, Class<?> clazz, Class<?> sup);
 
-  void onAtomicIntegerFieldUpdaterNewUpdater(Stack stack, Class<?> clazz, String name);
-
-  void onAtomicLongFieldUpdaterNewUpdater(Stack stack, Class<?> clazz, String name);
-
-  void onAtomicReferenceFieldUpdaterNewUpdater(
-      Stack stack, Class<?> clazz, Class<?> fieldClass, String name);
+  void onAtomicFieldUpdaterNewUpdater(
+      Stack stack, Class<?> fieldClass, Class<?> clazz, String name);
 
   void onServiceLoaderLoad(Stack stack, Class<?> clazz, ClassLoader classLoader);
 

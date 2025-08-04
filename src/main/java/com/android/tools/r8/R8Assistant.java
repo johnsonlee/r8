@@ -32,6 +32,11 @@ public class R8Assistant {
 
   public static void run(R8AssistantCommand command) throws CompilationFailedException {
     InternalOptions options = command.getInternalOptions();
+    runForTest(command, options);
+  }
+
+  public static void runForTest(R8AssistantCommand command, InternalOptions options)
+      throws CompilationFailedException {
     ExceptionUtils.withCompilationHandler(
         options.reporter,
         () -> runInternal(command, options, ThreadUtils.getExecutorService(options)));

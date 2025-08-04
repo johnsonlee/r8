@@ -65,6 +65,14 @@ public class ReflectiveOracle {
       }
       return sb.toString();
     }
+
+    public String[] stackTraceElementsAsString() {
+      String[] result = new String[stackTraceElements.length];
+      for (int i = 0; i < stackTraceElements.length; i++) {
+        result[i] = stackTraceElements[i].toString();
+      }
+      return result;
+    }
   }
 
   public static void onClassNewInstance(Class<?> clazz) {
@@ -221,17 +229,16 @@ public class ReflectiveOracle {
   }
 
   public static void onAtomicIntegerFieldUpdaterNewUpdater(Class<?> clazz, String name) {
-    getInstance().onAtomicIntegerFieldUpdaterNewUpdater(Stack.createStack(), clazz, name);
+    getInstance().onAtomicFieldUpdaterNewUpdater(Stack.createStack(), int.class, clazz, name);
   }
 
   public static void onAtomicLongFieldUpdaterNewUpdater(Class<?> clazz, String name) {
-    getInstance().onAtomicLongFieldUpdaterNewUpdater(Stack.createStack(), clazz, name);
+    getInstance().onAtomicFieldUpdaterNewUpdater(Stack.createStack(), long.class, clazz, name);
   }
 
   public static void onAtomicReferenceFieldUpdaterNewUpdater(
       Class<?> clazz, Class<?> fieldClass, String name) {
-    getInstance()
-        .onAtomicReferenceFieldUpdaterNewUpdater(Stack.createStack(), clazz, fieldClass, name);
+    getInstance().onAtomicFieldUpdaterNewUpdater(Stack.createStack(), fieldClass, clazz, name);
   }
 
   public static void onServiceLoaderLoad(Class<?> clazz) {
