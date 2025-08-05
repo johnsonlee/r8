@@ -7,6 +7,7 @@ package com.android.tools.r8.assistant.postprocessing.model;
 import com.android.tools.r8.assistant.runtime.ReflectiveEventType;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.shaking.KeepInfoCollectionExported;
 
 public class ClassGetMembers extends ReflectiveEvent {
 
@@ -35,5 +36,11 @@ public class ClassGetMembers extends ReflectiveEvent {
   @Override
   public String getContentsString() {
     return holder.toSourceString();
+  }
+
+  @Override
+  public boolean isKeptBy(KeepInfoCollectionExported keepInfoCollectionExported) {
+    // TODO(b/428836085): What does this mean? One member has to be kept?
+    return keepInfoCollectionExported.getKeepClassInfo(holder.asTypeReference()) != null;
   }
 }

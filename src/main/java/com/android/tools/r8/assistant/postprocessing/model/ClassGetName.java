@@ -8,6 +8,7 @@ import com.android.tools.r8.assistant.runtime.ReflectiveEventType;
 import com.android.tools.r8.assistant.runtime.ReflectiveOperationReceiver.NameLookupType;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.shaking.KeepInfoCollectionExported;
 
 public class ClassGetName extends ReflectiveEvent {
 
@@ -43,5 +44,12 @@ public class ClassGetName extends ReflectiveEvent {
   @Override
   public String getContentsString() {
     return type + ", " + nameLookupType;
+  }
+
+  @Override
+  public boolean isKeptBy(KeepInfoCollectionExported keepInfoCollectionExported) {
+    // TODO(b/428836085): Check inner properties of the keep rules, holder, type and name may have
+    //  to be preserved.
+    return keepInfoCollectionExported.getKeepClassInfo(type.asTypeReference()) != null;
   }
 }

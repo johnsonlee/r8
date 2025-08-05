@@ -85,9 +85,9 @@ public class AtomicUpdaterJsonTest extends TestBase {
 
     KeepInfoCollectionExported keepInfoCollectionExported = keepInfoBox.get();
 
-    assertTrue(keepInfoCollectionExported.hasKeepFieldInfo(updater0.getField().asFieldReference()));
-    assertTrue(keepInfoCollectionExported.hasKeepFieldInfo(updater1.getField().asFieldReference()));
-    assertTrue(keepInfoCollectionExported.hasKeepFieldInfo(updater2.getField().asFieldReference()));
+    assertTrue(updater0.isKeptBy(keepInfoCollectionExported));
+    assertTrue(updater1.isKeptBy(keepInfoCollectionExported));
+    assertTrue(updater2.isKeptBy(keepInfoCollectionExported));
   }
 
   public static class Instrumentation extends ReflectiveOperationJsonLogger {

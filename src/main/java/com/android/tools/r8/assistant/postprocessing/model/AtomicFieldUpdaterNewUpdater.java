@@ -8,6 +8,8 @@ import com.android.tools.r8.assistant.runtime.ReflectiveEventType;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.shaking.KeepFieldInfo;
+import com.android.tools.r8.shaking.KeepInfoCollectionExported;
 
 public class AtomicFieldUpdaterNewUpdater extends ReflectiveEvent {
   private final DexField field;
@@ -39,5 +41,14 @@ public class AtomicFieldUpdaterNewUpdater extends ReflectiveEvent {
   @Override
   public String getContentsString() {
     return field.toString();
+  }
+
+  @Override
+  public boolean isKeptBy(KeepInfoCollectionExported keepInfoCollectionExported) {
+    KeepFieldInfo keepFieldInfo =
+        keepInfoCollectionExported.getKeepFieldInfo(field.asFieldReference());
+    // TODO(b/428836085): Check inner properties of the keep rules, holder, type and name may have
+    //  to be preserved.
+    return keepFieldInfo != null;
   }
 }

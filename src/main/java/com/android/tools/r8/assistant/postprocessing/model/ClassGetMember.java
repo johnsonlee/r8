@@ -8,6 +8,9 @@ import com.android.tools.r8.assistant.runtime.ReflectiveEventType;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMember;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.shaking.KeepFieldInfo;
+import com.android.tools.r8.shaking.KeepInfoCollectionExported;
+import com.android.tools.r8.shaking.KeepMethodInfo;
 
 public class ClassGetMember extends ReflectiveEvent {
 
@@ -52,5 +55,21 @@ public class ClassGetMember extends ReflectiveEvent {
   @Override
   public String getContentsString() {
     return member.toSourceString();
+  }
+
+  @Override
+  public boolean isKeptBy(KeepInfoCollectionExported keepInfoCollectionExported) {
+    if (member.isDexField()) {
+      KeepFieldInfo keepFieldInfo =
+          keepInfoCollectionExported.getKeepFieldInfo(member.asDexField().asFieldReference());
+      // TODO(b/428836085): Check inner properties of the keep rules, holder, type and name may have
+      //  to be preserved.
+      return keepFieldInfo != null;
+    }
+    KeepMethodInfo keepMethodInfo =
+        keepInfoCollectionExported.getKeepMethodInfo(member.asDexMethod().asMethodReference());
+    // TODO(b/428836085): Check inner properties of the keep rules, holder, type and name may have
+    //  to be preserved.
+    return keepMethodInfo != null;
   }
 }

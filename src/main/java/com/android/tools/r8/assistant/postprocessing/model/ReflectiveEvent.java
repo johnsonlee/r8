@@ -7,6 +7,7 @@ package com.android.tools.r8.assistant.postprocessing.model;
 import com.android.tools.r8.assistant.runtime.ReflectiveEventType;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.shaking.KeepInfoCollectionExported;
 import com.android.tools.r8.utils.DescriptorUtils;
 import java.util.Arrays;
 
@@ -69,6 +70,8 @@ public abstract class ReflectiveEvent {
 
   public abstract String getContentsString();
 
+  public abstract boolean isKeptBy(KeepInfoCollectionExported keepInfoCollectionExported);
+
   @Override
   public String toString() {
     return eventType + (stack != null ? "[s]" : "") + "(" + getContentsString() + ")";
@@ -124,6 +127,11 @@ public abstract class ReflectiveEvent {
       @Override
       public String getContentsString() {
         return Arrays.toString(args);
+      }
+
+      @Override
+      public boolean isKeptBy(KeepInfoCollectionExported keepInfoCollectionExported) {
+        return false;
       }
     };
   }
