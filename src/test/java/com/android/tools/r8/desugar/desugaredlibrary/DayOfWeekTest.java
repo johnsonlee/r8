@@ -11,6 +11,7 @@ import com.android.tools.r8.SingleTestRunResult;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification;
 import com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification;
+import com.android.tools.r8.utils.AndroidApiLevel;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.IsoFields;
 import java.time.temporal.TemporalAccessor;
@@ -59,7 +60,8 @@ public class DayOfWeekTest extends DesugaredLibraryTestBase {
         .run(parameters.getRuntime(), Main.class)
         .applyIf(
             // TODO(b/432689492): Fix non standalone names.
-            libraryDesugaringSpecification == LibraryDesugaringSpecification.JDK8,
+            libraryDesugaringSpecification == LibraryDesugaringSpecification.JDK8
+                || parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.O),
             b -> b.assertSuccessWithOutputLines("6", "7"),
             SingleTestRunResult::assertFailure);
   }
