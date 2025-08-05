@@ -18,11 +18,12 @@ public interface ReflectiveOperationReceiver {
 
   void onClassNewInstance(Stack stack, Class<?> clazz);
 
-  void onClassGetDeclaredMethod(Stack stack, Class<?> clazz, String method, Class<?>... parameters);
+  void onClassGetDeclaredMethod(
+      Stack stack, Class<?> returnType, Class<?> clazz, String method, Class<?>... parameters);
 
   void onClassGetDeclaredMethods(Stack stack, Class<?> clazz);
 
-  void onClassGetDeclaredField(Stack stack, Class<?> clazz, String fieldName);
+  void onClassGetDeclaredField(Stack stack, Class<?> fieldType, Class<?> clazz, String fieldName);
 
   void onClassGetDeclaredFields(Stack stack, Class<?> clazz);
 
@@ -30,11 +31,12 @@ public interface ReflectiveOperationReceiver {
 
   void onClassGetDeclaredConstructors(Stack stack, Class<?> clazz);
 
-  void onClassGetMethod(Stack stack, Class<?> clazz, String method, Class<?>... parameters);
+  void onClassGetMethod(
+      Stack stack, Class<?> returnType, Class<?> clazz, String method, Class<?>... parameters);
 
   void onClassGetMethods(Stack stack, Class<?> clazz);
 
-  void onClassGetField(Stack stack, Class<?> clazz, String fieldName);
+  void onClassGetField(Stack stack, Class<?> fieldType, Class<?> clazz, String fieldName);
 
   void onClassGetFields(Stack stack, Class<?> clazz);
 

@@ -15,6 +15,13 @@ public abstract class ReflectiveEvent {
   private final ReflectiveEventType eventType;
   private final String[] stack;
 
+  protected static DexType toTypeOrTripleStar(String javaType, DexItemFactory factory) {
+    if (javaType == null) {
+      return factory.createType("***");
+    }
+    return toType(javaType, factory);
+  }
+
   protected static DexType toType(String javaType, DexItemFactory factory) {
     return factory.createType(DescriptorUtils.javaTypeToDescriptor(javaType));
   }
@@ -44,6 +51,22 @@ public abstract class ReflectiveEvent {
     return null;
   }
 
+  public boolean isClassGetMember() {
+    return false;
+  }
+
+  public ClassGetMember asClassGetMember() {
+    return null;
+  }
+
+  public boolean isClassGetMembers() {
+    return false;
+  }
+
+  public ClassGetMembers asClassGetMembers() {
+    return null;
+  }
+
   public abstract String getContentsString();
 
   @Override
@@ -57,29 +80,19 @@ public abstract class ReflectiveEvent {
       case CLASS_NEW_INSTANCE:
         break;
       case CLASS_GET_DECLARED_METHOD:
-        break;
-      case CLASS_GET_DECLARED_METHODS:
-        break;
       case CLASS_GET_DECLARED_FIELD:
-        break;
-      case CLASS_GET_DECLARED_FIELDS:
-        break;
       case CLASS_GET_DECLARED_CONSTRUCTOR:
-        break;
-      case CLASS_GET_DECLARED_CONSTRUCTORS:
-        break;
       case CLASS_GET_METHOD:
-        break;
-      case CLASS_GET_METHODS:
-        break;
       case CLASS_GET_FIELD:
-        break;
-      case CLASS_GET_FIELDS:
-        break;
       case CLASS_GET_CONSTRUCTOR:
-        break;
+        return new ClassGetMember(eventType, stack, args, factory);
+      case CLASS_GET_DECLARED_METHODS:
+      case CLASS_GET_DECLARED_FIELDS:
+      case CLASS_GET_DECLARED_CONSTRUCTORS:
+      case CLASS_GET_METHODS:
+      case CLASS_GET_FIELDS:
       case CLASS_GET_CONSTRUCTORS:
-        break;
+        return new ClassGetMembers(eventType, stack, args, factory);
       case CLASS_GET_NAME:
         return new ClassGetName(eventType, stack, args, factory);
       case CLASS_FOR_NAME:

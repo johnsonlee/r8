@@ -58,22 +58,24 @@ public class ReflectiveOperationJsonLogger implements ReflectiveOperationReceive
     output.close();
   }
 
-  private String[] methodToString(Class<?> holder, String method, Class<?>... parameters) {
-    String[] methodStrings = new String[parameters.length + 2];
-    methodStrings[0] = printClass(holder);
-    methodStrings[1] = method;
+  private String[] methodToString(
+      Class<?> returnType, Class<?> holder, String method, Class<?>... parameters) {
+    String[] methodStrings = new String[parameters.length + 3];
+    methodStrings[0] = printClass(returnType);
+    methodStrings[1] = printClass(holder);
+    methodStrings[2] = method;
     for (int i = 0; i < parameters.length; i++) {
-      methodStrings[i + 2] = printClass(parameters[i]);
+      methodStrings[i + 3] = printClass(parameters[i]);
     }
     return methodStrings;
   }
 
   private String[] constructorToString(Class<?> holder, Class<?>... parameters) {
-    return methodToString(holder, "<init>", parameters);
+    return methodToString(Void.TYPE, holder, "<init>", parameters);
   }
 
   private String printClass(Class<?> clazz) {
-    return clazz.getName();
+    return clazz == null ? "null" : clazz.getName();
   }
 
   private String printClassLoader(ClassLoader classLoader) {
@@ -119,8 +121,8 @@ public class ReflectiveOperationJsonLogger implements ReflectiveOperationReceive
 
   @Override
   public void onClassGetDeclaredMethod(
-      Stack stack, Class<?> clazz, String method, Class<?>... parameters) {
-    output(CLASS_GET_DECLARED_METHOD, stack, methodToString(clazz, method, parameters));
+      Stack stack, Class<?> returnType, Class<?> clazz, String method, Class<?>... parameters) {
+    output(CLASS_GET_DECLARED_METHOD, stack, methodToString(returnType, clazz, method, parameters));
   }
 
   @Override
@@ -129,8 +131,9 @@ public class ReflectiveOperationJsonLogger implements ReflectiveOperationReceive
   }
 
   @Override
-  public void onClassGetDeclaredField(Stack stack, Class<?> clazz, String fieldName) {
-    output(CLASS_GET_DECLARED_FIELD, stack, printClass(clazz), fieldName);
+  public void onClassGetDeclaredField(
+      Stack stack, Class<?> fieldType, Class<?> clazz, String fieldName) {
+    output(CLASS_GET_DECLARED_FIELD, stack, printClass(fieldType), printClass(clazz), fieldName);
   }
 
   @Override
@@ -149,8 +152,9 @@ public class ReflectiveOperationJsonLogger implements ReflectiveOperationReceive
   }
 
   @Override
-  public void onClassGetMethod(Stack stack, Class<?> clazz, String method, Class<?>... parameters) {
-    output(CLASS_GET_METHOD, stack, methodToString(clazz, method, parameters));
+  public void onClassGetMethod(
+      Stack stack, Class<?> returnType, Class<?> clazz, String method, Class<?>... parameters) {
+    output(CLASS_GET_METHOD, stack, methodToString(returnType, clazz, method, parameters));
   }
 
   @Override
@@ -159,8 +163,8 @@ public class ReflectiveOperationJsonLogger implements ReflectiveOperationReceive
   }
 
   @Override
-  public void onClassGetField(Stack stack, Class<?> clazz, String fieldName) {
-    output(CLASS_GET_FIELD, stack, printClass(clazz), fieldName);
+  public void onClassGetField(Stack stack, Class<?> fieldType, Class<?> clazz, String fieldName) {
+    output(CLASS_GET_FIELD, stack, printClass(fieldType), printClass(clazz), fieldName);
   }
 
   @Override

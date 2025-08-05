@@ -28,13 +28,14 @@ public class EmptyReflectiveOperationReceiver implements ReflectiveOperationRece
 
   @Override
   public void onClassGetDeclaredMethod(
-      Stack stack, Class<?> clazz, String method, Class<?>... parameters) {}
+      Stack stack, Class<?> returnType, Class<?> clazz, String method, Class<?>... parameters) {}
 
   @Override
   public void onClassGetDeclaredMethods(Stack stack, Class<?> clazz) {}
 
   @Override
-  public void onClassGetDeclaredField(Stack stack, Class<?> clazz, String fieldName) {}
+  public void onClassGetDeclaredField(
+      Stack stack, Class<?> fieldType, Class<?> clazz, String fieldName) {}
 
   @Override
   public void onClassGetDeclaredFields(Stack stack, Class<?> clazz) {}
@@ -47,13 +48,13 @@ public class EmptyReflectiveOperationReceiver implements ReflectiveOperationRece
 
   @Override
   public void onClassGetMethod(
-      Stack stack, Class<?> clazz, String method, Class<?>... parameters) {}
+      Stack stack, Class<?> returnType, Class<?> clazz, String method, Class<?>... parameters) {}
 
   @Override
   public void onClassGetMethods(Stack stack, Class<?> clazz) {}
 
   @Override
-  public void onClassGetField(Stack stack, Class<?> clazz, String fieldName) {}
+  public void onClassGetField(Stack stack, Class<?> fieldType, Class<?> clazz, String fieldName) {}
 
   @Override
   public void onClassGetFields(Stack stack, Class<?> clazz) {}
