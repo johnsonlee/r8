@@ -121,6 +121,27 @@ public class KeepInfoCollectionExported {
     classInfos = mapBuilder.build();
   }
 
+  public boolean hasKeepClassInfo(TypeReference typeReference) {
+    return classInfos.containsKey(typeReference);
+  }
+
+  public boolean hasKeepMethodInfo(MethodReference methodReference) {
+    if (!classInfos.containsKey(methodReference.getHolderClass())) {
+      return false;
+    }
+    return classInfos
+        .get(methodReference.getHolderClass())
+        .methodInfos
+        .containsKey(methodReference);
+  }
+
+  public boolean hasKeepFieldInfo(FieldReference fieldReference) {
+    if (!classInfos.containsKey(fieldReference.getHolderClass())) {
+      return false;
+    }
+    return classInfos.get(fieldReference.getHolderClass()).fieldInfos.containsKey(fieldReference);
+  }
+
   private ExportedClassInfo.Builder getBuilder(
       Map<TypeReference, ExportedClassInfo.Builder> classInfosBuilder,
       TypeReference typeReference) {

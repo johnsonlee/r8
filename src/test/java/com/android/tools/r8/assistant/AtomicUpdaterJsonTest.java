@@ -16,6 +16,7 @@ import com.android.tools.r8.assistant.postprocessing.model.AtomicFieldUpdaterNew
 import com.android.tools.r8.assistant.postprocessing.model.ReflectiveEvent;
 import com.android.tools.r8.assistant.runtime.ReflectiveOperationJsonLogger;
 import com.android.tools.r8.graph.DexItemFactory;
+import com.android.tools.r8.shaking.KeepInfoCollectionExported;
 import com.android.tools.r8.utils.Box;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -71,6 +72,22 @@ public class AtomicUpdaterJsonTest extends TestBase {
     AtomicFieldUpdaterNewUpdater updater2 =
         reflectiveEvents.get(2).asAtomicFieldUpdaterNewUpdater();
     assertEquals("java.lang.Object " + name + ".o", updater2.getField().toSourceString());
+
+    Box<KeepInfoCollectionExported> keepInfoBox = new Box<>();
+    testForR8(parameters)
+        .addProgramClasses(AtomicUpdaterTestClass.class, Foo.class, Bar.class)
+        .addOptionsModification(
+            opt -> opt.testing.finalKeepInfoCollectionConsumer = keepInfoBox::set)
+        .setMinApi(parameters)
+        .addKeepMainRule(AtomicUpdaterTestClass.class)
+        .run(parameters.getRuntime(), AtomicUpdaterTestClass.class)
+        .assertSuccessWithOutputLines("42", "42", "42");
+
+    KeepInfoCollectionExported keepInfoCollectionExported = keepInfoBox.get();
+
+    assertTrue(keepInfoCollectionExported.hasKeepFieldInfo(updater0.getField().asFieldReference()));
+    assertTrue(keepInfoCollectionExported.hasKeepFieldInfo(updater1.getField().asFieldReference()));
+    assertTrue(keepInfoCollectionExported.hasKeepFieldInfo(updater2.getField().asFieldReference()));
   }
 
   public static class Instrumentation extends ReflectiveOperationJsonLogger {
