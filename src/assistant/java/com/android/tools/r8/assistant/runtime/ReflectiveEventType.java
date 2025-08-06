@@ -4,6 +4,9 @@
 
 package com.android.tools.r8.assistant.runtime;
 
+import com.android.tools.r8.keepanno.annotations.KeepForApi;
+
+@KeepForApi
 public enum ReflectiveEventType {
   CLASS_NEW_INSTANCE,
   CLASS_GET_DECLARED_METHOD,
