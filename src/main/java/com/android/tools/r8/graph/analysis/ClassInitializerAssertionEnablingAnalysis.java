@@ -174,8 +174,8 @@ public class ClassInitializerAssertionEnablingAnalysis
 
   @SuppressWarnings("ReferenceEquality")
   private boolean hasJavacClinitAssertionCode(CfCode code) {
-    for (int i = 0; i < code.getInstructions().size(); i++) {
-      CfInstruction instruction = code.getInstructions().get(i);
+    for (int i = 0; i < code.getInstructionCount(); i++) {
+      CfInstruction instruction = code.getInstruction(i);
       if (instruction.isInvoke()) {
         // Check for the generated instruction sequence by looking for the call to
         // desiredAssertionStatus() followed by the expected instruction types and finally checking

@@ -124,7 +124,7 @@ public class DefaultInstanceInitializerCode extends Code
         || !cfCode.getTryCatchRanges().isEmpty()) {
       return false;
     }
-    if (cfCode.getInstructions().size() > 6) {
+    if (cfCode.getInstructionCount() > 6) {
       // Default instance initializers typically have the following instruction sequence:
       // [CfLabel, CfPosition, CfLoad, CfInvoke, CfReturnVoid, CfLabel].
       return false;
