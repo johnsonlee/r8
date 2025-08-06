@@ -159,7 +159,11 @@ public class PreventClassMethodAndDefaultMethodCollisions extends MultiClassPoli
 
     DexMethodSignatureSet signatures = DexMethodSignatureSet.createLinked();
     for (DexProgramClass clazz : group) {
-      signatures.addAllMethods(clazz.methods());
+      for (DexEncodedMethod method : clazz.methods()) {
+        if (!method.isInitializer()) {
+          signatures.add(method);
+        }
+      }
     }
 
     Map<DispatchSignature, HorizontalMergeGroup> newGroups = new LinkedHashMap<>();
