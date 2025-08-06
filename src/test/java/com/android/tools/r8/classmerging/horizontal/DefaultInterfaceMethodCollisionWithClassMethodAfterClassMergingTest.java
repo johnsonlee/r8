@@ -12,6 +12,7 @@ import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.apimodel.ApiModelingTestHelper;
 import com.android.tools.r8.utils.AndroidApiLevel;
+import com.android.tools.r8.utils.codeinspector.HorizontallyMergedClassesInspector;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -57,12 +58,7 @@ public class DefaultInterfaceMethodCollisionWithClassMethodAfterClassMergingTest
         .addLibraryFiles(ToolHelper.getMostRecentAndroidJar())
         .addKeepClassAndMembersRules(Main.class)
         .addHorizontallyMergedClassesInspector(
-            inspector ->
-                inspector
-                    .applyIf(
-                        !parameters.canUseDefaultAndStaticInterfaceMethods(),
-                        i -> i.assertIsCompleteMergeGroup(A.class, B.class))
-                    .assertNoOtherClassesMerged())
+            HorizontallyMergedClassesInspector::assertNoClassesMerged)
         .apply(ApiModelingTestHelper.setMockApiLevelForClass(I.class, AndroidApiLevel.B))
         .apply(
             ApiModelingTestHelper.setMockApiLevelForMethod(
@@ -73,7 +69,7 @@ public class DefaultInterfaceMethodCollisionWithClassMethodAfterClassMergingTest
         .applyIf(
             parameters.canUseDefaultAndStaticInterfaceMethods(),
             rr -> rr.assertSuccessWithOutputLines("I", "B"),
-            rr -> rr.assertSuccessWithOutputLines("B", "B"));
+            rr -> rr.assertSuccessWithOutputLines("Caught java.lang.AbstractMethodError", "B"));
   }
 
   static class Main {
@@ -81,7 +77,7 @@ public class DefaultInterfaceMethodCollisionWithClassMethodAfterClassMergingTest
     public static void main(String[] args) {
       try {
         test(new A());
-      } catch (Exception e) {
+      } catch (AbstractMethodError e) {
         System.out.println("Caught " + e.getClass().getName());
       }
       test(new B());
