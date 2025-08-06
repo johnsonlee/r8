@@ -72,6 +72,7 @@ import com.android.tools.r8.ir.desugar.desugaredlibrary.LibraryDesugaringOptions
 import com.android.tools.r8.ir.desugar.nest.Nest;
 import com.android.tools.r8.ir.optimize.Inliner;
 import com.android.tools.r8.ir.optimize.enums.EnumDataMap;
+import com.android.tools.r8.ir.optimize.outliner.exceptions.ThrowBlockOutlinerOptions;
 import com.android.tools.r8.metadata.D8BuildMetadata;
 import com.android.tools.r8.metadata.R8BuildMetadata;
 import com.android.tools.r8.naming.ClassNameMapper;
@@ -1042,6 +1043,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
       new VerticalClassMergerOptions(this);
   private final OpenClosedInterfacesOptions openClosedInterfacesOptions =
       new OpenClosedInterfacesOptions();
+  private final ThrowBlockOutlinerOptions throwBlockOutlinerOptions =
+      new ThrowBlockOutlinerOptions();
   private final ProtoShrinkingOptions protoShrinking = new ProtoShrinkingOptions();
   private final RedundantBridgeRemovalOptions redundantBridgeRemovalOptions =
       new RedundantBridgeRemovalOptions();
@@ -1194,6 +1197,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   public SyntheticItemsOptions getSyntheticItemsOptions() {
     return syntheticItemsOptions;
+  }
+
+  public ThrowBlockOutlinerOptions getThrowBlockOutlinerOptions() {
+    return throwBlockOutlinerOptions;
   }
 
   public TraceReferencesOptions getTraceReferencesOptions() {

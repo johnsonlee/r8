@@ -124,6 +124,11 @@ public class InvokeDirect extends InvokeMethodWithReceiver {
   }
 
   @Override
+  public InvokeDirect asInvokeConstructor(DexItemFactory dexItemFactory) {
+    return isInvokeConstructor(dexItemFactory) ? this : null;
+  }
+
+  @Override
   public boolean isInvokeConstructor(DexItemFactory dexItemFactory) {
     return getInvokedMethod().isInstanceInitializer(dexItemFactory);
   }

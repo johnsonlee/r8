@@ -432,6 +432,15 @@ public abstract class TypeElement {
     return fromDexType(appView.dexItemFactory().stringType, nullability, appView).asClassType();
   }
 
+  public static ClassTypeElement fromDexClassType(
+      DexType type, Nullability nullability, AppView<?> appView) {
+    assert type.isClassType();
+    return appView
+        .dexItemFactory()
+        .createReferenceTypeElement(type, nullability, appView)
+        .asClassType();
+  }
+
   public static TypeElement fromDexType(DexType type, Nullability nullability, AppView<?> appView) {
     return fromDexType(type, nullability, appView, false);
   }

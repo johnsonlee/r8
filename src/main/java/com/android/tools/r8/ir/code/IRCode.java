@@ -12,6 +12,7 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DebugLocalInfo;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedMethod;
+import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -165,6 +166,14 @@ public class IRCode implements IRControlFlowGraph, ValueFactory {
 
   public ProgramMethod context() {
     return method;
+  }
+
+  public DexMethod reference() {
+    return context().getReference();
+  }
+
+  public boolean isD8R8Synthesized() {
+    return context().getDefinition().isD8R8Synthesized();
   }
 
   @Deprecated

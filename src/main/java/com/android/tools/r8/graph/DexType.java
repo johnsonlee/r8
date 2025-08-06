@@ -7,6 +7,7 @@ import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 
 import com.android.tools.r8.dex.IndexedItemCollection;
 import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
 import com.android.tools.r8.ir.analysis.type.DynamicTypeWithUpperBound;
 import com.android.tools.r8.ir.analysis.type.Nullability;
@@ -85,8 +86,20 @@ public class DexType extends DexReference implements NamingLensComparable<DexTyp
     return DynamicType.create(appView, toTypeElement(appView, nullability));
   }
 
+  public ClassTypeElement toNonNullClassTypeElement(AppView<?> appView) {
+    return toClassTypeElement(appView, Nullability.definitelyNotNull());
+  }
+
   public TypeElement toNonNullTypeElement(AppView<?> appView) {
     return toTypeElement(appView, Nullability.definitelyNotNull());
+  }
+
+  public ClassTypeElement toClassTypeElement(AppView<?> appView) {
+    return toClassTypeElement(appView, Nullability.maybeNull());
+  }
+
+  public ClassTypeElement toClassTypeElement(AppView<?> appView, Nullability nullability) {
+    return TypeElement.fromDexClassType(this, nullability, appView);
   }
 
   public TypeElement toTypeElement(AppView<?> appView) {

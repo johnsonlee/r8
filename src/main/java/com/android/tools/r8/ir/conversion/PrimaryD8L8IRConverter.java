@@ -32,6 +32,7 @@ import com.android.tools.r8.ir.desugar.itf.L8InnerOuterAttributeEraser;
 import com.android.tools.r8.ir.desugar.lambda.LambdaDeserializationMethodRemover;
 import com.android.tools.r8.ir.optimize.ListIterationRewriter;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
+import com.android.tools.r8.ir.optimize.outliner.exceptions.ThrowBlockOutliner;
 import com.android.tools.r8.position.MethodPosition;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.threading.ThreadingModule;
@@ -280,6 +281,9 @@ public class PrimaryD8L8IRConverter extends IRConverter {
     ClassConverterResult classConverterResult =
         ClassConverter.create(appView, this, methodProcessor, interfaceProcessor)
             .convertClasses(executorService, timing);
+
+    // Process computed throw outlines.
+    appView.withThrowBlockOutliner(ThrowBlockOutliner::tearDownScanner);
 
     // The synthesis of accessibility bridges in nest based access desugaring will schedule and
     // await the processing of synthesized methods.

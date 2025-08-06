@@ -1434,6 +1434,10 @@ public abstract class Instruction
     return null;
   }
 
+  public InvokeDirect asInvokeConstructor(DexItemFactory dexItemFactory) {
+    return null;
+  }
+
   public boolean isInvokeConstructor(DexItemFactory dexItemFactory) {
     return false;
   }

@@ -37,6 +37,7 @@ import com.android.tools.r8.ir.optimize.info.MethodResolutionOptimizationInfoCol
 import com.android.tools.r8.ir.optimize.info.field.InstanceFieldInitializationInfoFactory;
 import com.android.tools.r8.ir.optimize.library.LibraryMemberOptimizer;
 import com.android.tools.r8.ir.optimize.library.LibraryMethodSideEffectModelCollection;
+import com.android.tools.r8.ir.optimize.outliner.exceptions.ThrowBlockOutliner;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.naming.SeedMapper;
 import com.android.tools.r8.optimize.MemberRebindingIdentityLens;
@@ -138,6 +139,7 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
   private ArgumentPropagator argumentPropagator;
   private final LibraryMemberOptimizer libraryMemberOptimizer;
   private final ProtoShrinker protoShrinker;
+  private ThrowBlockOutliner throwBlockOutliner;
 
   // Optimization results.
   private boolean allCodeProcessed = false;
@@ -218,6 +220,7 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
     if (enableWholeProgramOptimizations() && options().isOptimizedResourceShrinking()) {
       resourceShrinkerState = ResourceShrinkerUtils.createResourceShrinkerState(this);
     }
+    this.throwBlockOutliner = ThrowBlockOutliner.create(this);
     timing.end();
     this.libraryMethodSideEffectModelCollection =
         timing.time("Library side-effects", () -> new LibraryMethodSideEffectModelCollection(this));
@@ -583,6 +586,17 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
       ThrowingConsumer<ArgumentPropagator, E> consumer) throws E {
     if (argumentPropagator != null) {
       consumer.accept(argumentPropagator);
+    }
+  }
+
+  public void unsetThrowBlockOutliner() {
+    throwBlockOutliner = null;
+  }
+
+  public <E extends Throwable> void withThrowBlockOutliner(
+      ThrowingConsumer<ThrowBlockOutliner, E> consumer) throws E {
+    if (throwBlockOutliner != null) {
+      consumer.accept(throwBlockOutliner);
     }
   }
 
