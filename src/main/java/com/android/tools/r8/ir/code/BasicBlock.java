@@ -58,6 +58,7 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 /**
  * Basic block abstraction.
@@ -811,6 +812,10 @@ public class BasicBlock {
             return result;
           }
         };
+  }
+
+  public Stream<Instruction> streamInstructions() {
+    return getInstructions().stream();
   }
 
   public boolean isEmpty() {

@@ -10,12 +10,8 @@ import static org.junit.Assert.assertTrue;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.graph.DexMethod;
-import com.android.tools.r8.lightir.LirCode;
 import com.android.tools.r8.utils.BooleanBox;
-import com.google.common.base.Equivalence.Wrapper;
-import com.google.common.collect.Multiset;
-import java.util.Map;
+import java.util.Collection;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -56,9 +52,11 @@ public class ThrowBlockOutlinerNoArgumentsTest extends TestBase {
 
   private void inspect(ThrowBlockOutlinerScanner scanner) {
     // Verify that we have a single outline with three uses.
-    Map<Wrapper<LirCode<?>>, Multiset<DexMethod>> outlines = scanner.getOutlines();
+    Collection<ThrowBlockOutline> outlines = scanner.getOutlines();
     assertEquals(1, outlines.size());
-    assertEquals(3, outlines.values().iterator().next().size());
+
+    ThrowBlockOutline outline = outlines.iterator().next();
+    assertEquals(3, outline.getNumberOfUsers());
   }
 
   static class Main {

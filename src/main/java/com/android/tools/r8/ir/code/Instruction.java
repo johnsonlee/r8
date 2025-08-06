@@ -99,6 +99,18 @@ public abstract class Instruction
     return next;
   }
 
+  @SuppressWarnings({"TypeParameterUnusedInFormals", "unchecked"})
+  public <T extends Instruction> T nextUntilInclusive(Predicate<Instruction> predicate) {
+    Instruction current = this;
+    do {
+      if (predicate.test(current)) {
+        return (T) current;
+      }
+      current = current.getNext();
+    } while (current != null);
+    return null;
+  }
+
   @Override
   public final Position getPosition() {
     assert position != null;
@@ -1195,6 +1207,14 @@ public abstract class Instruction
   }
 
   public Throw asThrow() {
+    return null;
+  }
+
+  public boolean isThrowBlockOutlineMarker() {
+    return false;
+  }
+
+  public ThrowBlockOutlineMarker asThrowBlockOutlineMarker() {
     return null;
   }
 

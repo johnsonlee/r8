@@ -97,12 +97,14 @@ import com.android.tools.r8.ir.code.StoreStoreFence;
 import com.android.tools.r8.ir.code.StringSwitch;
 import com.android.tools.r8.ir.code.Sub;
 import com.android.tools.r8.ir.code.Throw;
+import com.android.tools.r8.ir.code.ThrowBlockOutlineMarker;
 import com.android.tools.r8.ir.code.Ushr;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.ir.code.Xor;
 import com.android.tools.r8.ir.conversion.ExtraParameter;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
+import com.android.tools.r8.ir.optimize.outliner.exceptions.ThrowBlockOutline;
 import com.android.tools.r8.lightir.LirBuilder.IntSwitchPayload;
 import com.android.tools.r8.lightir.LirBuilder.StringSwitchPayload;
 import com.android.tools.r8.lightir.LirCode.PositionEntry;
@@ -853,6 +855,11 @@ public class Lir2IRConverter {
     public void onThrow(EV exception) {
       addInstruction(new Throw(getValue(exception)));
       closeCurrentBlock();
+    }
+
+    @Override
+    public void onThrowBlockOutlineMarker(ThrowBlockOutline outline) {
+      addInstruction(new ThrowBlockOutlineMarker(outline));
     }
 
     @Override

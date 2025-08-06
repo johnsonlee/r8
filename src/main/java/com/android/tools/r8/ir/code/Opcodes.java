@@ -80,4 +80,5 @@ public interface Opcodes {
   int RESOURCE_CONST_NUMBER = 71;
   int ORIGINAL_FIELD_WITNESS = 72;
   int STORE_STORE_FENCE = 73;
+  int THROW_BLOCK_OUTLINE_MARKER = 74;
 }

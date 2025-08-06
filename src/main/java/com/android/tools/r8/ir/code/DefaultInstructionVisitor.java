@@ -365,6 +365,11 @@ public abstract class DefaultInstructionVisitor<T> implements InstructionVisitor
   }
 
   @Override
+  public T visit(ThrowBlockOutlineMarker instruction) {
+    return null;
+  }
+
+  @Override
   public T visit(UnusedArgument instruction) {
     return null;
   }

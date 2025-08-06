@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize.outliner.exceptions;
 
-import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 import static java.util.Collections.emptyList;
 
 import com.android.tools.r8.graph.AppView;
@@ -21,16 +20,17 @@ import com.android.tools.r8.ir.code.NumberGenerator;
 import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.code.Position.SyntheticPosition;
 import com.android.tools.r8.ir.code.Throw;
+import com.android.tools.r8.ir.code.ThrowBlockOutlineMarker;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.IRToLirFinalizer;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
+import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
 import com.android.tools.r8.lightir.LirCode;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.base.Equivalence.Wrapper;
-import com.google.common.collect.ConcurrentHashMultiset;
-import com.google.common.collect.Multiset;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,7 +44,7 @@ public class ThrowBlockOutlinerScanner {
   private final AppView<?> appView;
   private final DexItemFactory factory;
 
-  private final Map<Wrapper<LirCode<?>>, Multiset<DexMethod>> outlines = new ConcurrentHashMap<>();
+  private final Map<Wrapper<LirCode<?>>, ThrowBlockOutline> outlines = new ConcurrentHashMap<>();
 
   ThrowBlockOutlinerScanner(AppView<?> appView) {
     this.appView = appView;
@@ -52,13 +52,20 @@ public class ThrowBlockOutlinerScanner {
   }
 
   public void run(IRCode code) {
+    assert !code.metadata().mayHaveThrowBlockOutlineMarker();
     for (BasicBlock block : getThrowBlocks(code)) {
       processThrowBlock(code, block);
     }
+    if (code.metadata().mayHaveThrowBlockOutlineMarker()) {
+      assert code.getConversionOptions().isGeneratingDex();
+      code.mutateConversionOptions(MutableMethodConversionOptions::setIsGeneratingLir);
+    } else {
+      assert code.streamInstructions().noneMatch(Instruction::isThrowBlockOutlineMarker);
+    }
   }
 
-  public Map<Wrapper<LirCode<?>>, Multiset<DexMethod>> getOutlines() {
-    return outlines;
+  public Collection<ThrowBlockOutline> getOutlines() {
+    return outlines.values();
   }
 
   private List<BasicBlock> getThrowBlocks(IRCode code) {
@@ -79,24 +86,32 @@ public class ThrowBlockOutlinerScanner {
     // Recursively build up the outline method. On successful outline creation, the resulting
     // LirCode is passed to the continuation function.
     processThrowInstruction(
-        code,
         block,
         block.exit().asThrow(),
-        lirCode -> {
+        outlineBuilder -> {
           // On successful outline creation, store the outline for later processing.
+          LirCode<?> lirCode = outlineBuilder.build(appView, code.context());
           Wrapper<LirCode<?>> lirCodeWrapper =
               ThrowBlockOutlinerLirCodeEquivalence.get().wrap(lirCode);
-          outlines
-              .computeIfAbsent(lirCodeWrapper, ignoreKey(ConcurrentHashMultiset::create))
-              .add(code.reference());
+          ThrowBlockOutline outline =
+              outlines.computeIfAbsent(lirCodeWrapper, w -> new ThrowBlockOutline(w.get()));
+          outline.addUser(code.reference());
+
+          // Insert a synthetic marker instruction that references the outline so that we know where
+          // to materialize the outline call.
+          Instruction insertionPoint = outlineBuilder.getFirstOutlinedInstruction();
+          assert insertionPoint.getBlock() == block;
+          ThrowBlockOutlineMarker marker =
+              ThrowBlockOutlineMarker.builder()
+                  .setOutline(outline)
+                  .setPosition(Position.none())
+                  .build();
+          block.listIterator(insertionPoint).add(marker);
         });
   }
 
   private void processThrowInstruction(
-      IRCode code,
-      BasicBlock throwBlock,
-      Throw throwInstruction,
-      Consumer<LirCode<?>> continuation) {
+      BasicBlock throwBlock, Throw throwInstruction, Consumer<OutlineBuilder> continuation) {
     Value exceptionValue = throwInstruction.exception();
     if (!exceptionValue.isDefinedByInstructionSatisfying(
         i -> i.isNewInstance() && i.getBlock() == throwBlock)) {
@@ -114,8 +129,7 @@ public class ThrowBlockOutlinerScanner {
                   .setExceptionValue(outlinedExceptionValue)
                   .setPosition(Position.syntheticNone())
                   .build());
-          LirCode<?> lirCode = outlineBuilder.build(appView, code.context());
-          continuation.accept(lirCode);
+          continuation.accept(outlineBuilder);
         });
   }
 
@@ -155,7 +169,7 @@ public class ThrowBlockOutlinerScanner {
     if (newInstance.outValue() != throwBlock.exit().asThrow().exception()) {
       return;
     }
-    OutlineBuilder outlineBuilder = new OutlineBuilder();
+    OutlineBuilder outlineBuilder = new OutlineBuilder(newInstance);
     NewInstance outlinedNewInstance =
         NewInstance.builder()
             .setFreshOutValue(
@@ -171,6 +185,8 @@ public class ThrowBlockOutlinerScanner {
 
   private static class OutlineBuilder {
 
+    private final Instruction firstOutlinedInstruction;
+
     private final BasicBlock outlinedBlock = new BasicBlock(metadata);
 
     // Map from non-outlined values to their corresponding outlined values.
@@ -179,7 +195,8 @@ public class ThrowBlockOutlinerScanner {
     private final NumberGenerator blockNumberGenerator = new NumberGenerator();
     private final NumberGenerator valueNumberGenerator = new NumberGenerator();
 
-    OutlineBuilder() {
+    OutlineBuilder(Instruction firstOutlinedInstruction) {
+      this.firstOutlinedInstruction = firstOutlinedInstruction;
       outlinedBlock.setNumber(blockNumberGenerator.next());
     }
 
@@ -190,6 +207,10 @@ public class ThrowBlockOutlinerScanner {
     void map(Value value, Value outlinedValue) {
       assert !outlinedValues.containsKey(value);
       outlinedValues.put(value, outlinedValue);
+    }
+
+    Instruction getFirstOutlinedInstruction() {
+      return firstOutlinedInstruction;
     }
 
     Value getOutlinedValue(Value value) {
