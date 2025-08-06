@@ -5,13 +5,14 @@ package com.android.tools.r8.ir.optimize.outliner.exceptions;
 
 import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.graph.AppView;
+import java.util.Collection;
 import java.util.function.Consumer;
 
 public class ThrowBlockOutlinerOptions {
 
   public boolean enable = false;
 
-  public Consumer<ThrowBlockOutlinerScanner> scannerConsumerForTesting = null;
+  public Consumer<Collection<ThrowBlockOutline>> outlineConsumerForTesting = null;
 
   public boolean isEnabled(AppView<?> appView) {
     if (!appView.options().isGeneratingDex() || !enable) {

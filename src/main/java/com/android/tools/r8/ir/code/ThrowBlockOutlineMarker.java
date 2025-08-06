@@ -28,6 +28,10 @@ public class ThrowBlockOutlineMarker extends Instruction {
     return new Builder();
   }
 
+  public ThrowBlockOutline getOutline() {
+    return outline;
+  }
+
   @Override
   public DeadInstructionResult canBeDeadCode(AppView<?> appView, IRCode code) {
     return DeadInstructionResult.notDead();

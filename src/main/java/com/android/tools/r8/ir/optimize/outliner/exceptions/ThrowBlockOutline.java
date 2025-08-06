@@ -80,6 +80,10 @@ public class ThrowBlockOutline implements LirConstant {
     throw new Unreachable();
   }
 
+  public boolean isMaterialized() {
+    return materializedOutlineMethod != null;
+  }
+
   public void materialize(AppView<?> appView, MethodProcessingContext methodProcessingContext) {
     SyntheticItems syntheticItems = appView.getSyntheticItems();
     DexProto emptyProto = appView.dexItemFactory().objectMembers.constructor.getProto();

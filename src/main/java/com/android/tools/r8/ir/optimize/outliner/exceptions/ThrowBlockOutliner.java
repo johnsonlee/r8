@@ -56,12 +56,12 @@ public class ThrowBlockOutliner {
   public void tearDownScanner(ExecutorService executorService) throws ExecutionException {
     // Unset the scanner, which is responsible for computing outline candidates.
     assert scanner != null;
-    assert supplyScannerConsumerForTesting();
     Collection<ThrowBlockOutline> outlines = scanner.getOutlines();
     scanner = null;
 
     // Create outlines.
     materializeOutlines(outlines, executorService);
+    assert supplyOutlineConsumerForTesting(outlines);
 
     // Convert LIR to DEX.
     processMethods(outlines, executorService);
@@ -153,11 +153,11 @@ public class ThrowBlockOutliner {
     return methodsToProcess;
   }
 
-  private boolean supplyScannerConsumerForTesting() {
-    Consumer<ThrowBlockOutlinerScanner> consumer =
-        appView.options().getThrowBlockOutlinerOptions().scannerConsumerForTesting;
+  private boolean supplyOutlineConsumerForTesting(Collection<ThrowBlockOutline> outlines) {
+    Consumer<Collection<ThrowBlockOutline>> consumer =
+        appView.options().getThrowBlockOutlinerOptions().outlineConsumerForTesting;
     if (consumer != null) {
-      consumer.accept(scanner);
+      consumer.accept(outlines);
     }
     return true;
   }

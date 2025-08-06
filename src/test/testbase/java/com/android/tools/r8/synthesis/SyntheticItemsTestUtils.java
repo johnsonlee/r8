@@ -101,6 +101,10 @@ public class SyntheticItemsTestUtils {
         methodWithReceiverForForwarding.getMethodDescriptor());
   }
 
+  public static ClassReference syntheticThrowBlockOutlineClass(Class<?> clazz, int id) {
+    return syntheticClass(clazz, naming.THROW_BLOCK_OUTLINE, id);
+  }
+
   public static ClassReference syntheticOutlineClass(Class<?> clazz, int id) {
     return syntheticClass(clazz, naming.OUTLINE, id);
   }
