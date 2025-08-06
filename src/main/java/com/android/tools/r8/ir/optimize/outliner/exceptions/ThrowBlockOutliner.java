@@ -3,14 +3,26 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize.outliner.exceptions;
 
+import static com.android.tools.r8.utils.MapUtils.ignoreKey;
+
+import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
+import com.android.tools.r8.contexts.CompilationContext.ProcessorContext;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.IRCode;
+import com.android.tools.r8.lightir.LirConstant;
+import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.ThreadUtils;
+import com.android.tools.r8.utils.collections.ProgramMethodMap;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.google.common.collect.Sets;
+import it.unimi.dsi.fastutil.objects.Reference2IntMap;
+import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -48,18 +60,74 @@ public class ThrowBlockOutliner {
     Collection<ThrowBlockOutline> outlines = scanner.getOutlines();
     scanner = null;
 
+    // Create outlines.
+    materializeOutlines(outlines, executorService);
+
     // Convert LIR to DEX.
-    processCallees(outlines, executorService);
+    processMethods(outlines, executorService);
 
     // TODO(b/434769547): Instead of unsetting the outliner here, we should compute a specification
     //  of the outlining that needs to happen and the methods that need to be reprocessed.
     appView.unsetThrowBlockOutliner();
   }
 
-  private void processCallees(
+  private void materializeOutlines(
       Collection<ThrowBlockOutline> outlines, ExecutorService executorService)
       throws ExecutionException {
-    ProgramMethodSet methodsToProcess = getMethodToReprocess(outlines);
+    // Find the outlines that we need to synthesize from each method.
+    ProgramMethodMap<List<ThrowBlockOutline>> synthesizingContexts = ProgramMethodMap.create();
+    for (ThrowBlockOutline outline : outlines) {
+      if (outline.getUsers().size() > 1) {
+        ProgramMethod synthesizingContext = outline.getSynthesizingContext(appView);
+        synthesizingContexts
+            .computeIfAbsent(synthesizingContext, ignoreKey(ArrayList::new))
+            .add(outline);
+      }
+    }
+
+    // Sort the outlines per synthesizing context so that the synthesis order is deterministic.
+    // We use the constant pool index of the outline as sorting key.
+    synthesizingContexts.forEach(
+        (synthesizingContext, outlinesFromSynthesizingContext) -> {
+          if (outlinesFromSynthesizingContext.size() == 1) {
+            return;
+          }
+          LirConstant[] constantPool =
+              synthesizingContext.getDefinition().getCode().asLirCode().getConstantPool();
+          Reference2IntMap<ThrowBlockOutline> outlineConstantPoolIndices =
+              new Reference2IntOpenHashMap<>();
+          for (int i = 0; i < constantPool.length; i++) {
+            LirConstant constant = constantPool[i];
+            if (constant instanceof ThrowBlockOutline) {
+              outlineConstantPoolIndices.put((ThrowBlockOutline) constant, i);
+            }
+          }
+          assert outlinesFromSynthesizingContext.stream()
+              .allMatch(outlineConstantPoolIndices::containsKey);
+          ListUtils.destructiveSort(
+              outlinesFromSynthesizingContext,
+              Comparator.comparingInt(outlineConstantPoolIndices::getInt));
+        });
+
+    // Synthesize the outlines concurrently.
+    ProcessorContext processorContext = appView.createProcessorContext();
+    ThreadUtils.processMap(
+        synthesizingContexts,
+        (synthesizingContext, outlinesFromSynthesizingContext) -> {
+          MethodProcessingContext methodProcessingContext =
+              processorContext.createMethodProcessingContext(synthesizingContext);
+          for (ThrowBlockOutline outline : outlinesFromSynthesizingContext) {
+            outline.materialize(appView, methodProcessingContext);
+          }
+        },
+        appView.options().getThreadingModule(),
+        executorService);
+  }
+
+  private void processMethods(
+      Collection<ThrowBlockOutline> outlines, ExecutorService executorService)
+      throws ExecutionException {
+    ProgramMethodSet methodsToProcess = getMethodsToReprocess(outlines);
     ThrowBlockOutlineMarkerRewriter rewriter = new ThrowBlockOutlineMarkerRewriter(appView);
     ThreadUtils.processItems(
         methodsToProcess,
@@ -68,7 +136,7 @@ public class ThrowBlockOutliner {
         executorService);
   }
 
-  private ProgramMethodSet getMethodToReprocess(Collection<ThrowBlockOutline> outlines) {
+  private ProgramMethodSet getMethodsToReprocess(Collection<ThrowBlockOutline> outlines) {
     ProgramMethodSet methodsToProcess = ProgramMethodSet.create();
     Set<DexMethod> seenUsers = Sets.newIdentityHashSet();
     for (ThrowBlockOutline outline : outlines) {
@@ -77,6 +145,9 @@ public class ThrowBlockOutliner {
           ProgramMethod methodToProcess = appView.definitionFor(user).asProgramMethod();
           methodsToProcess.add(methodToProcess);
         }
+      }
+      if (outline.getMaterializedOutlineMethod() != null) {
+        methodsToProcess.add(outline.getMaterializedOutlineMethod());
       }
     }
     return methodsToProcess;

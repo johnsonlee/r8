@@ -70,7 +70,9 @@ public class ArtProfileOptions {
     return enableCompletenessCheckForTesting
         && !options.getLibraryDesugaringOptions().isDesugaredLibraryCompilation()
         && !options.getStartupOptions().isStartupCompletenessCheckForTestingEnabled()
-        && !options.getInstrumentationOptions().isInstrumentationEnabled();
+        && !options.getInstrumentationOptions().isInstrumentationEnabled()
+        // TODO(b/434769547): Add support for throw block outlines.
+        && !options.getThrowBlockOutlinerOptions().enable;
   }
 
   public boolean isNopCheckForTestingEnabled() {

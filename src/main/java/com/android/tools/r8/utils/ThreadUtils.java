@@ -8,6 +8,7 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.threading.TaskCollection;
 import com.android.tools.r8.threading.ThreadingModule;
 import com.android.tools.r8.utils.ListUtils.ReferenceAndIntConsumer;
+import com.android.tools.r8.utils.collections.DexClassAndMemberMap;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -193,9 +194,16 @@ public class ThreadUtils {
       ThreadingModule threadingModule,
       ExecutorService executorService)
       throws ExecutionException {
+    if (items instanceof DexClassAndMemberMap) {
+      return processItemsWithResults(
+          (Consumer<T> keyConsumer) -> items.forEach((k, v) -> keyConsumer.accept(k)),
+          (key, index) -> consumer.apply(key, items.get(key)),
+          threadingModule,
+          executorService);
+    }
     return processItemsWithResults(
         items.entrySet(),
-        arg -> consumer.apply(arg.getKey(), arg.getValue()),
+        entry -> consumer.apply(entry.getKey(), entry.getValue()),
         threadingModule,
         executorService);
   }
