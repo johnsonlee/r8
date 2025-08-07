@@ -184,7 +184,7 @@ def get_dimensions(windows = False, internal = False, archive = False, jammy=Tru
         if jammy:
             dimensions["os"] = "Ubuntu-22.04"
         else:
-            dimensions["os"] = "Ubuntu-24.04"
+            dimensions["os"] = "Ubuntu-20.04"
     if internal:
         dimensions["internal"] = "true"
     elif archive:
