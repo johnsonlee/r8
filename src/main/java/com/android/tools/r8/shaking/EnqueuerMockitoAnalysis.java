@@ -67,9 +67,10 @@ class EnqueuerMockitoAnalysis
   }
 
   private boolean isReflectiveMockInvoke(DexMethod invokedMethod) {
-    return invokedMethod.holder.isIdenticalTo(mockitoType)
+    return invokedMethod.getHolderType().isIdenticalTo(mockitoType)
         && (invokedMethod.getName().isIdenticalTo(mockString)
-            || invokedMethod.getName().isIdenticalTo(spyString));
+            || invokedMethod.getName().isIdenticalTo(spyString))
+        && !invokedMethod.getParameters().isEmpty();
   }
 
   @Override
