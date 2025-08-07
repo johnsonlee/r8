@@ -10,6 +10,7 @@ import com.android.tools.r8.assistant.JavaLangClassTestClass.Bar;
 import com.android.tools.r8.assistant.JavaLangClassTestClass.Foo;
 import com.android.tools.r8.assistant.runtime.EmptyReflectiveOperationReceiver;
 import com.android.tools.r8.assistant.runtime.ReflectiveOracle.Stack;
+import com.android.tools.r8.utils.AndroidApiLevel;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -27,6 +28,12 @@ public class JavaLangClassTest extends TestBase {
     return getTestParameters().withNativeMultidexDexRuntimes().withMaximumApiLevel().build();
   }
 
+  private String names() {
+    return parameters.getApiLevel().isLessThan(AndroidApiLevel.O)
+        ? "com.android.tools.r8.assistant.JavaLangClassTestClass$Foocom.android.tools.r8.assistant.JavaLangClassTestClass.FooFoo"
+        : "com.android.tools.r8.assistant.JavaLangClassTestClass$Foocom.android.tools.r8.assistant.JavaLangClassTestClass.FooFoocom.android.tools.r8.assistant.JavaLangClassTestClass$Foo";
+  }
+
   @Test
   public void testInstrumentationWithCustomOracle() throws Exception {
     testForAssistant()
@@ -37,8 +44,48 @@ public class JavaLangClassTest extends TestBase {
         .compile()
         .run(parameters.getRuntime(), JavaLangClassTestClass.class)
         .assertSuccessWithOutputLines(
-            "5", "1", "9", "2", "3", "3", "4", "32", "30", "31", "5", "6", "7", "8", "5", "1", "12",
-            "13", "15", "22", "33", "35", "20", "21", "34", "42", "41", "40");
+            "5",
+            "1",
+            "9",
+            "fail",
+            "Object",
+            "2",
+            "barr",
+            "3",
+            "a",
+            "3",
+            "b",
+            "4",
+            "32",
+            "30",
+            "com.android.tools.r8.assistant.JavaLangClassTestClass$Foo",
+            "31",
+            "5",
+            "6",
+            "7",
+            "8",
+            names(),
+            "5",
+            "1",
+            "12",
+            "13",
+            "com.android.tools.r8.assistant",
+            "15",
+            "22",
+            "33",
+            "35",
+            "20",
+            "public int com.android.tools.r8.assistant.JavaLangClassTestClass$Bar.bar()",
+            "21",
+            "public int com.android.tools.r8.assistant.JavaLangClassTestClass$Bar.i",
+            "34",
+            "public com.android.tools.r8.assistant.JavaLangClassTestClass$Bar()",
+            "42",
+            "41",
+            "true",
+            "40",
+            "class com.android.tools.r8.assistant.JavaLangClassTestClass$Bar",
+            "END");
   }
 
   public static class Instrumentation extends EmptyReflectiveOperationReceiver {
