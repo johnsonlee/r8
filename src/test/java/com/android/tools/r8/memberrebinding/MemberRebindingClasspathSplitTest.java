@@ -8,6 +8,8 @@ import com.android.tools.r8.TestBuilder;
 import com.android.tools.r8.TestCompileResult;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ThrowableConsumer;
+import com.android.tools.r8.ToolHelper.DexVm.Version;
+import com.android.tools.r8.graph.AccessFlags;
 import com.android.tools.r8.memberrebinding.testclasses.MemberRebindingClasspathSplitTestClasses;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
@@ -24,20 +26,22 @@ public class MemberRebindingClasspathSplitTest extends TestBase {
 
   private static class TestConfig {
     private final String desc;
-
     private final ThrowableConsumer<? super TestBuilder<?, ?>> addToClasspath;
     private final ThrowableConsumer<? super TestBuilder<?, ?>> addToProgrampath;
     private final ThrowableConsumer<? super TestCompileResult<?, ?>> addToRunClasspath;
+    private final boolean expectFailure;
 
     private TestConfig(
         String desc,
         ThrowableConsumer<? super TestBuilder<?, ?>> addToClasspath,
         ThrowableConsumer<? super TestBuilder<?, ?>> addToProgrampath,
-        ThrowableConsumer<? super TestCompileResult<?, ?>> addToRunClasspath) {
+        ThrowableConsumer<? super TestCompileResult<?, ?>> addToRunClasspath,
+        boolean expectFailure) {
       this.desc = desc;
       this.addToClasspath = addToClasspath;
       this.addToProgrampath = addToProgrampath;
       this.addToRunClasspath = addToRunClasspath;
+      this.expectFailure = expectFailure;
     }
 
     @Override
@@ -66,7 +70,8 @@ public class MemberRebindingClasspathSplitTest extends TestBase {
                   b.addRunClasspathClasses(
                       MemberRebindingClasspathSplitTestClasses.getA(),
                       MemberRebindingClasspathSplitTestClasses.getB());
-                }),
+                },
+                false),
             new TestConfig(
                 "Both A and B on classpath, m() bridge removed from B",
                 b -> {
@@ -83,7 +88,8 @@ public class MemberRebindingClasspathSplitTest extends TestBase {
                       transformer(MemberRebindingClasspathSplitTestClasses.getB())
                           .removeMethodsWithName("m")
                           .transform());
-                }),
+                },
+                false),
             new TestConfig(
                 "A on classpath and B on programpath",
                 b -> {
@@ -94,7 +100,8 @@ public class MemberRebindingClasspathSplitTest extends TestBase {
                 },
                 b -> {
                   b.addRunClasspathClasses(MemberRebindingClasspathSplitTestClasses.getA());
-                }),
+                },
+                false),
             new TestConfig(
                 "A on classpath and B on programpath, m() bridge removed from B",
                 b -> {
@@ -108,7 +115,26 @@ public class MemberRebindingClasspathSplitTest extends TestBase {
                 },
                 b -> {
                   b.addRunClasspathClasses(MemberRebindingClasspathSplitTestClasses.getA());
-                })));
+                },
+                false),
+            new TestConfig(
+                "Both A and B on classpath but neither A or B is public",
+                b -> {
+                  b.addClasspathClasses(MemberRebindingClasspathSplitTestClasses.getA());
+                  b.addClasspathClassFileData(
+                      transformer(MemberRebindingClasspathSplitTestClasses.getB())
+                          .setAccessFlags(AccessFlags::unsetPublic)
+                          .transform());
+                },
+                b -> {},
+                b -> {
+                  b.addRunClasspathClasses(MemberRebindingClasspathSplitTestClasses.getA());
+                  b.addRunClasspathClassFileData(
+                      transformer(MemberRebindingClasspathSplitTestClasses.getB())
+                          .setAccessFlags(AccessFlags::unsetPublic)
+                          .transform());
+                },
+                true)));
   }
 
   @Test
@@ -124,7 +150,12 @@ public class MemberRebindingClasspathSplitTest extends TestBase {
         .compile()
         .apply(split.addToRunClasspath)
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutputLines("A", "A");
+        .applyIf(
+            split.expectFailure && parameters.isDexRuntimeVersionOlderThanOrEqual(Version.V4_4_4),
+            rr -> rr.assertFailureWithErrorThatThrows(NoClassDefFoundError.class),
+            split.expectFailure,
+            rr -> rr.assertFailureWithErrorThatThrows(IllegalAccessError.class),
+            rr -> rr.assertSuccessWithOutputLines("A", "A"));
   }
 
   public static class C extends MemberRebindingClasspathSplitTestClasses.B {

@@ -323,7 +323,10 @@ public class MemberRebindingAnalysis extends MemberRebindingHelper {
         || !packageDescriptor.equals(target.getHolderType().getPackageDescriptor())) {
       DexClass bridgeHolder =
           findHolderForVisibilityBridge(originalClass, target.getHolder(), packageDescriptor);
-      assert bridgeHolder != null;
+      if (bridgeHolder == null) {
+        // The original class does not have access to the target so we cannot insert a valid bridge.
+        return target.getReference().withHolder(originalClass, appView.dexItemFactory());
+      }
       if (bridgeHolder.isClasspathClass()) {
         // Intentionally empty. We do not need to insert a bridge on a classpath class.
       } else if (bridgeHolder.isLibraryClass()) {
