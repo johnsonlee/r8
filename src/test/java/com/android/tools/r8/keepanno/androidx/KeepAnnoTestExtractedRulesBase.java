@@ -437,7 +437,8 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
       KotlinCompileMemoizer compilation,
       List<byte[]> classFileData,
       String mainClass,
-      ExpectedRules expectedRules)
+      ExpectedRules expectedRules,
+      String expectedOutput)
       throws Exception {
     // TODO(b/392865072): Legacy R8 fails with AssertionError: Synthetic class kinds should agree.
     assumeFalse(parameters.isLegacyR8());
@@ -491,20 +492,22 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
               }
             })
         .run(mainClass)
-        .assertSuccessWithOutput(getExpectedOutputForKotlin());
+        .assertSuccessWithOutput(expectedOutput);
   }
 
   protected void runTestExtractedRulesKotlin(
       KotlinCompileMemoizer compilation, String mainClass, ExpectedRules expectedRules)
       throws Exception {
-    runTestExtractedRulesKotlin(compilation, ImmutableList.of(), mainClass, expectedRules);
+    runTestExtractedRulesKotlin(
+        compilation, ImmutableList.of(), mainClass, expectedRules, getExpectedOutputForKotlin());
   }
 
   protected void runTestExtractedRulesKotlin(
       KotlinCompileMemoizer compilation,
       BiFunction<ClassReference, byte[], byte[]> transformerForClass,
       String mainClass,
-      ExpectedRules expectedRules)
+      ExpectedRules expectedRules,
+      String expectedOutput)
       throws Exception {
     List<byte[]> result = new ArrayList<>();
     ZipUtils.iter(
@@ -517,6 +520,16 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
           result.add(
               transformerForClass.apply(classReference, ByteStreams.toByteArray(inputStream)));
         });
-    runTestExtractedRulesKotlin(null, result, mainClass, expectedRules);
+    runTestExtractedRulesKotlin(null, result, mainClass, expectedRules, expectedOutput);
+  }
+
+  protected void runTestExtractedRulesKotlin(
+      KotlinCompileMemoizer compilation,
+      BiFunction<ClassReference, byte[], byte[]> transformerForClass,
+      String mainClass,
+      ExpectedRules expectedRules)
+      throws Exception {
+    runTestExtractedRulesKotlin(
+        compilation, transformerForClass, mainClass, expectedRules, getExpectedOutputForKotlin());
   }
 }

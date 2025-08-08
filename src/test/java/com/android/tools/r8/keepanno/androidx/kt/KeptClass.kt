@@ -16,7 +16,7 @@ class KeptClass() {
     println("<init>(Long)")
   }
 
-  constructor(s: String) : this() {
-    println("<init>(String)")
+  constructor(s1: String, s2: String, s3: String) : this() {
+    println("<init>(String, String, String)")
   }
 }
