@@ -52,135 +52,148 @@ public class ThrowBlockOutlinerScanner {
   }
 
   public void run(IRCode code) {
-    assert !code.metadata().mayHaveThrowBlockOutlineMarker();
-    for (BasicBlock block : getThrowBlocks(code)) {
-      processThrowBlock(code, block);
-    }
-    if (code.metadata().mayHaveThrowBlockOutlineMarker()) {
-      assert code.getConversionOptions().isGeneratingDex();
-      code.mutateConversionOptions(MutableMethodConversionOptions::setIsGeneratingLir);
-    } else {
-      assert code.streamInstructions().noneMatch(Instruction::isThrowBlockOutlineMarker);
-    }
+    new ThrowBlockOutlinerScannerForCode(code).run();
   }
 
   public Collection<ThrowBlockOutline> getOutlines() {
     return outlines.values();
   }
 
-  private List<BasicBlock> getThrowBlocks(IRCode code) {
-    boolean seenReturn = false;
-    List<BasicBlock> throwBlocks = new ArrayList<>();
-    for (BasicBlock block : code.getBlocks()) {
-      if (block.exit().isReturn()) {
-        seenReturn = true;
-      } else if (block.exit().isThrow()) {
-        throwBlocks.add(block);
+  private class ThrowBlockOutlinerScannerForCode {
+
+    private final IRCode code;
+
+    ThrowBlockOutlinerScannerForCode(IRCode code) {
+      this.code = code;
+    }
+
+    private void run() {
+      assert !code.metadata().mayHaveThrowBlockOutlineMarker();
+      for (BasicBlock block : getThrowBlocks()) {
+        processThrowBlock(block);
+      }
+      if (code.metadata().mayHaveThrowBlockOutlineMarker()) {
+        assert code.getConversionOptions().isGeneratingDex();
+        code.mutateConversionOptions(MutableMethodConversionOptions::setIsGeneratingLir);
+      } else {
+        assert code.streamInstructions().noneMatch(Instruction::isThrowBlockOutlineMarker);
       }
     }
-    // Never outline from methods that always throw.
-    return seenReturn ? throwBlocks : emptyList();
-  }
 
-  private void processThrowBlock(IRCode code, BasicBlock block) {
-    // Recursively build up the outline method. On successful outline creation, the resulting
-    // LirCode is passed to the continuation function.
-    processThrowInstruction(
-        block,
-        block.exit().asThrow(),
-        outlineBuilder -> {
-          // On successful outline creation, store the outline for later processing.
-          LirCode<?> lirCode = outlineBuilder.build(appView, code.context());
-          Wrapper<LirCode<?>> lirCodeWrapper =
-              ThrowBlockOutlinerLirCodeEquivalence.get().wrap(lirCode);
-          ThrowBlockOutline outline =
-              outlines.computeIfAbsent(lirCodeWrapper, w -> new ThrowBlockOutline(w.get()));
-          outline.addUser(code.reference());
+    private List<BasicBlock> getThrowBlocks() {
+      boolean seenReturn = false;
+      List<BasicBlock> throwBlocks = new ArrayList<>();
+      for (BasicBlock block : code.getBlocks()) {
+        if (block.exit().isReturn()) {
+          seenReturn = true;
+        } else if (block.exit().isThrow()) {
+          throwBlocks.add(block);
+        }
+      }
+      // Never outline from methods that always throw.
+      return seenReturn ? throwBlocks : emptyList();
+    }
 
-          // Insert a synthetic marker instruction that references the outline so that we know where
-          // to materialize the outline call.
-          Instruction insertionPoint = outlineBuilder.getFirstOutlinedInstruction();
-          assert insertionPoint.getBlock() == block;
-          ThrowBlockOutlineMarker marker =
-              ThrowBlockOutlineMarker.builder()
-                  .setOutline(outline)
-                  .setPosition(Position.none())
-                  .build();
-          block.listIterator(insertionPoint).add(marker);
-        });
-  }
+    private void processThrowBlock(BasicBlock block) {
+      // Recursively build up the outline method. On successful outline creation, the resulting
+      // LirCode is passed to the continuation function.
+      processThrowInstruction(
+          block,
+          block.exit().asThrow(),
+          outlineBuilder -> {
+            // On successful outline creation, store the outline for later processing.
+            LirCode<?> lirCode = outlineBuilder.build(appView, code.context());
+            Wrapper<LirCode<?>> lirCodeWrapper =
+                ThrowBlockOutlinerLirCodeEquivalence.get().wrap(lirCode);
+            ThrowBlockOutline outline =
+                outlines.computeIfAbsent(lirCodeWrapper, w -> new ThrowBlockOutline(w.get()));
+            outline.addUser(code.reference());
 
-  private void processThrowInstruction(
-      BasicBlock throwBlock, Throw throwInstruction, Consumer<OutlineBuilder> continuation) {
-    Value exceptionValue = throwInstruction.exception();
-    if (!exceptionValue.isDefinedByInstructionSatisfying(
-        i -> i.isNewInstance() && i.getBlock() == throwBlock)) {
-      // Exception is not created in the throw block.
-      return;
+            // Insert a synthetic marker instruction that references the outline so that we know
+            // where to materialize the outline call.
+            Instruction insertionPoint = outlineBuilder.getFirstOutlinedInstruction();
+            assert insertionPoint.getBlock() == block;
+            ThrowBlockOutlineMarker marker =
+                ThrowBlockOutlineMarker.builder()
+                    .setOutline(outline)
+                    .setPosition(Position.none())
+                    .build();
+            block.listIterator(insertionPoint).add(marker);
+          });
     }
-    assert throwInstruction.hasPrev();
-    processExceptionConstructorCall(
-        throwBlock,
-        throwInstruction.getPrev(),
-        outlineBuilder -> {
-          Value outlinedExceptionValue = outlineBuilder.getOutlinedValue(exceptionValue);
-          outlineBuilder.add(
-              Throw.builder()
-                  .setExceptionValue(outlinedExceptionValue)
-                  .setPosition(Position.syntheticNone())
-                  .build());
-          continuation.accept(outlineBuilder);
-        });
-  }
 
-  private void processExceptionConstructorCall(
-      BasicBlock throwBlock, Instruction instruction, Consumer<OutlineBuilder> continuation) {
-    InvokeDirect invoke = instruction.asInvokeConstructor(factory);
-    if (invoke == null) {
-      return;
+    private void processThrowInstruction(
+        BasicBlock throwBlock, Throw throwInstruction, Consumer<OutlineBuilder> continuation) {
+      Value exceptionValue = throwInstruction.exception();
+      if (!exceptionValue.isDefinedByInstructionSatisfying(
+          i -> i.isNewInstance() && i.getBlock() == throwBlock)) {
+        // Exception is not created in the throw block.
+        return;
+      }
+      assert throwInstruction.hasPrev();
+      processExceptionConstructorCall(
+          throwBlock,
+          throwInstruction.getPrev(),
+          outlineBuilder -> {
+            Value outlinedExceptionValue = outlineBuilder.getOutlinedValue(exceptionValue);
+            outlineBuilder.add(
+                Throw.builder()
+                    .setExceptionValue(outlinedExceptionValue)
+                    .setPosition(Position.syntheticNone())
+                    .build());
+            continuation.accept(outlineBuilder);
+          });
     }
-    DexMethod constructor = invoke.getInvokedMethod();
-    if (!constructor.getParameters().isEmpty()) {
-      // TODO(b/434769547): Handle constructors with arguments.
-      return;
-    }
-    processNewExceptionInstruction(
-        throwBlock,
-        invoke.getPrev(),
-        outlineBuilder -> {
-          Value outlinedExceptionValue = outlineBuilder.getOutlinedValue(invoke.getReceiver());
-          outlineBuilder.add(
-              InvokeDirect.builder()
-                  .setMethod(constructor)
-                  .setPosition(Position.syntheticNone())
-                  .setSingleArgument(outlinedExceptionValue)
-                  .build());
-          continuation.accept(outlineBuilder);
-        });
-  }
 
-  private void processNewExceptionInstruction(
-      BasicBlock throwBlock, Instruction instruction, Consumer<OutlineBuilder> continuation) {
-    NewInstance newInstance = instruction.asNewInstance();
-    if (newInstance == null) {
-      return;
+    private void processExceptionConstructorCall(
+        BasicBlock throwBlock, Instruction instruction, Consumer<OutlineBuilder> continuation) {
+      InvokeDirect invoke = instruction.asInvokeConstructor(factory);
+      if (invoke == null) {
+        return;
+      }
+      DexMethod constructor = invoke.getInvokedMethod();
+      if (!constructor.getParameters().isEmpty()) {
+        // TODO(b/434769547): Handle constructors with arguments.
+        return;
+      }
+      processNewExceptionInstruction(
+          throwBlock,
+          invoke.getPrev(),
+          outlineBuilder -> {
+            Value outlinedExceptionValue = outlineBuilder.getOutlinedValue(invoke.getReceiver());
+            outlineBuilder.add(
+                InvokeDirect.builder()
+                    .setMethod(constructor)
+                    .setPosition(Position.syntheticNone())
+                    .setSingleArgument(outlinedExceptionValue)
+                    .build());
+            continuation.accept(outlineBuilder);
+          });
     }
-    // Check that this is the thrown exception.
-    if (newInstance.outValue() != throwBlock.exit().asThrow().exception()) {
-      return;
+
+    private void processNewExceptionInstruction(
+        BasicBlock throwBlock, Instruction instruction, Consumer<OutlineBuilder> continuation) {
+      NewInstance newInstance = instruction.asNewInstance();
+      if (newInstance == null) {
+        return;
+      }
+      // Check that this is the thrown exception.
+      if (newInstance.outValue() != throwBlock.exit().asThrow().exception()) {
+        return;
+      }
+      OutlineBuilder outlineBuilder = new OutlineBuilder(newInstance);
+      NewInstance outlinedNewInstance =
+          NewInstance.builder()
+              .setFreshOutValue(
+                  outlineBuilder.valueNumberGenerator,
+                  newInstance.getType().toNonNullClassTypeElement(appView))
+              .setType(newInstance.getType())
+              .setPosition(Position.syntheticNone())
+              .build();
+      outlineBuilder.add(outlinedNewInstance);
+      outlineBuilder.map(newInstance.outValue(), outlinedNewInstance.outValue());
+      continuation.accept(outlineBuilder);
     }
-    OutlineBuilder outlineBuilder = new OutlineBuilder(newInstance);
-    NewInstance outlinedNewInstance =
-        NewInstance.builder()
-            .setFreshOutValue(
-                outlineBuilder.valueNumberGenerator,
-                newInstance.getType().toNonNullClassTypeElement(appView))
-            .setType(newInstance.getType())
-            .setPosition(Position.syntheticNone())
-            .build();
-    outlineBuilder.add(outlinedNewInstance);
-    outlineBuilder.map(newInstance.outValue(), outlinedNewInstance.outValue());
-    continuation.accept(outlineBuilder);
   }
 
   private static class OutlineBuilder {
