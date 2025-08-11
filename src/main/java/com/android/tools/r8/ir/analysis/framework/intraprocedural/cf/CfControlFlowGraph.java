@@ -281,7 +281,7 @@ public class CfControlFlowGraph implements ControlFlowGraph<CfBlock, CfInstructi
     }
 
     private void removeBlockForTrailingLabel() {
-      CfInstruction lastInstruction = code.getInstruction(code.getInstructions().size() - 1);
+      CfInstruction lastInstruction = code.getInstruction(code.getInstructionCount() - 1);
       if (lastInstruction.isLabel() && isBlockEntry(lastInstruction)) {
         blocks.remove(lastInstruction);
       }
@@ -292,7 +292,7 @@ public class CfControlFlowGraph implements ControlFlowGraph<CfBlock, CfInstructi
     }
 
     private boolean isBlockExit(int instructionIndex) {
-      int lastInstructionIndex = code.getInstructions().size() - 1;
+      int lastInstructionIndex = code.getInstructionCount() - 1;
       if (instructionIndex == lastInstructionIndex) {
         return true;
       }

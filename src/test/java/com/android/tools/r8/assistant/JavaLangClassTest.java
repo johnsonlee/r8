@@ -74,7 +74,7 @@ public class JavaLangClassTest extends TestBase {
 
     @Override
     public void onClassGetDeclaredMethod(
-        Stack stack, Class<?> clazz, String method, Class<?>... parameters) {
+        Stack stack, Class<?> returnType, Class<?> clazz, String method, Class<?>... parameters) {
       printNumIfTrue(clazz.getName().endsWith("Foo"), 2);
     }
 
@@ -84,7 +84,8 @@ public class JavaLangClassTest extends TestBase {
     }
 
     @Override
-    public void onClassGetDeclaredField(Stack stack, Class<?> clazz, String fieldName) {
+    public void onClassGetDeclaredField(
+        Stack stack, Class<?> fieldType, Class<?> clazz, String fieldName) {
       printNumIfTrue(
           clazz.getName().endsWith("Foo") && (fieldName.equals("a") || fieldName.equals("b")), 3);
     }
@@ -106,7 +107,7 @@ public class JavaLangClassTest extends TestBase {
 
     @Override
     public void onClassGetMethod(
-        Stack stack, Class<?> clazz, String method, Class<?>... parameters) {
+        Stack stack, Class<?> returnType, Class<?> clazz, String method, Class<?>... parameters) {
       printNumIfTrue(clazz.getName().endsWith("Bar"), 20);
     }
 
@@ -116,7 +117,7 @@ public class JavaLangClassTest extends TestBase {
     }
 
     @Override
-    public void onClassGetField(Stack stack, Class<?> clazz, String fieldName) {
+    public void onClassGetField(Stack stack, Class<?> fieldType, Class<?> clazz, String fieldName) {
       printNumIfTrue(clazz.getName().endsWith("Bar"), 21);
     }
 

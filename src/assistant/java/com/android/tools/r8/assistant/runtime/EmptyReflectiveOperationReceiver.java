@@ -28,13 +28,14 @@ public class EmptyReflectiveOperationReceiver implements ReflectiveOperationRece
 
   @Override
   public void onClassGetDeclaredMethod(
-      Stack stack, Class<?> clazz, String method, Class<?>... parameters) {}
+      Stack stack, Class<?> returnType, Class<?> clazz, String method, Class<?>... parameters) {}
 
   @Override
   public void onClassGetDeclaredMethods(Stack stack, Class<?> clazz) {}
 
   @Override
-  public void onClassGetDeclaredField(Stack stack, Class<?> clazz, String fieldName) {}
+  public void onClassGetDeclaredField(
+      Stack stack, Class<?> fieldType, Class<?> clazz, String fieldName) {}
 
   @Override
   public void onClassGetDeclaredFields(Stack stack, Class<?> clazz) {}
@@ -47,13 +48,13 @@ public class EmptyReflectiveOperationReceiver implements ReflectiveOperationRece
 
   @Override
   public void onClassGetMethod(
-      Stack stack, Class<?> clazz, String method, Class<?>... parameters) {}
+      Stack stack, Class<?> returnType, Class<?> clazz, String method, Class<?>... parameters) {}
 
   @Override
   public void onClassGetMethods(Stack stack, Class<?> clazz) {}
 
   @Override
-  public void onClassGetField(Stack stack, Class<?> clazz, String fieldName) {}
+  public void onClassGetField(Stack stack, Class<?> fieldType, Class<?> clazz, String fieldName) {}
 
   @Override
   public void onClassGetFields(Stack stack, Class<?> clazz) {}
@@ -83,14 +84,8 @@ public class EmptyReflectiveOperationReceiver implements ReflectiveOperationRece
   public void onClassFlag(Stack stack, Class<?> clazz, ClassFlag classFlag) {}
 
   @Override
-  public void onAtomicIntegerFieldUpdaterNewUpdater(Stack stack, Class<?> clazz, String name) {}
-
-  @Override
-  public void onAtomicLongFieldUpdaterNewUpdater(Stack stack, Class<?> clazz, String name) {}
-
-  @Override
-  public void onAtomicReferenceFieldUpdaterNewUpdater(
-      Stack stack, Class<?> clazz, Class<?> fieldClass, String name) {}
+  public void onAtomicFieldUpdaterNewUpdater(
+      Stack stack, Class<?> fieldClass, Class<?> clazz, String name) {}
 
   @Override
   public void onServiceLoaderLoad(Stack stack, Class<?> clazz, ClassLoader classLoader) {}

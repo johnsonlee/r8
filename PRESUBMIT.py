@@ -179,13 +179,28 @@ def CheckDeterministicDebuggingChanged(input_api, output_api, branch):
       return [output_api.PresubmitError(diff)]
   return []
 
+def IsTestFile(file):
+  localPath = file.LocalPath()
+  return localPath.endswith('.java') and '/test/' in localPath
+
 def CheckForAddedDisassemble(input_api, output_api):
   results = []
   for (file, line_nr, line) in input_api.RightHandSideLines():
-    if file.LocalPath().endswith('.java') and '.disassemble()' in line:
+    if IsTestFile(file) and '.disassemble()' in line:
       results.append(
           output_api.PresubmitError(
               'Test call to disassemble\n%s:%s %s' % (file.LocalPath(), line_nr, line)))
+  return results
+
+def CheckForAddedAllowXxxxxxMessages(input_api, output_api):
+  results = []
+  for (file, line_nr, line) in input_api.RightHandSideLines():
+    if (IsTestFile(file)
+        and ('.allowStdoutMessages()' in line or '.allowStderrMessages()' in line)):
+      results.append(
+          output_api.PresubmitError(
+              'Test call to allowStdoutMessages or allowStderrMessages\n%s:%s %s'
+              % (file.LocalPath(), line_nr, line)))
   return results
 
 def CheckForAddedPartialDebug(input_api, output_api):
@@ -242,6 +257,7 @@ def CheckChange(input_api, output_api):
   results.extend(
       CheckDeterministicDebuggingChanged(input_api, output_api, branch))
   results.extend(CheckForAddedDisassemble(input_api, output_api))
+  results.extend(CheckForAddedAllowXxxxxxMessages(input_api, output_api))
   results.extend(CheckForAddedPartialDebug(input_api, output_api))
   results.extend(CheckForCopyRight(input_api, output_api, branch))
   return results

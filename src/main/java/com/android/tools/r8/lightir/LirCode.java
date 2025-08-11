@@ -476,6 +476,10 @@ public class LirCode<EV> extends Code
     return strategyInfo;
   }
 
+  public boolean hasArguments() {
+    return argumentCount > 0;
+  }
+
   public int getArgumentCount() {
     return argumentCount;
   }
@@ -500,6 +504,10 @@ public class LirCode<EV> extends Code
     return constants;
   }
 
+  public boolean hasPositionTable() {
+    return positionTable.length > 0;
+  }
+
   public PositionEntry[] getPositionTable() {
     return positionTable;
   }
@@ -510,6 +518,10 @@ public class LirCode<EV> extends Code
 
   public TryCatchTable getTryCatchTable() {
     return tryCatchTable;
+  }
+
+  public boolean hasDebugLocalInfoTable() {
+    return debugLocalInfoTable != null;
   }
 
   public DebugLocalInfoTable<EV> getDebugLocalInfoTable() {

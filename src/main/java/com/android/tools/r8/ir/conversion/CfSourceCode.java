@@ -231,8 +231,8 @@ public class CfSourceCode implements SourceCode {
     this.method = method;
     this.appView = appView;
     int cfPositionCount = 0;
-    for (int i = 0; i < code.getInstructions().size(); i++) {
-      CfInstruction instruction = code.getInstructions().get(i);
+    for (int i = 0; i < code.getInstructionCount(); i++) {
+      CfInstruction instruction = code.getInstruction(i);
       if (instruction instanceof CfLabel) {
         labelOffsets.put((CfLabel) instruction, instructionOffset(i));
       }
@@ -274,7 +274,7 @@ public class CfSourceCode implements SourceCode {
 
   @Override
   public int instructionCount() {
-    return code.getInstructions().size();
+    return code.getInstructionCount();
   }
 
   @Override
@@ -300,7 +300,7 @@ public class CfSourceCode implements SourceCode {
 
   @Override
   public int traceInstruction(int instructionIndex, IRBuilder builder) {
-    CfInstruction instruction = code.getInstructions().get(instructionIndex);
+    CfInstruction instruction = code.getInstruction(instructionIndex);
     assert appView.options().isGeneratingClassFiles()
         == internalOutputMode.isGeneratingClassFiles();
     if (instruction.canThrow()) {
@@ -355,7 +355,7 @@ public class CfSourceCode implements SourceCode {
   }
 
   private int[] getTargets(int instructionIndex) {
-    CfInstruction instruction = code.getInstructions().get(instructionIndex);
+    CfInstruction instruction = code.getInstruction(instructionIndex);
     assert isControlFlow(instruction);
     CfLabel target = instruction.getTarget();
     if (instruction.isReturn() || instruction instanceof CfThrow) {
@@ -517,7 +517,7 @@ public class CfSourceCode implements SourceCode {
     // ensure it is marked as such (via an explict 'end' marker) and thus be live in predecessors.
     // In this case we insert an 'end' point on all explicit goto instructions ensuring that any
     // back-edge will explicitly keep locals live at that point.
-    if (!hasExitingInstruction && code.getInstructions().get(predecessorOffset) instanceof CfGoto) {
+    if (!hasExitingInstruction && code.getInstruction(predecessorOffset) instanceof CfGoto) {
       assert !isExceptional;
       for (Entry<DebugLocalInfo> entry : atSource.int2ReferenceEntrySet()) {
         if (atTarget.get(entry.getIntKey()) == entry.getValue()) {
@@ -535,7 +535,7 @@ public class CfSourceCode implements SourceCode {
       buildExceptionalExitForMethodSynchronization(builder, instructionIndex);
       return;
     }
-    CfInstruction instruction = code.getInstructions().get(instructionIndex);
+    CfInstruction instruction = code.getInstruction(instructionIndex);
     currentInstructionIndex = instructionIndex;
     if (firstBlockInstruction) {
       currentBlockInfo = builder.getCFG().get(instructionIndex);
@@ -647,7 +647,7 @@ public class CfSourceCode implements SourceCode {
 
   private boolean isFirstFrameInBlock() {
     for (int i = currentBlockIndex; i < currentInstructionIndex; i++) {
-      CfInstruction cfInstruction = code.getInstructions().get(i);
+      CfInstruction cfInstruction = code.getInstruction(i);
       if (cfInstruction.isPosition() || cfInstruction.isLabel()) {
         continue;
       }
@@ -676,8 +676,8 @@ public class CfSourceCode implements SourceCode {
     if (type.isUninitializedNew()) {
       int labelOffset = getLabelOffset(type.getUninitializedLabel());
       int insnOffset = labelOffset + 1;
-      while (insnOffset < code.getInstructions().size()) {
-        CfInstruction instruction = code.getInstructions().get(insnOffset);
+      while (insnOffset < code.getInstructionCount()) {
+        CfInstruction instruction = code.getInstruction(insnOffset);
         if (!(instruction instanceof CfLabel)
             && !(instruction instanceof CfFrame)
             && !(instruction instanceof CfPosition)) {
@@ -686,7 +686,7 @@ public class CfSourceCode implements SourceCode {
         }
         insnOffset += 1;
       }
-      CfInstruction instruction = code.getInstructions().get(insnOffset);
+      CfInstruction instruction = code.getInstruction(insnOffset);
       assert instruction instanceof CfNew;
       return ((CfNew) instruction).getType();
     }
@@ -791,7 +791,7 @@ public class CfSourceCode implements SourceCode {
     if (inPrelude) {
       return getIncomingLocal(register);
     }
-    assert !isControlFlow(code.getInstructions().get(currentInstructionIndex))
+    assert !isControlFlow(code.getInstruction(currentInstructionIndex))
         : "Outgoing local is undefined for control-flow instructions";
     return outgoingLocals.get(register);
   }
@@ -802,7 +802,7 @@ public class CfSourceCode implements SourceCode {
       outgoingLocals = incomingLocals;
       return;
     }
-    CfInstruction currentInstruction = code.getInstructions().get(currentInstructionIndex);
+    CfInstruction currentInstruction = code.getInstruction(currentInstructionIndex);
     outgoingLocals =
         !isControlFlow(currentInstruction)
             ? getLocalVariables(currentInstructionIndex + 1).locals
@@ -897,7 +897,7 @@ public class CfSourceCode implements SourceCode {
     return isCurrentlyGeneratingMethodSynchronization()
         // In the prelude we may be materializing arguments from call sites in R8.
         || inPrelude
-        || code.getInstructions().get(currentInstructionIndex).canThrow();
+        || code.getInstruction(currentInstructionIndex).canThrow();
   }
 
   @Override
@@ -922,20 +922,20 @@ public class CfSourceCode implements SourceCode {
                   .collect(Collectors.toList()),
           method.getReference());
     }
-    while (offset + 1 < code.getInstructions().size()) {
-      CfInstruction insn = code.getInstructions().get(offset);
+    while (offset + 1 < code.getInstructionCount()) {
+      CfInstruction insn = code.getInstruction(offset);
       if (!(insn instanceof CfLabel) && !(insn instanceof CfFrame)) {
         break;
       }
       offset += 1;
     }
-    while (offset >= 0 && !(code.getInstructions().get(offset) instanceof CfPosition)) {
+    while (offset >= 0 && !(code.getInstruction(offset) instanceof CfPosition)) {
       offset -= 1;
     }
     if (offset < 0) {
       return canonicalPositions.getPreamblePosition();
     }
-    return getCanonicalPosition(((CfPosition) code.getInstructions().get(offset)).getPosition());
+    return getCanonicalPosition(((CfPosition) code.getInstruction(offset)).getPosition());
   }
 
   @Override

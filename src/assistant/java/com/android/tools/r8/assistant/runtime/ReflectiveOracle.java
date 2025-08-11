@@ -7,6 +7,7 @@ import com.android.tools.r8.assistant.runtime.ReflectiveOperationReceiver.ClassF
 import com.android.tools.r8.assistant.runtime.ReflectiveOperationReceiver.NameLookupType;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
 import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
 import java.util.Arrays;
 
 @KeepForApi
@@ -65,6 +66,14 @@ public class ReflectiveOracle {
       }
       return sb.toString();
     }
+
+    public String[] stackTraceElementsAsString() {
+      String[] result = new String[stackTraceElements.length];
+      for (int i = 0; i < stackTraceElements.length; i++) {
+        result[i] = stackTraceElements[i].toString();
+      }
+      return result;
+    }
   }
 
   public static void onClassNewInstance(Class<?> clazz) {
@@ -81,7 +90,14 @@ public class ReflectiveOracle {
   }
 
   public static void onClassGetDeclaredMethod(Class<?> clazz, String name, Class<?>... parameters) {
-    getInstance().onClassGetDeclaredMethod(Stack.createStack(), clazz, name, parameters);
+    Class<?> returnType = null;
+    try {
+      Method declaredMethod = clazz.getDeclaredMethod(name, parameters);
+      returnType = declaredMethod.getReturnType();
+    } catch (NoSuchMethodException e) {
+    }
+    getInstance()
+        .onClassGetDeclaredMethod(Stack.createStack(), returnType, clazz, name, parameters);
   }
 
   public static void onClassGetDeclaredMethods(Class<?> clazz) {
@@ -89,7 +105,12 @@ public class ReflectiveOracle {
   }
 
   public static void onClassGetDeclaredField(Class<?> clazz, String fieldName) {
-    getInstance().onClassGetDeclaredField(Stack.createStack(), clazz, fieldName);
+    Class<?> fieldType = null;
+    try {
+      fieldType = clazz.getDeclaredField(fieldName).getType();
+    } catch (NoSuchFieldException e) {
+    }
+    getInstance().onClassGetDeclaredField(Stack.createStack(), fieldType, clazz, fieldName);
   }
 
   public static void onClassGetDeclaredFields(Class<?> clazz) {
@@ -105,7 +126,12 @@ public class ReflectiveOracle {
   }
 
   public static void onClassGetMethod(Class<?> clazz, String name, Class<?>[] parameterTypes) {
-    getInstance().onClassGetMethod(Stack.createStack(), clazz, name, parameterTypes);
+    Class<?> returnType = null;
+    try {
+      returnType = clazz.getMethod(name, parameterTypes).getReturnType();
+    } catch (NoSuchMethodException e) {
+    }
+    getInstance().onClassGetMethod(Stack.createStack(), returnType, clazz, name, parameterTypes);
   }
 
   public static void onClassGetMethods(Class<?> clazz) {
@@ -113,7 +139,12 @@ public class ReflectiveOracle {
   }
 
   public static void onClassGetField(Class<?> clazz, String name) {
-    getInstance().onClassGetField(Stack.createStack(), clazz, name);
+    Class<?> fieldType = null;
+    try {
+      fieldType = clazz.getField(name).getType();
+    } catch (NoSuchFieldException e) {
+    }
+    getInstance().onClassGetField(Stack.createStack(), fieldType, clazz, name);
   }
 
   public static void onClassGetFields(Class<?> clazz) {
@@ -221,17 +252,16 @@ public class ReflectiveOracle {
   }
 
   public static void onAtomicIntegerFieldUpdaterNewUpdater(Class<?> clazz, String name) {
-    getInstance().onAtomicIntegerFieldUpdaterNewUpdater(Stack.createStack(), clazz, name);
+    getInstance().onAtomicFieldUpdaterNewUpdater(Stack.createStack(), int.class, clazz, name);
   }
 
   public static void onAtomicLongFieldUpdaterNewUpdater(Class<?> clazz, String name) {
-    getInstance().onAtomicLongFieldUpdaterNewUpdater(Stack.createStack(), clazz, name);
+    getInstance().onAtomicFieldUpdaterNewUpdater(Stack.createStack(), long.class, clazz, name);
   }
 
   public static void onAtomicReferenceFieldUpdaterNewUpdater(
       Class<?> clazz, Class<?> fieldClass, String name) {
-    getInstance()
-        .onAtomicReferenceFieldUpdaterNewUpdater(Stack.createStack(), clazz, fieldClass, name);
+    getInstance().onAtomicFieldUpdaterNewUpdater(Stack.createStack(), fieldClass, clazz, name);
   }
 
   public static void onServiceLoaderLoad(Class<?> clazz) {

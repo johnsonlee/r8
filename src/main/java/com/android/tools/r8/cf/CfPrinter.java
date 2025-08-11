@@ -137,7 +137,7 @@ public class CfPrinter {
   public CfPrinter(CfCode code, DexEncodedMethod method, RetracerForCodePrinting retracer) {
     this.retracer = retracer;
     indent = "  ";
-    instructionIndexSpace = ("" + code.getInstructions().size()).length();
+    instructionIndexSpace = ("" + code.getInstructionCount()).length();
     labelToIndex = new Reference2IntOpenHashMap<>();
     sortedLabels = new ArrayList<>();
     for (CfInstruction instruction : code.getInstructions()) {

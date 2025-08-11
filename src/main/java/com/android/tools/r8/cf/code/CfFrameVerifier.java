@@ -97,7 +97,7 @@ public class CfFrameVerifier {
     // Linear scan over instructions.
     CfFrameState state = initialState.asContinue().getValue();
     int actualInstructionIndexForReporting = 0;
-    for (int i = 0; i < code.getInstructions().size(); i++) {
+    for (int i = 0; i < code.getInstructionCount(); i++) {
       CfInstruction instruction = code.getInstruction(i);
       assert !state.isError();
       if (instruction.isLabel()) {
@@ -125,7 +125,7 @@ public class CfFrameVerifier {
       state = instruction.evaluate(state, appView, config);
       if (instruction.isJumpWithNormalTarget()) {
         CfInstruction fallthroughInstruction =
-            (i + 1) < code.getInstructions().size() ? code.getInstruction(i + 1) : null;
+            (i + 1) < code.getInstructionCount() ? code.getInstruction(i + 1) : null;
         TraversalContinuation<CfCodeDiagnostics, CfFrameState> traversalContinuation =
             instruction.traverseNormalTargets(
                 (target, currentState) -> {
@@ -336,10 +336,10 @@ public class CfFrameVerifier {
     if (!instruction.isJump()) {
       return TraversalContinuation.doContinue(state);
     }
-    if (instructionIndex == code.getInstructions().size() - 1) {
+    if (instructionIndex == code.getInstructionCount() - 1) {
       return TraversalContinuation.doContinue(CfFrameState.bottom());
     }
-    if (instructionIndex == code.getInstructions().size() - 2
+    if (instructionIndex == code.getInstructionCount() - 2
         && code.getInstruction(instructionIndex + 1).isLabel()) {
       return TraversalContinuation.doContinue(CfFrameState.bottom());
     }
@@ -375,7 +375,7 @@ public class CfFrameVerifier {
     if (!isReturnOrThrow) {
       return false;
     }
-    for (int i = code.getInstructions().size() - 1; i >= 0; i--) {
+    for (int i = code.getInstructionCount() - 1; i >= 0; i--) {
       CfInstruction instr = code.getInstruction(i);
       if (instr == instruction) {
         return true;

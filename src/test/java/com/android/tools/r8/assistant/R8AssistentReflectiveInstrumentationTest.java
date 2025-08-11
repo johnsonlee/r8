@@ -159,7 +159,7 @@ public class R8AssistentReflectiveInstrumentationTest extends TestBase {
 
     @Override
     public void onClassGetDeclaredMethod(
-        Stack stack, Class<?> clazz, String method, Class<?>... parameters) {
+        Stack stack, Class<?> returnType, Class<?> clazz, String method, Class<?>... parameters) {
       if (!clazz.equals(Bar.class) || !method.equals("callMe")) {
         throw new RuntimeException("Wrong method passed");
       }
@@ -200,7 +200,7 @@ public class R8AssistentReflectiveInstrumentationTest extends TestBase {
 
     @Override
     public void onClassGetDeclaredMethod(
-        Stack stack, Class<?> clazz, String method, Class<?>... parameters) {
+        Stack stack, Class<?> returnType, Class<?> clazz, String method, Class<?>... parameters) {
       System.out.println("Custom receiver method " + method);
     }
   }

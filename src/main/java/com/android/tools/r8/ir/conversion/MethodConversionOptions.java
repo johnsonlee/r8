@@ -90,7 +90,7 @@ public abstract class MethodConversionOptions {
 
   public static class MutableMethodConversionOptions extends MethodConversionOptions {
 
-    private final Target target;
+    private Target target;
     private boolean finalizeAfterLensCodeRewriter;
 
     private MutableMethodConversionOptions(Target target) {
@@ -99,6 +99,12 @@ public abstract class MethodConversionOptions {
 
     public MutableMethodConversionOptions setFinalizeAfterLensCodeRewriter() {
       finalizeAfterLensCodeRewriter = true;
+      return this;
+    }
+
+    public MutableMethodConversionOptions setIsGeneratingLir() {
+      assert isGeneratingDex();
+      target = Target.LIR;
       return this;
     }
 

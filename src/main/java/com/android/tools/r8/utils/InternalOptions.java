@@ -72,6 +72,7 @@ import com.android.tools.r8.ir.desugar.desugaredlibrary.LibraryDesugaringOptions
 import com.android.tools.r8.ir.desugar.nest.Nest;
 import com.android.tools.r8.ir.optimize.Inliner;
 import com.android.tools.r8.ir.optimize.enums.EnumDataMap;
+import com.android.tools.r8.ir.optimize.outliner.exceptions.ThrowBlockOutlinerOptions;
 import com.android.tools.r8.metadata.D8BuildMetadata;
 import com.android.tools.r8.metadata.R8BuildMetadata;
 import com.android.tools.r8.naming.ClassNameMapper;
@@ -100,6 +101,7 @@ import com.android.tools.r8.repackaging.RepackagingLens;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.shaking.GlobalKeepInfoConfiguration;
+import com.android.tools.r8.shaking.KeepInfoCollectionExported;
 import com.android.tools.r8.shaking.KeepSpecificationSource;
 import com.android.tools.r8.shaking.ProguardConfiguration;
 import com.android.tools.r8.shaking.ProguardConfigurationRule;
@@ -118,6 +120,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -1042,6 +1045,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
       new VerticalClassMergerOptions(this);
   private final OpenClosedInterfacesOptions openClosedInterfacesOptions =
       new OpenClosedInterfacesOptions();
+  private final ThrowBlockOutlinerOptions throwBlockOutlinerOptions =
+      new ThrowBlockOutlinerOptions();
   private final ProtoShrinkingOptions protoShrinking = new ProtoShrinkingOptions();
   private final RedundantBridgeRemovalOptions redundantBridgeRemovalOptions =
       new RedundantBridgeRemovalOptions();
@@ -1194,6 +1199,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   public SyntheticItemsOptions getSyntheticItemsOptions() {
     return syntheticItemsOptions;
+  }
+
+  public ThrowBlockOutlinerOptions getThrowBlockOutlinerOptions() {
+    return throwBlockOutlinerOptions;
   }
 
   public TraceReferencesOptions getTraceReferencesOptions() {
@@ -2188,6 +2197,11 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean enableEmbeddedKeepAnnotations =
         System.getProperty("com.android.tools.r8.enableKeepAnnotations") != null;
     public boolean reverseClassSortingForDeterminism = false;
+    public Path exportFinalKeepInfoCollectionToDirectory =
+        System.getProperty("com.android.tools.r8.exportInitialKeepInfoCollection") != null
+            ? Paths.get(System.getProperty("com.android.tools.r8.exportInitialKeepInfoCollection"))
+            : null;
+    public Consumer<KeepInfoCollectionExported> finalKeepInfoCollectionConsumer = null;
 
     public boolean enableAutoCloseableDesugaring = true;
     public boolean enableNumberUnboxer = false;

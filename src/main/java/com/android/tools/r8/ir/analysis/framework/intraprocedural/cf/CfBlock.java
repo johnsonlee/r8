@@ -41,8 +41,8 @@ public class CfBlock {
 
   public CfInstruction getFallthroughInstruction(CfCode code) {
     int fallthroughInstructionIndex = getLastInstructionIndex() + 1;
-    return fallthroughInstructionIndex < code.getInstructions().size()
-        ? code.getInstructions().get(fallthroughInstructionIndex)
+    return fallthroughInstructionIndex < code.getInstructionCount()
+        ? code.getInstruction(fallthroughInstructionIndex)
         : null;
   }
 
@@ -59,7 +59,7 @@ public class CfBlock {
   }
 
   public CfInstruction getLastInstruction(CfCode code) {
-    return code.getInstructions().get(lastInstructionIndex);
+    return code.getInstruction(lastInstructionIndex);
   }
 
   public int getLastInstructionIndex() {

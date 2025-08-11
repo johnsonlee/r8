@@ -44,7 +44,7 @@ public class ReflectiveOperationLogger implements ReflectiveOperationReceiver {
 
   @Override
   public void onClassGetDeclaredMethod(
-      Stack stack, Class<?> clazz, String method, Class<?>... parameters) {
+      Stack stack, Class<?> returnType, Class<?> clazz, String method, Class<?>... parameters) {
     System.out.println(
         "Reflectively got declared method "
             + printMethod(method, parameters)
@@ -58,7 +58,8 @@ public class ReflectiveOperationLogger implements ReflectiveOperationReceiver {
   }
 
   @Override
-  public void onClassGetDeclaredField(Stack stack, Class<?> clazz, String fieldName) {
+  public void onClassGetDeclaredField(
+      Stack stack, Class<?> fieldType, Class<?> clazz, String fieldName) {
     System.out.println("Reflectively got declared field " + fieldName + " on " + clazz.getName());
   }
 
@@ -82,7 +83,8 @@ public class ReflectiveOperationLogger implements ReflectiveOperationReceiver {
   }
 
   @Override
-  public void onClassGetMethod(Stack stack, Class<?> clazz, String method, Class<?>... parameters) {
+  public void onClassGetMethod(
+      Stack stack, Class<?> returnType, Class<?> clazz, String method, Class<?>... parameters) {
     System.out.println(
         "Reflectively got method " + printMethod(method, parameters) + " on " + clazz.getName());
   }
@@ -93,7 +95,7 @@ public class ReflectiveOperationLogger implements ReflectiveOperationReceiver {
   }
 
   @Override
-  public void onClassGetField(Stack stack, Class<?> clazz, String fieldName) {
+  public void onClassGetField(Stack stack, Class<?> fieldType, Class<?> clazz, String fieldName) {
     System.out.println("Reflectively got field " + fieldName + " on " + clazz.getName());
   }
 
@@ -168,20 +170,8 @@ public class ReflectiveOperationLogger implements ReflectiveOperationReceiver {
   }
 
   @Override
-  public void onAtomicIntegerFieldUpdaterNewUpdater(Stack stack, Class<?> clazz, String name) {
-    System.out.println(
-        "Reflectively got AtomicIntegerFieldUpdater.newUpdater on " + clazz + "#" + name);
-  }
-
-  @Override
-  public void onAtomicLongFieldUpdaterNewUpdater(Stack stack, Class<?> clazz, String name) {
-    System.out.println(
-        "Reflectively got AtomicLongFieldUpdater.newUpdater on " + clazz + "#" + name);
-  }
-
-  @Override
-  public void onAtomicReferenceFieldUpdaterNewUpdater(
-      Stack stack, Class<?> clazz, Class<?> fieldClass, String name) {
+  public void onAtomicFieldUpdaterNewUpdater(
+      Stack stack, Class<?> fieldClass, Class<?> clazz, String name) {
     System.out.println(
         "Reflectively got AtomicReferenceFieldUpdater.newUpdater on "
             + fieldClass

@@ -118,6 +118,8 @@ public class SyntheticNaming {
       generator.forSingleMethod("DesugaredLibraryBridge");
   public final SyntheticKind NON_STARTUP_IN_STARTUP_OUTLINE =
       generator.forSingleMethodWithGlobalMerging("NonStartupInStartupOutline");
+  public final SyntheticKind THROW_BLOCK_OUTLINE =
+      generator.forSingleMethodWithGlobalMerging("ThrowBlockOutline");
 
   private final List<SyntheticKind> ALL_KINDS;
   private String lazyVersionHash = null;

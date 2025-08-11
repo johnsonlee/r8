@@ -19,9 +19,11 @@ import com.android.tools.r8.references.PackageReference;
 import com.android.tools.r8.utils.ConsumerUtils;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.ListUtils;
 import com.google.common.base.Splitter;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.Random;
 import java.util.function.Consumer;
 
@@ -96,6 +98,10 @@ public class R8PartialCompilationConfiguration {
     return disabledConfiguration;
   }
 
+  private static List<String> splitPatternList(String patterns) {
+    return ListUtils.map(Splitter.on(",").splitToList(patterns), String::strip);
+  }
+
   public static R8PartialCompilationConfiguration fromIncludeExcludePatterns(
       String includePatterns, String excludePatterns) {
     boolean enabled = includePatterns != null || excludePatterns != null;
@@ -104,10 +110,10 @@ public class R8PartialCompilationConfiguration {
     }
     Builder builder = builder();
     if (includePatterns != null) {
-      Splitter.on(",").splitToList(includePatterns).forEach(builder::addJavaTypeIncludePattern);
+      splitPatternList(includePatterns).forEach(builder::addJavaTypeIncludePattern);
     }
     if (excludePatterns != null) {
-      Splitter.on(",").splitToList(excludePatterns).forEach(builder::addJavaTypeExcludePattern);
+      splitPatternList(excludePatterns).forEach(builder::addJavaTypeExcludePattern);
     }
     return builder.build();
   }

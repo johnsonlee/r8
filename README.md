@@ -216,22 +216,28 @@ In order to contribute to D8/R8 you have to sign the
 If your contribution is owned by your employer you need the
 [Corporate Contributor License Agreement](https://cla.developers.google.com/about/google-corporate).
 
-Once the license agreement is in place, please send an email to
-[r8-dev@googlegroups.com](mailto:r8-dev@googlegroups.com) to be added as a
-contributor.
+Signing the CLA should be enough to be approved as a contributer. However, please send an email to
+[r8-dev@googlegroups.com](mailto:r8-dev@googlegroups.com) to introduce yourself and your plans
+for contributing to the project.
 
-After being added as a contributer you can upload your patches
-using `git cl` which is available in `depot_tools`. Once you have a
+To create an account for the code review tool (required for uploading changes)
+please navigate to https://r8-review.googlesource.com/ and sign in with the
+account used to sign the CLA. First time you do that you will be asked to
+_Create Gerrit Account_. Plase follow that process.
+
+You can now upload your patches. Once you have a
 change that you are happy with you should make sure that it passes
 all tests and then upload the change to our code review tool using:
 
     $ git cl upload
 
 On your first upload you will be asked to acquire credentials. Follow the
-instructions given by `git cl upload`.
+instructions given by `git cl upload` (as of Aug 5 2025 that is running
+`git credential-luci login`, the previous `.gitcookies` based authentication
+scheme has been deprecated.).
 
 On successful uploads a link to the code review is printed in the
-output of the upload command. In the code review tool you can
+output of the `git cl upload` command. In the code review tool you can
 assign reviewers and mark the change ready for review. At that
 point the code review tool will send emails to reviewers.
 

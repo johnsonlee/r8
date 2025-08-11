@@ -1,0 +1,26 @@
+// Copyright (c) 2025, the R8 project authors. Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+package com.android.tools.r8.ir.optimize.outliner.exceptions;
+
+import com.android.tools.r8.errors.Unimplemented;
+import com.android.tools.r8.graph.AppView;
+import java.util.Collection;
+import java.util.function.Consumer;
+
+public class ThrowBlockOutlinerOptions {
+
+  public boolean enable = false;
+
+  public Consumer<Collection<ThrowBlockOutline>> outlineConsumerForTesting = null;
+
+  public boolean isEnabled(AppView<?> appView) {
+    if (!appView.options().isGeneratingDex() || !enable) {
+      return false;
+    }
+    if (appView.enableWholeProgramOptimizations()) {
+      throw new Unimplemented();
+    }
+    return true;
+  }
+}

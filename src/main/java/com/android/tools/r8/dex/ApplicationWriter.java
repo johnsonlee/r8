@@ -42,6 +42,7 @@ import com.android.tools.r8.graph.EnclosingMethodAttribute;
 import com.android.tools.r8.graph.InnerClassAttribute;
 import com.android.tools.r8.graph.ObjectToOffsetMapping;
 import com.android.tools.r8.metadata.impl.BuildMetadataFactory;
+import com.android.tools.r8.metadata.impl.R8StatsMetadataImpl;
 import com.android.tools.r8.naming.KotlinModuleSynthesizer;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.naming.ProguardMapSupplier.ProguardMapId;
@@ -655,6 +656,8 @@ public class ApplicationWriter {
       assert appView.hasClassHierarchy();
       options.r8BuildMetadataConsumer.accept(
           BuildMetadataFactory.create(appView.withClassHierarchy(), virtualFiles));
+    } else if (appView.hasClassHierarchy()) {
+      assert R8StatsMetadataImpl.Counters.create(appView.withClassHierarchy()).validate();
     }
   }
 

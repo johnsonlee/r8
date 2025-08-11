@@ -70,7 +70,7 @@ public class R8StatsMetadataImpl implements R8StatsMetadata {
     return noShrinkingPercentage;
   }
 
-  private static class Counters {
+  public static class Counters {
 
     private int itemsCount = 0;
     private int noObfuscationCount = 0;
@@ -79,12 +79,13 @@ public class R8StatsMetadataImpl implements R8StatsMetadata {
 
     private Counters() {}
 
-    static Counters create(AppView<? extends AppInfoWithClassHierarchy> appView) {
+    public static Counters create(AppView<? extends AppInfoWithClassHierarchy> appView) {
       Counters counters = new Counters();
       for (DexProgramClass clazz : appView.appInfo().classes()) {
         counters.add(appView, clazz);
         clazz.forEachProgramMember(member -> counters.add(appView, member));
       }
+      assert counters.validate();
       return counters;
     }
 
@@ -111,9 +112,34 @@ public class R8StatsMetadataImpl implements R8StatsMetadata {
     }
 
     float toPercentageWithTwoDecimals(int count) {
-      // Multiply by 100 twice to get percentage with two decimals.
-      float number = (float) (count * 100 * 100) / itemsCount;
-      return (float) Math.round(number) / 100;
+      if (itemsCount == 0) {
+        return 0f;
+      }
+      float fraction = (float) count / itemsCount;
+      assert verifyValidFraction(fraction);
+      float percentage = fraction * 100;
+      assert verifyValidPercentage(percentage);
+      // Multiply and divide by 100 to get percentage with two decimals.
+      return (float) Math.round(percentage * 100) / 100;
+    }
+
+    public boolean validate() {
+      assert verifyValidPercentage(getNoObfuscationPercentage());
+      assert verifyValidPercentage(getNoOptimizationPercentage());
+      assert verifyValidPercentage(getNoShrinkingPercentage());
+      return true;
+    }
+
+    private boolean verifyValidFraction(float f) {
+      assert 0f <= f;
+      assert f <= 1f;
+      return true;
+    }
+
+    private boolean verifyValidPercentage(float f) {
+      assert 0f <= f;
+      assert f <= 100f;
+      return true;
     }
   }
 }

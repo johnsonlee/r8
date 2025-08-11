@@ -40,6 +40,7 @@ import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.RetracerForCodePrinting;
 import com.android.tools.r8.utils.structural.CompareToVisitor;
 import com.android.tools.r8.utils.structural.HashingVisitor;
@@ -293,7 +294,11 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
   }
 
   public List<CfInstruction> getInstructions() {
-    return Collections.unmodifiableList(instructions);
+    return ListUtils.unmodifiableForTesting(instructions);
+  }
+
+  public int getInstructionCount() {
+    return instructions.size();
   }
 
   public void setInstructions(List<CfInstruction> instructions) {
@@ -301,7 +306,7 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
   }
 
   public List<LocalVariableInfo> getLocalVariables() {
-    return Collections.unmodifiableList(localVariables);
+    return ListUtils.unmodifiableForTesting(localVariables);
   }
 
   @Override
@@ -668,7 +673,7 @@ public class CfCode extends Code implements CfWritableCode, StructuralItem<CfCod
       MutableMethodConversionOptions conversionOptions) {
     try {
       return internalBuild(
-          Collections.unmodifiableList(localVariables),
+          ListUtils.unmodifiableForTesting(localVariables),
           context,
           method,
           appView,
