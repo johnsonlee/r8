@@ -250,18 +250,23 @@ public class ThrowBlockOutlinerScanner {
           throwBlock,
           newInstance,
           outlineBuilder -> {
-            NewInstance outlinedNewInstance =
-                NewInstance.builder()
-                    .setFreshOutValue(
-                        outlineBuilder.valueNumberGenerator,
-                        newInstance.getType().toNonNullClassTypeElement(appView))
-                    .setType(newInstance.getType())
-                    .setPosition(Position.syntheticNone())
-                    .build();
-            outlineBuilder.add(outlinedNewInstance);
-            outlineBuilder.map(newInstance.outValue(), outlinedNewInstance.outValue());
+            outlineNewInstanceInstruction(newInstance, outlineBuilder);
             continuation.accept(outlineBuilder);
           });
+    }
+
+    private void outlineNewInstanceInstruction(
+        NewInstance newInstance, OutlineBuilder outlineBuilder) {
+      NewInstance outlinedNewInstance =
+          NewInstance.builder()
+              .setFreshOutValue(
+                  outlineBuilder.valueNumberGenerator,
+                  newInstance.getType().toNonNullClassTypeElement(appView))
+              .setType(newInstance.getType())
+              .setPosition(Position.syntheticNone())
+              .build();
+      outlineBuilder.add(outlinedNewInstance);
+      outlineBuilder.map(newInstance.outValue(), outlinedNewInstance.outValue());
     }
 
     private void processExceptionConstructorCall(
@@ -271,14 +276,45 @@ public class ThrowBlockOutlinerScanner {
         // Not a constructor call.
         return;
       }
-      if (invoke.getReceiver() != throwBlock.exit().asThrow().exception()) {
+      Throw throwInstruction = throwBlock.exit().asThrow();
+      Value exceptionValue = throwInstruction.exception();
+      assert !exceptionValue.hasDebugUsers();
+      assert !exceptionValue.hasPhiUsers();
+      if (invoke.getReceiver() != exceptionValue) {
         // Not the constructor call corresponding to the thrown exception.
         return;
       }
       // This instruction is guaranteed to have a predecessor since the handling of the throw
       // instruction checks if the new-instance instruction is in the throw block.
       assert instruction.hasPrev();
-      processExceptionOrStringBuilderConstructorCall(throwBlock, invoke, continuation);
+      processPredecessorInstructionOrFail(
+          throwBlock,
+          invoke,
+          outlineBuilder -> {
+            if (outlineBuilder.getOutlinedValue(exceptionValue) == null) {
+              // We were unable to outline the corresponding new-instance instruction. Check if we
+              // can insert it here, right before the constructor call.
+              NewInstance newInstance = exceptionValue.getDefinition().asNewInstance();
+              if (exceptionValue.uniqueUsers().size() == 2
+                  && !newInstance.instructionMayHaveSideEffects(appView, code.context())) {
+                // The exception value is only used by the constructor call and the throw.
+                // By construction, it cannot have debug users nor phi users.
+                outlineNewInstanceInstruction(newInstance, outlineBuilder);
+              } else {
+                // Fail as we were unable to outline the corresponding new-instance instruction.
+                return;
+              }
+            }
+            outlineBuilder.add(
+                InvokeDirect.builder()
+                    .setArguments(
+                        ListUtils.map(
+                            invoke.arguments(), outlineBuilder::getOutlinedValueOrCreateArgument))
+                    .setMethod(invoke.getInvokedMethod())
+                    .setPosition(Position.syntheticNone())
+                    .build());
+            continuation.accept(outlineBuilder);
+          });
     }
 
     private void processStringBuilderConstructorCall(
@@ -288,11 +324,6 @@ public class ThrowBlockOutlinerScanner {
         startOutline(invoke.getNext(), continuation);
         return;
       }
-      processExceptionOrStringBuilderConstructorCall(throwBlock, invoke, continuation);
-    }
-
-    private void processExceptionOrStringBuilderConstructorCall(
-        BasicBlock throwBlock, InvokeDirect invoke, Consumer<OutlineBuilder> continuation) {
       processPredecessorInstructionOrFail(
           throwBlock,
           invoke,

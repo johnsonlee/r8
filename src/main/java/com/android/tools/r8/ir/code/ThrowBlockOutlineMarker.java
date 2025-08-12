@@ -32,7 +32,7 @@ public class ThrowBlockOutlineMarker extends Instruction {
 
   // Removes the in-values from this outline marker where the corresponding outline parameter has
   // been removed due to constant propagation.
-  public boolean detachConstantOutlineArguments(ThrowBlockOutline outline) {
+  public void detachConstantOutlineArguments(ThrowBlockOutline outline) {
     List<Value> newArguments =
         ListUtils.mapOrElse(
             inValues,
@@ -47,9 +47,7 @@ public class ThrowBlockOutlineMarker extends Instruction {
     if (newArguments != null) {
       inValues.clear();
       inValues.addAll(newArguments);
-      return true;
     }
-    return false;
   }
 
   public ThrowBlockOutline getOutline() {

@@ -103,7 +103,6 @@ public class ThrowBlockOutlineMarkerRewriter {
   }
 
   private void processOutlineMarkers(IRCode code) {
-    boolean needsDeadCodeElimination = false;
     for (BasicBlock block : code.getBlocks()) {
       Throw throwInstruction = block.exit().asThrow();
       if (throwInstruction != null) {
@@ -111,11 +110,7 @@ public class ThrowBlockOutlineMarkerRewriter {
             block.entry().nextUntilInclusive(Instruction::isThrowBlockOutlineMarker);
         if (outlineMarker != null) {
           ThrowBlockOutline outline = outlineMarker.getOutline();
-          if (outlineMarker.detachConstantOutlineArguments(outline)) {
-            // Make sure to run dead code elimination when arguments are detached, since detached
-            // values may become dead.
-            needsDeadCodeElimination = true;
-          }
+          outlineMarker.detachConstantOutlineArguments(outline);
           if (outline.isMaterialized()) {
             // Insert a call to the materialized outline method and load the return value.
             BasicBlockInstructionListIterator instructionIterator =
@@ -153,9 +148,9 @@ public class ThrowBlockOutlineMarkerRewriter {
       assert block.streamInstructions().noneMatch(Instruction::isThrowBlockOutlineMarker);
     }
 
-    if (needsDeadCodeElimination) {
-      new DeadCodeRemover(appView).run(code, Timing.empty());
-    }
+    // Run the dead code remover to ensure code that has been moved into the outline is removed
+    // (e.g., constants, the allocation of the exception).
+    new DeadCodeRemover(appView).run(code, Timing.empty());
   }
 
   private Value addReturnValue(IRCode code, BasicBlockInstructionListIterator instructionIterator) {
