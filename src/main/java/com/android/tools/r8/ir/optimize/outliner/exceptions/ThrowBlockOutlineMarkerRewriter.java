@@ -87,6 +87,10 @@ public class ThrowBlockOutlineMarkerRewriter {
 
   private void removeConstantArgumentsFromOutline(
       ProgramMethod method, IRCode code, ThrowBlockOutline outline) {
+    if (!outline.hasConstantArgument()) {
+      return;
+    }
+
     Set<Phi> affectedPhis = Collections.emptySet();
     Set<UnusedArgument> unusedArguments = Collections.emptySet();
     new LensCodeArgumentRewriter(appView)

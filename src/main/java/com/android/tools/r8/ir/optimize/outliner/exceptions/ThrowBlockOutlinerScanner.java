@@ -14,9 +14,12 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProto;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexTypeUtils;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
+import com.android.tools.r8.ir.analysis.type.TypeUtils;
 import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
 import com.android.tools.r8.ir.code.Argument;
 import com.android.tools.r8.ir.code.BasicBlock;
@@ -127,11 +130,10 @@ public class ThrowBlockOutlinerScanner {
             LirCode<?> lirCode = outlineBuilder.buildLirCode(appView, code.context());
             Wrapper<LirCode<?>> lirCodeWrapper =
                 ThrowBlockOutlinerLirCodeEquivalence.get().wrap(lirCode);
-            DexProto proto = outlineBuilder.getProto(factory);
+            DexProto proto = outlineBuilder.getProto(appView);
             ThrowBlockOutline outline =
                 outlines.computeIfAbsent(
                     lirCodeWrapper, w -> new ThrowBlockOutline(w.get(), proto));
-            // TODO(b/434769547): This may not hold. We should compute the join.
             assert proto.isIdenticalTo(outline.getProto());
             List<Value> arguments = outlineBuilder.buildArguments();
             outline.addUser(code.reference(), arguments, getAbstractValueFactory());
@@ -402,12 +404,19 @@ public class ThrowBlockOutlinerScanner {
       return addArgument(value).outValue();
     }
 
-    DexProto getProto(DexItemFactory factory) {
+    DexProto getProto(AppView<?> appView) {
+      DexItemFactory factory = appView.dexItemFactory();
+      DexType returnType = factory.voidType;
       return factory.createProto(
-          factory.voidType,
+          returnType,
           ListUtils.map(
               outlinedArguments,
-              outlinedArgument -> DexTypeUtils.toDexType(factory, outlinedArgument.getOutType())));
+              outlinedArgument -> {
+                TypeElement useType =
+                    TypeUtils.computeUseType(
+                        appView, factory.voidType, outlinedArgument.outValue());
+                return DexTypeUtils.toDexType(factory, useType);
+              }));
     }
 
     List<Value> buildArguments() {
