@@ -6,6 +6,7 @@ package com.android.tools.r8.ir.optimize.outliner.exceptions;
 import static com.android.tools.r8.ir.code.Opcodes.CONST_NUMBER;
 import static com.android.tools.r8.ir.code.Opcodes.CONST_STRING;
 import static com.android.tools.r8.ir.code.Opcodes.INVOKE_DIRECT;
+import static com.android.tools.r8.ir.code.Opcodes.INVOKE_STATIC;
 import static com.android.tools.r8.ir.code.Opcodes.INVOKE_VIRTUAL;
 import static com.android.tools.r8.ir.code.Opcodes.NEW_INSTANCE;
 import static java.util.Collections.emptyList;
@@ -29,6 +30,7 @@ import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.IRMetadata;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InvokeDirect;
+import com.android.tools.r8.ir.code.InvokeStatic;
 import com.android.tools.r8.ir.code.InvokeVirtual;
 import com.android.tools.r8.ir.code.NewInstance;
 import com.android.tools.r8.ir.code.NumberGenerator;
@@ -194,6 +196,9 @@ public class ThrowBlockOutlinerScanner {
             return;
           }
           break;
+        case INVOKE_STATIC:
+          processStringFormatOrValueOf(throwBlock, instruction.asInvokeStatic(), continuation);
+          return;
         case INVOKE_VIRTUAL:
           processStringBuilderAppendOrToString(
               throwBlock, instruction.asInvokeVirtual(), continuation);
@@ -304,6 +309,39 @@ public class ThrowBlockOutlinerScanner {
                     .setMethod(invoke.getInvokedMethod())
                     .setPosition(Position.syntheticNone())
                     .build());
+            continuation.accept(outlineBuilder);
+          });
+    }
+
+    private void processStringFormatOrValueOf(
+        BasicBlock throwBlock, InvokeStatic invoke, Consumer<OutlineBuilder> continuation) {
+      DexMethod invokedMethod = invoke.getInvokedMethod();
+      if (!invokedMethod.isIdenticalTo(factory.stringMembers.format)
+          && !invokedMethod.isIdenticalTo(factory.stringMembers.valueOf)) {
+        // Unhandled instruction.
+        startOutline(invoke.getNext(), continuation);
+        return;
+      }
+      processPredecessorInstructionOrStartOutline(
+          throwBlock,
+          invoke,
+          outlineBuilder -> {
+            InvokeStatic.Builder outlinedInvokeBuilder =
+                InvokeStatic.builder()
+                    .setArguments(
+                        ListUtils.map(
+                            invoke.arguments(), outlineBuilder::getOutlinedValueOrCreateArgument))
+                    .setMethod(invoke.getInvokedMethod())
+                    .setPosition(Position.syntheticNone());
+            if (invoke.hasOutValue()) {
+              outlinedInvokeBuilder.setFreshOutValue(
+                  outlineBuilder.valueNumberGenerator, invoke.getOutType());
+            }
+            InvokeStatic outlinedInvoke = outlinedInvokeBuilder.build();
+            outlineBuilder.add(outlinedInvoke);
+            if (invoke.hasOutValue()) {
+              outlineBuilder.map(invoke.outValue(), outlinedInvoke.outValue());
+            }
             continuation.accept(outlineBuilder);
           });
     }
