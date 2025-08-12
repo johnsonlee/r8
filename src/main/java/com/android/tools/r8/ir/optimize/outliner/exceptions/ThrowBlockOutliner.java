@@ -11,6 +11,7 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.IRCode;
+import com.android.tools.r8.lightir.LirCode;
 import com.android.tools.r8.lightir.LirConstant;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.ThreadUtils;
@@ -127,7 +128,16 @@ public class ThrowBlockOutliner {
     ThrowBlockOutlineMarkerRewriter rewriter = new ThrowBlockOutlineMarkerRewriter(appView);
     ThreadUtils.processMap(
         methodsToReprocess,
-        rewriter::processMethod,
+        (method, outline) -> {
+          assert method.getDefinition().hasCode();
+          assert method.getDefinition().getCode().isLirCode();
+          LirCode<Integer> lirCode = method.getDefinition().getCode().asLirCode();
+          if (outline != null) {
+            rewriter.processOutlineMethod(method, lirCode, outline);
+          } else {
+            rewriter.processMethodWithOutlineMarkers(method, lirCode);
+          }
+        },
         appView.options().getThreadingModule(),
         executorService);
   }

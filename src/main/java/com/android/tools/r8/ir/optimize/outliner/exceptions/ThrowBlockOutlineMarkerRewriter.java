@@ -46,30 +46,22 @@ public class ThrowBlockOutlineMarkerRewriter {
     this.deadCodeRemover = new DeadCodeRemover(appView);
   }
 
-  public void processMethod(ProgramMethod method, ThrowBlockOutline outline) {
-    assert method.getDefinition().hasCode();
-    assert method.getDefinition().getCode().isLirCode();
-    // Build IR.
-    LirCode<Integer> lirCode = method.getDefinition().getCode().asLirCode();
-    IRCode code = buildIR(lirCode, method, outline);
-    assert code.getConversionOptions().isGeneratingDex();
-
-    // Process IR.
-    if (outline != null) {
-      removeConstantArgumentsFromOutline(method, code, outline);
-    } else {
-      processOutlineMarkers(code);
-    }
-
-    // Convert to DEX.
-    IRFinalizer<?> finalizer = code.getConversionOptions().getFinalizer(deadCodeRemover, appView);
-    Code dexCode = finalizer.finalizeCode(code, BytecodeMetadataProvider.empty(), Timing.empty());
-    method.setCode(dexCode, appView);
+  public void processOutlineMethod(
+      ProgramMethod method, LirCode<Integer> lirCode, ThrowBlockOutline outline) {
+    IRCode code = buildIRForOutlineMethod(lirCode, method, outline);
+    removeConstantArgumentsFromOutline(method, code, outline);
+    finalizeCode(method, code);
   }
 
-  private IRCode buildIR(
+  public void processMethodWithOutlineMarkers(ProgramMethod method, LirCode<Integer> lirCode) {
+    IRCode code = lirCode.buildIR(method, appView);
+    processOutlineMarkers(code);
+    finalizeCode(method, code);
+  }
+
+  private IRCode buildIRForOutlineMethod(
       LirCode<Integer> lirCode, ProgramMethod method, ThrowBlockOutline outline) {
-    if (outline == null || !outline.hasConstantArgument()) {
+    if (!outline.hasConstantArgument()) {
       return lirCode.buildIR(method, appView);
     }
     // We need to inform IR construction to insert the arguments that have been removed from the
@@ -83,6 +75,14 @@ public class ThrowBlockOutlineMarkerRewriter {
         callerPosition,
         outline.getProtoChanges(),
         MethodConversionOptions.forD8(appView, method));
+  }
+
+  private void finalizeCode(ProgramMethod method, IRCode code) {
+    // Convert to DEX.
+    assert code.getConversionOptions().isGeneratingDex();
+    IRFinalizer<?> finalizer = code.getConversionOptions().getFinalizer(deadCodeRemover, appView);
+    Code dexCode = finalizer.finalizeCode(code, BytecodeMetadataProvider.empty(), Timing.empty());
+    method.setCode(dexCode, appView);
   }
 
   private void removeConstantArgumentsFromOutline(
@@ -150,7 +150,7 @@ public class ThrowBlockOutlineMarkerRewriter {
 
     // Run the dead code remover to ensure code that has been moved into the outline is removed
     // (e.g., constants, the allocation of the exception).
-    new DeadCodeRemover(appView).run(code, Timing.empty());
+    deadCodeRemover.run(code, Timing.empty());
   }
 
   private Value addReturnValue(IRCode code, BasicBlockInstructionListIterator instructionIterator) {
