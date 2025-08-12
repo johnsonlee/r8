@@ -14,6 +14,7 @@ import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.ir.optimize.InliningConstraints;
 import com.android.tools.r8.ir.optimize.outliner.exceptions.ThrowBlockOutline;
 import com.android.tools.r8.lightir.LirBuilder;
+import com.android.tools.r8.utils.ListUtils;
 import java.util.List;
 
 public class ThrowBlockOutlineMarker extends Instruction {
@@ -27,6 +28,28 @@ public class ThrowBlockOutlineMarker extends Instruction {
 
   public static Builder builder() {
     return new Builder();
+  }
+
+  // Removes the in-values from this outline marker where the corresponding outline parameter has
+  // been removed due to constant propagation.
+  public boolean detachConstantOutlineArguments(ThrowBlockOutline outline) {
+    List<Value> newArguments =
+        ListUtils.mapOrElse(
+            inValues,
+            (i, argument) -> {
+              if (outline.isArgumentConstant(i)) {
+                argument.removeUser(this);
+                return null;
+              }
+              return argument;
+            },
+            null);
+    if (newArguments != null) {
+      inValues.clear();
+      inValues.addAll(newArguments);
+      return true;
+    }
+    return false;
   }
 
   public ThrowBlockOutline getOutline() {

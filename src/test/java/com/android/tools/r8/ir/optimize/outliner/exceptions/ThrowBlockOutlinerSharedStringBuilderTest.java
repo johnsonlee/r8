@@ -15,8 +15,10 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestCompileResult;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.BooleanBox;
+import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
@@ -74,7 +76,12 @@ public class ThrowBlockOutlinerSharedStringBuilderTest extends TestBase {
     assertEquals(1, outlines.size());
     ThrowBlockOutline outline = outlines.iterator().next();
     assertEquals(2, outline.getNumberOfUsers());
-    assertEquals(4, outline.getProto().getArity());
+    assertEquals(5, outline.getProto().getArity());
+
+    // Verify that the last argument is known to be constant.
+    AbstractValue lastArgument = ListUtils.last(outline.getArguments());
+    assertTrue(lastArgument.isSingleStringValue());
+    assertEquals(", k=42", lastArgument.asSingleStringValue().getDexString().toString());
   }
 
   private void inspectOutput(CodeInspector inspector) {
@@ -85,12 +92,14 @@ public class ThrowBlockOutlinerSharedStringBuilderTest extends TestBase {
     assertThat(outlineClassSubject, isPresent());
     assertEquals(1, outlineClassSubject.allMethods().size());
 
-    // Validate that the outline uses StringBuilder.
+    // Validate that the outline uses StringBuilder and that the string ", k=42" has been moved into
+    // the outline.
     MethodSubject outlineMethodSubject = outlineClassSubject.uniqueMethod();
     assertTrue(
         outlineMethodSubject
             .streamInstructions()
             .anyMatch(i -> i.isNewInstance("java.lang.StringBuilder")));
+    assertTrue(outlineMethodSubject.streamInstructions().anyMatch(i -> i.isConstString(", k=42")));
 
     // Validate that main() no longer uses StringBuilder and that it calls the outline twice.
     MethodSubject mainMethodSubject = inspector.clazz(Main.class).mainMethod();
@@ -103,6 +112,7 @@ public class ThrowBlockOutlinerSharedStringBuilderTest extends TestBase {
     assertTrue(mainMethodSubject.streamInstructions().anyMatch(i -> i.isConstString("j=")));
     assertTrue(mainMethodSubject.streamInstructions().anyMatch(i -> i.isConstString(", j=")));
     assertTrue(mainMethodSubject.streamInstructions().anyMatch(i -> i.isConstString(", i=")));
+    assertTrue(mainMethodSubject.streamInstructions().noneMatch(i -> i.isConstString(", k=42")));
     assertEquals(
         2,
         mainMethodSubject
@@ -117,10 +127,10 @@ public class ThrowBlockOutlinerSharedStringBuilderTest extends TestBase {
       int i = Integer.parseInt(args[0]);
       int j = Integer.parseInt(args[1]);
       if (i == 0) {
-        throw new IllegalArgumentException("i=" + i + ", j=" + j);
+        throw new IllegalArgumentException("i=" + i + ", j=" + j + ", k=42");
       }
       if (j == 0) {
-        throw new IllegalArgumentException("j=" + j + ", i=" + i);
+        throw new IllegalArgumentException("j=" + j + ", i=" + i + ", k=42");
       }
     }
   }

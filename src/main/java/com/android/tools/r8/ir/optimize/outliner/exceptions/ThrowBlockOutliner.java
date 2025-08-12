@@ -15,7 +15,6 @@ import com.android.tools.r8.lightir.LirConstant;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.collections.ProgramMethodMap;
-import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
@@ -124,30 +123,31 @@ public class ThrowBlockOutliner {
   private void processMethods(
       Collection<ThrowBlockOutline> outlines, ExecutorService executorService)
       throws ExecutionException {
-    ProgramMethodSet methodsToProcess = getMethodsToReprocess(outlines);
+    ProgramMethodMap<ThrowBlockOutline> methodsToReprocess = getMethodsToReprocess(outlines);
     ThrowBlockOutlineMarkerRewriter rewriter = new ThrowBlockOutlineMarkerRewriter(appView);
-    ThreadUtils.processItems(
-        methodsToProcess,
+    ThreadUtils.processMap(
+        methodsToReprocess,
         rewriter::processMethod,
         appView.options().getThreadingModule(),
         executorService);
   }
 
-  private ProgramMethodSet getMethodsToReprocess(Collection<ThrowBlockOutline> outlines) {
-    ProgramMethodSet methodsToProcess = ProgramMethodSet.create();
+  private ProgramMethodMap<ThrowBlockOutline> getMethodsToReprocess(
+      Collection<ThrowBlockOutline> outlines) {
+    ProgramMethodMap<ThrowBlockOutline> methodsToReprocess = ProgramMethodMap.create();
     Set<DexMethod> seenUsers = Sets.newIdentityHashSet();
     for (ThrowBlockOutline outline : outlines) {
       for (DexMethod user : outline.getUsers()) {
         if (seenUsers.add(user)) {
-          ProgramMethod methodToProcess = appView.definitionFor(user).asProgramMethod();
-          methodsToProcess.add(methodToProcess);
+          ProgramMethod methodToReprocess = appView.definitionFor(user).asProgramMethod();
+          methodsToReprocess.put(methodToReprocess, null);
         }
       }
       if (outline.getMaterializedOutlineMethod() != null) {
-        methodsToProcess.add(outline.getMaterializedOutlineMethod());
+        methodsToReprocess.put(outline.getMaterializedOutlineMethod(), outline);
       }
     }
-    return methodsToProcess;
+    return methodsToReprocess;
   }
 
   private boolean supplyOutlineConsumerForTesting(Collection<ThrowBlockOutline> outlines) {

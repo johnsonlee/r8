@@ -17,6 +17,7 @@ import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexTypeUtils;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
+import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
 import com.android.tools.r8.ir.code.Argument;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.BasicBlockInstructionListIterator;
@@ -57,6 +58,7 @@ public class ThrowBlockOutlinerScanner {
 
   private final AppView<?> appView;
   private final DexItemFactory factory;
+  private final AbstractValueFactory valueFactory = new AbstractValueFactory();
 
   private final Map<Wrapper<LirCode<?>>, ThrowBlockOutline> outlines = new ConcurrentHashMap<>();
 
@@ -67,6 +69,12 @@ public class ThrowBlockOutlinerScanner {
 
   public void run(IRCode code) {
     new ThrowBlockOutlinerScannerForCode(code).run();
+  }
+
+  public AbstractValueFactory getAbstractValueFactory() {
+    // If/when extending this to R8, use the R8 AbstractValueFactory from AppView.
+    assert !appView.enableWholeProgramOptimizations();
+    return valueFactory;
   }
 
   public Collection<ThrowBlockOutline> getOutlines() {
@@ -126,7 +134,7 @@ public class ThrowBlockOutlinerScanner {
             // TODO(b/434769547): This may not hold. We should compute the join.
             assert proto.isIdenticalTo(outline.getProto());
             List<Value> arguments = outlineBuilder.buildArguments();
-            outline.addUser(code.reference(), arguments);
+            outline.addUser(code.reference(), arguments, getAbstractValueFactory());
 
             // Insert a synthetic marker instruction that references the outline so that we know
             // where to materialize the outline call.
