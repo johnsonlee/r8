@@ -1,4 +1,4 @@
-// Copyright (c) 2020, the R8 project authors. Please see the AUTHORS file
+// Copyright (c) 2025, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
@@ -18,9 +18,12 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
-/** This is a reproduction of b/161230424. */
+/**
+ * This was a reproduction of b/161230424. With b/435327947 we instead keep all members if there is
+ * a keep for `kotlin.Metadata` making this test trivial.
+ */
 @RunWith(Parameterized.class)
-public class MetadataPrunedFieldsTest extends KotlinMetadataTestBase {
+public class MetadataKeepSomeProperties extends KotlinMetadataTestBase {
 
   private final TestParameters parameters;
 
@@ -31,7 +34,7 @@ public class MetadataPrunedFieldsTest extends KotlinMetadataTestBase {
         getKotlinTestParameters().withAllCompilersAndLambdaGenerations().build());
   }
 
-  public MetadataPrunedFieldsTest(
+  public MetadataKeepSomeProperties(
       TestParameters parameters, KotlinTestParameters kotlinParameters) {
     super(kotlinParameters);
     this.parameters = parameters;
