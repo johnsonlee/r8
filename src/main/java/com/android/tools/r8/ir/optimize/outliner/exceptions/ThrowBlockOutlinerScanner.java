@@ -73,7 +73,16 @@ public class ThrowBlockOutlinerScanner {
   }
 
   public void run(IRCode code) {
-    new ThrowBlockOutlinerScannerForCode(code).run();
+    assert !code.metadata().mayHaveThrowBlockOutlineMarker();
+    for (BasicBlock block : getThrowBlocks(code)) {
+      new ThrowBlockOutlinerScannerForBlock(code, block).processThrowBlock();
+    }
+    if (code.metadata().mayHaveThrowBlockOutlineMarker()) {
+      assert code.getConversionOptions().isGeneratingDex();
+      code.mutateConversionOptions(MutableMethodConversionOptions::setIsGeneratingLir);
+    } else {
+      assert code.streamInstructions().noneMatch(Instruction::isThrowBlockOutlineMarker);
+    }
   }
 
   public AbstractValueFactory getAbstractValueFactory() {
@@ -86,47 +95,38 @@ public class ThrowBlockOutlinerScanner {
     return outlines.values();
   }
 
-  private class ThrowBlockOutlinerScannerForCode {
+  private List<BasicBlock> getThrowBlocks(IRCode code) {
+    boolean seenReturn = false;
+    List<BasicBlock> throwBlocks = new ArrayList<>();
+    for (BasicBlock block : code.getBlocks()) {
+      if (block.exit().isReturn()) {
+        seenReturn = true;
+      } else if (block.exit().isThrow()) {
+        throwBlocks.add(block);
+      }
+    }
+    // Never outline from methods that always throw.
+    return seenReturn ? throwBlocks : emptyList();
+  }
+
+  private class ThrowBlockOutlinerScannerForBlock {
 
     private final IRCode code;
+    private final Value exceptionValue;
+    private final BasicBlock throwBlock;
+    private final Throw throwInstruction;
 
-    ThrowBlockOutlinerScannerForCode(IRCode code) {
+    ThrowBlockOutlinerScannerForBlock(IRCode code, BasicBlock throwBlock) {
       this.code = code;
+      this.throwBlock = throwBlock;
+      this.throwInstruction = throwBlock.exit().asThrow();
+      this.exceptionValue = throwInstruction.exception();
     }
 
-    private void run() {
-      assert !code.metadata().mayHaveThrowBlockOutlineMarker();
-      for (BasicBlock block : getThrowBlocks()) {
-        processThrowBlock(block);
-      }
-      if (code.metadata().mayHaveThrowBlockOutlineMarker()) {
-        assert code.getConversionOptions().isGeneratingDex();
-        code.mutateConversionOptions(MutableMethodConversionOptions::setIsGeneratingLir);
-      } else {
-        assert code.streamInstructions().noneMatch(Instruction::isThrowBlockOutlineMarker);
-      }
-    }
-
-    private List<BasicBlock> getThrowBlocks() {
-      boolean seenReturn = false;
-      List<BasicBlock> throwBlocks = new ArrayList<>();
-      for (BasicBlock block : code.getBlocks()) {
-        if (block.exit().isReturn()) {
-          seenReturn = true;
-        } else if (block.exit().isThrow()) {
-          throwBlocks.add(block);
-        }
-      }
-      // Never outline from methods that always throw.
-      return seenReturn ? throwBlocks : emptyList();
-    }
-
-    private void processThrowBlock(BasicBlock block) {
+    private void processThrowBlock() {
       // Recursively build up the outline method. On successful outline creation, the resulting
       // LirCode is passed to the continuation function.
       processThrowInstruction(
-          block,
-          block.exit().asThrow(),
           outlineBuilder -> {
             // On successful outline creation, store the outline for later processing.
             LirCode<?> lirCode = outlineBuilder.buildLirCode(appView, code.context());
@@ -143,20 +143,18 @@ public class ThrowBlockOutlinerScanner {
             // Insert a synthetic marker instruction that references the outline so that we know
             // where to materialize the outline call.
             Instruction insertionPoint = outlineBuilder.getFirstOutlinedInstruction();
-            assert insertionPoint.getBlock() == block;
+            assert insertionPoint.getBlock() == throwBlock;
             ThrowBlockOutlineMarker marker =
                 ThrowBlockOutlineMarker.builder()
                     .setArguments(arguments)
                     .setOutline(outline)
                     .setPosition(Position.none())
                     .build();
-            block.listIterator(insertionPoint).add(marker);
+            throwBlock.listIterator(insertionPoint).add(marker);
           });
     }
 
-    private void processThrowInstruction(
-        BasicBlock throwBlock, Throw throwInstruction, Consumer<OutlineBuilder> continuation) {
-      Value exceptionValue = throwInstruction.exception();
+    private void processThrowInstruction(Consumer<OutlineBuilder> continuation) {
       if (!exceptionValue.isDefinedByInstructionSatisfying(
           i -> i.isNewInstance() && i.getBlock() == throwBlock)) {
         // Exception is not created in the throw block.
@@ -165,7 +163,6 @@ public class ThrowBlockOutlinerScanner {
       assert throwInstruction.hasPrev();
       // We always expect the constructor call corresponding to the thrown exception to be last.
       processExceptionConstructorCall(
-          throwBlock,
           throwInstruction.getPrev(),
           outlineBuilder -> {
             Value outlinedExceptionValue = outlineBuilder.getOutlinedValue(exceptionValue);
@@ -183,28 +180,26 @@ public class ThrowBlockOutlinerScanner {
     }
 
     private void processInstruction(
-        BasicBlock throwBlock, Instruction instruction, Consumer<OutlineBuilder> continuation) {
+        Instruction instruction, Consumer<OutlineBuilder> continuation) {
       switch (instruction.opcode()) {
         case CONST_NUMBER:
         case CONST_STRING:
-          processConstInstruction(throwBlock, instruction.asConstInstruction(), continuation);
+          processConstInstruction(instruction.asConstInstruction(), continuation);
           return;
         case INVOKE_DIRECT:
           if (instruction.isInvokeConstructor(factory)) {
-            processStringBuilderConstructorCall(
-                throwBlock, instruction.asInvokeDirect(), continuation);
+            processStringBuilderConstructorCall(instruction.asInvokeDirect(), continuation);
             return;
           }
           break;
         case INVOKE_STATIC:
-          processStringFormatOrValueOf(throwBlock, instruction.asInvokeStatic(), continuation);
+          processStringFormatOrValueOf(instruction.asInvokeStatic(), continuation);
           return;
         case INVOKE_VIRTUAL:
-          processStringBuilderAppendOrToString(
-              throwBlock, instruction.asInvokeVirtual(), continuation);
+          processStringBuilderAppendOrToString(instruction.asInvokeVirtual(), continuation);
           return;
         case NEW_INSTANCE:
-          processNewInstanceInstruction(throwBlock, instruction.asNewInstance(), continuation);
+          processNewInstanceInstruction(instruction.asNewInstance(), continuation);
           return;
         default:
           break;
@@ -214,40 +209,38 @@ public class ThrowBlockOutlinerScanner {
     }
 
     private void processConstInstruction(
-        BasicBlock throwBlock,
         ConstInstruction instruction,
         Consumer<OutlineBuilder> continuation) {
-      processPredecessorInstructionOrStartOutline(throwBlock, instruction, continuation);
+      processPredecessorInstructionOrStartOutline(instruction, continuation);
     }
 
     private void processPredecessorInstructionOrFail(
-        BasicBlock throwBlock, Instruction instruction, Consumer<OutlineBuilder> continuation) {
+        Instruction instruction, Consumer<OutlineBuilder> continuation) {
       if (instruction.hasPrev()) {
-        processInstruction(throwBlock, instruction.getPrev(), continuation);
+        processInstruction(instruction.getPrev(), continuation);
       } else {
         // Intentionally empty. Not calling the continuation corresponds to dropping the outline.
       }
     }
 
     private void processPredecessorInstructionOrStartOutline(
-        BasicBlock throwBlock, Instruction instruction, Consumer<OutlineBuilder> continuation) {
+        Instruction instruction, Consumer<OutlineBuilder> continuation) {
       if (instruction.hasPrev()) {
-        processInstruction(throwBlock, instruction.getPrev(), continuation);
+        processInstruction(instruction.getPrev(), continuation);
       } else {
         startOutline(instruction, continuation);
       }
     }
 
     private void processNewInstanceInstruction(
-        BasicBlock throwBlock, NewInstance newInstance, Consumer<OutlineBuilder> continuation) {
-      if (newInstance.outValue() != throwBlock.exit().asThrow().exception()
+        NewInstance newInstance, Consumer<OutlineBuilder> continuation) {
+      if (newInstance.outValue() != exceptionValue
           && newInstance.getType().isNotIdenticalTo(appView.dexItemFactory().stringBuilderType)) {
         // Unhandled instruction.
         startOutline(newInstance.getNext(), continuation);
         return;
       }
       processPredecessorInstructionOrStartOutline(
-          throwBlock,
           newInstance,
           outlineBuilder -> {
             outlineNewInstanceInstruction(newInstance, outlineBuilder);
@@ -270,14 +263,12 @@ public class ThrowBlockOutlinerScanner {
     }
 
     private void processExceptionConstructorCall(
-        BasicBlock throwBlock, Instruction instruction, Consumer<OutlineBuilder> continuation) {
+        Instruction instruction, Consumer<OutlineBuilder> continuation) {
       InvokeDirect invoke = instruction.asInvokeConstructor(factory);
       if (invoke == null) {
         // Not a constructor call.
         return;
       }
-      Throw throwInstruction = throwBlock.exit().asThrow();
-      Value exceptionValue = throwInstruction.exception();
       assert !exceptionValue.hasDebugUsers();
       assert !exceptionValue.hasPhiUsers();
       if (invoke.getReceiver() != exceptionValue) {
@@ -288,7 +279,6 @@ public class ThrowBlockOutlinerScanner {
       // instruction checks if the new-instance instruction is in the throw block.
       assert instruction.hasPrev();
       processPredecessorInstructionOrFail(
-          throwBlock,
           invoke,
           outlineBuilder -> {
             if (outlineBuilder.getOutlinedValue(exceptionValue) == null) {
@@ -318,14 +308,13 @@ public class ThrowBlockOutlinerScanner {
     }
 
     private void processStringBuilderConstructorCall(
-        BasicBlock throwBlock, InvokeDirect invoke, Consumer<OutlineBuilder> continuation) {
+        InvokeDirect invoke, Consumer<OutlineBuilder> continuation) {
       if (!factory.stringBuilderMethods.isConstructorMethod(invoke.getInvokedMethod())) {
         // Unhandled instruction.
         startOutline(invoke.getNext(), continuation);
         return;
       }
       processPredecessorInstructionOrFail(
-          throwBlock,
           invoke,
           outlineBuilder -> {
             if (outlineBuilder.getOutlinedValue(invoke.getReceiver()) == null) {
@@ -345,7 +334,7 @@ public class ThrowBlockOutlinerScanner {
     }
 
     private void processStringFormatOrValueOf(
-        BasicBlock throwBlock, InvokeStatic invoke, Consumer<OutlineBuilder> continuation) {
+        InvokeStatic invoke, Consumer<OutlineBuilder> continuation) {
       DexMethod invokedMethod = invoke.getInvokedMethod();
       if (!invokedMethod.isIdenticalTo(factory.stringMembers.format)
           && !invokedMethod.isIdenticalTo(factory.stringMembers.valueOf)) {
@@ -354,7 +343,6 @@ public class ThrowBlockOutlinerScanner {
         return;
       }
       processPredecessorInstructionOrStartOutline(
-          throwBlock,
           invoke,
           outlineBuilder -> {
             InvokeStatic.Builder outlinedInvokeBuilder =
@@ -378,7 +366,7 @@ public class ThrowBlockOutlinerScanner {
     }
 
     private void processStringBuilderAppendOrToString(
-        BasicBlock throwBlock, InvokeVirtual invoke, Consumer<OutlineBuilder> continuation) {
+        InvokeVirtual invoke, Consumer<OutlineBuilder> continuation) {
       DexMethod invokedMethod = invoke.getInvokedMethod();
       if (!factory.stringBuilderMethods.isAppendMethod(invokedMethod)
           && !invokedMethod.match(factory.stringBuilderMethods.toString)) {
@@ -387,7 +375,6 @@ public class ThrowBlockOutlinerScanner {
         return;
       }
       processPredecessorInstructionOrStartOutline(
-          throwBlock,
           invoke,
           outlineBuilder -> {
             InvokeVirtual.Builder outlinedInvokeBuilder =
