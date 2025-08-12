@@ -10,6 +10,7 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.lightir.LirCode;
 import com.android.tools.r8.lightir.LirConstant;
 import com.android.tools.r8.synthesis.SyntheticItems;
@@ -17,21 +18,27 @@ import com.android.tools.r8.utils.structural.CompareToVisitor;
 import com.android.tools.r8.utils.structural.HashingVisitor;
 import com.google.common.collect.ConcurrentHashMultiset;
 import com.google.common.collect.Multiset;
+import java.util.List;
 
 public class ThrowBlockOutline implements LirConstant {
 
   @SuppressWarnings("UnusedVariable")
   private final LirCode<?> lirCode;
+
+  private final DexProto proto;
   private final Multiset<DexMethod> users = ConcurrentHashMultiset.create();
 
   private ProgramMethod materializedOutlineMethod;
 
-  ThrowBlockOutline(LirCode<?> lirCode) {
+  ThrowBlockOutline(LirCode<?> lirCode, DexProto proto) {
     this.lirCode = lirCode;
+    this.proto = proto;
   }
 
-  public void addUser(DexMethod user) {
+  public void addUser(DexMethod user, List<Value> unusedArguments) {
     users.add(user);
+    // TODO(TODO(b/434769547)): Compute abstraction of arguments to enable interprocedural constant
+    //  propagation.
   }
 
   @Override
@@ -45,6 +52,10 @@ public class ThrowBlockOutline implements LirConstant {
 
   public int getNumberOfUsers() {
     return users.size();
+  }
+
+  public DexProto getProto() {
+    return proto;
   }
 
   public ProgramMethod getSynthesizingContext(AppView<?> appView) {
@@ -86,7 +97,6 @@ public class ThrowBlockOutline implements LirConstant {
 
   public void materialize(AppView<?> appView, MethodProcessingContext methodProcessingContext) {
     SyntheticItems syntheticItems = appView.getSyntheticItems();
-    DexProto emptyProto = appView.dexItemFactory().objectMembers.constructor.getProto();
     materializedOutlineMethod =
         syntheticItems.createMethod(
             kinds -> kinds.THROW_BLOCK_OUTLINE,
@@ -96,6 +106,6 @@ public class ThrowBlockOutline implements LirConstant {
                 builder
                     .setAccessFlags(MethodAccessFlags.createPublicStaticSynthetic())
                     .setCode(methodSig -> lirCode)
-                    .setProto(emptyProto));
+                    .setProto(proto));
   }
 }

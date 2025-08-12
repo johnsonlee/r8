@@ -776,8 +776,10 @@ public class LirBuilder<V, EV> {
     return addOneValueInstruction(LirOpcodes.ATHROW, exception);
   }
 
-  public LirBuilder<V, EV> addThrowBlockOutlineMarker(ThrowBlockOutline outline) {
-    return addOneItemInstruction(LirOpcodes.THROWBLOCKOUTLINEMARKER, outline);
+  public LirBuilder<V, EV> addThrowBlockOutlineMarker(
+      ThrowBlockOutline outline, List<V> arguments) {
+    return addInstructionTemplate(
+        LirOpcodes.THROWBLOCKOUTLINEMARKER, Collections.singletonList(outline), arguments);
   }
 
   public LirBuilder<V, EV> addReturn(V value) {

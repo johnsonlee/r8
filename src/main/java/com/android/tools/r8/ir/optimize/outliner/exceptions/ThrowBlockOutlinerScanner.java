@@ -3,18 +3,29 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize.outliner.exceptions;
 
+import static com.android.tools.r8.ir.code.Opcodes.CONST_NUMBER;
+import static com.android.tools.r8.ir.code.Opcodes.CONST_STRING;
+import static com.android.tools.r8.ir.code.Opcodes.INVOKE_DIRECT;
+import static com.android.tools.r8.ir.code.Opcodes.INVOKE_VIRTUAL;
+import static com.android.tools.r8.ir.code.Opcodes.NEW_INSTANCE;
 import static java.util.Collections.emptyList;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexProto;
+import com.android.tools.r8.graph.DexTypeUtils;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
+import com.android.tools.r8.ir.code.Argument;
 import com.android.tools.r8.ir.code.BasicBlock;
+import com.android.tools.r8.ir.code.BasicBlockInstructionListIterator;
+import com.android.tools.r8.ir.code.ConstInstruction;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.IRMetadata;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InvokeDirect;
+import com.android.tools.r8.ir.code.InvokeVirtual;
 import com.android.tools.r8.ir.code.NewInstance;
 import com.android.tools.r8.ir.code.NumberGenerator;
 import com.android.tools.r8.ir.code.Position;
@@ -30,10 +41,13 @@ import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.base.Equivalence.Wrapper;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
@@ -102,12 +116,17 @@ public class ThrowBlockOutlinerScanner {
           block.exit().asThrow(),
           outlineBuilder -> {
             // On successful outline creation, store the outline for later processing.
-            LirCode<?> lirCode = outlineBuilder.build(appView, code.context());
+            LirCode<?> lirCode = outlineBuilder.buildLirCode(appView, code.context());
             Wrapper<LirCode<?>> lirCodeWrapper =
                 ThrowBlockOutlinerLirCodeEquivalence.get().wrap(lirCode);
+            DexProto proto = outlineBuilder.getProto(factory);
             ThrowBlockOutline outline =
-                outlines.computeIfAbsent(lirCodeWrapper, w -> new ThrowBlockOutline(w.get()));
-            outline.addUser(code.reference());
+                outlines.computeIfAbsent(
+                    lirCodeWrapper, w -> new ThrowBlockOutline(w.get(), proto));
+            // TODO(b/434769547): This may not hold. We should compute the join.
+            assert proto.isIdenticalTo(outline.getProto());
+            List<Value> arguments = outlineBuilder.buildArguments();
+            outline.addUser(code.reference(), arguments);
 
             // Insert a synthetic marker instruction that references the outline so that we know
             // where to materialize the outline call.
@@ -115,6 +134,7 @@ public class ThrowBlockOutlinerScanner {
             assert insertionPoint.getBlock() == block;
             ThrowBlockOutlineMarker marker =
                 ThrowBlockOutlineMarker.builder()
+                    .setArguments(arguments)
                     .setOutline(outline)
                     .setPosition(Position.none())
                     .build();
@@ -131,11 +151,16 @@ public class ThrowBlockOutlinerScanner {
         return;
       }
       assert throwInstruction.hasPrev();
+      // We always expect the constructor call corresponding to the thrown exception to be last.
       processExceptionConstructorCall(
           throwBlock,
           throwInstruction.getPrev(),
           outlineBuilder -> {
             Value outlinedExceptionValue = outlineBuilder.getOutlinedValue(exceptionValue);
+            if (outlinedExceptionValue == null) {
+              // Fail as we were unable to outline the corresponding new-instance instruction.
+              return;
+            }
             outlineBuilder.add(
                 Throw.builder()
                     .setExceptionValue(outlinedExceptionValue)
@@ -145,53 +170,170 @@ public class ThrowBlockOutlinerScanner {
           });
     }
 
+    private void processInstruction(
+        BasicBlock throwBlock, Instruction instruction, Consumer<OutlineBuilder> continuation) {
+      switch (instruction.opcode()) {
+        case CONST_NUMBER:
+        case CONST_STRING:
+          processConstInstruction(throwBlock, instruction.asConstInstruction(), continuation);
+          return;
+        case INVOKE_DIRECT:
+          if (instruction.isInvokeConstructor(factory)) {
+            processStringBuilderConstructorCall(
+                throwBlock, instruction.asInvokeDirect(), continuation);
+            return;
+          }
+          break;
+        case INVOKE_VIRTUAL:
+          processStringBuilderAppendOrToString(
+              throwBlock, instruction.asInvokeVirtual(), continuation);
+          return;
+        case NEW_INSTANCE:
+          processNewInstanceInstruction(throwBlock, instruction.asNewInstance(), continuation);
+          return;
+        default:
+          break;
+      }
+      // Unhandled instruction. Start the outline at the successor instruction.
+      startOutline(instruction.getNext(), continuation);
+    }
+
+    private void processConstInstruction(
+        BasicBlock throwBlock,
+        ConstInstruction instruction,
+        Consumer<OutlineBuilder> continuation) {
+      processPredecessorInstructionOrStartOutline(throwBlock, instruction, continuation);
+    }
+
+    private void processPredecessorInstructionOrFail(
+        BasicBlock throwBlock, Instruction instruction, Consumer<OutlineBuilder> continuation) {
+      if (instruction.hasPrev()) {
+        processInstruction(throwBlock, instruction.getPrev(), continuation);
+      } else {
+        // Intentionally empty. Not calling the continuation corresponds to dropping the outline.
+      }
+    }
+
+    private void processPredecessorInstructionOrStartOutline(
+        BasicBlock throwBlock, Instruction instruction, Consumer<OutlineBuilder> continuation) {
+      if (instruction.hasPrev()) {
+        processInstruction(throwBlock, instruction.getPrev(), continuation);
+      } else {
+        startOutline(instruction, continuation);
+      }
+    }
+
+    private void processNewInstanceInstruction(
+        BasicBlock throwBlock, NewInstance newInstance, Consumer<OutlineBuilder> continuation) {
+      if (newInstance.outValue() != throwBlock.exit().asThrow().exception()
+          && newInstance.getType().isNotIdenticalTo(appView.dexItemFactory().stringBuilderType)) {
+        // Unhandled instruction.
+        startOutline(newInstance.getNext(), continuation);
+        return;
+      }
+      processPredecessorInstructionOrStartOutline(
+          throwBlock,
+          newInstance,
+          outlineBuilder -> {
+            NewInstance outlinedNewInstance =
+                NewInstance.builder()
+                    .setFreshOutValue(
+                        outlineBuilder.valueNumberGenerator,
+                        newInstance.getType().toNonNullClassTypeElement(appView))
+                    .setType(newInstance.getType())
+                    .setPosition(Position.syntheticNone())
+                    .build();
+            outlineBuilder.add(outlinedNewInstance);
+            outlineBuilder.map(newInstance.outValue(), outlinedNewInstance.outValue());
+            continuation.accept(outlineBuilder);
+          });
+    }
+
     private void processExceptionConstructorCall(
         BasicBlock throwBlock, Instruction instruction, Consumer<OutlineBuilder> continuation) {
       InvokeDirect invoke = instruction.asInvokeConstructor(factory);
       if (invoke == null) {
+        // Not a constructor call.
         return;
       }
-      DexMethod constructor = invoke.getInvokedMethod();
-      if (!constructor.getParameters().isEmpty()) {
-        // TODO(b/434769547): Handle constructors with arguments.
+      if (invoke.getReceiver() != throwBlock.exit().asThrow().exception()) {
+        // Not the constructor call corresponding to the thrown exception.
         return;
       }
-      processNewExceptionInstruction(
+      // This instruction is guaranteed to have a predecessor since the handling of the throw
+      // instruction checks if the new-instance instruction is in the throw block.
+      assert instruction.hasPrev();
+      processExceptionOrStringBuilderConstructorCall(throwBlock, invoke, continuation);
+    }
+
+    private void processStringBuilderConstructorCall(
+        BasicBlock throwBlock, InvokeDirect invoke, Consumer<OutlineBuilder> continuation) {
+      if (!factory.stringBuilderMethods.isConstructorMethod(invoke.getInvokedMethod())) {
+        // Unhandled instruction.
+        startOutline(invoke.getNext(), continuation);
+        return;
+      }
+      processExceptionOrStringBuilderConstructorCall(throwBlock, invoke, continuation);
+    }
+
+    private void processExceptionOrStringBuilderConstructorCall(
+        BasicBlock throwBlock, InvokeDirect invoke, Consumer<OutlineBuilder> continuation) {
+      processPredecessorInstructionOrFail(
           throwBlock,
-          invoke.getPrev(),
+          invoke,
           outlineBuilder -> {
-            Value outlinedExceptionValue = outlineBuilder.getOutlinedValue(invoke.getReceiver());
+            if (outlineBuilder.getOutlinedValue(invoke.getReceiver()) == null) {
+              // Fail as we were unable to outline the corresponding new-instance instruction.
+              return;
+            }
             outlineBuilder.add(
                 InvokeDirect.builder()
-                    .setMethod(constructor)
+                    .setArguments(
+                        ListUtils.map(
+                            invoke.arguments(), outlineBuilder::getOutlinedValueOrCreateArgument))
+                    .setMethod(invoke.getInvokedMethod())
                     .setPosition(Position.syntheticNone())
-                    .setSingleArgument(outlinedExceptionValue)
                     .build());
             continuation.accept(outlineBuilder);
           });
     }
 
-    private void processNewExceptionInstruction(
-        BasicBlock throwBlock, Instruction instruction, Consumer<OutlineBuilder> continuation) {
-      NewInstance newInstance = instruction.asNewInstance();
-      if (newInstance == null) {
+    private void processStringBuilderAppendOrToString(
+        BasicBlock throwBlock, InvokeVirtual invoke, Consumer<OutlineBuilder> continuation) {
+      DexMethod invokedMethod = invoke.getInvokedMethod();
+      if (!factory.stringBuilderMethods.isAppendMethod(invokedMethod)
+          && !invokedMethod.match(factory.stringBuilderMethods.toString)) {
+        // Unhandled instruction.
+        startOutline(invoke.getNext(), continuation);
         return;
       }
-      // Check that this is the thrown exception.
-      if (newInstance.outValue() != throwBlock.exit().asThrow().exception()) {
-        return;
-      }
-      OutlineBuilder outlineBuilder = new OutlineBuilder(newInstance);
-      NewInstance outlinedNewInstance =
-          NewInstance.builder()
-              .setFreshOutValue(
-                  outlineBuilder.valueNumberGenerator,
-                  newInstance.getType().toNonNullClassTypeElement(appView))
-              .setType(newInstance.getType())
-              .setPosition(Position.syntheticNone())
-              .build();
-      outlineBuilder.add(outlinedNewInstance);
-      outlineBuilder.map(newInstance.outValue(), outlinedNewInstance.outValue());
+      processPredecessorInstructionOrStartOutline(
+          throwBlock,
+          invoke,
+          outlineBuilder -> {
+            InvokeVirtual.Builder outlinedInvokeBuilder =
+                InvokeVirtual.builder()
+                    .setArguments(
+                        ListUtils.map(
+                            invoke.arguments(), outlineBuilder::getOutlinedValueOrCreateArgument))
+                    .setMethod(invoke.getInvokedMethod())
+                    .setPosition(Position.syntheticNone());
+            if (invoke.hasOutValue()) {
+              outlinedInvokeBuilder.setFreshOutValue(
+                  outlineBuilder.valueNumberGenerator, invoke.getOutType());
+            }
+            InvokeVirtual outlinedInvoke = outlinedInvokeBuilder.build();
+            outlineBuilder.add(outlinedInvoke);
+            if (invoke.hasOutValue()) {
+              outlineBuilder.map(invoke.outValue(), outlinedInvoke.outValue());
+            }
+            continuation.accept(outlineBuilder);
+          });
+    }
+
+    private void startOutline(
+        Instruction firstOutlinedInstruction, Consumer<OutlineBuilder> continuation) {
+      OutlineBuilder outlineBuilder = new OutlineBuilder(firstOutlinedInstruction);
       continuation.accept(outlineBuilder);
     }
   }
@@ -200,6 +342,7 @@ public class ThrowBlockOutlinerScanner {
 
     private final Instruction firstOutlinedInstruction;
 
+    private final List<Argument> outlinedArguments = new ArrayList<>();
     private final BasicBlock outlinedBlock = new BasicBlock(metadata);
 
     // Map from non-outlined values to their corresponding outlined values.
@@ -214,7 +357,20 @@ public class ThrowBlockOutlinerScanner {
     }
 
     void add(Instruction instruction) {
+      assert !instruction.isArgument();
       outlinedBlock.add(instruction, metadata);
+    }
+
+    Argument addArgument(Value value) {
+      Argument outlinedArgument =
+          Argument.builder()
+              .setFreshOutValue(valueNumberGenerator, value.getType())
+              .setIndex(outlinedArguments.size())
+              .setPosition(Position.none())
+              .build();
+      outlinedArguments.add(outlinedArgument);
+      map(value, outlinedArgument.outValue());
+      return outlinedArgument;
     }
 
     void map(Value value, Value outlinedValue) {
@@ -227,12 +383,46 @@ public class ThrowBlockOutlinerScanner {
     }
 
     Value getOutlinedValue(Value value) {
-      Value outlinedValue = outlinedValues.get(value);
-      assert outlinedValue != null;
-      return outlinedValue;
+      return outlinedValues.get(value);
     }
 
-    LirCode<?> build(AppView<?> appView, ProgramMethod context) {
+    Value getOutlinedValueOrCreateArgument(Value value) {
+      Value outlinedValue = getOutlinedValue(value);
+      if (outlinedValue != null) {
+        return outlinedValue;
+      }
+      return addArgument(value).outValue();
+    }
+
+    DexProto getProto(DexItemFactory factory) {
+      return factory.createProto(
+          factory.voidType,
+          ListUtils.map(
+              outlinedArguments,
+              outlinedArgument -> DexTypeUtils.toDexType(factory, outlinedArgument.getOutType())));
+    }
+
+    List<Value> buildArguments() {
+      if (outlinedArguments.isEmpty()) {
+        return Collections.emptyList();
+      }
+      List<Value> arguments = Arrays.asList(new Value[outlinedArguments.size()]);
+      for (Entry<Value, Value> entry : outlinedValues.entrySet()) {
+        Value value = entry.getKey();
+        Value outlinedValue = entry.getValue();
+        if (outlinedValue.isArgument()) {
+          Argument outlinedArgument = outlinedValue.getDefinition().asArgument();
+          arguments.set(outlinedArgument.getIndexRaw(), value);
+        }
+      }
+      return arguments;
+    }
+
+    LirCode<?> buildLirCode(AppView<?> appView, ProgramMethod context) {
+      BasicBlockInstructionListIterator outlinedBlockIterator = outlinedBlock.listIterator();
+      for (Argument outlinedArgument : outlinedArguments) {
+        outlinedBlockIterator.add(outlinedArgument);
+      }
       outlinedBlock.setFilled();
       IRCode outlineCode =
           new IRCode(
@@ -258,6 +448,7 @@ public class ThrowBlockOutlinerScanner {
       LirCode<?> lirCode =
           new IRToLirFinalizer(appView)
               .finalizeCode(outlineCode, BytecodeMetadataProvider.empty(), Timing.empty());
+      assert lirCode.getArgumentCount() == outlinedArguments.size();
       return lirCode;
     }
   }

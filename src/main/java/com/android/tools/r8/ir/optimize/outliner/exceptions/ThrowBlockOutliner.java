@@ -65,9 +65,6 @@ public class ThrowBlockOutliner {
 
     // Convert LIR to DEX.
     processMethods(outlines, executorService);
-
-    // TODO(b/434769547): Instead of unsetting the outliner here, we should compute a specification
-    //  of the outlining that needs to happen and the methods that need to be reprocessed.
     appView.unsetThrowBlockOutliner();
   }
 

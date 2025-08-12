@@ -5,6 +5,7 @@ package com.android.tools.r8.ir.optimize.outliner.exceptions;
 
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.isInvokeWithTarget;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -13,16 +14,15 @@ import static org.junit.Assert.assertTrue;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestCompileResult;
 import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.BooleanBox;
-import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import it.unimi.dsi.fastutil.ints.IntArraySet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.util.Collection;
-import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -30,18 +30,14 @@ import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class ThrowBlockOutlinerNoArgumentsTest extends TestBase {
+public class ThrowBlockOutlinerConstArgumentTest extends TestBase {
 
   @Parameter(0)
-  public boolean minimizeSyntheticNames;
-
-  @Parameter(1)
   public TestParameters parameters;
 
-  @Parameters(name = "{1}, minimizeSyntheticNames: {0}")
-  public static List<Object[]> data() {
-    return buildParameters(
-        BooleanUtils.values(), getTestParameters().withDexRuntimesAndAllApiLevels().build());
+  @Parameters(name = "{0}")
+  public static TestParametersCollection data() {
+    return getTestParameters().withDexRuntimesAndAllApiLevels().build();
   }
 
   @Test
@@ -52,7 +48,6 @@ public class ThrowBlockOutlinerNoArgumentsTest extends TestBase {
             .addInnerClasses(getClass())
             .addOptionsModification(
                 options -> {
-                  options.desugarSpecificOptions().minimizeSyntheticNames = minimizeSyntheticNames;
                   assertFalse(options.getThrowBlockOutlinerOptions().enable);
                   options.getThrowBlockOutlinerOptions().enable = true;
                   options.getThrowBlockOutlinerOptions().outlineConsumerForTesting =
@@ -69,7 +64,8 @@ public class ThrowBlockOutlinerNoArgumentsTest extends TestBase {
     for (int i = 0; i < 3; i++) {
       compileResult
           .run(parameters.getRuntime(), Main.class, Integer.toString(i))
-          .assertFailureWithErrorThatThrows(IllegalArgumentException.class);
+          .assertFailureWithErrorThatThrows(IllegalArgumentException.class)
+          .assertFailureWithErrorThatMatches(containsString("Unexpected " + i));
     }
     compileResult
         .run(parameters.getRuntime(), Main.class, Integer.toString(3))
@@ -93,18 +89,14 @@ public class ThrowBlockOutlinerNoArgumentsTest extends TestBase {
   private void inspectOutput(CodeInspector inspector) {
     assertEquals(2, inspector.allClasses().size());
 
-    MethodSubject mainMethodSubject = inspector.clazz(Main.class).mainMethod();
-    assertThat(mainMethodSubject, isPresent());
-
     ClassSubject outlineClassSubject =
-        inspector.clazz(
-            minimizeSyntheticNames
-                ? SyntheticItemsTestUtils.syntheticClassWithMinimalName(Main.class, 0)
-                : SyntheticItemsTestUtils.syntheticThrowBlockOutlineClass(Main.class, 0));
+        inspector.clazz(SyntheticItemsTestUtils.syntheticThrowBlockOutlineClass(Main.class, 0));
     assertThat(outlineClassSubject, isPresent());
     assertEquals(1, outlineClassSubject.allMethods().size());
 
     MethodSubject outlineMethodSubject = outlineClassSubject.uniqueMethod();
+    MethodSubject mainMethodSubject = inspector.clazz(Main.class).mainMethod();
+    assertThat(mainMethodSubject, isPresent());
     assertEquals(
         3,
         mainMethodSubject
@@ -118,13 +110,14 @@ public class ThrowBlockOutlinerNoArgumentsTest extends TestBase {
     public static void main(String[] args) {
       int i = Integer.parseInt(args[0]);
       if (i == 0) {
-        throw new IllegalArgumentException();
+        throw new IllegalArgumentException("Unexpected 0");
       }
       if (i == 1) {
-        throw new IllegalArgumentException();
+        throw new IllegalArgumentException("Unexpected 1");
       }
+      String arg0 = "Unexpected " + args[0];
       if (i == 2) {
-        throw new IllegalArgumentException();
+        throw new IllegalArgumentException(arg0);
       }
       if (i == 3) {
         throw new RuntimeException();

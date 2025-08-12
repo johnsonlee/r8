@@ -21,7 +21,8 @@ public class ThrowBlockOutlinerLirCodeEquivalence extends Equivalence<LirCode<?>
   protected boolean doEquivalent(LirCode<?> lirCode, LirCode<?> other) {
     assert verifyLirCode(lirCode);
     assert verifyLirCode(other);
-    return lirCode.getInstructionCount() == other.getInstructionCount()
+    return lirCode.getArgumentCount() == other.getArgumentCount()
+        && lirCode.getInstructionCount() == other.getInstructionCount()
         && Arrays.equals(lirCode.getInstructionBytes(), other.getInstructionBytes())
         && Arrays.equals(lirCode.getConstantPool(), other.getConstantPool());
   }
@@ -34,7 +35,6 @@ public class ThrowBlockOutlinerLirCodeEquivalence extends Equivalence<LirCode<?>
   }
 
   private boolean verifyLirCode(LirCode<?> lirCode) {
-    assert !lirCode.hasArguments();
     assert !lirCode.hasDebugLocalInfoTable();
     assert !lirCode.hasPositionTable();
     assert !lirCode.hasTryCatchTable();

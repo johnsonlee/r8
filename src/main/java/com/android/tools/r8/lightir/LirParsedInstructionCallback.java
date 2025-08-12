@@ -471,7 +471,7 @@ public abstract class LirParsedInstructionCallback<EV> implements LirInstruction
     onInstruction();
   }
 
-  public void onThrowBlockOutlineMarker(ThrowBlockOutline outline) {
+  public void onThrowBlockOutlineMarker(ThrowBlockOutline outline, List<EV> arguments) {
     onInstruction();
   }
 
@@ -1320,7 +1320,8 @@ public abstract class LirParsedInstructionCallback<EV> implements LirInstruction
         {
           ThrowBlockOutline outline =
               (ThrowBlockOutline) getConstantItem(view.getNextConstantOperand());
-          onThrowBlockOutlineMarker(outline);
+          List<EV> arguments = getInvokeInstructionArguments(view);
+          onThrowBlockOutlineMarker(outline, arguments);
           return;
         }
       default:

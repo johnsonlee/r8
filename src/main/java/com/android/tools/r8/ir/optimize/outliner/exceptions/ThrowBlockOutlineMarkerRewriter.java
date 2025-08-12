@@ -52,9 +52,6 @@ public class ThrowBlockOutlineMarkerRewriter {
     method.setCode(dexCode, appView);
   }
 
-  // TODO(b/434769547): This simply removes all outline markers. We should materialize the outlines
-  //  that have enough uses and rewrite the corresponding markers to call the materialized outline
-  //  methods.
   private void processOutlineMarkers(IRCode code) {
     for (BasicBlock block : code.getBlocks()) {
       Throw throwInstruction = block.exit().asThrow();
@@ -66,13 +63,15 @@ public class ThrowBlockOutlineMarkerRewriter {
           if (outline.isMaterialized()) {
             // Insert a call to the materialized outline method and load the return value.
             BasicBlockInstructionListIterator instructionIterator =
-                block.listIterator(outlineMarker);
-            instructionIterator.add(
+                block.listIterator(block.exit());
+            InvokeStatic invoke =
                 InvokeStatic.builder()
+                    .setArguments(outlineMarker.inValues())
                     .setIsInterface(false)
                     .setMethod(outline.getMaterializedOutlineMethod())
                     .setPosition(throwInstruction)
-                    .build());
+                    .build();
+            instructionIterator.add(invoke);
             Value returnValue = addReturnValue(code, instructionIterator);
 
             // Replace the throw instruction by a normal return.
@@ -81,9 +80,13 @@ public class ThrowBlockOutlineMarkerRewriter {
             block.replaceLastInstruction(returnInstruction);
 
             // Remove all outlined instructions bottom up.
-            instructionIterator = block.listIterator(returnInstruction);
-            while (instructionIterator.previous() != outlineMarker) {
-              instructionIterator.removeOrReplaceByDebugLocalRead();
+            instructionIterator = block.listIterator(invoke);
+            for (Instruction instruction = instructionIterator.previous();
+                instruction != outlineMarker;
+                instruction = instructionIterator.previous()) {
+              if (instruction.hasUnusedOutValue()) {
+                instruction.removeOrReplaceByDebugLocalRead();
+              }
             }
           }
 
