@@ -257,7 +257,7 @@ public abstract class EnumUnboxingCfCodeProvider extends SyntheticCfCodeProvider
       CfLabel nullDest = new CfLabel();
       instructions.add(new CfLoad(ValueType.fromDexType(factory.stringType), 0));
       instructions.add(new CfIf(IfType.NE, ValueType.OBJECT, nullDest));
-      instructions.add(new CfNew(factory.npeType));
+      instructions.add(new CfNew(factory.javaLangNullPointerExceptionType));
       instructions.add(new CfStackInstruction(Opcode.Dup));
       instructions.add(new CfConstString(appView.dexItemFactory().createString("Name is null")));
       instructions.add(
@@ -283,7 +283,7 @@ public abstract class EnumUnboxingCfCodeProvider extends SyntheticCfCodeProvider
           });
 
       // throw new IllegalArgumentException("No enum constant com.x.MyEnum." + s);
-      instructions.add(new CfNew(factory.illegalArgumentExceptionType));
+      instructions.add(new CfNew(factory.javaLangIllegalArgumentExceptionType));
       instructions.add(new CfStackInstruction(Opcode.Dup));
       instructions.add(
           new CfConstString(

@@ -72,7 +72,7 @@ public class AssertionErrorTwoArgsConstructorRewriter {
                     .setMethod(
                         createSynthetic(methodProcessor, methodProcessingContext).getReference())
                     .setFreshOutValue(
-                        code, dexItemFactory.assertionErrorType.toTypeElement(appView))
+                        code, dexItemFactory.javaLangAssertionErrorType.toTypeElement(appView))
                     .setPosition(invoke)
                     .setArguments(invoke.arguments().subList(1, 3))
                     .build();
@@ -92,7 +92,8 @@ public class AssertionErrorTwoArgsConstructorRewriter {
       MethodProcessor methodProcessor, MethodProcessingContext methodProcessingContext) {
     DexItemFactory factory = appView.dexItemFactory();
     DexProto proto =
-        factory.createProto(factory.assertionErrorType, factory.stringType, factory.throwableType);
+        factory.createProto(
+            factory.javaLangAssertionErrorType, factory.stringType, factory.throwableType);
     ProgramMethod method =
         appView
             .getSyntheticItems()
@@ -115,7 +116,7 @@ public class AssertionErrorTwoArgsConstructorRewriter {
             appView,
             DynamicType.createExact(
                 dexItemFactory
-                    .assertionErrorType
+                    .javaLangAssertionErrorType
                     .toTypeElement(appView, Nullability.definitelyNotNull())
                     .asClassType()));
     methodProcessor.scheduleDesugaredMethodForProcessing(method);

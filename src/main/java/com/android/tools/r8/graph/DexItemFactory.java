@@ -4,7 +4,6 @@
 package com.android.tools.r8.graph;
 
 import static com.android.tools.r8.ir.analysis.type.ClassTypeElement.computeLeastUpperBoundOfInterfaces;
-import static com.android.tools.r8.ir.desugar.LambdaClass.LAMBDA_INSTANCE_FIELD_NAME;
 import static com.android.tools.r8.utils.ConsumerUtils.emptyConsumer;
 
 import com.android.tools.r8.dex.Constants;
@@ -252,10 +251,6 @@ public class DexItemFactory {
   public final DexString invokeMethodName = createString("invoke");
   public final DexString invokeExactMethodName = createString("invokeExact");
 
-  public final DexString runtimeExceptionDescriptor = createString("Ljava/lang/RuntimeException;");
-  public final DexString assertionErrorDescriptor = createString("Ljava/lang/AssertionError;");
-  public final DexString noSuchElementExceptionDescriptor =
-      createString("Ljava/util/NoSuchElementException;");
   public final DexString charSequenceDescriptor = createString("Ljava/lang/CharSequence;");
   public final DexString charSequenceArrayDescriptor = createString("[Ljava/lang/CharSequence;");
   public final DexString stringDescriptor = createString("Ljava/lang/String;");
@@ -335,21 +330,6 @@ public class DexItemFactory {
       createString("Ljava/util/concurrent/ConcurrentHashMap$KeySetView;");
 
   public final DexString throwableDescriptor = createString(throwableDescriptorString);
-  public final DexString illegalAccessErrorDescriptor =
-      createString("Ljava/lang/IllegalAccessError;");
-  public final DexString illegalArgumentExceptionDescriptor =
-      createString("Ljava/lang/IllegalArgumentException;");
-  public final DexString abstractMethodErrorDescriptor =
-      createString("Ljava/lang/AbstractMethodError;");
-  public final DexString icceDescriptor = createString("Ljava/lang/IncompatibleClassChangeError;");
-  public final DexString exceptionInInitializerErrorDescriptor =
-      createString("Ljava/lang/ExceptionInInitializerError;");
-  public final DexString noClassDefFoundErrorDescriptor =
-      createString("Ljava/lang/NoClassDefFoundError;");
-  public final DexString noSuchFieldErrorDescriptor = createString("Ljava/lang/NoSuchFieldError;");
-  public final DexString npeDescriptor = createString("Ljava/lang/NullPointerException;");
-  public final DexString reflectiveOperationExceptionDescriptor =
-      createString("Ljava/lang/ReflectiveOperationException;");
   public final DexString kotlinMetadataDescriptor = createString("Lkotlin/Metadata;");
   public final DexString kotlinJvmNameDescriptor = createString("Lkotlin/jvm/JvmName;");
 
@@ -374,15 +354,8 @@ public class DexItemFactory {
       createString(Constants.CLASS_INITIALIZER_NAME);
 
   public final DexString thisName = createString("this");
-  public final DexString lambdaInstanceFieldName = createString(LAMBDA_INSTANCE_FIELD_NAME);
   public final DexString javacLambdaMethodPrefix =
       createString(LambdaClass.JAVAC_EXPECTED_LAMBDA_METHOD_PREFIX);
-
-  // As much as possible, R8 should rely on the content of the static enum field, using
-  // enumMembers.isValuesFieldCandidate or checking the object state in the optimization info.
-  // The field name is unrealiable since the filed can be minified prior to this compilation.
-  // We keep enumValuesFieldName as a heuristic only.
-  public final DexString enumValuesFieldName = createString("$VALUES");
 
   public final DexString enabledFieldName = createString("ENABLED");
 
@@ -450,7 +423,6 @@ public class DexItemFactory {
   public final DexType objectType = createStaticallyKnownType(objectDescriptor);
   public final DexType recordType = createStaticallyKnownType(recordDescriptor);
   public final DexType recordTagType = createStaticallyKnownType(recordTagDescriptor);
-  public final DexType autoCloseableTagType = createStaticallyKnownType(autoCloseableTagDescriptor);
   public final DexType objectArrayType = createStaticallyKnownType(objectArrayDescriptor);
   public final DexType classArrayType = createStaticallyKnownType(classArrayDescriptor);
   public final DexType enumType = createStaticallyKnownType(enumDescriptor);
@@ -487,6 +459,92 @@ public class DexItemFactory {
       createStaticallyKnownType("Ljava/lang/reflect/Array;");
   public final DexType javaLangSystemType = createStaticallyKnownType(javaLangSystemDescriptor);
   public final DexType javaIoPrintStreamType = createStaticallyKnownType("Ljava/io/PrintStream;");
+
+  public final DexType javaIoEOFExceptionType = createStaticallyKnownType("Ljava/io/EOFException;");
+  public final DexType javaIoFileNotFoundExceptionType =
+      createStaticallyKnownType("Ljava/io/FileNotFoundException;");
+  public final DexType javaIoInterruptedIOExceptionType =
+      createStaticallyKnownType("Ljava/io/InterruptedIOException;");
+  public final DexType javaIoInvalidObjectExceptionType =
+      createStaticallyKnownType("Ljava/io/InvalidObjectException;");
+  public final DexType javaIoIOExceptionType = createStaticallyKnownType("Ljava/io/IOException;");
+  public final DexType javaIoNotSerializableExceptionType =
+      createStaticallyKnownType("Ljava/io/NotSerializableException;");
+  public final DexType javaIoUnsupportedEncodingExceptionType =
+      createStaticallyKnownType("Ljava/io/UnsupportedEncodingException;");
+  public final DexType javaLangAbstractMethodErrorType =
+      createStaticallyKnownType("Ljava/lang/AbstractMethodError;");
+  public final DexType javaLangArithmeticExceptionType =
+      createStaticallyKnownType("Ljava/lang/ArithmeticException;");
+  public final DexType javaLangArrayIndexOutOfBoundsExceptionType =
+      createStaticallyKnownType("Ljava/lang/ArrayIndexOutOfBoundsException;");
+  public final DexType javaLangAssertionErrorType =
+      createStaticallyKnownType("Ljava/lang/AssertionError;");
+  public final DexType javaLangClassCastExceptionType =
+      createStaticallyKnownType("Ljava/lang/ClassCastException;");
+  public final DexType javaLangClassNotFoundExceptionType =
+      createStaticallyKnownType("Ljava/lang/ClassNotFoundException;");
+  public final DexType javaLangErrorType = createStaticallyKnownType("Ljava/lang/Error;");
+  public final DexType javaLangExceptionInInitializerErrorType =
+      createStaticallyKnownType("Ljava/lang/ExceptionInInitializerError;");
+  public final DexType javaLangIllegalAccessErrorType =
+      createStaticallyKnownType("Ljava/lang/IllegalAccessError;");
+  public final DexType javaLangIllegalArgumentExceptionType =
+      createStaticallyKnownType("Ljava/lang/IllegalArgumentException;");
+  public final DexType javaLangIllegalMonitorStateExceptionType =
+      createStaticallyKnownType("Ljava/lang/IllegalMonitorStateException;");
+  public final DexType javaLangIllegalStateExceptionType =
+      createStaticallyKnownType("Ljava/lang/IllegalStateException;");
+  public final DexType javaLangIncompatibleClassChangeErrorType =
+      createStaticallyKnownType("Ljava/lang/IncompatibleClassChangeError;");
+  public final DexType javaLangIndexOutOfBoundsExceptionType =
+      createStaticallyKnownType("Ljava/lang/IndexOutOfBoundsException;");
+  public final DexType javaLangInterruptedExceptionType =
+      createStaticallyKnownType("Ljava/lang/InterruptedException;");
+  public final DexType javaLangNoClassDefFoundErrorType =
+      createStaticallyKnownType("Ljava/lang/NoClassDefFoundError;");
+  public final DexType javaLangNoSuchFieldErrorType =
+      createStaticallyKnownType("Ljava/lang/NoSuchFieldError;");
+  public final DexType javaLangNoSuchMethodErrorType =
+      createStaticallyKnownType("Ljava/lang/NoSuchMethodError;");
+  public final DexType javaLangNoSuchMethodExceptionType =
+      createStaticallyKnownType("Ljava/lang/NoSuchMethodException;");
+  public final DexType javaLangNullPointerExceptionType =
+      createStaticallyKnownType("Ljava/lang/NullPointerException;");
+  public final DexType javaLangNumberFormatExceptionType =
+      createStaticallyKnownType("Ljava/lang/NumberFormatException;");
+  public final DexType javaLangOutOfMemoryErrorType =
+      createStaticallyKnownType("Ljava/lang/OutOfMemoryError;");
+  public final DexType javaLangReflectiveOperationExceptionType =
+      createStaticallyKnownType("Ljava/lang/ReflectiveOperationException;");
+  public final DexType javaLangRuntimeExceptionType =
+      createStaticallyKnownType("Ljava/lang/RuntimeException;");
+  public final DexType javaLangSecurityExceptionType =
+      createStaticallyKnownType("Ljava/lang/SecurityException;");
+  public final DexType javaLangUnsatisfiedLinkErrorType =
+      createStaticallyKnownType("Ljava/lang/UnsatisfiedLinkError;");
+  public final DexType javaLangUnsupportedOperationExceptionType =
+      createStaticallyKnownType("Ljava/lang/UnsupportedOperationException;");
+  public final DexType javaNioBufferOverflowExceptionType =
+      createStaticallyKnownType("Ljava/nio/BufferOverflowException;");
+  public final DexType javaNioFileFileSystemLoopExceptionType =
+      createStaticallyKnownType("Ljava/nio/file/FileSystemLoopException;");
+  public final DexType javaNioReadOnlyBufferExceptionType =
+      createStaticallyKnownType("Ljava/nio/ReadOnlyBufferException;");
+  public final DexType javaTextParseExceptionType =
+      createStaticallyKnownType("Ljava/text/ParseException;");
+  public final DexType javaUtilConcurrentCancellationExceptionType =
+      createStaticallyKnownType("Ljava/util/concurrent/CancellationException;");
+  public final DexType javaUtilConcurrentExecutionExceptionType =
+      createStaticallyKnownType("Ljava/util/concurrent/ExecutionException;");
+  public final DexType javaUtilConcurrentRejectedExecutionExceptionType =
+      createStaticallyKnownType("Ljava/util/concurrent/RejectedExecutionException;");
+  public final DexType javaUtilConcurrentTimeoutExceptionType =
+      createStaticallyKnownType("Ljava/util/concurrent/TimeoutException;");
+  public final DexType javaUtilConcurrentModificationExceptionType =
+      createStaticallyKnownType("Ljava/util/ConcurrentModificationException;");
+  public final DexType javaUtilNoSuchElementExceptionType =
+      createStaticallyKnownType("Ljava/util/NoSuchElementException;");
 
   public final DexType varHandleType = createStaticallyKnownType(varHandleDescriptor);
   public final DexType methodHandleType = createStaticallyKnownType(methodHandleDescriptor);
@@ -589,31 +647,10 @@ public class DexItemFactory {
 
   public final DexType retentionType =
       createStaticallyKnownType("Ljava/lang/annotation/Retention;");
-  public final DexType runtimeExceptionType = createStaticallyKnownType(runtimeExceptionDescriptor);
-  public final DexType assertionErrorType = createStaticallyKnownType(assertionErrorDescriptor);
   public final DexType throwableType = createStaticallyKnownType(throwableDescriptor);
-  public final DexType noSuchElementExceptionType =
-      createStaticallyKnownType(noSuchElementExceptionDescriptor);
   public final DexMethod noSuchElementExceptionInit =
-      createInstanceInitializer(noSuchElementExceptionType);
+      createInstanceInitializer(javaUtilNoSuchElementExceptionType);
 
-  public final DexType illegalAccessErrorType =
-      createStaticallyKnownType(illegalAccessErrorDescriptor);
-  public final DexType illegalArgumentExceptionType =
-      createStaticallyKnownType(illegalArgumentExceptionDescriptor);
-  public final DexType abstractMethodErrorType =
-      createStaticallyKnownType(abstractMethodErrorDescriptor);
-  public final DexType icceType = createStaticallyKnownType(icceDescriptor);
-  public final DexType exceptionInInitializerErrorType =
-      createStaticallyKnownType(exceptionInInitializerErrorDescriptor);
-  public final DexType noClassDefFoundErrorType =
-      createStaticallyKnownType(noClassDefFoundErrorDescriptor);
-  public final DexType noSuchFieldErrorType = createStaticallyKnownType(noSuchFieldErrorDescriptor);
-  public final DexType noSuchMethodErrorType =
-      createStaticallyKnownType("Ljava/lang/NoSuchMethodError;");
-  public final DexType npeType = createStaticallyKnownType(npeDescriptor);
-  public final DexType reflectiveOperationExceptionType =
-      createStaticallyKnownType(reflectiveOperationExceptionDescriptor);
   public final DexType kotlinMetadataType = createStaticallyKnownType(kotlinMetadataDescriptor);
   public final DexType kotlinJvmNameType = createStaticallyKnownType(kotlinJvmNameDescriptor);
 
@@ -673,7 +710,6 @@ public class DexItemFactory {
       createStaticallyKnownType(androidContentContentProviderClientDescriptorString);
   public final DexType androidDrmDrmManagerClientType =
       createStaticallyKnownType(androidDrmDrmManagerClientDescriptorString);
-  public final DexType androidMediaMediaDrm = createStaticallyKnownType("Landroid/media/MediaDrm;");
   public final DexType androidMediaMediaDrmType =
       createStaticallyKnownType(androidMediaMediaDrmDescriptorString);
   public final DexType androidMediaMediaMetadataRetrieverType =
@@ -1138,7 +1174,50 @@ public class DexItemFactory {
               androidOsHandlerType,
               callableType,
               enumType,
-              npeType,
+              javaIoEOFExceptionType,
+              javaIoFileNotFoundExceptionType,
+              javaIoInterruptedIOExceptionType,
+              javaIoInvalidObjectExceptionType,
+              javaIoIOExceptionType,
+              javaIoNotSerializableExceptionType,
+              javaIoUnsupportedEncodingExceptionType,
+              javaLangAbstractMethodErrorType,
+              javaLangArithmeticExceptionType,
+              javaLangArrayIndexOutOfBoundsExceptionType,
+              javaLangAssertionErrorType,
+              javaLangClassCastExceptionType,
+              javaLangClassNotFoundExceptionType,
+              javaLangErrorType,
+              javaLangExceptionInInitializerErrorType,
+              javaLangIllegalAccessErrorType,
+              javaLangIllegalArgumentExceptionType,
+              javaLangIllegalMonitorStateExceptionType,
+              javaLangIllegalStateExceptionType,
+              javaLangIncompatibleClassChangeErrorType,
+              javaLangIndexOutOfBoundsExceptionType,
+              javaLangInterruptedExceptionType,
+              javaLangNoClassDefFoundErrorType,
+              javaLangNoSuchFieldErrorType,
+              javaLangNoSuchMethodErrorType,
+              javaLangNoSuchMethodExceptionType,
+              javaLangNullPointerExceptionType,
+              javaLangNumberFormatExceptionType,
+              javaLangOutOfMemoryErrorType,
+              // javaLangReflectiveOperationExceptionType, // Added in API 19.
+              javaLangRuntimeExceptionType,
+              javaLangSecurityExceptionType,
+              javaLangUnsatisfiedLinkErrorType,
+              javaLangUnsupportedOperationExceptionType,
+              javaNioBufferOverflowExceptionType,
+              // javaNioFileFileSystemLoopExceptionType, // Added in API 26.
+              javaNioReadOnlyBufferExceptionType,
+              javaTextParseExceptionType,
+              javaUtilConcurrentCancellationExceptionType,
+              javaUtilConcurrentExecutionExceptionType,
+              javaUtilConcurrentRejectedExecutionExceptionType,
+              javaUtilConcurrentTimeoutExceptionType,
+              javaUtilConcurrentModificationExceptionType,
+              javaUtilNoSuchElementExceptionType,
               objectType,
               stringBufferType,
               stringBuilderType,
@@ -1159,8 +1238,51 @@ public class DexItemFactory {
           boxedShortType,
           boxedVoidType,
           enumType,
+          javaIoEOFExceptionType,
+          javaIoFileNotFoundExceptionType,
+          javaIoInterruptedIOExceptionType,
+          javaIoInvalidObjectExceptionType,
+          javaIoIOExceptionType,
+          javaIoNotSerializableExceptionType,
+          javaIoUnsupportedEncodingExceptionType,
+          javaLangAbstractMethodErrorType,
+          javaLangArithmeticExceptionType,
+          javaLangArrayIndexOutOfBoundsExceptionType,
+          javaLangAssertionErrorType,
+          javaLangClassCastExceptionType,
+          javaLangClassNotFoundExceptionType,
+          javaLangErrorType,
+          javaLangExceptionInInitializerErrorType,
+          javaLangIllegalAccessErrorType,
+          javaLangIllegalArgumentExceptionType,
+          javaLangIllegalMonitorStateExceptionType,
+          javaLangIllegalStateExceptionType,
+          javaLangIncompatibleClassChangeErrorType,
+          javaLangIndexOutOfBoundsExceptionType,
+          javaLangInterruptedExceptionType,
+          javaLangNoClassDefFoundErrorType,
+          javaLangNoSuchFieldErrorType,
+          javaLangNoSuchMethodErrorType,
+          javaLangNoSuchMethodExceptionType,
+          javaLangNullPointerExceptionType,
+          javaLangNumberFormatExceptionType,
+          javaLangOutOfMemoryErrorType,
+          javaLangReflectiveOperationExceptionType,
+          javaLangRuntimeExceptionType,
+          javaLangSecurityExceptionType,
           javaLangSystemType,
-          npeType,
+          javaLangUnsatisfiedLinkErrorType,
+          javaLangUnsupportedOperationExceptionType,
+          javaNioBufferOverflowExceptionType,
+          // javaNioFileFileSystemLoopExceptionType, // Added in API 26.
+          javaNioReadOnlyBufferExceptionType,
+          javaTextParseExceptionType,
+          javaUtilConcurrentCancellationExceptionType,
+          javaUtilConcurrentExecutionExceptionType,
+          javaUtilConcurrentRejectedExecutionExceptionType,
+          javaUtilConcurrentTimeoutExceptionType,
+          javaUtilConcurrentModificationExceptionType,
+          javaUtilNoSuchElementExceptionType,
           objectType,
           stringBufferType,
           stringBuilderType,
@@ -1755,11 +1877,13 @@ public class DexItemFactory {
 
     private AssertionErrorMethods() {
       this.initMessage =
-          createMethod(assertionErrorDescriptor, constructorMethodName, voidDescriptor,
-              new DexString[] { objectDescriptor });
+          createMethod(
+              javaLangAssertionErrorType, createProto(voidType, objectType), constructorMethodName);
       this.initMessageAndCause =
-          createMethod(assertionErrorDescriptor, constructorMethodName, voidDescriptor,
-              new DexString[] { stringDescriptor, throwableDescriptor });
+          createMethod(
+              javaLangAssertionErrorType,
+              createProto(voidType, stringType, throwableType),
+              constructorMethodName);
     }
   }
 
@@ -2281,16 +2405,22 @@ public class DexItemFactory {
   public class NullPointerExceptionMethods {
 
     public final DexMethod init =
-        createMethod(npeType, createProto(voidType), constructorMethodName);
+        createMethod(
+            javaLangNullPointerExceptionType, createProto(voidType), constructorMethodName);
     public final DexMethod initWithMessage =
-        createMethod(npeType, createProto(voidType, stringType), constructorMethodName);
+        createMethod(
+            javaLangNullPointerExceptionType,
+            createProto(voidType, stringType),
+            constructorMethodName);
   }
 
   public class IllegalArgumentExceptionMethods {
 
     public final DexMethod initWithMessage =
         createMethod(
-            illegalArgumentExceptionType, createProto(voidType, stringType), constructorMethodName);
+            javaLangIllegalArgumentExceptionType,
+            createProto(voidType, stringType),
+            constructorMethodName);
   }
 
   /**

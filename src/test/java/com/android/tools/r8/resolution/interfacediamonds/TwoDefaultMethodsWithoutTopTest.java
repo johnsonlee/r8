@@ -74,7 +74,8 @@ public class TwoDefaultMethodsWithoutTopTest extends TestBase {
                     i ->
                         i.isTypeInstruction()
                             && i.asTypeInstruction().getType()
-                                == appInfo.dexItemFactory().icceType));
+                                == appInfo.dexItemFactory()
+                                    .javaLangIncompatibleClassChangeErrorType));
       } else {
         // When not desugaring resolution should fail. Check the failure dependencies are the two
         // default methods in conflict.

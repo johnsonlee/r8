@@ -638,7 +638,9 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
                 // target.
                 return;
               }
-              if (appView.isSubtype(appView.dexItemFactory().npeType, guard).isFalse()) {
+              if (appView
+                  .isSubtype(appView.dexItemFactory().javaLangNullPointerExceptionType, guard)
+                  .isFalse()) {
                 // TODO(christofferqa): Consider updating previous dominator tree instead of
                 //   rebuilding it from scratch.
                 DominatorTree dominatorTree = new DominatorTree(code, MAY_HAVE_UNREACHABLE_BLOCKS);

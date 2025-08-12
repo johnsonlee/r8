@@ -110,7 +110,7 @@ public class ThrowCatchOptimizer extends CodeRewriterPass<AppInfo> {
           if (!exceptionValue.isConstZero()
               && exceptionValue.isDefinedByInstructionSatisfying(Instruction::isNewInstance)) {
             NewInstance newInstance = exceptionValue.definition.asNewInstance();
-            if (newInstance.clazz != dexItemFactory.npeType) {
+            if (newInstance.clazz != dexItemFactory.javaLangNullPointerExceptionType) {
               continue;
             }
             if (newInstance.outValue().numberOfAllUsers() != 2) {
@@ -158,7 +158,7 @@ public class ThrowCatchOptimizer extends CodeRewriterPass<AppInfo> {
         // Check for 'new-instance NullPointerException' with 2 users, not declaring a local and
         // not ending the scope of any locals.
         if (instruction.isNewInstance()
-            && instruction.asNewInstance().clazz == dexItemFactory.npeType
+            && instruction.asNewInstance().clazz == dexItemFactory.javaLangNullPointerExceptionType
             && instruction.outValue().numberOfAllUsers() == 2
             && !instruction.outValue().hasLocalInfo()
             && instruction.getDebugValues().isEmpty()) {

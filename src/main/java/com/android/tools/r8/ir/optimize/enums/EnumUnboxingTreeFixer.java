@@ -956,7 +956,10 @@ class EnumUnboxingTreeFixer implements ProgramClassFixer {
     Position position = method.getDefinition().getAndClearPendingInlineFrameAsPosition();
     method.setCode(
         new ThrowCfCodeProvider(
-                appView, localUtilityClass.getType(), factory.abstractMethodErrorType, position)
+                appView,
+                localUtilityClass.getType(),
+                factory.javaLangAbstractMethodErrorType,
+                position)
             .generateCfCode(),
         appView);
     DexEncodedMethod dexEncodedMethod =

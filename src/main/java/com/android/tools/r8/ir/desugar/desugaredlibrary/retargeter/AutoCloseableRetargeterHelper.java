@@ -233,7 +233,7 @@ public class AutoCloseableRetargeterHelper {
                                 new ThrowCfCodeProvider(
                                         appView,
                                         methodSig.getHolderType(),
-                                        factory.illegalArgumentExceptionType,
+                                        factory.javaLangIllegalArgumentExceptionType,
                                         null)
                                     .generateCfCode()));
     eventConsumer.acceptAutoCloseableDispatchMethod(method, context);

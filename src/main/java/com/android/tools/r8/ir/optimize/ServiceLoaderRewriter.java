@@ -246,9 +246,10 @@ public class ServiceLoaderRewriter extends CodeRewriterPass<AppInfoWithLiveness>
         // throw new NoSuchElementException()
         NewInstance newInstanceInstr =
             new NewInstance(
-                dexItemFactory.noSuchElementExceptionType,
+                dexItemFactory.javaUtilNoSuchElementExceptionType,
                 code.createValue(
-                    dexItemFactory.noSuchElementExceptionType.toNonNullTypeElement(appView)));
+                    dexItemFactory.javaUtilNoSuchElementExceptionType.toNonNullTypeElement(
+                        appView)));
         InvokeDirect initInstr =
             new InvokeDirect(
                 dexItemFactory.noSuchElementExceptionInit,

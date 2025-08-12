@@ -271,7 +271,7 @@ public class GlobalSyntheticsGenerator {
 
     DexItemFactory factory = appView.dexItemFactory();
     ThrowExceptionCode throwExceptionCode =
-        ThrowExceptionCode.create(appView.dexItemFactory().noClassDefFoundErrorType);
+        ThrowExceptionCode.create(appView.dexItemFactory().javaLangNoClassDefFoundErrorType);
     ApiReferenceStubberEventConsumer apiReferenceStubberEventConsumer =
         ApiReferenceStubberEventConsumer.empty();
     ThreadUtils.processItems(

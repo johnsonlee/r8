@@ -131,7 +131,7 @@ public class UtilityMethodsForCodeOptimizations {
       UtilityMethodsForCodeOptimizationsEventConsumer eventConsumer,
       MethodProcessingContext methodProcessingContext) {
     DexItemFactory dexItemFactory = appView.dexItemFactory();
-    DexProto proto = dexItemFactory.createProto(dexItemFactory.abstractMethodErrorType);
+    DexProto proto = dexItemFactory.createProto(dexItemFactory.javaLangAbstractMethodErrorType);
     SyntheticItems syntheticItems = appView.getSyntheticItems();
     ProgramMethod syntheticMethod =
         syntheticItems.createMethod(
@@ -164,7 +164,7 @@ public class UtilityMethodsForCodeOptimizations {
       UtilityMethodsForCodeOptimizationsEventConsumer eventConsumer,
       MethodProcessingContext methodProcessingContext) {
     DexItemFactory dexItemFactory = appView.dexItemFactory();
-    DexProto proto = dexItemFactory.createProto(dexItemFactory.illegalAccessErrorType);
+    DexProto proto = dexItemFactory.createProto(dexItemFactory.javaLangIllegalAccessErrorType);
     SyntheticItems syntheticItems = appView.getSyntheticItems();
     ProgramMethod syntheticMethod =
         syntheticItems.createMethod(
@@ -197,7 +197,8 @@ public class UtilityMethodsForCodeOptimizations {
       UtilityMethodsForCodeOptimizationsEventConsumer eventConsumer,
       MethodProcessingContext methodProcessingContext) {
     DexItemFactory dexItemFactory = appView.dexItemFactory();
-    DexProto proto = dexItemFactory.createProto(dexItemFactory.icceType);
+    DexProto proto =
+        dexItemFactory.createProto(dexItemFactory.javaLangIncompatibleClassChangeErrorType);
     SyntheticItems syntheticItems = appView.getSyntheticItems();
     ProgramMethod syntheticMethod =
         syntheticItems.createMethod(
@@ -232,7 +233,7 @@ public class UtilityMethodsForCodeOptimizations {
       UtilityMethodsForCodeOptimizationsEventConsumer eventConsumer,
       MethodProcessingContext methodProcessingContext) {
     DexItemFactory dexItemFactory = appView.dexItemFactory();
-    DexProto proto = dexItemFactory.createProto(dexItemFactory.noSuchMethodErrorType);
+    DexProto proto = dexItemFactory.createProto(dexItemFactory.javaLangNoSuchMethodErrorType);
     SyntheticItems syntheticItems = appView.getSyntheticItems();
     ProgramMethod syntheticMethod =
         syntheticItems.createMethod(
@@ -266,7 +267,8 @@ public class UtilityMethodsForCodeOptimizations {
       MethodProcessingContext methodProcessingContext) {
     DexItemFactory dexItemFactory = appView.dexItemFactory();
     DexProto proto =
-        dexItemFactory.createProto(dexItemFactory.runtimeExceptionType, dexItemFactory.stringType);
+        dexItemFactory.createProto(
+            dexItemFactory.javaLangRuntimeExceptionType, dexItemFactory.stringType);
     SyntheticItems syntheticItems = appView.getSyntheticItems();
     ProgramMethod syntheticMethod =
         syntheticItems.createMethod(

@@ -734,17 +734,21 @@ public class MethodOptimizationInfoCollector {
    * Returns true if the given instruction is {@code v <- new-instance NullPointerException}, and
    * the next instruction is {@code invoke-direct v, NullPointerException.<init>()}.
    */
-  @SuppressWarnings("ReferenceEquality")
   private static boolean isInstantiationOfNullPointerException(
       Instruction instruction, InstructionIterator it, DexItemFactory dexItemFactory) {
-    if (!instruction.isNewInstance()
-        || instruction.asNewInstance().clazz != dexItemFactory.npeType) {
+    if (!instruction.isNewInstance()) {
+      return false;
+    }
+    NewInstance newInstance = instruction.asNewInstance();
+    if (newInstance.clazz.isNotIdenticalTo(dexItemFactory.javaLangNullPointerExceptionType)) {
       return false;
     }
     Instruction next = it.peekNext();
-    if (next == null
-        || !next.isInvokeDirect()
-        || next.asInvokeDirect().getInvokedMethod() != dexItemFactory.npeMethods.init) {
+    if (next == null || !next.isInvokeDirect()) {
+      return false;
+    }
+    InvokeDirect invoke = next.asInvokeDirect();
+    if (invoke.getInvokedMethod().isNotIdenticalTo(dexItemFactory.npeMethods.init)) {
       return false;
     }
     return true;
