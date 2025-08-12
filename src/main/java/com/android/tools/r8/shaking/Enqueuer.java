@@ -4074,7 +4074,7 @@ public class Enqueuer {
     }
   }
 
-  private void applyMinimumKeepInfo(ProgramMethod method, KeepMethodInfo.Joiner minimumKeepInfo) {
+  public void applyMinimumKeepInfo(ProgramMethod method, KeepMethodInfo.Joiner minimumKeepInfo) {
     mutateKeepInfo(method, (k, m) -> k.joinMethod(m, info -> info.merge(minimumKeepInfo)));
     enqueueMethodIfShrinkingIsDisallowed(method, UnconditionalKeepInfoEvent.get(), minimumKeepInfo);
   }

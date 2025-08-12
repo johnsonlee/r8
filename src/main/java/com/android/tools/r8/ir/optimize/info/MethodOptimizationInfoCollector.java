@@ -689,9 +689,6 @@ public class MethodOptimizationInfoCollector {
   // with "kotlin".
   private static boolean isKotlinCheckParameterIsNotNull(
       AppView<?> appView, InvokeStatic invoke, Value value) {
-    if (appView.options().kotlinOptimizationOptions().disableKotlinSpecificOptimizations) {
-      return false;
-    }
     // We need to ignore the holder, since Kotlin adds different versions of null-check machinery,
     // e.g., kotlin.collections.ArraysKt___ArraysKt... or kotlin.jvm.internal.ArrayIteratorKt...
     Intrinsics intrinsics = appView.dexItemFactory().kotlin.intrinsics;
@@ -710,9 +707,6 @@ public class MethodOptimizationInfoCollector {
   // with "kotlin".
   private static boolean isKotlinThrowParameterIsNullException(
       AppView<?> appView, InvokeStatic invoke) {
-    if (appView.options().kotlinOptimizationOptions().disableKotlinSpecificOptimizations) {
-      return false;
-    }
     // We need to ignore the holder, since Kotlin adds different versions of null-check machinery,
     // e.g., kotlin.collections.ArraysKt___ArraysKt... or kotlin.jvm.internal.ArrayIteratorKt...
     Intrinsics intrinsics = appView.dexItemFactory().kotlin.intrinsics;

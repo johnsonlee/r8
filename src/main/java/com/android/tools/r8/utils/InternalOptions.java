@@ -1050,8 +1050,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   private final ProtoShrinkingOptions protoShrinking = new ProtoShrinkingOptions();
   private final RedundantBridgeRemovalOptions redundantBridgeRemovalOptions =
       new RedundantBridgeRemovalOptions();
-  private final KotlinOptimizationOptions kotlinOptimizationOptions =
-      new KotlinOptimizationOptions();
   private final AndroidApiModelingOptions apiModelTestingOptions =
       new AndroidApiModelingOptions(this);
   private final DesugarSpecificOptions desugarSpecificOptions = new DesugarSpecificOptions();
@@ -1143,10 +1141,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   public ProtoShrinkingOptions protoShrinking() {
     return protoShrinking;
-  }
-
-  public KotlinOptimizationOptions kotlinOptimizationOptions() {
-    return kotlinOptimizationOptions;
   }
 
   public AndroidApiModelingOptions apiModelingOptions() {
@@ -1668,11 +1662,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public int maxSize = 99;
     public int threshold = 20;
     public int maxNumberOfInstructionsToBeConsidered = 100;
-  }
-
-  public static class KotlinOptimizationOptions {
-    public boolean disableKotlinSpecificOptimizations =
-        System.getProperty("com.android.tools.r8.disableKotlinSpecificOptimizations") != null;
   }
 
   // Temporary desugar specific options to make progress on b/147485959

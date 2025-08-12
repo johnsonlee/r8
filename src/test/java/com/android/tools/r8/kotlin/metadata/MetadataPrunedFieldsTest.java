@@ -5,7 +5,6 @@
 package com.android.tools.r8.kotlin.metadata;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.KotlinCompileMemoizer;
@@ -52,22 +51,15 @@ public class MetadataPrunedFieldsTest extends KotlinMetadataTestBase {
         .addKeepMainRule(Main.class)
         .setMinApi(parameters)
         .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
-        .addOptionsModification(
-            internalOptions -> {
-              // When checking for metadata being equal if not rewritten, we parse the original data
-              // again. However, for this particular test, a field of the metadata has been removed
-              // and we cannot parse the metadata again.
-              internalOptions.testing.keepMetadataInR8IfNotRewritten = false;
-            })
         .compile()
         .inspect(
             codeInspector -> {
               final ClassSubject clazz = codeInspector.clazz("kotlin.Metadata");
               assertThat(clazz, isPresent());
               assertThat(clazz.uniqueMethodWithOriginalName("pn"), isPresent());
-              assertThat(clazz.uniqueMethodWithOriginalName("d1"), not(isPresent()));
-              assertThat(clazz.uniqueMethodWithOriginalName("d2"), not(isPresent()));
-              assertThat(clazz.uniqueMethodWithOriginalName("bv"), not(isPresent()));
+              assertThat(clazz.uniqueMethodWithOriginalName("d1"), isPresent());
+              assertThat(clazz.uniqueMethodWithOriginalName("d2"), isPresent());
+              assertThat(clazz.uniqueMethodWithOriginalName("bv"), isPresent());
             })
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("", "Hello World!");

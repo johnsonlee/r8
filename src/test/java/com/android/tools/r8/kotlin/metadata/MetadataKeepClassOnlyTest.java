@@ -4,14 +4,10 @@
 
 package com.android.tools.r8.kotlin.metadata;
 
-import static org.junit.Assert.assertThrows;
-
-import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.KotlinCompileMemoizer;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.kotlin.metadata.metadata_pruned_fields.Main;
-import com.android.tools.r8.shaking.ProguardKeepAttributes;
 import java.util.Collection;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -40,21 +36,13 @@ public class MetadataKeepClassOnlyTest extends KotlinMetadataTestBase {
 
   @Test
   public void testR8() throws Exception {
-    assertThrows(
-        // TODO(b/435327947): Fails with: Unexpected error during rewriting of Kotlin metadata for
-        //  class 'A': com.android.tools.r8.kotlin.KotlinClassMetadataReader$MetadataError: element
-        //  'k' is missing.
-        CompilationFailedException.class,
-        () -> {
-          testForR8(parameters.getBackend())
-              .addProgramFiles(kotlinc.getKotlinStdlibJar())
-              .addProgramFiles(code.getForConfiguration(kotlinParameters))
-              .addProgramClassFileData(Main.dump())
-              .addKeepRules("-keep class A { *; }")
-              .addKeepRules("-keep class kotlin.Metadata")
-              .setMinApi(parameters)
-              .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
-              .compile();
-        });
+    testForR8(parameters)
+        .addProgramFiles(kotlinc.getKotlinStdlibJar())
+        .addProgramFiles(code.getForConfiguration(kotlinParameters))
+        .addProgramClassFileData(Main.dump())
+        .addKeepRules("-keep class A { *; }")
+        .addKeepRules("-keep class kotlin.Metadata")
+        .addKeepRuntimeVisibleAnnotations()
+        .compile();
   }
 }
