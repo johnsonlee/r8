@@ -382,7 +382,11 @@ public class ThrowBlockOutlinerScanner {
                     .setArguments(
                         ListUtils.map(
                             invoke.arguments(), outlineBuilder::getOutlinedValueOrCreateArgument))
-                    .setMethod(invoke.getInvokedMethod())
+                    // Convert append(String) to append(Object) to increase sharing of outlines.
+                    .setMethod(
+                        invokedMethod.isIdenticalTo(factory.stringBuilderMethods.appendString)
+                            ? factory.stringBuilderMethods.appendObject
+                            : invokedMethod)
                     .setPosition(Position.syntheticNone());
             if (invoke.hasOutValue()) {
               outlinedInvokeBuilder.setFreshOutValue(
