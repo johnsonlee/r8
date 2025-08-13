@@ -52,19 +52,21 @@ public class ThrowBlockOutline implements LirConstant {
     assert userArguments.size() == proto.getArity();
     users.add(user);
     if (!userArguments.isEmpty()) {
-      if (arguments.isEmpty()) {
-        for (Value userArgument : userArguments) {
-          arguments.add(encodeArgumentValue(userArgument, valueFactory));
-        }
-      } else {
-        for (int i = 0; i < userArguments.size(); i++) {
-          AbstractValue existingArgument = arguments.get(i);
-          if (existingArgument.isUnknown()) {
-            continue;
+      synchronized (this) {
+        if (arguments.isEmpty()) {
+          for (Value userArgument : userArguments) {
+            arguments.add(encodeArgumentValue(userArgument, valueFactory));
           }
-          Value userArgument = userArguments.get(i);
-          if (!existingArgument.equals(encodeArgumentValue(userArgument, valueFactory))) {
-            arguments.set(i, AbstractValue.unknown());
+        } else {
+          for (int i = 0; i < userArguments.size(); i++) {
+            AbstractValue existingArgument = arguments.get(i);
+            if (existingArgument.isUnknown()) {
+              continue;
+            }
+            Value userArgument = userArguments.get(i);
+            if (!existingArgument.equals(encodeArgumentValue(userArgument, valueFactory))) {
+              arguments.set(i, AbstractValue.unknown());
+            }
           }
         }
       }

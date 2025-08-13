@@ -116,6 +116,8 @@ public class ThrowBlockOutlinerScanner {
     private final BasicBlock throwBlock;
     private final Throw throwInstruction;
 
+    private boolean hasRunPrefixer;
+
     ThrowBlockOutlinerScannerForBlock(IRCode code, BasicBlock throwBlock) {
       this.code = code;
       this.throwBlock = throwBlock;
@@ -403,8 +405,22 @@ public class ThrowBlockOutlinerScanner {
 
     private void startOutline(
         Instruction firstOutlinedInstruction, Consumer<OutlineBuilder> continuation) {
-      OutlineBuilder outlineBuilder = new OutlineBuilder(firstOutlinedInstruction);
-      continuation.accept(outlineBuilder);
+      Instruction newFirstOutlinedInstruction;
+      // Only try to move non-outline instructions into the outline once.
+      if (hasRunPrefixer) {
+        newFirstOutlinedInstruction = firstOutlinedInstruction;
+      } else {
+        newFirstOutlinedInstruction =
+            new ThrowBlockOutlinerPrefixer(factory, throwBlock)
+                .tryMoveNonOutlinedStringBuilderInstructionsToOutline(firstOutlinedInstruction);
+        hasRunPrefixer = true;
+      }
+      if (newFirstOutlinedInstruction != firstOutlinedInstruction) {
+        processInstruction(firstOutlinedInstruction.getPrev(), continuation);
+      } else {
+        OutlineBuilder outlineBuilder = new OutlineBuilder(firstOutlinedInstruction);
+        continuation.accept(outlineBuilder);
+      }
     }
   }
 
