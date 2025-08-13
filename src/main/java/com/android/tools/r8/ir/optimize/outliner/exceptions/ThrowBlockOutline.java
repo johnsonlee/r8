@@ -93,6 +93,10 @@ public class ThrowBlockOutline implements LirConstant {
     return arguments;
   }
 
+  public LirCode<?> getLirCode() {
+    return lirCode;
+  }
+
   @Override
   public LirConstantOrder getLirConstantOrder() {
     return LirConstantOrder.THROW_BLOCK_OUTLINE;

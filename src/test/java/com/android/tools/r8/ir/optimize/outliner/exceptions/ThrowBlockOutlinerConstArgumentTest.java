@@ -55,6 +55,8 @@ public class ThrowBlockOutlinerConstArgumentTest extends TestBase {
                         inspectOutlines(outlines);
                         receivedCallback.set();
                       };
+                  options.getThrowBlockOutlinerOptions().outlineStrategyForTesting =
+                      outline -> outline.getNumberOfUsers() >= 2;
                 })
             .release()
             .compile()
