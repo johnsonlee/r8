@@ -4,6 +4,7 @@
 package com.android.tools.r8.utils;
 
 import static com.android.tools.r8.utils.AndroidApiLevel.B;
+import static com.android.tools.r8.utils.SystemPropertyUtils.isSystemPropertySet;
 import static com.android.tools.r8.utils.SystemPropertyUtils.parseSystemPropertyForDevelopmentOrDefault;
 import static com.android.tools.r8.utils.SystemPropertyUtils.parseSystemPropertyOrDefault;
 
@@ -2517,7 +2518,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
         "all".equals(System.getProperty("com.android.tools.r8.enableListIterationRewriting"));
     // Used by unit tests.
     public boolean listIterationRewritingRewriteCustomIterators =
-        listIterationRewritingRewriteInterfaces;
+        isSystemPropertySet("com.android.tools.r8.enableListIterationRewriting");
     // Testing flag to always generate D8 lambda accessors.
     public boolean forceLambdaAccessorInD8 = false;
   }
