@@ -10,14 +10,11 @@ import java.util.List;
 public class ProguardKeepAttributes {
 
   public static final String SOURCE_FILE = "SourceFile";
-  public static final String SOURCE_DIR = "SourceDir";
   public static final String INNER_CLASSES = "InnerClasses";
   public static final String ENCLOSING_METHOD = "EnclosingMethod";
   public static final String SIGNATURE = "Signature";
   public static final String EXCEPTIONS = "Exceptions";
   public static final String LINE_NUMBER_TABLE = "LineNumberTable";
-  public static final String LOCAL_VARIABLE_TABLE = "LocalVariableTable";
-  public static final String LOCAL_VARIABLE_TYPE_TABLE = "LocalVariableTypeTable";
   public static final String METHOD_PARAMETERS = "MethodParameters";
   public static final String SOURCE_DEBUG_EXTENSION = "SourceDebugExtension";
   public static final String RUNTIME_VISIBLE_ANNOTATIONS = "RuntimeVisibleAnnotations";
@@ -34,13 +31,10 @@ public class ProguardKeepAttributes {
   public static final String STACK_MAP_TABLE = "StackMapTable";
 
   public boolean sourceFile = false;
-  public boolean sourceDir = false;
   public boolean innerClasses = false;
   public boolean enclosingMethod = false;
   public boolean signature = false;
   public boolean exceptions = false;
-  public boolean localVariableTable = false;
-  public boolean localVariableTypeTable = false;
   public boolean methodParameters = false;
   public boolean sourceDebugExtension = false;
   public boolean runtimeVisibleAnnotations = false;
@@ -57,13 +51,10 @@ public class ProguardKeepAttributes {
 
   public ProguardKeepAttributes keepAllAttributesExceptRuntimeInvisibleAnnotations() {
     sourceFile = true;
-    sourceDir = true;
     innerClasses = true;
     enclosingMethod = true;
     signature = true;
     exceptions = true;
-    localVariableTable = true;
-    localVariableTypeTable = true;
     methodParameters = true;
     sourceDebugExtension = true;
     runtimeVisibleAnnotations = true;
@@ -124,10 +115,8 @@ public class ProguardKeepAttributes {
 
   public void applyPatterns(List<String> patterns) {
     sourceFile = update(sourceFile, SOURCE_FILE, patterns);
-    sourceDir = update(sourceDir, SOURCE_DIR, patterns);
     innerClasses = update(innerClasses, INNER_CLASSES, patterns);
     enclosingMethod = update(enclosingMethod, ENCLOSING_METHOD, patterns);
-    localVariableTypeTable = update(localVariableTypeTable, LOCAL_VARIABLE_TYPE_TABLE, patterns);
     exceptions = update(exceptions, EXCEPTIONS, patterns);
     methodParameters = update(methodParameters, METHOD_PARAMETERS, patterns);
     signature = update(signature, SIGNATURE, patterns);
@@ -174,7 +163,6 @@ public class ProguardKeepAttributes {
     }
     ProguardKeepAttributes other = (ProguardKeepAttributes) o;
     return this.sourceFile == other.sourceFile
-        && this.sourceDir == other.sourceDir
         && this.innerClasses == other.innerClasses
         && this.enclosingMethod == other.enclosingMethod
         && this.signature == other.signature
@@ -195,7 +183,6 @@ public class ProguardKeepAttributes {
   @Override
   public int hashCode() {
     return (this.sourceFile ? 1 : 0)
-        + (this.sourceDir ? 1 << 1 : 0)
         + (this.innerClasses ? 1 << 2 : 0)
         + (this.enclosingMethod ? 1 << 3 : 0)
         + (this.signature ? 1 << 4 : 0)
@@ -215,7 +202,6 @@ public class ProguardKeepAttributes {
 
   public boolean isEmpty() {
     return !sourceFile
-        && !sourceDir
         && !innerClasses
         && !enclosingMethod
         && !signature
@@ -237,9 +223,6 @@ public class ProguardKeepAttributes {
     List<String> attributes = new ArrayList<>();
     if (sourceFile) {
       attributes.add(SOURCE_FILE);
-    }
-    if (sourceDir) {
-      attributes.add(SOURCE_DIR);
     }
     if (innerClasses) {
       attributes.add(INNER_CLASSES);

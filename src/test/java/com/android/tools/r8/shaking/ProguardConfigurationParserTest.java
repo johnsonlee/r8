@@ -1388,10 +1388,10 @@ public class ProguardConfigurationParserTest extends TestBase {
   public void testRenameSourceFileAttribute() throws Exception {
     for (String lineSeparator : lineSeparators) {
       reset();
-      Path proguardConfig = writeTextToTempFile(lineSeparator,
-          ImmutableList.of(
-              "-renamesourcefileattribute PG",
-              "-keepattributes SourceFile,SourceDir"));
+      Path proguardConfig =
+          writeTextToTempFile(
+              lineSeparator,
+              ImmutableList.of("-renamesourcefileattribute PG", "-keepattributes SourceFile"));
       ProguardConfigurationParser parser =
           new ProguardConfigurationParser(new DexItemFactory(), reporter);
       parser.parse(proguardConfig);
@@ -1399,7 +1399,6 @@ public class ProguardConfigurationParserTest extends TestBase {
       ProguardConfiguration config = parser.getConfigRawForTesting();
       assertEquals("PG", config.getRenameSourceFileAttribute());
       assertTrue(config.getKeepAttributes().sourceFile);
-      assertTrue(config.getKeepAttributes().sourceDir);
     }
   }
 
@@ -1418,7 +1417,6 @@ public class ProguardConfigurationParserTest extends TestBase {
       ProguardConfiguration config = parser.getConfigRawForTesting();
       assertEquals("", config.getRenameSourceFileAttribute());
       assertTrue(config.getKeepAttributes().sourceFile);
-      assertFalse(config.getKeepAttributes().sourceDir);
     }
   }
 
@@ -1438,7 +1436,6 @@ public class ProguardConfigurationParserTest extends TestBase {
         ProguardConfiguration config = parser.getConfigRawForTesting();
         assertEquals("PG", config.getRenameSourceFileAttribute());
         assertTrue(config.getKeepAttributes().sourceFile);
-        assertFalse(config.getKeepAttributes().sourceDir);
       }
     }
   }
@@ -1459,7 +1456,6 @@ public class ProguardConfigurationParserTest extends TestBase {
         ProguardConfiguration config = parser.getConfigRawForTesting();
         assertEquals("", config.getRenameSourceFileAttribute());
         assertTrue(config.getKeepAttributes().sourceFile);
-        assertFalse(config.getKeepAttributes().sourceDir);
       }
     }
   }

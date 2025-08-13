@@ -345,8 +345,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     assert !proguardConfiguration.isObfuscating();
     getProguardConfiguration().getKeepAttributes().sourceFile = true;
     getProguardConfiguration().getKeepAttributes().sourceDebugExtension = true;
-    getProguardConfiguration().getKeepAttributes().localVariableTable = true;
-    getProguardConfiguration().getKeepAttributes().localVariableTypeTable = true;
   }
 
   void enableProtoShrinking() {

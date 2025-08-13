@@ -81,12 +81,9 @@ public class KeepAttributesTest extends TestBase {
   @Test
   public void keepLineNumberTableAndLocalVariableTable()
       throws CompilationFailedException, IOException, ExecutionException {
-    List<String> keepRules = ImmutableList.of(
-        "-keepattributes "
-            + ProguardKeepAttributes.LINE_NUMBER_TABLE
-            + ", "
-            + ProguardKeepAttributes.LOCAL_VARIABLE_TABLE
-    );
+    List<String> keepRules =
+        ImmutableList.of(
+            "-keepattributes " + ProguardKeepAttributes.LINE_NUMBER_TABLE + ", LocalVariableTable");
     MethodSubject mainMethod = compileRunAndGetMain(keepRules, CompilationMode.RELEASE);
     assertEquals(doesNotHavePcSupport(), mainMethod.hasLineNumberTable());
     // Locals are never included in release builds.
@@ -95,9 +92,7 @@ public class KeepAttributesTest extends TestBase {
 
   @Test
   public void keepLocalVariableTable() throws Exception {
-    List<String> keepRules = ImmutableList.of(
-        "-keepattributes " + ProguardKeepAttributes.LOCAL_VARIABLE_TABLE
-    );
+    List<String> keepRules = ImmutableList.of("-keepattributes LocalVariableTable");
     // Compiling with a keep rule for locals but no line table no longer results in an error in R8.
     compileRunAndGetMain(keepRules, CompilationMode.RELEASE);
   }
