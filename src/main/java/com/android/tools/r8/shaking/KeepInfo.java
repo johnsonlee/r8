@@ -11,6 +11,7 @@ import com.android.tools.r8.graph.EnclosingMethodAttribute;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.shaking.KeepAnnotationCollectionInfo.RetentionInfo;
 import com.android.tools.r8.shaking.KeepInfo.Builder;
+import com.android.tools.r8.shaking.KeepInfoCollectionExported.KeepAnnotationCollectionInfoExported;
 import com.android.tools.r8.shaking.KeepReason.ReflectiveUseFrom;
 import com.android.tools.r8.utils.InternalOptions;
 import com.google.common.collect.Sets;
@@ -302,20 +303,30 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
         && typeAnnotationsInfo.isLessThanOrEqualTo(other.internalTypeAnnotationsInfo());
   }
 
+  private boolean internalBooleanEquals(K other) {
+    return getClass() == other.getClass()
+        && allowAccessModification == other.internalIsAccessModificationAllowed()
+        && allowAccessModificationForTesting
+            == other.internalIsAccessModificationAllowedForTesting()
+        && allowMinification == other.internalIsMinificationAllowed()
+        && allowOptimization == other.internalIsOptimizationAllowed()
+        && allowShrinking == other.internalIsShrinkingAllowed()
+        && allowSignatureRemoval == other.internalIsSignatureRemovalAllowed()
+        && checkDiscarded == other.internalIsCheckDiscardedEnabled();
+  }
+
+  public boolean equalsWithAnnotations(K other) {
+    return internalBooleanEquals(other)
+        && annotationsInfo.isEqualTo(other.internalAnnotationsInfo())
+        && typeAnnotationsInfo.isEqualTo(other.internalTypeAnnotationsInfo());
+  }
+
   public boolean equalsNoAnnotations(K other) {
     assert annotationsInfo.isTopOrBottom();
     assert typeAnnotationsInfo.isTopOrBottom();
-    return getClass() == other.getClass()
-        && (allowAccessModification == other.internalIsAccessModificationAllowed())
-        && (allowAccessModificationForTesting
-            == other.internalIsAccessModificationAllowedForTesting())
-        && (allowMinification == other.internalIsMinificationAllowed())
-        && (allowOptimization == other.internalIsOptimizationAllowed())
-        && (allowShrinking == other.internalIsShrinkingAllowed())
-        && (allowSignatureRemoval == other.internalIsSignatureRemovalAllowed())
-        && (checkDiscarded == other.internalIsCheckDiscardedEnabled())
-        && (annotationsInfo == other.internalAnnotationsInfo())
-        && (typeAnnotationsInfo == other.internalTypeAnnotationsInfo());
+    return internalBooleanEquals(other)
+        && annotationsInfo == other.internalAnnotationsInfo()
+        && typeAnnotationsInfo == other.internalTypeAnnotationsInfo();
   }
 
   public int hashCodeNoAnnotations() {
@@ -333,6 +344,40 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
     hash += bit(annotationsInfo.isTop(), index++);
     hash += bit(typeAnnotationsInfo.isTop(), index);
     return hash;
+  }
+
+  protected static boolean handle(String key, String value, Builder<?, ?> builder) {
+    switch (key) {
+      case "allowAccessModification":
+        builder.setAllowAccessModification(Boolean.parseBoolean(value));
+        return true;
+      case "allowAccessModificationForTesting":
+        builder.setAllowAccessModificationForTesting(Boolean.parseBoolean(value));
+        return true;
+      case "allowMinification":
+        builder.setAllowMinification(Boolean.parseBoolean(value));
+        return true;
+      case "allowOptimization":
+        builder.setAllowOptimization(Boolean.parseBoolean(value));
+        return true;
+      case "allowShrinking":
+        builder.setAllowShrinking(Boolean.parseBoolean(value));
+        return true;
+      case "allowSignatureRemoval":
+        builder.setAllowSignatureRemoval(Boolean.parseBoolean(value));
+        return true;
+      case "checkDiscarded":
+        builder.setCheckDiscarded(Boolean.parseBoolean(value));
+        return true;
+      case "annotationsInfo":
+        builder.setAnnotationInfo(KeepAnnotationCollectionInfoExported.parse(value));
+        return true;
+      case "typeAnnotationsInfo":
+        builder.setTypeAnnotationsInfo(KeepAnnotationCollectionInfoExported.parse(value));
+        return true;
+      default:
+        return false;
+    }
   }
 
   public List<String> lines() {

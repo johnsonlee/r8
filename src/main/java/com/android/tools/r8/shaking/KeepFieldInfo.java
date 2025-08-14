@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.shaking;
 
+import com.google.common.base.Splitter;
+import java.util.Iterator;
 import java.util.List;
 
 /** Immutable keep requirements for a field. */
@@ -73,12 +75,20 @@ public final class KeepFieldInfo extends KeepMemberInfo<KeepFieldInfo.Builder, K
     return this.equals(bottom());
   }
 
+  private boolean internalBooleanEquals(KeepFieldInfo other) {
+    return allowFieldTypeStrengthening == other.internalIsFieldTypeStrengtheningAllowed()
+        && allowRedundantFieldLoadElimination
+            == other.internalIsRedundantFieldLoadEliminationAllowed();
+  }
+
+  @Override
+  public boolean equalsWithAnnotations(KeepFieldInfo other) {
+    return super.equalsWithAnnotations(other) && internalBooleanEquals(other);
+  }
+
   @Override
   public boolean equalsNoAnnotations(KeepFieldInfo other) {
-    return super.equalsNoAnnotations(other)
-        && (allowFieldTypeStrengthening == other.internalIsFieldTypeStrengtheningAllowed())
-        && (allowRedundantFieldLoadElimination
-            == other.internalIsRedundantFieldLoadEliminationAllowed());
+    return super.equalsNoAnnotations(other) && internalBooleanEquals(other);
   }
 
   @Override
@@ -88,6 +98,31 @@ public final class KeepFieldInfo extends KeepMemberInfo<KeepFieldInfo.Builder, K
     hash += bit(allowFieldTypeStrengthening, index++);
     hash += bit(allowRedundantFieldLoadElimination, index);
     return hash;
+  }
+
+  public static KeepFieldInfo parse(Iterator<String> iterator) {
+    Builder builder = new Builder();
+    while (iterator.hasNext()) {
+      String next = iterator.next();
+      if (next.equals("")) {
+        return new KeepFieldInfo(builder);
+      }
+      List<String> split = Splitter.on(": ").splitToList(next);
+      assert split.size() == 2;
+      String key = split.get(0);
+      String value = split.get(1);
+      if (KeepMemberInfo.handle(key, value, builder)) {
+        continue;
+      }
+      if (key.equals("allowFieldTypeStrengthening")) {
+        builder.setAllowFieldTypeStrengthening(Boolean.parseBoolean(value));
+      } else if (key.equals("allowRedundantFieldLoadElimination")) {
+        builder.setAllowRedundantFieldLoadElimination(Boolean.parseBoolean(value));
+      } else {
+        assert false;
+      }
+    }
+    return new KeepFieldInfo(builder);
   }
 
   @Override

@@ -7,6 +7,8 @@ import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.utils.InternalOptions;
+import com.google.common.base.Splitter;
+import java.util.Iterator;
 import java.util.List;
 import java.util.function.Function;
 
@@ -186,10 +188,8 @@ public class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepClassInfo
     return this.equals(bottom());
   }
 
-  @Override
-  public boolean equalsNoAnnotations(KeepClassInfo other) {
-    return super.equalsNoAnnotations(other)
-        && allowClassInlining == other.internalIsClassInliningAllowed()
+  private boolean internalBooleanEquals(KeepClassInfo other) {
+    return allowClassInlining == other.internalIsClassInliningAllowed()
         && allowHorizontalClassMerging == other.internalIsHorizontalClassMergingAllowed()
         && allowPermittedSubclassesRemoval == other.internalIsPermittedSubclassesRemovalAllowed()
         && allowRepackaging == other.internalIsRepackagingAllowed()
@@ -197,6 +197,16 @@ public class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepClassInfo
         && allowUnusedInterfaceRemoval == other.internalIsUnusedInterfaceRemovalAllowed()
         && allowVerticalClassMerging == other.internalIsVerticalClassMergingAllowed()
         && checkEnumUnboxed == other.internalIsCheckEnumUnboxedEnabled();
+  }
+
+  @Override
+  public boolean equalsWithAnnotations(KeepClassInfo other) {
+    return super.equalsWithAnnotations(other) && internalBooleanEquals(other);
+  }
+
+  @Override
+  public boolean equalsNoAnnotations(KeepClassInfo other) {
+    return super.equalsNoAnnotations(other) && internalBooleanEquals(other);
   }
 
   @Override
@@ -212,6 +222,53 @@ public class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepClassInfo
     hash += bit(allowVerticalClassMerging, index++);
     hash += bit(checkEnumUnboxed, index);
     return hash;
+  }
+
+  public static KeepClassInfo parse(Iterator<String> iterator) {
+    Builder builder = new Builder();
+    while (iterator.hasNext()) {
+      String next = iterator.next();
+      if (next.equals("")) {
+        return new KeepClassInfo(builder);
+      }
+      List<String> split = Splitter.on(": ").splitToList(next);
+      assert split.size() == 2;
+      String key = split.get(0);
+      String value = split.get(1);
+      if (KeepInfo.handle(key, value, builder)) {
+        continue;
+      }
+      switch (key) {
+        case "allowClassInlining":
+          builder.setAllowClassInlining(Boolean.parseBoolean(value));
+          break;
+        case "allowHorizontalClassMerging":
+          builder.setAllowHorizontalClassMerging(Boolean.parseBoolean(value));
+          break;
+        case "allowPermittedSubclassesRemoval":
+          builder.setAllowPermittedSubclassesRemoval(Boolean.parseBoolean(value));
+          break;
+        case "allowRepackaging":
+          builder.setAllowRepackaging(Boolean.parseBoolean(value));
+          break;
+        case "allowSyntheticSharing":
+          builder.setAllowSyntheticSharing(Boolean.parseBoolean(value));
+          break;
+        case "allowUnusedInterfaceRemoval":
+          builder.setAllowUnusedInterfaceRemoval(Boolean.parseBoolean(value));
+          break;
+        case "allowVerticalClassMerging":
+          builder.setAllowVerticalClassMerging(Boolean.parseBoolean(value));
+          break;
+        case "checkEnumUnboxed":
+          builder.setCheckEnumUnboxed(Boolean.parseBoolean(value));
+          break;
+        default:
+          assert false;
+          break;
+      }
+    }
+    return new KeepClassInfo(builder);
   }
 
   @Override

@@ -6,6 +6,9 @@ package com.android.tools.r8.shaking;
 import com.android.tools.r8.graph.DexAnnotation;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.shaking.KeepAnnotationCollectionInfo.RetentionInfo;
+import com.android.tools.r8.shaking.KeepInfoCollectionExported.KeepAnnotationCollectionInfoExported;
+import com.google.common.base.Splitter;
+import java.util.Iterator;
 import java.util.List;
 
 /** Immutable keep requirements for a method. */
@@ -305,11 +308,8 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
     return this.equals(bottom());
   }
 
-  @Override
-  public boolean equalsNoAnnotations(KeepMethodInfo other) {
-    assert parameterAnnotationsInfo.isTopOrBottom();
-    return super.equalsNoAnnotations(other)
-        && allowThrowsRemoval == other.internalIsThrowsRemovalAllowed()
+  private boolean internalBooleanEquals(KeepMethodInfo other) {
+    return allowThrowsRemoval == other.internalIsThrowsRemovalAllowed()
         && allowClassInlining == other.internalIsClassInliningAllowed()
         && allowClosedWorldReasoning == other.internalIsClosedWorldReasoningAllowed()
         && allowCodeReplacement == other.internalIsCodeReplacementAllowed()
@@ -326,9 +326,24 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
         && allowUnusedArgumentOptimization == other.internalIsUnusedArgumentOptimizationAllowed()
         && allowUnusedReturnValueOptimization
             == other.internalIsUnusedReturnValueOptimizationAllowed()
-        && allowParameterNamesRemoval == other.internalIsParameterNamesRemovalAllowed()
+        && allowParameterNamesRemoval == other.internalIsParameterNamesRemovalAllowed();
+  }
+
+  @Override
+  public boolean equalsWithAnnotations(KeepMethodInfo other) {
+    return super.equalsWithAnnotations(other)
+        && internalBooleanEquals(other)
+        && parameterAnnotationsInfo.isEqualTo(other.internalParameterAnnotationsInfo());
+  }
+
+  @Override
+  public boolean equalsNoAnnotations(KeepMethodInfo other) {
+    assert parameterAnnotationsInfo.isTopOrBottom();
+    return super.equalsNoAnnotations(other)
+        && internalBooleanEquals(other)
         && parameterAnnotationsInfo == other.internalParameterAnnotationsInfo();
   }
+
 
   @Override
   public int hashCodeNoAnnotations() {
@@ -353,6 +368,80 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
     hash += bit(allowParameterNamesRemoval, index++);
     hash += bit(parameterAnnotationsInfo.isTop(), index);
     return hash;
+  }
+
+  public static KeepMethodInfo parse(Iterator<String> iterator) {
+    Builder builder = new Builder();
+    while (iterator.hasNext()) {
+      String next = iterator.next();
+      if (next.equals("")) {
+        return new KeepMethodInfo(builder);
+      }
+      List<String> split = Splitter.on(": ").splitToList(next);
+      assert split.size() == 2;
+      String key = split.get(0);
+      String value = split.get(1);
+      if (KeepMemberInfo.handle(key, value, builder)) {
+        continue;
+      }
+      switch (key) {
+        case "allowThrowsRemoval":
+          builder.setAllowThrowsRemoval(Boolean.parseBoolean(value));
+          break;
+        case "allowClassInlining":
+          builder.setAllowClassInlining(Boolean.parseBoolean(value));
+          break;
+        case "allowClosedWorldReasoning":
+          builder.setAllowClosedWorldReasoning(Boolean.parseBoolean(value));
+          break;
+        case "allowCodeReplacement":
+          builder.setAllowCodeReplacement(Boolean.parseBoolean(value));
+          break;
+        case "allowConstantArgumentOptimization":
+          builder.setAllowConstantArgumentOptimization(Boolean.parseBoolean(value));
+          break;
+        case "allowInlining":
+          builder.setAllowInlining(Boolean.parseBoolean(value));
+          break;
+        case "allowMethodStaticizing":
+          builder.setAllowMethodStaticizing(Boolean.parseBoolean(value));
+          break;
+        case "allowParameterRemoval":
+          builder.setAllowParameterRemoval(Boolean.parseBoolean(value));
+          break;
+        case "allowParameterReordering":
+          builder.setAllowParameterReordering(Boolean.parseBoolean(value));
+          break;
+        case "allowParameterTypeStrengthening":
+          builder.setAllowParameterTypeStrengthening(Boolean.parseBoolean(value));
+          break;
+        case "allowReprocessing":
+          builder.setAllowReprocessing(Boolean.parseBoolean(value));
+          break;
+        case "allowReturnTypeStrengthening":
+          builder.setAllowReturnTypeStrengthening(Boolean.parseBoolean(value));
+          break;
+        case "allowSingleCallerInlining":
+          builder.setAllowSingleCallerInlining(Boolean.parseBoolean(value));
+          break;
+        case "allowUnusedArgumentOptimization":
+          builder.setAllowUnusedArgumentOptimization(Boolean.parseBoolean(value));
+          break;
+        case "allowUnusedReturnValueOptimization":
+          builder.setAllowUnusedReturnValueOptimization(Boolean.parseBoolean(value));
+          break;
+        case "allowParameterNamesRemoval":
+          builder.setAllowParameterNamesRemoval(Boolean.parseBoolean(value));
+          break;
+        case "parameterAnnotationsInfo":
+          builder.setParameterAnnotationInfo(KeepAnnotationCollectionInfoExported.parse(value));
+          break;
+        default:
+          assert false;
+          break;
+      }
+    }
+    return new KeepMethodInfo(builder);
   }
 
   @Override
