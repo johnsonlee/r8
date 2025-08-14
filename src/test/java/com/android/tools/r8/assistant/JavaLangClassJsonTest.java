@@ -24,6 +24,7 @@ import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.shaking.KeepInfoCollectionExported;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.Box;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -206,6 +207,13 @@ public class JavaLangClassJsonTest extends TestBase {
     assertTrue(updater22.isKeptBy(keepInfoCollectionExported));
     assertTrue(updater23.isKeptBy(keepInfoCollectionExported));
     assertTrue(updater24.isKeptBy(keepInfoCollectionExported));
+
+    File folder = temp.newFolder();
+    keepInfoCollectionExported.exportToDirectory(folder.toPath());
+    KeepInfoCollectionExported keepInfoCollectionExported2 =
+        KeepInfoCollectionExported.parse(folder.toPath());
+
+    assertEquals(keepInfoCollectionExported, keepInfoCollectionExported2);
   }
 
   public static class Instrumentation extends ReflectiveOperationJsonLogger {

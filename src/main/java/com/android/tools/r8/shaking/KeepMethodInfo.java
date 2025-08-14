@@ -344,7 +344,6 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
         && parameterAnnotationsInfo == other.internalParameterAnnotationsInfo();
   }
 
-
   @Override
   public int hashCodeNoAnnotations() {
     assert parameterAnnotationsInfo.isTopOrBottom();

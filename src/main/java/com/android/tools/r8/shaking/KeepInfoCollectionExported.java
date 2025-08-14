@@ -177,7 +177,9 @@ public class KeepInfoCollectionExported {
       String methodName = holderAndName.substring(nameIndex + 1);
       String[] argStrings = substring.substring(brace + 1, substring.length() - 1).split(", ");
       TypeReference[] args =
-          ArrayUtils.map(argStrings, Reference::typeFromTypeName, new TypeReference[0]);
+          argStrings.length == 1 && argStrings[0].isEmpty()
+              ? new TypeReference[0]
+              : ArrayUtils.map(argStrings, Reference::typeFromTypeName, new TypeReference[0]);
       return Reference.method(holder, methodName, Arrays.asList(args), returnType);
     }
 
