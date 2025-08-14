@@ -78,7 +78,8 @@ public class TypeSwitchDesugaring implements CfInstructionDesugaring {
                     theContext,
                     methodProcessingContext,
                     desugaringCollection,
-                    dexItemFactory) -> ImmutableList.of(new CfNew(factory.runtimeExceptionType)))
+                    dexItemFactory) ->
+                    ImmutableList.of(new CfNew(factory.javaLangRuntimeExceptionType)))
             .build();
       }
       if (instruction.isInvokeSpecial()
@@ -98,7 +99,7 @@ public class TypeSwitchDesugaring implements CfInstructionDesugaring {
                         new CfInvoke(
                             Opcodes.INVOKESPECIAL,
                             factory.createInstanceInitializer(
-                                factory.runtimeExceptionType,
+                                factory.javaLangRuntimeExceptionType,
                                 factory.stringType,
                                 factory.throwableType),
                             false)))

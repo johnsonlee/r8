@@ -974,17 +974,20 @@ final class ClassProcessor {
 
   private void addICCEThrowingMethod(
       DexMethod method, DexClass clazz, FailedResolutionResult resolutionResult) {
-    addThrowingMethod(method, clazz, dexItemFactory.icceType, resolutionResult);
+    addThrowingMethod(
+        method, clazz, dexItemFactory.javaLangIncompatibleClassChangeErrorType, resolutionResult);
   }
 
   private void addIllegalAccessErrorThrowingMethod(
       DexMethod method, DexClass clazz, FailedResolutionResult resolutionResult) {
-    addThrowingMethod(method, clazz, dexItemFactory.illegalAccessErrorType, resolutionResult);
+    addThrowingMethod(
+        method, clazz, dexItemFactory.javaLangIllegalAccessErrorType, resolutionResult);
   }
 
   private void addNoSuchMethodErrorThrowingMethod(
       DexMethod method, DexClass clazz, FailedResolutionResult resolutionResult) {
-    addThrowingMethod(method, clazz, dexItemFactory.noSuchMethodErrorType, resolutionResult);
+    addThrowingMethod(
+        method, clazz, dexItemFactory.javaLangNoSuchMethodErrorType, resolutionResult);
   }
 
   private void addThrowingMethod(

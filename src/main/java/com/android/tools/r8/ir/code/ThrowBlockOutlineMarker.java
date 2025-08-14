@@ -14,18 +14,40 @@ import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.ir.optimize.InliningConstraints;
 import com.android.tools.r8.ir.optimize.outliner.exceptions.ThrowBlockOutline;
 import com.android.tools.r8.lightir.LirBuilder;
+import com.android.tools.r8.utils.ListUtils;
+import java.util.List;
 
 public class ThrowBlockOutlineMarker extends Instruction {
 
   private final ThrowBlockOutline outline;
 
-  public ThrowBlockOutlineMarker(ThrowBlockOutline outline) {
-    super(null);
+  public ThrowBlockOutlineMarker(ThrowBlockOutline outline, List<Value> arguments) {
+    super(null, arguments);
     this.outline = outline;
   }
 
   public static Builder builder() {
     return new Builder();
+  }
+
+  // Removes the in-values from this outline marker where the corresponding outline parameter has
+  // been removed due to constant propagation.
+  public void detachConstantOutlineArguments(ThrowBlockOutline outline) {
+    List<Value> newArguments =
+        ListUtils.mapOrElse(
+            inValues,
+            (i, argument) -> {
+              if (outline.isArgumentConstant(i)) {
+                argument.removeUser(this);
+                return null;
+              }
+              return argument;
+            },
+            null);
+    if (newArguments != null) {
+      inValues.clear();
+      inValues.addAll(newArguments);
+    }
   }
 
   public ThrowBlockOutline getOutline() {
@@ -54,7 +76,7 @@ public class ThrowBlockOutlineMarker extends Instruction {
 
   @Override
   public void buildLir(LirBuilder<Value, ?> builder) {
-    builder.addThrowBlockOutlineMarker(outline);
+    builder.addThrowBlockOutlineMarker(outline, inValues);
   }
 
   @Override
@@ -115,7 +137,13 @@ public class ThrowBlockOutlineMarker extends Instruction {
 
   public static class Builder extends BuilderBase<Builder, ThrowBlockOutlineMarker> {
 
+    private List<Value> arguments;
     private ThrowBlockOutline outline;
+
+    public Builder setArguments(List<Value> arguments) {
+      this.arguments = arguments;
+      return this;
+    }
 
     public Builder setOutline(ThrowBlockOutline outline) {
       this.outline = outline;
@@ -124,7 +152,7 @@ public class ThrowBlockOutlineMarker extends Instruction {
 
     @Override
     public ThrowBlockOutlineMarker build() {
-      return amend(new ThrowBlockOutlineMarker(outline));
+      return amend(new ThrowBlockOutlineMarker(outline, arguments));
     }
 
     @Override

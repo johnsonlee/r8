@@ -19,7 +19,7 @@ import static com.android.tools.r8.ir.code.Opcodes.STATIC_PUT;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexField;
-import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.code.Assume;
 import com.android.tools.r8.ir.code.InstanceGet;
 import com.android.tools.r8.ir.code.InstancePut;
@@ -29,7 +29,6 @@ import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.StaticPut;
 import com.android.tools.r8.ir.code.Value;
-import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.WorkList;
 import java.util.Objects;
 
@@ -68,8 +67,7 @@ public class TypeUtils {
    * Returns the "use type" of a given value {@link Value}, i.e., the weakest static type that this
    * value must have in order for the program to type check.
    */
-  public static TypeElement computeUseType(
-      AppView<AppInfoWithLiveness> appView, ProgramMethod method, Value value) {
+  public static TypeElement computeUseType(AppView<?> appView, DexType returnType, Value value) {
     TypeElement staticType = value.getType();
     TypeElement useType = TypeElement.getBottom();
     WorkList<UserAndValuePair> users = WorkList.newEqualityWorkList();
@@ -82,7 +80,7 @@ public class TypeUtils {
       } else {
         Instruction instruction = user.asInstruction();
         TypeElement instructionUseType =
-            computeUseTypeForInstruction(appView, method, instruction, item.value, users);
+            computeUseTypeForInstruction(appView, returnType, instruction, item.value, users);
         useType = useType.join(instructionUseType, appView);
         if (useType.isTop() || useType.equalUpToNullability(staticType)) {
           // Bail-out.
@@ -103,8 +101,8 @@ public class TypeUtils {
   }
 
   private static TypeElement computeUseTypeForInstruction(
-      AppView<AppInfoWithLiveness> appView,
-      ProgramMethod method,
+      AppView<?> appView,
+      DexType returnType,
       Instruction instruction,
       Value value,
       WorkList<UserAndValuePair> users) {
@@ -125,7 +123,7 @@ public class TypeUtils {
       case INVOKE_VIRTUAL:
         return computeUseTypeForInvoke(appView, instruction.asInvokeMethod(), value);
       case RETURN:
-        return computeUseTypeForReturn(appView, method);
+        return computeUseTypeForReturn(appView, returnType);
       case STATIC_PUT:
         return computeUseTypeForStaticPut(appView, instruction.asStaticPut());
       default:
@@ -141,12 +139,12 @@ public class TypeUtils {
   }
 
   private static TypeElement computeUseTypeForInstanceGet(
-      AppView<AppInfoWithLiveness> appView, InstanceGet instanceGet) {
+      AppView<?> appView, InstanceGet instanceGet) {
     return instanceGet.getField().getHolderType().toTypeElement(appView);
   }
 
   private static TypeElement computeUseTypeForInstancePut(
-      AppView<AppInfoWithLiveness> appView, InstancePut instancePut, Value value) {
+      AppView<?> appView, InstancePut instancePut, Value value) {
     DexField field = instancePut.getField();
     TypeElement useType = TypeElement.getBottom();
     if (instancePut.object() == value) {
@@ -159,7 +157,7 @@ public class TypeUtils {
   }
 
   private static TypeElement computeUseTypeForInvoke(
-      AppView<AppInfoWithLiveness> appView, InvokeMethod invoke, Value value) {
+      AppView<?> appView, InvokeMethod invoke, Value value) {
     TypeElement useType = TypeElement.getBottom();
     for (int argumentIndex = 0; argumentIndex < invoke.arguments().size(); argumentIndex++) {
       Value argument = invoke.getArgument(argumentIndex);
@@ -177,19 +175,11 @@ public class TypeUtils {
     return useType;
   }
 
-  private static TypeElement computeUseTypeForReturn(
-      AppView<AppInfoWithLiveness> appView, ProgramMethod method) {
-    return method.getReturnType().toTypeElement(appView);
+  private static TypeElement computeUseTypeForReturn(AppView<?> appView, DexType returnType) {
+    return returnType.toTypeElement(appView);
   }
 
-  private static TypeElement computeUseTypeForStaticPut(
-      AppView<AppInfoWithLiveness> appView, StaticPut staticPut) {
+  private static TypeElement computeUseTypeForStaticPut(AppView<?> appView, StaticPut staticPut) {
     return staticPut.getField().getType().toTypeElement(appView);
-  }
-
-  @SuppressWarnings("ReferenceEquality")
-  public static boolean isNullPointerException(TypeElement type, AppView<?> appView) {
-    return type.isClassType()
-        && type.asClassType().getClassType() == appView.dexItemFactory().npeType;
   }
 }

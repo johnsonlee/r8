@@ -6,6 +6,8 @@ package com.android.tools.r8.graph;
 import com.android.tools.r8.dex.IndexedItemCollection;
 import com.android.tools.r8.lightir.LirConstant;
 import com.android.tools.r8.naming.NamingLens;
+import com.android.tools.r8.utils.ArrayUtils;
+import com.android.tools.r8.utils.IntObjPredicate;
 import com.android.tools.r8.utils.structural.CompareToVisitor;
 import com.android.tools.r8.utils.structural.HashingVisitor;
 import com.android.tools.r8.utils.structural.StructuralMapping;
@@ -167,5 +169,20 @@ public class DexProto extends IndexedDexItem
   @Override
   public void internalLirConstantAcceptHashing(HashingVisitor visitor) {
     acceptHashing(visitor);
+  }
+
+  public DexProto withoutParameters(IntObjPredicate<DexType> predicate, DexItemFactory factory) {
+    if (parameters.isEmpty()) {
+      return this;
+    }
+    DexType[] newParameters =
+        ArrayUtils.map(
+            parameters.getBacking(),
+            (index, parameter) -> predicate.test(index, parameter) ? null : parameter,
+            DexType.EMPTY_ARRAY);
+    if (newParameters == parameters.getBacking()) {
+      return this;
+    }
+    return factory.createProto(returnType, newParameters);
   }
 }

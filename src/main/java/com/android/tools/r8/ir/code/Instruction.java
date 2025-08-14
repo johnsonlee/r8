@@ -36,6 +36,7 @@ import com.android.tools.r8.ir.optimize.InliningConstraints;
 import com.android.tools.r8.ir.regalloc.RegisterAllocator;
 import com.android.tools.r8.lightir.LirBuilder;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.IntObjPredicate;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.LongInterval;
 import com.android.tools.r8.utils.StringUtils;
@@ -173,6 +174,15 @@ public abstract class Instruction
   public boolean hasInValueThatMatches(Predicate<Value> predicate) {
     for (Value value : inValues()) {
       if (predicate.test(value)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  public boolean hasInValueThatMatches(IntObjPredicate<Value> predicate) {
+    for (int i = 0; i < inValues.size(); i++) {
+      if (predicate.test(i, inValues.get(i))) {
         return true;
       }
     }

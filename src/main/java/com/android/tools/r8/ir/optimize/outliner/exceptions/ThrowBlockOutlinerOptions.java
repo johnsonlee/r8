@@ -5,14 +5,23 @@ package com.android.tools.r8.ir.optimize.outliner.exceptions;
 
 import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.utils.SystemPropertyUtils;
 import java.util.Collection;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 public class ThrowBlockOutlinerOptions {
 
-  public boolean enable = false;
+  public boolean enable =
+      SystemPropertyUtils.parseSystemPropertyOrDefault(
+          "com.android.tools.r8.throwblockoutliner.enable", false);
+
+  public final int costInBytesForTesting =
+      SystemPropertyUtils.parseSystemPropertyOrDefault(
+          "com.android.tools.r8.throwblockoutliner.cost", -1);
 
   public Consumer<Collection<ThrowBlockOutline>> outlineConsumerForTesting = null;
+  public Predicate<ThrowBlockOutline> outlineStrategyForTesting = null;
 
   public boolean isEnabled(AppView<?> appView) {
     if (!appView.options().isGeneratingDex() || !enable) {

@@ -1033,7 +1033,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
             logger,
             factory.createProto(factory.voidType, factory.stringType),
             factory.createString("severe"));
-    DexType exceptionType = factory.runtimeExceptionType;
+    DexType exceptionType = factory.javaLangRuntimeExceptionType;
     DexMethod exceptionInitMethod =
         factory.createMethod(
             exceptionType,
@@ -1113,7 +1113,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
             logger,
             itemFactory.createProto(itemFactory.voidType, itemFactory.stringType),
             itemFactory.createString("severe"));
-    DexType exceptionType = itemFactory.runtimeExceptionType;
+    DexType exceptionType = itemFactory.javaLangRuntimeExceptionType;
     DexMethod exceptionInitMethod =
         itemFactory.createMethod(
             exceptionType,

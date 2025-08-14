@@ -562,7 +562,10 @@ public class MappedPositionToClassNameMapperBuilder {
                   .addCondition(
                       ThrowsCondition.create(
                           Reference.classFromDescriptor(
-                              appView.dexItemFactory().npeDescriptor.toString())))
+                              appView
+                                  .dexItemFactory()
+                                  .javaLangNullPointerExceptionType
+                                  .toDescriptorString())))
                   .addRewriteAction(RemoveInnerFramesAction.create(inlineFramesCount))
                   .build(),
               Unreachable::raise);

@@ -13,16 +13,27 @@ import com.android.tools.r8.ir.code.BasicBlockInstructionListIterator;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InvokeStatic;
+import com.android.tools.r8.ir.code.NumberGenerator;
+import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.code.Return;
 import com.android.tools.r8.ir.code.Throw;
 import com.android.tools.r8.ir.code.ThrowBlockOutlineMarker;
+import com.android.tools.r8.ir.code.UnusedArgument;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.IRFinalizer;
+import com.android.tools.r8.ir.conversion.LensCodeArgumentRewriter;
+import com.android.tools.r8.ir.conversion.MethodConversionOptions;
+import com.android.tools.r8.ir.conversion.passes.DexConstantOptimizer;
+import com.android.tools.r8.ir.optimize.ConstantCanonicalizer;
 import com.android.tools.r8.ir.optimize.DeadCodeRemover;
+import com.android.tools.r8.lightir.Lir2IRConverter;
 import com.android.tools.r8.lightir.LirCode;
+import com.android.tools.r8.lightir.LirStrategy;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.timing.Timing;
+import java.util.Collections;
+import java.util.Set;
 
 /** Rewriter that processes {@link ThrowBlockOutlineMarker} instructions. */
 public class ThrowBlockOutlineMarkerRewriter {
@@ -35,26 +46,62 @@ public class ThrowBlockOutlineMarkerRewriter {
     this.deadCodeRemover = new DeadCodeRemover(appView);
   }
 
-  public void processMethod(ProgramMethod method) {
-    assert method.getDefinition().hasCode();
-    assert method.getDefinition().getCode().isLirCode();
-    // Build IR.
-    LirCode<?> lirCode = method.getDefinition().getCode().asLirCode();
+  public void processOutlineMethod(
+      ProgramMethod method, LirCode<Integer> lirCode, ThrowBlockOutline outline) {
+    IRCode code = buildIRForOutlineMethod(lirCode, method, outline);
+    removeConstantArgumentsFromOutline(method, code, outline);
+    finalizeCode(method, code);
+  }
+
+  public void processMethodWithOutlineMarkers(ProgramMethod method, LirCode<Integer> lirCode) {
     IRCode code = lirCode.buildIR(method, appView);
-    assert code.getConversionOptions().isGeneratingDex();
-
-    // Process IR.
     processOutlineMarkers(code);
+    finalizeCode(method, code);
+  }
 
+  private IRCode buildIRForOutlineMethod(
+      LirCode<Integer> lirCode, ProgramMethod method, ThrowBlockOutline outline) {
+    if (!outline.hasConstantArgument()) {
+      return lirCode.buildIR(method, appView);
+    }
+    // We need to inform IR construction to insert the arguments that have been removed from the
+    // proto.
+    Position callerPosition = null;
+    return Lir2IRConverter.translate(
+        method,
+        lirCode,
+        LirStrategy.getDefaultStrategy().getDecodingStrategy(lirCode, new NumberGenerator()),
+        appView,
+        callerPosition,
+        outline.getProtoChanges(),
+        MethodConversionOptions.forD8(appView, method));
+  }
+
+  private void finalizeCode(ProgramMethod method, IRCode code) {
     // Convert to DEX.
+    assert code.getConversionOptions().isGeneratingDex();
     IRFinalizer<?> finalizer = code.getConversionOptions().getFinalizer(deadCodeRemover, appView);
     Code dexCode = finalizer.finalizeCode(code, BytecodeMetadataProvider.empty(), Timing.empty());
     method.setCode(dexCode, appView);
   }
 
-  // TODO(b/434769547): This simply removes all outline markers. We should materialize the outlines
-  //  that have enough uses and rewrite the corresponding markers to call the materialized outline
-  //  methods.
+  private void removeConstantArgumentsFromOutline(
+      ProgramMethod method, IRCode code, ThrowBlockOutline outline) {
+    if (!outline.hasConstantArgument()) {
+      return;
+    }
+
+    Set<Phi> affectedPhis = Collections.emptySet();
+    Set<UnusedArgument> unusedArguments = Collections.emptySet();
+    new LensCodeArgumentRewriter(appView)
+        .rewriteArguments(
+            code, method.getReference(), outline.getProtoChanges(), affectedPhis, unusedArguments);
+
+    // Run shorten live ranges to push materialized constants to their uses.
+    ConstantCanonicalizer constantCanonicalizer = new ConstantCanonicalizer(appView, method, code);
+    new DexConstantOptimizer(appView, constantCanonicalizer).run(code, Timing.empty());
+  }
+
   private void processOutlineMarkers(IRCode code) {
     for (BasicBlock block : code.getBlocks()) {
       Throw throwInstruction = block.exit().asThrow();
@@ -63,16 +110,19 @@ public class ThrowBlockOutlineMarkerRewriter {
             block.entry().nextUntilInclusive(Instruction::isThrowBlockOutlineMarker);
         if (outlineMarker != null) {
           ThrowBlockOutline outline = outlineMarker.getOutline();
+          outlineMarker.detachConstantOutlineArguments(outline);
           if (outline.isMaterialized()) {
             // Insert a call to the materialized outline method and load the return value.
             BasicBlockInstructionListIterator instructionIterator =
-                block.listIterator(outlineMarker);
-            instructionIterator.add(
+                block.listIterator(block.exit());
+            InvokeStatic invoke =
                 InvokeStatic.builder()
+                    .setArguments(outlineMarker.inValues())
                     .setIsInterface(false)
                     .setMethod(outline.getMaterializedOutlineMethod())
                     .setPosition(throwInstruction)
-                    .build());
+                    .build();
+            instructionIterator.add(invoke);
             Value returnValue = addReturnValue(code, instructionIterator);
 
             // Replace the throw instruction by a normal return.
@@ -81,9 +131,13 @@ public class ThrowBlockOutlineMarkerRewriter {
             block.replaceLastInstruction(returnInstruction);
 
             // Remove all outlined instructions bottom up.
-            instructionIterator = block.listIterator(returnInstruction);
-            while (instructionIterator.previous() != outlineMarker) {
-              instructionIterator.removeOrReplaceByDebugLocalRead();
+            instructionIterator = block.listIterator(invoke);
+            for (Instruction instruction = instructionIterator.previous();
+                instruction != outlineMarker;
+                instruction = instructionIterator.previous()) {
+              if (instruction.hasUnusedOutValue()) {
+                instruction.removeOrReplaceByDebugLocalRead();
+              }
             }
           }
 
@@ -93,6 +147,10 @@ public class ThrowBlockOutlineMarkerRewriter {
       }
       assert block.streamInstructions().noneMatch(Instruction::isThrowBlockOutlineMarker);
     }
+
+    // Run the dead code remover to ensure code that has been moved into the outline is removed
+    // (e.g., constants, the allocation of the exception).
+    deadCodeRemover.run(code, Timing.empty());
   }
 
   private Value addReturnValue(IRCode code, BasicBlockInstructionListIterator instructionIterator) {

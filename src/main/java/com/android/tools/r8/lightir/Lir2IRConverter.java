@@ -858,8 +858,8 @@ public class Lir2IRConverter {
     }
 
     @Override
-    public void onThrowBlockOutlineMarker(ThrowBlockOutline outline) {
-      addInstruction(new ThrowBlockOutlineMarker(outline));
+    public void onThrowBlockOutlineMarker(ThrowBlockOutline outline, List<EV> arguments) {
+      addInstruction(new ThrowBlockOutlineMarker(outline, getValues(arguments)));
     }
 
     @Override

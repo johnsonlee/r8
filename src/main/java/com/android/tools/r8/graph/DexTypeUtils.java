@@ -21,7 +21,7 @@ public class DexTypeUtils {
       AppView<? extends AppInfoWithClassHierarchy> appView, Iterable<DexType> types) {
     TypeElement join =
         TypeElement.join(Iterables.transform(types, type -> type.toTypeElement(appView)), appView);
-    return toDexType(appView, join);
+    return toDexType(appView.dexItemFactory(), join);
   }
 
   public static boolean isApiSafe(
@@ -35,19 +35,17 @@ public class DexTypeUtils {
     return isApiSafe(appView, computeLeastUpperBound(appView, types));
   }
 
-  public static DexType toDexType(
-      AppView<? extends AppInfoWithClassHierarchy> appView, TypeElement type) {
-    DexItemFactory dexItemFactory = appView.dexItemFactory();
+  public static DexType toDexType(DexItemFactory factory, TypeElement type) {
     if (type.isPrimitiveType()) {
-      return type.asPrimitiveType().toDexType(dexItemFactory);
+      return type.asPrimitiveType().toDexType(factory);
     }
     if (type.isArrayType()) {
       ArrayTypeElement arrayType = type.asArrayType();
-      DexType baseType = toDexType(appView, arrayType.getBaseType());
-      return baseType.toArrayType(arrayType.getNesting(), dexItemFactory);
+      DexType baseType = toDexType(factory, arrayType.getBaseType());
+      return baseType.toArrayType(arrayType.getNesting(), factory);
     }
     assert type.isClassType();
-    return type.asClassType().toDexType(dexItemFactory);
+    return type.asClassType().toDexType(factory);
   }
 
   public static DexType findApiSafeUpperBound(

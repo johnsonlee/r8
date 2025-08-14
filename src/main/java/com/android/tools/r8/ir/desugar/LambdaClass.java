@@ -431,7 +431,7 @@ public final class LambdaClass {
         return new InvalidLambdaImplTarget(
             implMethod,
             InvokeType.STATIC,
-            appView.dexItemFactory().icceType,
+            appView.dexItemFactory().javaLangIncompatibleClassChangeErrorType,
             descriptor.implHandle.isInterface);
       }
       SingleResolutionResult<?> result = resolution.asSingleResolution();

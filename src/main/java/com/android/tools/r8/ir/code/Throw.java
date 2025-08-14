@@ -118,7 +118,8 @@ public class Throw extends JumpInstruction {
     if (!aliasedValue.isPhi()) {
       Instruction definition = aliasedValue.getDefinition();
       if (definition.isNewInstance()
-          && definition.asNewInstance().clazz == appView.dexItemFactory().npeType) {
+          && definition.asNewInstance().clazz
+              == appView.dexItemFactory().javaLangNullPointerExceptionType) {
         // throw new NullPointerException()
         return true;
       }

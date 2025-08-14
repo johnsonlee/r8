@@ -7,15 +7,20 @@ import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.contexts.CompilationContext.ProcessorContext;
+import com.android.tools.r8.dex.code.DexConst4;
+import com.android.tools.r8.dex.code.DexConstWide16;
+import com.android.tools.r8.dex.code.DexInvokeStatic;
+import com.android.tools.r8.dex.code.DexReturn;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.IRCode;
+import com.android.tools.r8.lightir.LirCode;
 import com.android.tools.r8.lightir.LirConstant;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.collections.ProgramMethodMap;
-import com.android.tools.r8.utils.collections.ProgramMethodSet;
+import com.google.common.collect.Multiset;
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
@@ -27,16 +32,19 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 public class ThrowBlockOutliner {
 
   private final AppView<?> appView;
+  private final ThrowBlockOutlinerOptions outlinerOptions;
 
   // Scans IR code during IR conversion. Responsible for computing candidate outlines.
   private ThrowBlockOutlinerScanner scanner;
 
   private ThrowBlockOutliner(AppView<?> appView) {
     this.appView = appView;
+    this.outlinerOptions = appView.options().getThrowBlockOutlinerOptions();
     this.scanner = new ThrowBlockOutlinerScanner(appView);
   }
 
@@ -65,9 +73,6 @@ public class ThrowBlockOutliner {
 
     // Convert LIR to DEX.
     processMethods(outlines, executorService);
-
-    // TODO(b/434769547): Instead of unsetting the outliner here, we should compute a specification
-    //  of the outlining that needs to happen and the methods that need to be reprocessed.
     appView.unsetThrowBlockOutliner();
   }
 
@@ -77,8 +82,8 @@ public class ThrowBlockOutliner {
     // Find the outlines that we need to synthesize from each method.
     ProgramMethodMap<List<ThrowBlockOutline>> synthesizingContexts = ProgramMethodMap.create();
     for (ThrowBlockOutline outline : outlines) {
-      if (outline.getUsers().size() > 1) {
-        ProgramMethod synthesizingContext = outline.getSynthesizingContext(appView);
+      ProgramMethod synthesizingContext = outline.getSynthesizingContext(appView);
+      if (shouldMaterializeOutline(outline, synthesizingContext)) {
         synthesizingContexts
             .computeIfAbsent(synthesizingContext, ignoreKey(ArrayList::new))
             .add(outline);
@@ -124,38 +129,105 @@ public class ThrowBlockOutliner {
         executorService);
   }
 
+  private boolean shouldMaterializeOutline(
+      ThrowBlockOutline outline, ProgramMethod synthesizingContext) {
+    Predicate<ThrowBlockOutline> outlineStrategyForTesting =
+        outlinerOptions.outlineStrategyForTesting;
+    if (outlineStrategyForTesting != null) {
+      return outlineStrategyForTesting.test(outline);
+    }
+
+    int codeSizeInBytes = outline.getLirCode().estimatedDexCodeSizeUpperBoundInBytes();
+    int estimatedCostInBytes;
+    if (outlinerOptions.costInBytesForTesting >= 0) {
+      estimatedCostInBytes = outlinerOptions.costInBytesForTesting + codeSizeInBytes;
+    } else {
+      // Estimate the cost of adding a new synthetic class.
+      int estimatedClassDataCostInBytes = 4;
+      int estimatedClassDefCostInBytes = 32;
+      int estimatedClassNameCostInBytes =
+          1 + synthesizingContext.getHolderType().getDescriptor().content.length;
+      int estimatedClassRefCostInBytes = 4;
+      int estimatedClassCostInBytes =
+          estimatedClassDataCostInBytes
+              + estimatedClassDefCostInBytes
+              + estimatedClassNameCostInBytes
+              + estimatedClassRefCostInBytes;
+
+      // Estimate the cost of adding a new method on an existing class.
+      int estimatedMethodCodeItemCostInBytes = 16;
+      int estimatedMethodDataCostInBytes = 4;
+      int estimatedMethodReferenceCostInBytes = 8;
+      int estimatedMethodCostInBytes =
+          estimatedMethodCodeItemCostInBytes
+              + estimatedMethodDataCostInBytes
+              + estimatedMethodReferenceCostInBytes
+              + codeSizeInBytes;
+
+      // Estimate total cost. Divide class cost by 50 since we allow class merging.
+      estimatedCostInBytes =
+          Math.round(estimatedClassCostInBytes / 50f) + estimatedMethodCostInBytes;
+    }
+
+    // Estimate the savings from this outline.
+    int estimatedSavingsInBytes = 0;
+    for (Multiset.Entry<DexMethod> entry : outline.getUsers().entrySet()) {
+      // For each call we save the outlined instructions at the cost of an invoke + return.
+      int estimatedSavingsForUser = codeSizeInBytes - 2 * (DexInvokeStatic.SIZE + DexReturn.SIZE);
+      if (entry.getElement().getReturnType().isWideType()) {
+        estimatedSavingsForUser -= 2 * DexConstWide16.SIZE;
+      } else if (!entry.getElement().getReturnType().isVoidType()) {
+        estimatedSavingsForUser -= 2 * DexConst4.SIZE;
+      }
+      estimatedSavingsInBytes += estimatedSavingsForUser * entry.getCount();
+      if (estimatedSavingsInBytes > estimatedCostInBytes) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private void processMethods(
       Collection<ThrowBlockOutline> outlines, ExecutorService executorService)
       throws ExecutionException {
-    ProgramMethodSet methodsToProcess = getMethodsToReprocess(outlines);
+    ProgramMethodMap<ThrowBlockOutline> methodsToReprocess = getMethodsToReprocess(outlines);
     ThrowBlockOutlineMarkerRewriter rewriter = new ThrowBlockOutlineMarkerRewriter(appView);
-    ThreadUtils.processItems(
-        methodsToProcess,
-        rewriter::processMethod,
+    ThreadUtils.processMap(
+        methodsToReprocess,
+        (method, outline) -> {
+          assert method.getDefinition().hasCode();
+          assert method.getDefinition().getCode().isLirCode();
+          LirCode<Integer> lirCode = method.getDefinition().getCode().asLirCode();
+          if (outline != null) {
+            rewriter.processOutlineMethod(method, lirCode, outline);
+          } else {
+            rewriter.processMethodWithOutlineMarkers(method, lirCode);
+          }
+        },
         appView.options().getThreadingModule(),
         executorService);
   }
 
-  private ProgramMethodSet getMethodsToReprocess(Collection<ThrowBlockOutline> outlines) {
-    ProgramMethodSet methodsToProcess = ProgramMethodSet.create();
+  private ProgramMethodMap<ThrowBlockOutline> getMethodsToReprocess(
+      Collection<ThrowBlockOutline> outlines) {
+    ProgramMethodMap<ThrowBlockOutline> methodsToReprocess = ProgramMethodMap.create();
     Set<DexMethod> seenUsers = Sets.newIdentityHashSet();
     for (ThrowBlockOutline outline : outlines) {
       for (DexMethod user : outline.getUsers()) {
         if (seenUsers.add(user)) {
-          ProgramMethod methodToProcess = appView.definitionFor(user).asProgramMethod();
-          methodsToProcess.add(methodToProcess);
+          ProgramMethod methodToReprocess = appView.definitionFor(user).asProgramMethod();
+          methodsToReprocess.put(methodToReprocess, null);
         }
       }
       if (outline.getMaterializedOutlineMethod() != null) {
-        methodsToProcess.add(outline.getMaterializedOutlineMethod());
+        methodsToReprocess.put(outline.getMaterializedOutlineMethod(), outline);
       }
     }
-    return methodsToProcess;
+    return methodsToReprocess;
   }
 
   private boolean supplyOutlineConsumerForTesting(Collection<ThrowBlockOutline> outlines) {
-    Consumer<Collection<ThrowBlockOutline>> consumer =
-        appView.options().getThrowBlockOutlinerOptions().outlineConsumerForTesting;
+    Consumer<Collection<ThrowBlockOutline>> consumer = outlinerOptions.outlineConsumerForTesting;
     if (consumer != null) {
       consumer.accept(outlines);
     }

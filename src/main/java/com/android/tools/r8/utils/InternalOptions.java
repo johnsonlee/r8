@@ -4,6 +4,7 @@
 package com.android.tools.r8.utils;
 
 import static com.android.tools.r8.utils.AndroidApiLevel.B;
+import static com.android.tools.r8.utils.SystemPropertyUtils.isSystemPropertySet;
 import static com.android.tools.r8.utils.SystemPropertyUtils.parseSystemPropertyForDevelopmentOrDefault;
 import static com.android.tools.r8.utils.SystemPropertyUtils.parseSystemPropertyOrDefault;
 
@@ -1050,8 +1051,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   private final ProtoShrinkingOptions protoShrinking = new ProtoShrinkingOptions();
   private final RedundantBridgeRemovalOptions redundantBridgeRemovalOptions =
       new RedundantBridgeRemovalOptions();
-  private final KotlinOptimizationOptions kotlinOptimizationOptions =
-      new KotlinOptimizationOptions();
   private final AndroidApiModelingOptions apiModelTestingOptions =
       new AndroidApiModelingOptions(this);
   private final DesugarSpecificOptions desugarSpecificOptions = new DesugarSpecificOptions();
@@ -1143,10 +1142,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   public ProtoShrinkingOptions protoShrinking() {
     return protoShrinking;
-  }
-
-  public KotlinOptimizationOptions kotlinOptimizationOptions() {
-    return kotlinOptimizationOptions;
   }
 
   public AndroidApiModelingOptions apiModelingOptions() {
@@ -1668,11 +1663,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public int maxSize = 99;
     public int threshold = 20;
     public int maxNumberOfInstructionsToBeConsidered = 100;
-  }
-
-  public static class KotlinOptimizationOptions {
-    public boolean disableKotlinSpecificOptimizations =
-        System.getProperty("com.android.tools.r8.disableKotlinSpecificOptimizations") != null;
   }
 
   // Temporary desugar specific options to make progress on b/147485959
@@ -2528,7 +2518,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
         "all".equals(System.getProperty("com.android.tools.r8.enableListIterationRewriting"));
     // Used by unit tests.
     public boolean listIterationRewritingRewriteCustomIterators =
-        listIterationRewritingRewriteInterfaces;
+        isSystemPropertySet("com.android.tools.r8.enableListIterationRewriting");
     // Testing flag to always generate D8 lambda accessors.
     public boolean forceLambdaAccessorInD8 = false;
   }

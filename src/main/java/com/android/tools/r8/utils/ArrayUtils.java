@@ -125,12 +125,16 @@ public class ArrayUtils {
    * @param emptyArray an empty array
    * @return an array with written elements
    */
-  @SuppressWarnings("unchecked")
   public static <S, T> T[] map(S[] original, Function<S, T> mapper, T[] emptyArray) {
+    return map(original, (i, s) -> mapper.apply(s), emptyArray);
+  }
+
+  @SuppressWarnings("unchecked")
+  public static <S, T> T[] map(S[] original, IntObjToObjFunction<S, T> mapper, T[] emptyArray) {
     ArrayList<T> results = null;
     for (int i = 0; i < original.length; i++) {
       S oldOne = original[i];
-      T newOne = mapper.apply(oldOne);
+      T newOne = mapper.apply(i, oldOne);
       if (newOne == oldOne) {
         if (results != null) {
           results.add((T) oldOne);

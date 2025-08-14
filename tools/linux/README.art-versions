@@ -458,6 +458,13 @@ index 2f474f7ae..f927ad7a3 100644
    VLOG(threads) << "installing stack protected region at " << std::hex <<
        static_cast<void*>(pregion) << " to " <<
 
+As of Aug 12 2025 the following patch was applied to the bin/art script to try to make
+Art 5.1.1 run on stock Ubuntu 22 and 24, see b/425835454.
+
+66c66
+<   $invoke_with $DALVIKVM_EXECUTABLE $lib \
+---
+>   $invoke_with setarch $(uname -m) -R $DALVIKVM_EXECUTABLE $lib \
 
   mkdir 5.1.1_r19
   cd 5.1.1_r19

@@ -94,7 +94,8 @@ public class ApiReferenceStubber {
                   appView,
                   referencingContexts::get,
                   clazz,
-                  ThrowExceptionCode.create(appView.dexItemFactory().noClassDefFoundErrorType),
+                  ThrowExceptionCode.create(
+                      appView.dexItemFactory().javaLangNoClassDefFoundErrorType),
                   eventConsumer));
       // Commit the synthetic items.
       appView.rebuildAppInfo();
