@@ -23,7 +23,7 @@ public class PartitionMapZipContainer {
   private static final String METADATA_NAME = "METADATA";
 
   public static PartitionMappingSupplier createPartitionMapZipContainerSupplier(Path path)
-      throws Exception {
+      throws IOException {
     ZipFile zipFile = new ZipFile(path.toFile());
     byte[] metadata =
         ByteStreams.toByteArray(zipFile.getInputStream(zipFile.getEntry(METADATA_NAME)));

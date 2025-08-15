@@ -11,6 +11,9 @@ import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.FieldReference;
 import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.retrace.internal.PartitionMappingSupplierBase;
+import com.android.tools.r8.utils.PartitionMapZipContainer;
+import java.io.IOException;
+import java.nio.file.Path;
 
 @KeepForApi
 public class PartitionMappingSupplier extends PartitionMappingSupplierBase<PartitionMappingSupplier>
@@ -34,6 +37,11 @@ public class PartitionMappingSupplier extends PartitionMappingSupplierBase<Parti
         metadata,
         fallbackMapVersion);
     this.partitionSupplier = partitionSupplier;
+  }
+
+  @KeepForApi
+  public static PartitionMappingSupplier fromPath(Path path) throws IOException {
+    return PartitionMapZipContainer.createPartitionMapZipContainerSupplier(path);
   }
 
   /***
