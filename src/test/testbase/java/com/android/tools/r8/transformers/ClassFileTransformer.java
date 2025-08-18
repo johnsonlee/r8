@@ -1780,18 +1780,19 @@ public class ClassFileTransformer {
       this.av = av;
     }
 
+    private Object mapValue(Object value) {
+      return value instanceof Class ? Type.getType((Class<?>) value) : value;
+    }
+
     public AnnotationBuilder setField(String name, Object value) {
-      if (value instanceof Class) {
-        av.visit(name, Type.getType((Class<?>) value));
-      } else {
-        av.visit(name, value);
-      }
+      av.visit(name, mapValue(value));
       return this;
     }
 
     public AnnotationBuilder setArray(String name, Object... values) {
       AnnotationVisitor subAv = av.visitArray(name);
-      Arrays.stream(values).forEach(value -> subAv.visit(null, value));
+      Arrays.stream(values).map(this::mapValue).forEach(value -> subAv.visit(null, value));
+      subAv.visitEnd();
       return this;
     }
   }
