@@ -9,6 +9,7 @@ import androidx.annotation.keep.UsesReflectionToConstruct;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.transformers.ClassFileTransformer.AnnotationBuilder;
+import com.android.tools.r8.transformers.ClassFileTransformer.AnnotationContentBuilder;
 import com.android.tools.r8.transformers.ClassFileTransformer.MethodPredicate;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.StringUtils;
@@ -112,11 +113,13 @@ public class KeepUsesReflectionForInstantiationAnyArgsConstructorTest
   }
 
   private static void buildAnyConstructor(AnnotationBuilder builder, Object clazz) {
+    AnnotationContentBuilder b =
+        builder.setAnnotationClass(Reference.classFromClass(UsesReflectionToConstruct.class));
     if (clazz instanceof String) {
-      builder.setField("className", clazz);
+      b.setField("className", clazz);
     } else {
       assert clazz instanceof Class<?> || clazz instanceof Type;
-      builder.setField("classConstant", clazz);
+      b.setField("classConstant", clazz);
     }
     // No parameterTypes or parameterTypeNames means any constructor.
   }
@@ -130,7 +133,6 @@ public class KeepUsesReflectionForInstantiationAnyArgsConstructorTest
             setAnnotationOnMethod(
                 AnyConstructor.class,
                 MethodPredicate.onName("foo"),
-                UsesReflectionToConstruct.class,
                 builder -> buildAnyConstructor(builder, KeptClass.class))),
         getExpectedRulesJava(AnyConstructor.class, "{ void foo(java.lang.Class); }"));
   }
@@ -143,7 +145,6 @@ public class KeepUsesReflectionForInstantiationAnyArgsConstructorTest
         ImmutableList.of(
             setAnnotationOnClass(
                 AnyConstructor.class,
-                UsesReflectionToConstruct.class,
                 builder -> buildAnyConstructor(builder, KeptClass.class))),
         getExpectedRulesJava(AnyConstructor.class));
   }
@@ -159,7 +160,6 @@ public class KeepUsesReflectionForInstantiationAnyArgsConstructorTest
                 Reference.classFromTypeName(
                     "com.android.tools.r8.keepanno.androidx.kt.AnyArgsConstructor"),
                 MethodPredicate.onName("foo"),
-                UsesReflectionToConstruct.class,
                 builder ->
                     buildAnyConstructor(
                         builder,
@@ -182,7 +182,6 @@ public class KeepUsesReflectionForInstantiationAnyArgsConstructorTest
                 classFileBytes,
                 Reference.classFromTypeName(
                     "com.android.tools.r8.keepanno.androidx.kt.AnyArgsConstructor"),
-                UsesReflectionToConstruct.class,
                 builder ->
                     buildAnyConstructor(
                         builder,

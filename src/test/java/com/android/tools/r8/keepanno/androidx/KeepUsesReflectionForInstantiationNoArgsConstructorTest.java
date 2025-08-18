@@ -11,6 +11,7 @@ import com.android.tools.r8.KotlinCompileMemoizer;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.transformers.ClassFileTransformer.AnnotationBuilder;
+import com.android.tools.r8.transformers.ClassFileTransformer.AnnotationContentBuilder;
 import com.android.tools.r8.transformers.ClassFileTransformer.MethodPredicate;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.StringUtils;
@@ -211,6 +212,12 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
   }
 
   private static void buildNoArgsConstructor(AnnotationBuilder builder, Object clazz) {
+    buildNoArgsConstructor(
+        builder.setAnnotationClass(Reference.classFromClass(UsesReflectionToConstruct.class)),
+        clazz);
+  }
+
+  private static void buildNoArgsConstructor(AnnotationContentBuilder builder, Object clazz) {
     if (clazz instanceof String) {
       builder.setField("className", clazz);
     } else {
@@ -232,7 +239,6 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
             setAnnotationOnMethod(
                 OnlyNoArgsConstructorWithoutAnnotation.class,
                 MethodPredicate.onName("foo"),
-                UsesReflectionToConstruct.class,
                 builder -> buildNoArgsConstructor(builder, KeptClass.class))),
         getExpectedRulesJava(
             OnlyNoArgsConstructorWithoutAnnotation.class, "{ void foo(java.lang.Class); }"));
@@ -246,7 +252,6 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
         ImmutableList.of(
             setAnnotationOnClass(
                 OnlyNoArgsConstructorWithoutAnnotation.class,
-                UsesReflectionToConstruct.class,
                 builder -> buildNoArgsConstructor(builder, KeptClass.class))),
         getExpectedRulesJava(OnlyNoArgsConstructorWithoutAnnotation.class));
   }
@@ -262,7 +267,6 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
             setAnnotationOnMethod(
                 OnlyNoArgsConstructorWithoutAnnotation.class,
                 MethodPredicate.onName("foo"),
-                UsesReflectionToConstruct.class,
                 builder -> buildNoArgsConstructor(builder, classNameOfKeptClass))),
         getExpectedRulesJava(
             OnlyNoArgsConstructorWithoutAnnotation.class, "{ void foo(java.lang.Class); }"));
@@ -276,7 +280,6 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
         ImmutableList.of(
             setAnnotationOnClass(
                 OnlyNoArgsConstructorWithoutAnnotation.class,
-                UsesReflectionToConstruct.class,
                 builder -> buildNoArgsConstructor(builder, classNameOfKeptClass))),
         getExpectedRulesJava(OnlyNoArgsConstructorWithoutAnnotation.class));
   }
@@ -292,7 +295,6 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
                 Reference.classFromTypeName(
                     "com.android.tools.r8.keepanno.androidx.kt.OnlyNoArgsConstructorWithoutAnnotation"),
                 MethodPredicate.onName("foo"),
-                UsesReflectionToConstruct.class,
                 builder ->
                     buildNoArgsConstructor(
                         builder,
@@ -315,7 +317,6 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
                 Reference.classFromTypeName(
                     "com.android.tools.r8.keepanno.androidx.kt.OnlyNoArgsConstructorWithoutAnnotation"),
                 MethodPredicate.onName("foo"),
-                UsesReflectionToConstruct.class,
                 builder ->
                     buildNoArgsConstructor(
                         builder, "com.android.tools.r8.keepanno.androidx.kt.KeptClass")),

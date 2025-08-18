@@ -83,46 +83,37 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
 
   protected static byte[] setAnnotationOnClass(
       ClassFileTransformer transformer,
-      Class<?> annotationClass,
       Consumer<AnnotationBuilder> builderConsumer) {
-    return transformer.setAnnotation(annotationClass, builderConsumer).transform();
+    return transformer.setAnnotation(builderConsumer).transform();
+  }
+
+  protected static byte[] setAnnotationOnClass(
+      Class<?> clazz, Consumer<AnnotationBuilder> builderConsumer) throws IOException {
+    return setAnnotationOnClass(transformer(clazz), builderConsumer);
+  }
+
+  protected static byte[] setAnnotationOnClass(
+      ClassReference classReference,
+      byte[] classFileBytes,
+      ClassReference classReferenceToTransform,
+      Consumer<AnnotationBuilder> builderConsumer) {
+    if (!classReference.equals(classReferenceToTransform)) {
+      return classFileBytes;
+    }
+    return setAnnotationOnClass(transformer(classFileBytes, classReference), builderConsumer);
   }
 
   protected static byte[] setAnnotationOnMethod(
       ClassFileTransformer transformer,
       MethodPredicate methodPredicate,
-      Class<?> annotationClass,
       Consumer<AnnotationBuilder> builderConsumer) {
-    return transformer.setAnnotation(methodPredicate, annotationClass, builderConsumer).transform();
-  }
-
-  protected static byte[] setAnnotationOnClass(
-      Class<?> clazz, Class<?> annotationClass, Consumer<AnnotationBuilder> builderConsumer)
-      throws IOException {
-    return setAnnotationOnClass(transformer(clazz), annotationClass, builderConsumer);
+    return transformer.setAnnotation(methodPredicate, builderConsumer).transform();
   }
 
   protected static byte[] setAnnotationOnMethod(
-      Class<?> clazz,
-      MethodPredicate methodPredicate,
-      Class<?> annotationClass,
-      Consumer<AnnotationBuilder> builderConsumer)
+      Class<?> clazz, MethodPredicate methodPredicate, Consumer<AnnotationBuilder> builderConsumer)
       throws IOException {
-    return setAnnotationOnMethod(
-        transformer(clazz), methodPredicate, annotationClass, builderConsumer);
-  }
-
-  protected static byte[] setAnnotationOnClass(
-      ClassReference classReference,
-      byte[] classFileBytes,
-      ClassReference classReferenceToTransform,
-      Class<?> annotationClass,
-      Consumer<AnnotationBuilder> builderConsumer) {
-    if (!classReference.equals(classReferenceToTransform)) {
-      return classFileBytes;
-    }
-    return setAnnotationOnClass(
-        transformer(classFileBytes, classReference), annotationClass, builderConsumer);
+    return setAnnotationOnMethod(transformer(clazz), methodPredicate, builderConsumer);
   }
 
   protected static byte[] setAnnotationOnMethod(
@@ -130,7 +121,6 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
       byte[] classFileBytes,
       ClassReference classReferenceToTransform,
       MethodPredicate methodPredicate,
-      Class<?> annotationClass,
       Consumer<AnnotationBuilder> builderConsumer) {
     if (!classReference.equals(classReferenceToTransform)) {
       return classFileBytes;
@@ -138,7 +128,6 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
     return setAnnotationOnMethod(
         transformer(classFileBytes, classReference),
         methodPredicate,
-        annotationClass,
         builderConsumer);
   }
 
