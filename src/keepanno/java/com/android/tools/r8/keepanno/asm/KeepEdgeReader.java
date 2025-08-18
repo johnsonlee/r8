@@ -21,6 +21,7 @@ import com.android.tools.r8.keepanno.ast.AnnotationConstants.MemberAccess;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.MethodAccess;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Target;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.UsedByReflection;
+import com.android.tools.r8.keepanno.ast.AnnotationConstants.UsesReflectionToAccessMethod;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.UsesReflectionToConstruct;
 import com.android.tools.r8.keepanno.ast.KeepAnnotationPattern;
 import com.android.tools.r8.keepanno.ast.KeepBindingReference;
@@ -107,12 +108,15 @@ public class KeepEdgeReader implements Opcodes {
     if (AnnotationConstants.Edge.isDescriptor(descriptor)
         || AnnotationConstants.UsesReflection.isDescriptor(descriptor)
         || AnnotationConstants.UsesReflectionToConstruct.isDescriptor(descriptor)
+        || AnnotationConstants.UsesReflectionToAccessMethod.isDescriptor(descriptor)
         || AnnotationConstants.ForApi.isDescriptor(descriptor)
         || AnnotationConstants.UsedByReflection.isDescriptor(descriptor)
         || AnnotationConstants.UsedByNative.isDescriptor(descriptor)
         || AnnotationConstants.CheckRemoved.isDescriptor(descriptor)
         || AnnotationConstants.CheckOptimizedOut.isDescriptor(descriptor)
         || AnnotationConstants.UsesReflectionToConstruct.isKotlinRepeatableContainerDescriptor(
+            descriptor)
+        || AnnotationConstants.UsesReflectionToAccessMethod.isKotlinRepeatableContainerDescriptor(
             descriptor)) {
       return true;
     }
@@ -377,6 +381,16 @@ public class KeepEdgeReader implements Opcodes {
                     .setClassNamePattern(KeepQualifiedClassNamePattern.exact(className))
                     .build());
       }
+      if (AnnotationConstants.UsesReflectionToAccessMethod.isDescriptor(descriptor)) {
+        return new UsesReflectionToAccessMethodVisitor(
+            parsingContext,
+            parent::accept,
+            setContext,
+            bindingsHelper ->
+                KeepClassItemPattern.builder()
+                    .setClassNamePattern(KeepQualifiedClassNamePattern.exact(className))
+                    .build());
+      }
       if (ForApi.isDescriptor(descriptor)) {
         return new ForApiClassVisitor(parsingContext, parent::accept, setContext, className);
       }
@@ -530,6 +544,23 @@ public class KeepEdgeReader implements Opcodes {
       if (AnnotationConstants.UsesReflectionToConstruct.isKotlinRepeatableContainerDescriptor(
           descriptor)) {
         return new UsesReflectionForInstantiationContainerVisitor(
+            parsingContext,
+            parent::accept,
+            setContext,
+            bindingsHelper ->
+                createMethodItemContext(className, methodName, methodDescriptor, bindingsHelper));
+      }
+      if (AnnotationConstants.UsesReflectionToAccessMethod.isDescriptor(descriptor)) {
+        return new UsesReflectionToAccessMethodVisitor(
+            parsingContext,
+            parent::accept,
+            setContext,
+            bindingsHelper ->
+                createMethodItemContext(className, methodName, methodDescriptor, bindingsHelper));
+      }
+      if (AnnotationConstants.UsesReflectionToAccessMethod.isKotlinRepeatableContainerDescriptor(
+          descriptor)) {
+        return new UsesReflectionToAccessMethodContainerVisitor(
             parsingContext,
             parent::accept,
             setContext,
@@ -1578,6 +1609,235 @@ public class KeepEdgeReader implements Opcodes {
                           .setNamePattern(KeepMethodNamePattern.instanceInitializer())
                           .setParametersPattern(parameters)
                           .setReturnTypeVoid()
+                          .build())
+                  .build());
+
+      KeepClassBindingReference kotlinMetadataBinding =
+          bindingsHelper.defineFreshClassBinding(
+              KeepClassItemPattern.builder()
+                  .setClassPattern(KeepClassPattern.exactFromDescriptor(kotlinMetadataDescriptor))
+                  .build());
+      KeepMemberBindingReference kotlinMetadataMembersBinding =
+          bindingsHelper.defineFreshMemberBinding(
+              KeepMemberItemPattern.builder()
+                  .setClassReference(kotlinMetadataBinding)
+                  .setMemberPattern(KeepMemberPattern.allMembers())
+                  .build());
+
+      Annotation keepConstraintKotlinMetadataAnnotation =
+          KeepConstraint.annotation(
+              KeepAnnotationPattern.builder()
+                  .setNamePattern(
+                      KeepQualifiedClassNamePattern.exactFromDescriptor(kotlinMetadataDescriptor))
+                  .addRetentionPolicy(RetentionPolicy.RUNTIME)
+                  .build());
+
+      KeepConsequences.Builder consequencesBuilder =
+          KeepConsequences.builder()
+              .addTarget(
+                  KeepTarget.builder()
+                      .setItemReference(classBinding)
+                      .setConstraints(
+                          KeepConstraints.defaultAdditions(
+                              KeepConstraints.builder()
+                                  .add(keepConstraintKotlinMetadataAnnotation)
+                                  .build()))
+                      .build())
+              .addTarget(
+                  KeepTarget.builder()
+                      .setItemReference(memberBinding)
+                      // Keeping the kotlin.Metadata annotation on the members is not really needed,
+                      // as the annotation is only supported on classes. However, having it here
+                      // makes the keep rule extraction generate more compact rules.
+                      .setConstraints(
+                          KeepConstraints.defaultAdditions(
+                              KeepConstraints.builder()
+                                  .add(keepConstraintKotlinMetadataAnnotation)
+                                  .build()))
+                      .build())
+              .addTarget(KeepTarget.builder().setItemReference(kotlinMetadataBinding).build())
+              .addTarget(
+                  KeepTarget.builder().setItemReference(kotlinMetadataMembersBinding).build());
+
+      parent.accept(
+          builder
+              .setMetaInfo(metaInfoBuilder.build())
+              .setBindings(bindingsHelper.build())
+              .setPreconditions(preconditions.build())
+              .setConsequences(consequencesBuilder.build())
+              .build());
+    }
+  }
+
+  private static class UsesReflectionToAccessMethodContainerVisitor extends AnnotationVisitorBase {
+
+    private final AnnotationParsingContext parsingContext;
+    private final Parent<KeepEdge> parent;
+    Consumer<KeepEdgeMetaInfo.Builder> addContext;
+    Function<UserBindingsHelper, KeepItemPattern> contextBuilder;
+
+    UsesReflectionToAccessMethodContainerVisitor(
+        AnnotationParsingContext parsingContext,
+        Parent<KeepEdge> parent,
+        Consumer<KeepEdgeMetaInfo.Builder> addContext,
+        Function<UserBindingsHelper, KeepItemPattern> contextBuilder) {
+      super(parsingContext);
+      this.parsingContext = parsingContext;
+      this.parent = parent;
+      this.addContext = addContext;
+      this.contextBuilder = contextBuilder;
+    }
+
+    @Override
+    public AnnotationVisitor visitArray(String name) {
+      if (name.equals("value")) {
+        return new UsesReflectionToAccessMethodContainerElementVisitor(
+            parsingContext, parent, addContext, contextBuilder);
+      }
+      return super.visitArray(name);
+    }
+
+    @Override
+    public void visit(String name, Object value) {
+      super.visit(name, value);
+    }
+
+    @Override
+    public void visitEnd() {
+      super.visitEnd();
+    }
+  }
+
+  private static class UsesReflectionToAccessMethodContainerElementVisitor
+      extends AnnotationVisitorBase {
+    private final AnnotationParsingContext parsingContext;
+    private final Parent<KeepEdge> parent;
+    Consumer<KeepEdgeMetaInfo.Builder> addContext;
+    Function<UserBindingsHelper, KeepItemPattern> contextBuilder;
+
+    public UsesReflectionToAccessMethodContainerElementVisitor(
+        AnnotationParsingContext parsingContext,
+        Parent<KeepEdge> parent,
+        Consumer<KeepEdgeMetaInfo.Builder> addContext,
+        Function<UserBindingsHelper, KeepItemPattern> contextBuilder) {
+      super(parsingContext);
+      this.parsingContext = parsingContext;
+      this.parent = parent;
+      this.addContext = addContext;
+      this.contextBuilder = contextBuilder;
+    }
+
+    @Override
+    public AnnotationVisitor visitAnnotation(String name, String descriptor) {
+      assert name == null;
+      if (AnnotationConstants.UsesReflectionToAccessMethod.isDescriptor(descriptor)) {
+        return new UsesReflectionToAccessMethodVisitor(
+            parsingContext, parent, addContext, contextBuilder);
+      }
+      return super.visitAnnotation(name, descriptor);
+    }
+
+    @Override
+    public void visit(String name, Object value) {
+      super.visit(name, value);
+    }
+  }
+
+  private static class UsesReflectionToAccessMethodVisitor extends AnnotationVisitorBase {
+
+    private final ParsingContext parsingContext;
+    private final Parent<KeepEdge> parent;
+    private final KeepEdge.Builder builder = KeepEdge.builder();
+    private final KeepPreconditions.Builder preconditions = KeepPreconditions.builder();
+    private final KeepEdgeMetaInfo.Builder metaInfoBuilder = KeepEdgeMetaInfo.builder();
+    private KeepMethodParametersPattern parameters = KeepMethodParametersPattern.any();
+    private final UserBindingsHelper bindingsHelper = new UserBindingsHelper();
+
+    private KeepQualifiedClassNamePattern qualifiedName;
+    private KeepMethodNamePattern methodName;
+    private KeepMethodReturnTypePattern returnType = KeepMethodReturnTypePattern.any();
+
+    UsesReflectionToAccessMethodVisitor(
+        AnnotationParsingContext parsingContext,
+        Parent<KeepEdge> parent,
+        Consumer<KeepEdgeMetaInfo.Builder> addContext,
+        Function<UserBindingsHelper, KeepItemPattern> contextBuilder) {
+      super(parsingContext);
+      this.parsingContext = parsingContext;
+      this.parent = parent;
+      KeepItemPattern context = contextBuilder.apply(bindingsHelper);
+      KeepBindingReference contextBinding =
+          bindingsHelper.defineFreshItemBinding("CONTEXT", context);
+      preconditions.addCondition(KeepCondition.builder().setItemReference(contextBinding).build());
+      addContext.accept(metaInfoBuilder);
+    }
+
+    @Override
+    public void visit(String name, Object value) {
+      if (name.equals(UsesReflectionToAccessMethod.classConstant) && value instanceof Type) {
+        qualifiedName =
+            KeepQualifiedClassNamePattern.exactFromDescriptor(((Type) value).getDescriptor());
+        return;
+      }
+      if (name.equals(AnnotationConstants.UsesReflectionToAccessMethod.className)
+          && value instanceof String) {
+        qualifiedName = KeepQualifiedClassNamePattern.exact((String) value);
+        return;
+      }
+      if (name.equals(UsesReflectionToAccessMethod.methodName) && value instanceof String) {
+        methodName = KeepMethodNamePattern.exact((String) value);
+        return;
+      }
+      if (name.equals(UsesReflectionToAccessMethod.returnType) && value instanceof Type) {
+        returnType =
+            KeepMethodReturnTypePattern.fromType(
+                KeepTypePattern.fromDescriptor(((Type) value).getDescriptor()));
+        return;
+      }
+      if (name.equals(UsesReflectionToAccessMethod.returnTypeName) && value instanceof String) {
+        returnType =
+            KeepMethodReturnTypePattern.fromType(
+                KeepTypePattern.fromClass(
+                    KeepClassPattern.fromName(
+                        KeepQualifiedClassNamePattern.exact((String) value))));
+        return;
+      }
+      super.visit(name, value);
+    }
+
+    @Override
+    public AnnotationVisitor visitArray(String name) {
+      PropertyParsingContext propertyParsingContext = parsingContext.property(name);
+      if (name.equals(UsesReflectionToAccessMethod.parameterTypes)) {
+        return new ParametersClassVisitor(
+            propertyParsingContext, parameters -> this.parameters = parameters);
+      }
+      if (name.equals(UsesReflectionToAccessMethod.parameterTypeNames)) {
+        return new ParametersClassNamesVisitor(
+            propertyParsingContext, parameters -> this.parameters = parameters);
+      }
+      return super.visitArray(name);
+    }
+
+    @Override
+    public void visitEnd() {
+      String kotlinMetadataDescriptor = "Lkotlin/Metadata;";
+
+      KeepClassBindingReference classBinding =
+          bindingsHelper.defineFreshClassBinding(
+              KeepClassItemPattern.builder()
+                  .setClassPattern(
+                      KeepClassPattern.builder().setClassNamePattern(qualifiedName).build())
+                  .build());
+      KeepMemberBindingReference memberBinding =
+          bindingsHelper.defineFreshMemberBinding(
+              KeepMemberItemPattern.builder()
+                  .setClassReference(classBinding)
+                  .setMemberPattern(
+                      KeepMethodPattern.builder()
+                          .setNamePattern(methodName)
+                          .setParametersPattern(parameters)
+                          .setReturnTypePattern(returnType)
                           .build())
                   .build());
 

@@ -411,6 +411,7 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
   protected void testExtractedRules(
       Iterable<Class<?>> classes, Iterable<byte[]> classFileData, ExpectedRules expectedRules)
       throws IOException {
+    assumeFalse(parameters.isPG());
     if (parameters.isExtractRules()) {
       List<String> extractedRules = new ArrayList<>();
       for (Class<?> testClass : classes) {
@@ -457,7 +458,8 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
       Class<?> mainClass,
       List<Class<?>> classes,
       List<byte[]> classFileData,
-      ExpectedRules expectedRules)
+      ExpectedRules expectedRules,
+      String expectedOutput)
       throws Exception {
     // TODO(b/392865072): Proguard 7.4.1 fails with "Encountered corrupt @kotlin/Metadata for class
     // <binary name> (version 2.1.0)", as ti avoid missing classes warnings from ProGuard some of
@@ -477,7 +479,17 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
               }
             })
         .run(mainClass)
-        .assertSuccessWithOutput(getExpectedOutputForJava());
+        .assertSuccessWithOutput(expectedOutput);
+  }
+
+  protected void testExtractedRulesAndRunJava(
+      Class<?> mainClass,
+      List<Class<?>> classes,
+      List<byte[]> classFileData,
+      ExpectedRules expectedRules)
+      throws Exception {
+    testExtractedRulesAndRunJava(
+        mainClass, classes, classFileData, expectedRules, getExpectedOutputForJava());
   }
 
   protected void testExtractedRulesAndRunJava(List<Class<?>> classes, ExpectedRules expectedRules)
