@@ -137,7 +137,7 @@ public class KeepUsesReflectionForInstantiationMultipleConstructorsTest
 
   @Test
   public void testIntAndLongArgsConstructors() throws Exception {
-    runTestExtractedRulesJava(
+    testExtractedRulesAndRunJava(
         ImmutableList.of(IntAndLongArgsConstructors.class, KeptClass.class),
         expectedRulesJava(IntAndLongArgsConstructors.class));
   }
@@ -164,7 +164,7 @@ public class KeepUsesReflectionForInstantiationMultipleConstructorsTest
 
   @Test
   public void testIntLongArgsConstructorsClassNames() throws Exception {
-    runTestExtractedRulesJava(
+    testExtractedRulesAndRunJava(
         ImmutableList.of(IntAndLongConstructorsClassName.class, KeptClass.class),
         expectedRulesJava(IntAndLongConstructorsClassName.class));
   }
@@ -191,7 +191,7 @@ public class KeepUsesReflectionForInstantiationMultipleConstructorsTest
 
   @Test
   public void testIntLongArgsConstructorsKotlin() throws Exception {
-    runTestExtractedRulesKotlin(
+    testExtractedRulesAndRunKotlin(
         compilationResults,
         "com.android.tools.r8.keepanno.androidx.kt.IntAndLongArgsConstructorsKt",
         expectedRulesKotlin(
@@ -200,7 +200,7 @@ public class KeepUsesReflectionForInstantiationMultipleConstructorsTest
 
   @Test
   public void testIntLongArgsConstructorsKotlinClassName() throws Exception {
-    runTestExtractedRulesKotlin(
+    testExtractedRulesAndRunKotlin(
         compilationResultsClassName,
         "com.android.tools.r8.keepanno.androidx.kt.IntAndLongArgsConstructorsClassNameKt",
         expectedRulesKotlin(

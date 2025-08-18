@@ -148,7 +148,7 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
 
   @Test
   public void testOnlyNoArgsConstructor() throws Exception {
-    runTestExtractedRulesJava(
+    testExtractedRulesAndRunJava(
         ImmutableList.of(OnlyNoArgsConstructor.class, KeptClass.class),
         getExpectedRulesJava(OnlyNoArgsConstructor.class, "{ void foo(java.lang.Class); }"));
   }
@@ -171,7 +171,7 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
 
   @Test
   public void testOnlyNoArgsConstructorClassName() throws Exception {
-    runTestExtractedRulesJava(
+    testExtractedRulesAndRunJava(
         ImmutableList.of(OnlyNoArgsConstructorClassName.class, KeptClass.class),
         getExpectedRulesJava(
             OnlyNoArgsConstructorClassName.class, "{ void foo(java.lang.Class); }"));
@@ -195,7 +195,7 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
 
   @Test
   public void testOnlyNoArgsConstructorKotlin() throws Exception {
-    runTestExtractedRulesKotlin(
+    testExtractedRulesAndRunKotlin(
         compilationResults,
         "com.android.tools.r8.keepanno.androidx.kt.OnlyNoArgsConstructorKt",
         getExpectedRulesKotlin("com.android.tools.r8.keepanno.androidx.kt.OnlyNoArgsConstructor"));
@@ -203,7 +203,7 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
 
   @Test
   public void testOnlyNoArgsConstructorKotlinClassName() throws Exception {
-    runTestExtractedRulesKotlin(
+    testExtractedRulesAndRunKotlin(
         compilationResultsClassName,
         "com.android.tools.r8.keepanno.androidx.kt.OnlyNoArgsConstructorClassNameKt",
         getExpectedRulesKotlin(
@@ -225,7 +225,7 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
   // This test is similar to testOnlyNoArgsConstructor() except that the annotation is inserted
   // by a transformer.
   public void testOnlyNoArgsConstructorUsingTransformer() throws Exception {
-    runTestExtractedRulesJava(
+    testExtractedRulesAndRunJava(
         OnlyNoArgsConstructorWithoutAnnotation.class,
         ImmutableList.of(KeptClass.class),
         ImmutableList.of(
@@ -240,7 +240,7 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
 
   @Test
   public void testOnlyNoArgsConstructorOnClass() throws Exception {
-    runTestExtractedRulesJava(
+    testExtractedRulesAndRunJava(
         OnlyNoArgsConstructorWithoutAnnotation.class,
         ImmutableList.of(KeptClass.class),
         ImmutableList.of(
@@ -255,7 +255,7 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
   // This test is similar to testOnlyNoArgsConstructorClassName() except that the annotation is
   // inserted by a transformer.
   public void testOnlyNoArgsConstructorClassNameUsingTransformer() throws Exception {
-    runTestExtractedRulesJava(
+    testExtractedRulesAndRunJava(
         OnlyNoArgsConstructorWithoutAnnotation.class,
         ImmutableList.of(KeptClass.class),
         ImmutableList.of(
@@ -270,7 +270,7 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
 
   @Test
   public void testOnlyNoArgsConstructorClassNameOnClass() throws Exception {
-    runTestExtractedRulesJava(
+    testExtractedRulesAndRunJava(
         OnlyNoArgsConstructorWithoutAnnotation.class,
         ImmutableList.of(KeptClass.class),
         ImmutableList.of(
@@ -283,7 +283,7 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
 
   @Test
   public void testOnlyNoArgsConstructorKotlinUsingTransformer() throws Exception {
-    runTestExtractedRulesKotlin(
+    testExtractedRulesAndRunKotlin(
         compilationResultsWithoutAnnotation,
         (classReference, classFileBytes) ->
             setAnnotationOnMethod(
@@ -306,7 +306,7 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
 
   @Test
   public void testOnlyNoArgsConstructorKotlinClassNameUsingTransformer() throws Exception {
-    runTestExtractedRulesKotlin(
+    testExtractedRulesAndRunKotlin(
         compilationResultsWithoutAnnotation,
         (classReference, classFileBytes) ->
             setAnnotationOnMethod(

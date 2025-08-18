@@ -123,7 +123,7 @@ public class KeepUsesReflectionForInstantiationAnyArgsConstructorTest
 
   @Test
   public void testAnyConstructor() throws Exception {
-    runTestExtractedRulesJava(
+    testExtractedRulesAndRunJava(
         AnyConstructor.class,
         ImmutableList.of(KeptClass.class),
         ImmutableList.of(
@@ -137,7 +137,7 @@ public class KeepUsesReflectionForInstantiationAnyArgsConstructorTest
 
   @Test
   public void testAnyConstructorAnnotateClass() throws Exception {
-    runTestExtractedRulesJava(
+    testExtractedRulesAndRunJava(
         AnyConstructor.class,
         ImmutableList.of(KeptClass.class),
         ImmutableList.of(
@@ -150,7 +150,7 @@ public class KeepUsesReflectionForInstantiationAnyArgsConstructorTest
 
   @Test
   public void testAnyConstructorKotlin() throws Exception {
-    runTestExtractedRulesKotlin(
+    testExtractedRulesAndRunKotlin(
         compilationResults,
         (classReference, classFileBytes) ->
             setAnnotationOnMethod(
@@ -174,7 +174,7 @@ public class KeepUsesReflectionForInstantiationAnyArgsConstructorTest
 
   @Test
   public void testAnyConstructorKotlinAnnotateClass() throws Exception {
-    runTestExtractedRulesKotlin(
+    testExtractedRulesAndRunKotlin(
         compilationResults,
         (classReference, classFileBytes) ->
             setAnnotationOnClass(

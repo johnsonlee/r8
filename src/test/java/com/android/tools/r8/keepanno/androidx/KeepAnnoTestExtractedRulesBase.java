@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.androidx;
 
+import static com.android.tools.r8.utils.FileUtils.isClassFile;
 import static org.junit.Assume.assumeFalse;
 
 import com.android.tools.r8.DataEntryResource;
@@ -12,6 +13,8 @@ import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.ProgramResource;
 import com.android.tools.r8.ProgramResourceProvider;
 import com.android.tools.r8.ResourceException;
+import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.keepanno.KeepAnno;
 import com.android.tools.r8.keepanno.KeepAnnoParameters;
 import com.android.tools.r8.keepanno.KeepAnnoTestBase;
 import com.android.tools.r8.origin.Origin;
@@ -24,8 +27,10 @@ import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.ZipUtils;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.io.ByteStreams;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -36,6 +41,8 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.junit.runners.Parameterized.Parameter;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassVisitor;
 
 public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
 
@@ -402,19 +409,76 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
     }
   }
 
-  protected void runTestExtractedRulesJava(
+  private void extractRules(Class<?> mainClass, Consumer<String> rulesConsumer) throws IOException {
+    extractRules(Files.readAllBytes(ToolHelper.getClassFileForTestClass(mainClass)), rulesConsumer);
+  }
+
+  private void extractRules(byte[] classFileData, Consumer<String> rulesConsumer) {
+    ClassReader reader = new ClassReader(classFileData);
+    ClassVisitor visitor = KeepAnno.createClassVisitorForKeepRulesExtraction(rulesConsumer);
+    reader.accept(visitor, ClassReader.SKIP_CODE);
+  }
+
+  protected void testExtractedRules(
+      Iterable<Class<?>> classes, Iterable<byte[]> classFileData, ExpectedRules expectedRules)
+      throws IOException {
+    if (parameters.isExtractRules()) {
+      List<String> extractedRules = new ArrayList<>();
+      for (Class<?> testClass : classes) {
+        extractRules(testClass, extractedRules::add);
+      }
+      for (byte[] data : classFileData) {
+        extractRules(data, extractedRules::add);
+      }
+      assertListsAreEqual(expectedRules.getRules(parameters.isR8()), trimRules(extractedRules));
+    }
+  }
+
+  protected void testExtractedRules(Iterable<byte[]> classFileData, ExpectedRules expectedRules)
+      throws IOException {
+    testExtractedRules(Collections.emptyList(), classFileData, expectedRules);
+  }
+
+  protected void testExtractedRules(
+      KotlinCompileMemoizer compilation, List<byte[]> classFileData, ExpectedRules expectedRules)
+      throws IOException {
+    List<byte[]> kotlinCompilationClassFileData = new ArrayList<>();
+    if (compilation != null) {
+      ZipUtils.iter(
+          compilation.getForConfiguration(kotlinParameters),
+          (entry, input) -> {
+            if (isClassFile(entry.getName())) {
+              kotlinCompilationClassFileData.add(ByteStreams.toByteArray(input));
+            }
+          });
+    }
+    testExtractedRules(
+        Iterables.concat(kotlinCompilationClassFileData, classFileData), expectedRules);
+  }
+
+  protected void testExtractedRules(
+      KotlinCompileMemoizer compilation,
+      BiFunction<ClassReference, byte[], byte[]> transformerForClass,
+      ExpectedRules expectedRules)
+      throws IOException {
+    testExtractedRules(getTransformedClasses(compilation, transformerForClass), expectedRules);
+  }
+
+  protected void testExtractedRulesAndRunJava(
       Class<?> mainClass,
-      List<Class<?>> testClasses,
-      List<byte[]> testClassFileData,
+      List<Class<?>> classes,
+      List<byte[]> classFileData,
       ExpectedRules expectedRules)
       throws Exception {
     // TODO(b/392865072): Proguard 7.4.1 fails with "Encountered corrupt @kotlin/Metadata for class
     // <binary name> (version 2.1.0)", as ti avoid missing classes warnings from ProGuard some of
     // the Kotlin libraries has to be included.
     assumeFalse(parameters.isPG());
+    testExtractedRules(
+        Iterables.concat(ImmutableList.of(mainClass), classes), classFileData, expectedRules);
     testForKeepAnnoAndroidX(parameters)
-        .addProgramClasses(testClasses)
-        .addProgramClassFileData(testClassFileData)
+        .addProgramClasses(classes)
+        .addProgramClassFileData(classFileData)
         .addKeepMainRule(mainClass)
         .setExcludedOuterClass(getClass())
         .inspectExtractedRules(
@@ -427,13 +491,31 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
         .assertSuccessWithOutput(getExpectedOutputForJava());
   }
 
-  protected void runTestExtractedRulesJava(List<Class<?>> testClasses, ExpectedRules expectedRules)
+  protected void testExtractedRulesAndRunJava(List<Class<?>> classes, ExpectedRules expectedRules)
       throws Exception {
-    runTestExtractedRulesJava(
-        testClasses.iterator().next(), testClasses, ImmutableList.of(), expectedRules);
+    testExtractedRulesAndRunJava(
+        classes.iterator().next(), classes, ImmutableList.of(), expectedRules);
   }
 
-  protected void runTestExtractedRulesKotlin(
+  private List<byte[]> getTransformedClasses(
+      KotlinCompileMemoizer compilation,
+      BiFunction<ClassReference, byte[], byte[]> transformerForClass)
+      throws IOException {
+    List<byte[]> result = new ArrayList<>();
+    ZipUtils.iter(
+        compilation.getForConfiguration(kotlinParameters),
+        (entry, inputStream) -> {
+          ClassReference classReference = ZipUtils.entryToClassReference(entry);
+          if (classReference == null) {
+            return;
+          }
+          result.add(
+              transformerForClass.apply(classReference, ByteStreams.toByteArray(inputStream)));
+        });
+    return result;
+  }
+
+  protected void testExtractedRulesAndRunKotlin(
       KotlinCompileMemoizer compilation,
       List<byte[]> classFileData,
       String mainClass,
@@ -448,6 +530,7 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
     // TODO(b/392865072): Proguard 7.7.0 compiled code fails with fails with
     //  "java.lang.annotation.IncompleteAnnotationException: kotlin.Metadata missing element bv".
     assumeFalse(parameters.isPG());
+    testExtractedRules(compilation, classFileData, expectedRules);
     testForKeepAnnoAndroidX(parameters)
         .applyIf(
             compilation != null,
@@ -495,41 +578,35 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
         .assertSuccessWithOutput(expectedOutput);
   }
 
-  protected void runTestExtractedRulesKotlin(
+  protected void testExtractedRulesAndRunKotlin(
       KotlinCompileMemoizer compilation, String mainClass, ExpectedRules expectedRules)
       throws Exception {
-    runTestExtractedRulesKotlin(
+    testExtractedRulesAndRunKotlin(
         compilation, ImmutableList.of(), mainClass, expectedRules, getExpectedOutputForKotlin());
   }
 
-  protected void runTestExtractedRulesKotlin(
+  protected void testExtractedRulesAndRunKotlin(
       KotlinCompileMemoizer compilation,
       BiFunction<ClassReference, byte[], byte[]> transformerForClass,
       String mainClass,
       ExpectedRules expectedRules,
       String expectedOutput)
       throws Exception {
-    List<byte[]> result = new ArrayList<>();
-    ZipUtils.iter(
-        compilation.getForConfiguration(kotlinParameters),
-        (entry, inputStream) -> {
-          ClassReference classReference = ZipUtils.entryToClassReference(entry);
-          if (classReference == null) {
-            return;
-          }
-          result.add(
-              transformerForClass.apply(classReference, ByteStreams.toByteArray(inputStream)));
-        });
-    runTestExtractedRulesKotlin(null, result, mainClass, expectedRules, expectedOutput);
+    testExtractedRulesAndRunKotlin(
+        null,
+        getTransformedClasses(compilation, transformerForClass),
+        mainClass,
+        expectedRules,
+        expectedOutput);
   }
 
-  protected void runTestExtractedRulesKotlin(
+  protected void testExtractedRulesAndRunKotlin(
       KotlinCompileMemoizer compilation,
       BiFunction<ClassReference, byte[], byte[]> transformerForClass,
       String mainClass,
       ExpectedRules expectedRules)
       throws Exception {
-    runTestExtractedRulesKotlin(
+    testExtractedRulesAndRunKotlin(
         compilation, transformerForClass, mainClass, expectedRules, getExpectedOutputForKotlin());
   }
 }
