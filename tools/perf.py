@@ -89,6 +89,42 @@ EXTERNAL_BENCHMARKS = {
     'R8': {
         'targets': ['retrace']
     },
+    'R8-250MB-DISK': {
+        'targets': ['retrace']
+    },
+    'R8-250MB-MEM': {
+        'targets': ['retrace']
+    },
+    'R8-250MB-PARTITION': {
+        'targets': ['retrace']
+    },
+    'R8-500MB-DISK': {
+        'targets': ['retrace']
+    },
+    'R8-500MB-MEM': {
+        'targets': ['retrace']
+    },
+    'R8-500MB-PARTITION': {
+        'targets': ['retrace']
+    },
+    'R8-750MB-DISK': {
+        'targets': ['retrace']
+    },
+    'R8-750MB-MEM': {
+        'targets': ['retrace']
+    },
+    'R8-750MB-PARTITION': {
+        'targets': ['retrace']
+    },
+    'R8-1GB-DISK': {
+        'targets': ['retrace']
+    },
+    'R8-1GB-MEM': {
+        'targets': ['retrace']
+    },
+    'R8-1GB-PARTITION': {
+        'targets': ['retrace']
+    },
     'ReplyApp': {
         'targets': ['r8-full']
     },

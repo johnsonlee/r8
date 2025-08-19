@@ -14,13 +14,13 @@ public class JavaLangClassTestClass {
   public static void main(String[] args) {
     try {
       Class<?> clazz = Class.forName(Foo.class.getName());
-      Class<?> superClass = clazz.getSuperclass();
-      clazz.getDeclaredMethod("barr");
-      clazz.getDeclaredField("a");
-      clazz.getDeclaredField("b");
+      System.out.println(clazz.getSuperclass().getSimpleName());
+      System.out.println(clazz.getDeclaredMethod("barr").getName());
+      System.out.println(clazz.getDeclaredField("a").getName());
+      System.out.println(clazz.getDeclaredField("b").getName());
       Method[] declaredMethods = clazz.getDeclaredMethods();
       Field[] declaredFields = clazz.getDeclaredFields();
-      clazz.getDeclaredConstructor();
+      System.out.println(clazz.getDeclaredConstructor().getName());
       Constructor<?>[] declaredConstructors = clazz.getDeclaredConstructors();
       String s = clazz.getName();
       s += clazz.getCanonicalName();
@@ -33,9 +33,10 @@ public class JavaLangClassTestClass {
           throw new RuntimeException(e);
         }
       }
+      System.out.println(s);
       Class<?> clazz2 = Class.forName(Foo.class.getName(), true, Foo.class.getClassLoader());
-      Class<?> component = clazz2.getComponentType();
-      Package pack = clazz2.getPackage();
+      Class<?> componentType = clazz2.getComponentType();
+      System.out.println(clazz2.getPackage().getName());
       InputStream resStream = clazz2.getResourceAsStream("res");
       boolean ass = clazz2.isAssignableFrom(Object.class);
 
@@ -43,15 +44,17 @@ public class JavaLangClassTestClass {
       Method[] methods = barClass.getMethods();
       Field[] fields = barClass.getFields();
       Constructor<?>[] constructors = barClass.getConstructors();
-      Method bar = barClass.getMethod("bar");
-      Field i = barClass.getField("i");
-      Constructor<?> constructor = barClass.getConstructor();
+      System.out.println(barClass.getMethod("bar"));
+      System.out.println(barClass.getField("i"));
+      System.out.println(barClass.getConstructor());
 
       Object o = new Bar();
       Bar cast = Bar.class.cast(o);
-      boolean isInst = Bar.class.isInstance(o);
-      Class<?> aClass = Bar.class.asSubclass(Foo.class);
+      System.out.println(Bar.class.isInstance(o));
+      System.out.println(Bar.class.asSubclass(Foo.class));
+      System.out.println("END");
     } catch (ClassNotFoundException | NoSuchFieldException | NoSuchMethodException e) {
+      System.out.println("EXCEPTION " + e.getMessage());
     }
   }
 

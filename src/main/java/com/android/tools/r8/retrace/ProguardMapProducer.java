@@ -53,6 +53,10 @@ public interface ProguardMapProducer {
     };
   }
 
+  static ProguardMapProducer fromBytes(byte[] bytes) {
+    return () -> new ByteArrayInputStream(bytes);
+  }
+
   static ProguardMapProducer fromBytes(byte[]... partitions) {
     return () -> new ByteArrayInputStream(Bytes.concat(partitions));
   }

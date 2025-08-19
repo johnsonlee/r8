@@ -1774,30 +1774,63 @@ public class ClassFileTransformer {
   }
 
   public static class AnnotationBuilder {
+    private final Function<ClassReference, AnnotationVisitor> createAnnotationVisitor;
+    private AnnotationVisitor av = null;
+
+    private AnnotationBuilder(Function<ClassReference, AnnotationVisitor> createAnnotationVisitor) {
+      this.createAnnotationVisitor = createAnnotationVisitor;
+    }
+
+    public AnnotationContentBuilder setAnnotationClass(ClassReference annotationClass) {
+      assert av == null;
+      av = createAnnotationVisitor.apply(annotationClass);
+      return new AnnotationContentBuilder(av);
+    }
+  }
+
+  public static class AnnotationContentBuilder {
     private final AnnotationVisitor av;
 
-    private AnnotationBuilder(AnnotationVisitor av) {
+    private AnnotationContentBuilder(AnnotationVisitor av) {
       this.av = av;
     }
 
-    public AnnotationBuilder setField(String name, Object value) {
-      if (value instanceof Class) {
-        av.visit(name, Type.getType((Class<?>) value));
-      } else {
-        av.visit(name, value);
-      }
+    private Object mapValue(Object value) {
+      return value instanceof Class ? Type.getType((Class<?>) value) : value;
+    }
+
+    public AnnotationContentBuilder setField(String name, Object value) {
+      av.visit(name, mapValue(value));
       return this;
     }
 
-    public AnnotationBuilder setArray(String name, Object... values) {
+    public AnnotationContentBuilder setAnnotationField(
+        String name, Consumer<AnnotationBuilder> annotationBuilderConsumer) {
+      AnnotationBuilder ab =
+          new AnnotationBuilder(
+              annotationClass -> av.visitAnnotation(name, annotationClass.getDescriptor()));
+      annotationBuilderConsumer.accept(ab);
+      ab.av.visitEnd();
+      return this;
+    }
+
+    public AnnotationContentBuilder setArray(String name, Object... values) {
       AnnotationVisitor subAv = av.visitArray(name);
-      Arrays.stream(values).forEach(value -> subAv.visit(null, value));
+      Arrays.stream(values).map(this::mapValue).forEach(value -> subAv.visit(null, value));
+      subAv.visitEnd();
+      return this;
+    }
+
+    public AnnotationContentBuilder buildArray(
+        String name, Consumer<AnnotationContentBuilder> annotationBuilderConsumer) {
+      AnnotationVisitor subAv = av.visitArray(name);
+      annotationBuilderConsumer.accept(new AnnotationContentBuilder(subAv));
+      subAv.visitEnd();
       return this;
     }
   }
 
-  public ClassFileTransformer setAnnotation(
-      Class<?> annotationClass, Consumer<AnnotationBuilder> annotationBuilderConsumer) {
+  public ClassFileTransformer setAnnotation(Consumer<AnnotationBuilder> annotationBuilderConsumer) {
     return addClassTransformer(
         new ClassTransformer() {
 
@@ -1810,11 +1843,12 @@ public class ClassFileTransformer {
               String superName,
               String[] interfaces) {
             super.visit(version, access, name, signature, superName, interfaces);
-            AnnotationVisitor av =
-                super.visitAnnotation(
-                    Reference.classFromClass(annotationClass).getDescriptor(), false);
-            annotationBuilderConsumer.accept(new AnnotationBuilder(av));
-            av.visitEnd();
+            AnnotationBuilder ab =
+                new AnnotationBuilder(
+                    annotationClass ->
+                        super.visitAnnotation(annotationClass.getDescriptor(), false));
+            annotationBuilderConsumer.accept(ab);
+            ab.av.visitEnd();
           }
 
           @Override
@@ -1826,8 +1860,15 @@ public class ClassFileTransformer {
   }
 
   public ClassFileTransformer setAnnotation(
+      Class<?> annotationClass, Consumer<AnnotationContentBuilder> annotationBuilderConsumer) {
+    return setAnnotation(
+        builder ->
+            annotationBuilderConsumer.accept(
+                builder.setAnnotationClass(Reference.classFromClass(annotationClass))));
+  }
+
+  public ClassFileTransformer setAnnotation(
       MethodPredicate predicate,
-      Class<?> annotationClass,
       Consumer<AnnotationBuilder> annotationBuilderConsumer) {
     return addClassTransformer(
         new ClassTransformer() {
@@ -1836,11 +1877,12 @@ public class ClassFileTransformer {
               int access, String name, String descriptor, String signature, String[] exceptions) {
             MethodVisitor mv = super.visitMethod(access, name, descriptor, signature, exceptions);
             if (predicate.test(access, name, descriptor, signature, exceptions)) {
-              AnnotationVisitor av =
-                  mv.visitAnnotation(
-                      Reference.classFromClass(annotationClass).getDescriptor(), false);
-              annotationBuilderConsumer.accept(new AnnotationBuilder(av));
-              av.visitEnd();
+              AnnotationBuilder ab =
+                  new AnnotationBuilder(
+                      annotationClass ->
+                          mv.visitAnnotation(annotationClass.getDescriptor(), false));
+              annotationBuilderConsumer.accept(ab);
+              ab.av.visitEnd();
               return new MethodVisitor(ASM_VERSION, mv) {
                 @Override
                 public AnnotationVisitor visitAnnotation(
@@ -1853,5 +1895,14 @@ public class ClassFileTransformer {
             return mv;
           }
         });
+  }
+
+  public ClassFileTransformer setAnnotation(
+      MethodPredicate predicate,
+      ClassReference annotationClass,
+      Consumer<AnnotationContentBuilder> annotationBuilderConsumer) {
+    return setAnnotation(
+        predicate,
+        builder -> annotationBuilderConsumer.accept(builder.setAnnotationClass(annotationClass)));
   }
 }
