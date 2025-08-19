@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.bridgeremoval;
 
+
 import static com.android.tools.r8.utils.codeinspector.AssertUtils.assertFailsCompilationIf;
 
 import com.android.tools.r8.NeverClassInline;
@@ -43,7 +44,6 @@ public class RedundantInterfaceBridgeMethodRemovalTest extends TestBase {
 
   @Test
   public void testR8() throws Exception {
-    // TODO(b/439776596): Should succeed.
     assertFailsCompilationIf(
         parameters.isCfRuntime(),
         () ->
@@ -51,9 +51,8 @@ public class RedundantInterfaceBridgeMethodRemovalTest extends TestBase {
                 .apply(this::configure)
                 .addKeepMainRule(Main.class)
                 .addVerticallyMergedClassesInspector(
-                    inspector -> {
-                      inspector.assertMergedIntoSubtype(LSub.class).assertNoOtherClassesMerged();
-                    })
+                    inspector ->
+                        inspector.assertMergedIntoSubtype(LSub.class).assertNoOtherClassesMerged())
                 .enableInliningAnnotations()
                 .enableNeverClassInliningAnnotations()
                 .enableNoHorizontalClassMergingAnnotations()
