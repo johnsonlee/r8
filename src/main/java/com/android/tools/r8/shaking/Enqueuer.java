@@ -114,6 +114,7 @@ import com.android.tools.r8.ir.desugar.lambda.SyntheticLambdaAccessorMethodConsu
 import com.android.tools.r8.ir.optimize.info.MutableMethodOptimizationInfo;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.kotlin.KotlinMetadataEnqueuerExtension;
+import com.android.tools.r8.optimize.interfaces.analysis.CfOpenClosedInterfacesAnalysis;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.shaking.AnnotationMatchResult.MatchedAnnotation;
@@ -540,6 +541,7 @@ public class Enqueuer {
       if (options.experimentalTraceAndroidEnumSerialization) {
         new EnqueuerEnumReflectionAnalysisAndroid(appView, this).register(analysesBuilder);
       }
+      CfOpenClosedInterfacesAnalysis.register(appView, this, analysesBuilder);
     }
     analyses = analysesBuilder.build();
 
@@ -4279,7 +4281,8 @@ public class Enqueuer {
   private boolean addToPendingDesugaring(ProgramMethod method, Timing timing) {
     // DEX code is not a supported input and can be ignored. Some legacy tests still pass DEX as
     // input (smali tests).
-    if (!method.getDefinition().hasCode() || method.getDefinition().getCode().isDexCode()) {
+    assert method.getDefinition().hasCode();
+    if (method.getDefinition().getCode().isDexCode()) {
       return false;
     }
     // TODO(b/294886627): This no longer includes the time to parse and check needs desugaring.
@@ -5186,9 +5189,11 @@ public class Enqueuer {
     }
     timing.end();
 
-    timing.begin("Trace code (non-desugared)");
-    traceNonDesugaredCode(method, timing);
-    timing.end();
+    if (method.getDefinition().hasCode()) {
+      timing.begin("Trace code (non-desugared)");
+      traceNonDesugaredCode(method, timing);
+      timing.end();
+    }
 
     timing.begin("Super");
     ProgramMethodSet superCallTargets = superInvokeDependencies.get(method.getDefinition());

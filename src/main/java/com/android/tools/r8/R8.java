@@ -75,7 +75,6 @@ import com.android.tools.r8.optimize.MemberRebindingIdentityLensFactory;
 import com.android.tools.r8.optimize.accessmodification.AccessModifier;
 import com.android.tools.r8.optimize.bridgehoisting.BridgeHoisting;
 import com.android.tools.r8.optimize.fields.FieldFinalizer;
-import com.android.tools.r8.optimize.interfaces.analysis.CfOpenClosedInterfacesAnalysis;
 import com.android.tools.r8.optimize.proto.ProtoNormalizer;
 import com.android.tools.r8.optimize.redundantbridgeremoval.RedundantBridgeRemover;
 import com.android.tools.r8.optimize.singlecaller.SingleCallerInliner;
@@ -479,8 +478,6 @@ public class R8 {
       AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
 
       options.reportLibraryAndProgramDuplicates(appViewWithLiveness);
-
-      new CfOpenClosedInterfacesAnalysis(appViewWithLiveness).run(executorService);
 
       // TODO(b/225838009): Move higher up.
       LirConverter.enterLirSupportedPhase(appViewWithLiveness, executorService);
