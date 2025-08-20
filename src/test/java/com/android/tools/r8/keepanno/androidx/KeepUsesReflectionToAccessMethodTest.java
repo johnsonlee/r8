@@ -4,6 +4,7 @@
 package com.android.tools.r8.keepanno.androidx;
 
 import static com.android.tools.r8.ToolHelper.getFilesInTestFolderRelativeToClass;
+import static org.hamcrest.CoreMatchers.containsString;
 
 import androidx.annotation.keep.UsesReflectionToAccessMethod;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
@@ -18,6 +19,8 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -43,8 +46,16 @@ public class KeepUsesReflectionToAccessMethodTest extends KeepAnnoTestExtractedR
 
   private static Collection<Path> getKotlinSources() {
     try {
-      return getFilesInTestFolderRelativeToClass(
-          KeepUsesReflectionToAccessMethodTest.class, "kt", "Methods.kt");
+      return Stream.concat(
+              getFilesInTestFolderRelativeToClass(
+                  KeepUsesReflectionToAccessMethodTest.class, "kt", "Methods.kt")
+                  .stream(),
+              getFilesInTestFolderRelativeToClass(
+                  KeepUsesReflectionToAccessMethodTest.class,
+                  "kt",
+                  "MethodsWithDefaultArguments.kt")
+                  .stream())
+          .collect(Collectors.toList());
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -75,17 +86,18 @@ public class KeepUsesReflectionToAccessMethodTest extends KeepAnnoTestExtractedR
   }
 
   private static ExpectedRules getExpectedRulesKotlin(
-      String conditionClass, String conditionMembers, String... consequentMembers) {
+      String conditionClass,
+      String conditionMembers,
+      String consequentClass,
+      String... consequentMembers) {
     Consumer<ExpectedKeepRule.Builder> setCondition =
-        b ->
-            b.setConditionClass("com.android.tools.r8.keepanno.androidx.kt.Methods")
-                .setConditionMembers(conditionMembers);
+        b -> b.setConditionClass(conditionClass).setConditionMembers(conditionMembers);
     ExpectedRules.Builder builder = ExpectedRules.builder();
     for (int i = 0; i < consequentMembers.length; i++) {
       builder.add(
           ExpectedKeepRule.builder()
               .apply(setCondition)
-              .setConsequentClass("com.android.tools.r8.keepanno.androidx.kt.MethodsKeptClass")
+              .setConsequentClass(consequentClass)
               .setConsequentMembers(consequentMembers[i])
               .build());
     }
@@ -206,6 +218,7 @@ public class KeepUsesReflectionToAccessMethodTest extends KeepAnnoTestExtractedR
         getExpectedRulesKotlin(
             "com.android.tools.r8.keepanno.androidx.kt.Methods",
             "{ void foo(kotlin.reflect.KClass); }",
+            "com.android.tools.r8.keepanno.androidx.kt.MethodsKeptClass",
             "{ *** m(...); }"),
         StringUtils.lines("4"));
   }
@@ -232,8 +245,11 @@ public class KeepUsesReflectionToAccessMethodTest extends KeepAnnoTestExtractedR
         getExpectedRulesKotlin(
             "com.android.tools.r8.keepanno.androidx.kt.Methods",
             "{ void foo(kotlin.reflect.KClass); }",
+            "com.android.tools.r8.keepanno.androidx.kt.MethodsKeptClass",
             "{ *** m(int); }"),
-        parameters.isReference() ? StringUtils.lines("4") : StringUtils.lines("1"));
+        r ->
+            r.assertSuccessWithOutput(
+                parameters.isReference() ? StringUtils.lines("4") : StringUtils.lines("1")));
   }
 
   @Test
@@ -255,9 +271,74 @@ public class KeepUsesReflectionToAccessMethodTest extends KeepAnnoTestExtractedR
         getExpectedRulesKotlin(
             "com.android.tools.r8.keepanno.androidx.kt.Methods",
             "{ void foo(kotlin.reflect.KClass); }",
+            "com.android.tools.r8.keepanno.androidx.kt.MethodsKeptClass",
             "{ *** m(int); }",
             "{ *** m(int, long); }",
             "{ *** m(java.lang.String, java.lang.String, java.lang.String); }"));
+  }
+
+  @Test
+  public void testDefaultArgumentsKotlinAllSignatures() throws Exception {
+    testExtractedRulesAndRunKotlin(
+        compilationResults,
+        (classReference, classFileBytes) ->
+            setAnnotationOnMethod(
+                classReference,
+                classFileBytes,
+                Reference.classFromTypeName(
+                    "com.android.tools.r8.keepanno.androidx.kt.MethodsWithDefaultArguments"),
+                MethodPredicate.onName("foo"),
+                builder ->
+                    buildUsesReflectionToAccessMethod(
+                        builder,
+                        Type.getType(
+                            DescriptorUtils.javaTypeToDescriptor(
+                                "com.android.tools.r8.keepanno.androidx.kt.MethodsWithDefaultArgumentsKeptClass")),
+                        "m")),
+        "com.android.tools.r8.keepanno.androidx.kt.MethodsWithDefaultArgumentsKt",
+        getExpectedRulesKotlin(
+            "com.android.tools.r8.keepanno.androidx.kt.MethodsWithDefaultArguments",
+            "{ void foo(); }",
+            "com.android.tools.r8.keepanno.androidx.kt.MethodsWithDefaultArgumentsKeptClass",
+            "{ *** m(...); }"),
+        // TODO(b/392865072): Should be:
+        // b -> b.assertSuccessWithOutput(StringUtils.lines("3", "4", "5", "6", "7"))
+        b ->
+            b.assertFailureWithErrorThatMatches(
+                containsString("This callable does not support a default call")));
+  }
+
+  @Test
+  public void testDefaultArgumentsKotlinSpecificSignature() throws Exception {
+    testExtractedRulesAndRunKotlin(
+        compilationResults,
+        (classReference, classFileBytes) ->
+            setAnnotationOnMethod(
+                classReference,
+                classFileBytes,
+                Reference.classFromTypeName(
+                    "com.android.tools.r8.keepanno.androidx.kt.MethodsWithDefaultArguments"),
+                MethodPredicate.onName("foo"),
+                builder ->
+                    buildUsesReflectionToAccessMethod(
+                        builder,
+                        Type.getType(
+                            DescriptorUtils.javaTypeToDescriptor(
+                                "com.android.tools.r8.keepanno.androidx.kt.MethodsWithDefaultArgumentsKeptClass")),
+                        "m",
+                        int.class,
+                        int.class)),
+        "com.android.tools.r8.keepanno.androidx.kt.MethodsWithDefaultArgumentsKt",
+        getExpectedRulesKotlin(
+            "com.android.tools.r8.keepanno.androidx.kt.MethodsWithDefaultArguments",
+            "{ void foo(); }",
+            "com.android.tools.r8.keepanno.androidx.kt.MethodsWithDefaultArgumentsKeptClass",
+            "{ *** m(int, int); }"),
+        // TODO(b/392865072): Should be:
+        // r -> r.assertSuccessWithOutput(StringUtils.lines("3", "4", "5", "6", "7"))
+        r ->
+            r.assertFailureWithErrorThatMatches(
+                containsString("This callable does not support a default call")));
   }
 
   // Test class without annotation to be used by multiple tests inserting annotations using a
