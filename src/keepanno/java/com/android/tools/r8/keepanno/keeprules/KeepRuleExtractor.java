@@ -401,6 +401,7 @@ public class KeepRuleExtractor {
       // match even the empty set of members, e.g., be disjoint from keeping the class.
       keepKind = TargetKeepKind.CLASS_OR_MEMBERS;
     }
+    Collections.sort(targetMembers);
     if (targetMembers.isEmpty()) {
       keepKind = TargetKeepKind.CLASS_OR_MEMBERS;
     }

@@ -1755,6 +1755,7 @@ public class KeepEdgeReader implements Opcodes {
 
     private KeepQualifiedClassNamePattern qualifiedName;
     private KeepMethodNamePattern methodName;
+    private KeepMethodNamePattern methodNameKotlinDefault;
     private KeepMethodReturnTypePattern returnType = KeepMethodReturnTypePattern.any();
 
     UsesReflectionToAccessMethodVisitor(
@@ -1786,6 +1787,7 @@ public class KeepEdgeReader implements Opcodes {
       }
       if (name.equals(UsesReflectionToAccessMethod.methodName) && value instanceof String) {
         methodName = KeepMethodNamePattern.exact((String) value);
+        methodNameKotlinDefault = KeepMethodNamePattern.exact(value + "$default");
         return;
       }
       if (name.equals(UsesReflectionToAccessMethod.returnType) && value instanceof Type) {
@@ -1840,6 +1842,18 @@ public class KeepEdgeReader implements Opcodes {
                           .setReturnTypePattern(returnType)
                           .build())
                   .build());
+      KeepMemberBindingReference memberBindingKotlinDefault =
+          bindingsHelper.defineFreshMemberBinding(
+              KeepMemberItemPattern.builder()
+                  .setClassReference(classBinding)
+                  .setMemberPattern(
+                      KeepMethodPattern.builder()
+                          .setNamePattern(methodNameKotlinDefault)
+                          // For the $default method keep any signature.
+                          .setParametersPattern(KeepMethodParametersPattern.any())
+                          .setReturnTypePattern(returnType)
+                          .build())
+                  .build());
 
       KeepClassBindingReference kotlinMetadataBinding =
           bindingsHelper.defineFreshClassBinding(
@@ -1878,6 +1892,15 @@ public class KeepEdgeReader implements Opcodes {
                       // Keeping the kotlin.Metadata annotation on the members is not really needed,
                       // as the annotation is only supported on classes. However, having it here
                       // makes the keep rule extraction generate more compact rules.
+                      .setConstraints(
+                          KeepConstraints.defaultAdditions(
+                              KeepConstraints.builder()
+                                  .add(keepConstraintKotlinMetadataAnnotation)
+                                  .build()))
+                      .build())
+              .addTarget(
+                  KeepTarget.builder()
+                      .setItemReference(memberBindingKotlinDefault)
                       .setConstraints(
                           KeepConstraints.defaultAdditions(
                               KeepConstraints.builder()

@@ -4,7 +4,6 @@
 package com.android.tools.r8.keepanno.androidx;
 
 import static com.android.tools.r8.ToolHelper.getFilesInTestFolderRelativeToClass;
-import static org.hamcrest.CoreMatchers.containsString;
 
 import androidx.annotation.keep.UsesReflectionToAccessMethod;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
@@ -300,12 +299,8 @@ public class KeepUsesReflectionToAccessMethodTest extends KeepAnnoTestExtractedR
             "com.android.tools.r8.keepanno.androidx.kt.MethodsWithDefaultArguments",
             "{ void foo(); }",
             "com.android.tools.r8.keepanno.androidx.kt.MethodsWithDefaultArgumentsKeptClass",
-            "{ *** m(...); }"),
-        // TODO(b/392865072): Should be:
-        // b -> b.assertSuccessWithOutput(StringUtils.lines("3", "4", "5", "6", "7"))
-        b ->
-            b.assertFailureWithErrorThatMatches(
-                containsString("This callable does not support a default call")));
+            "{ *** m(...); *** m$default(...); }"),
+        b -> b.assertSuccessWithOutput(StringUtils.lines("3", "4", "5", "6", "7")));
   }
 
   @Test
@@ -333,12 +328,9 @@ public class KeepUsesReflectionToAccessMethodTest extends KeepAnnoTestExtractedR
             "com.android.tools.r8.keepanno.androidx.kt.MethodsWithDefaultArguments",
             "{ void foo(); }",
             "com.android.tools.r8.keepanno.androidx.kt.MethodsWithDefaultArgumentsKeptClass",
-            "{ *** m(int, int); }"),
+            "{ *** m(int, int); *** m$default(...); }"),
         // TODO(b/392865072): Should be:
-        // r -> r.assertSuccessWithOutput(StringUtils.lines("3", "4", "5", "6", "7"))
-        r ->
-            r.assertFailureWithErrorThatMatches(
-                containsString("This callable does not support a default call")));
+        r -> r.assertSuccessWithOutput(StringUtils.lines("3", "4", "5", "6", "7")));
   }
 
   // Test class without annotation to be used by multiple tests inserting annotations using a
