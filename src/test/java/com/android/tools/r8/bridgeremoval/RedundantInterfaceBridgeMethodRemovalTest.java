@@ -3,9 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.bridgeremoval;
 
-
-import static com.android.tools.r8.utils.codeinspector.AssertUtils.assertFailsCompilationIf;
-
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.NoHorizontalClassMerging;
@@ -44,21 +41,19 @@ public class RedundantInterfaceBridgeMethodRemovalTest extends TestBase {
 
   @Test
   public void testR8() throws Exception {
-    assertFailsCompilationIf(
-        parameters.isCfRuntime(),
-        () ->
-            testForR8(parameters)
-                .apply(this::configure)
-                .addKeepMainRule(Main.class)
-                .addVerticallyMergedClassesInspector(
-                    inspector ->
-                        inspector.assertMergedIntoSubtype(LSub.class).assertNoOtherClassesMerged())
-                .enableInliningAnnotations()
-                .enableNeverClassInliningAnnotations()
-                .enableNoHorizontalClassMergingAnnotations()
-                .enableNoUnusedInterfaceRemovalAnnotations()
-                .enableNoVerticalClassMergingAnnotations()
-                .compile());
+    testForR8(parameters)
+        .apply(this::configure)
+        .addKeepMainRule(Main.class)
+        .addVerticallyMergedClassesInspector(
+            inspector -> inspector.assertMergedIntoSubtype(LSub.class).assertNoOtherClassesMerged())
+        .enableInliningAnnotations()
+        .enableNeverClassInliningAnnotations()
+        .enableNoHorizontalClassMergingAnnotations()
+        .enableNoUnusedInterfaceRemovalAnnotations()
+        .enableNoVerticalClassMergingAnnotations()
+        .compile()
+        .run(parameters.getRuntime(), Main.class)
+        .assertSuccessWithOutputLines("I", "I");
   }
 
   private void configure(TestBuilder<?, ?> testBuilder) throws Exception {

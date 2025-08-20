@@ -10,6 +10,7 @@ import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 import com.android.tools.r8.classmerging.ClassMergerGraphLens;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
+import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
@@ -43,6 +44,7 @@ import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 // This graph lens is instantiated during vertical class merging. The graph lens is context
 // sensitive in the enclosing class of a given invoke *and* the type of the invoke (e.g., invoke-
@@ -76,6 +78,11 @@ public class VerticalClassMergerGraphLens extends ClassMergerGraphLens {
 
   private final Set<DexMethod> staticizedMethods;
 
+  // Mapping from a method reference and its symbolic holder prior to vertical class merging
+  // (old, new) to the new method signature that should be used for the given invoke-super.
+  private Map<DexType, Map<DexMethod, DexMethod>> indirectInvokeSuperRewriteCache =
+      new ConcurrentHashMap<>();
+
   private VerticalClassMergerGraphLens(
       AppView<?> appView,
       VerticallyMergedClasses mergedClasses,
@@ -94,6 +101,10 @@ public class VerticalClassMergerGraphLens extends ClassMergerGraphLens {
     this.contextualSuperToImplementationInContexts = contextualSuperToImplementationInContexts;
     this.extraNewMethodSignatures = extraNewMethodSignatures;
     this.staticizedMethods = staticizedMethods;
+  }
+
+  public void unsetCaches() {
+    indirectInvokeSuperRewriteCache = null;
   }
 
   public boolean hasBeenMerged(DexType type) {
@@ -218,9 +229,27 @@ public class VerticalClassMergerGraphLens extends ClassMergerGraphLens {
       assert !appView.testing().enableVerticalClassMergerLensAssertion
           || newReboundReference.verifyReferencedBaseTypesMatches(
               type -> !mergedClasses.isMergeSource(type), dexItemFactory());
+      DexMethod previousReference = previous.getReference();
       DexMethod newReference =
           previous.getRewrittenReferenceFromRewrittenReboundReference(
               newReboundReference, this::getNextClassType, dexItemFactory());
+      // Invoke-super instructions that target a method definition in the source class are handled
+      // above, by getImplementationTargetForInvokeSuper. Since this invoke-super instruction was
+      // not mapped above, it is either targeting a method higher up in the hierarchy, or it has
+      // a symbolic method reference that targets the source class, but resolves to a method
+      // higher up in the hierarchy. This can happen, for example, as a result of redundant bridge
+      // removal. In the latter case, we need to rewrite the invoke-super to target the resolved
+      // method through one of the immediate supertypes of the source class. See also
+      // RedundantInterfaceBridgeMethodRemovalTest.
+      if (previous.getType().isSuper()
+          && newReference.getHolderType().isNotIdenticalTo(previousReference.getHolderType())) {
+        newReference =
+            indirectInvokeSuperRewriteCache
+                .computeIfAbsent(
+                    previousReference.getHolderType(), ignoreKey(ConcurrentHashMap::new))
+                .computeIfAbsent(
+                    newReference, nR -> rewriteIndirectInvokeSuper(previousReference, nR));
+      }
       lookupResult =
           MethodLookupResult.builder(this, codeLens)
               .setReboundReference(newReboundReference)
@@ -242,6 +271,32 @@ public class VerticalClassMergerGraphLens extends ClassMergerGraphLens {
         || Streams.stream(lookupResult.getReference().getReferencedBaseTypes(dexItemFactory()))
             .noneMatch(mergedClasses::hasBeenMergedIntoSubtype);
     return lookupResult;
+  }
+
+  private DexMethod rewriteIndirectInvokeSuper(DexMethod previousMethod, DexMethod newMethod) {
+    DexClass source = appView.definitionFor(previousMethod.getHolderType());
+    if (source == null) {
+      // We should always be able to lookup the source class while we are still in the vertical
+      // class merger.
+      assert false;
+      return newMethod;
+    }
+    for (DexType supertypeOfSource : source.allImmediateSupertypes()) {
+      DexClass superclass = appView.definitionFor(supertypeOfSource);
+      if (superclass != null) {
+        DexClassAndMethod resolvedMethod =
+            appView
+                .appInfoWithClassHierarchy()
+                .resolveMethodOn(superclass, newMethod)
+                .getResolutionPair();
+        if (resolvedMethod != null
+            && resolvedMethod.getAccessFlags().belongsToVirtualPool()
+            && !resolvedMethod.getAccessFlags().isAbstract()) {
+          return newMethod.withHolder(supertypeOfSource, appView.dexItemFactory());
+        }
+      }
+    }
+    return newMethod;
   }
 
   private DexMethod getImplementationTargetForInvokeSuper(
