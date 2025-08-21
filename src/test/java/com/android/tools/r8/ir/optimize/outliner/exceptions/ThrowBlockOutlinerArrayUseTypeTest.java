@@ -20,7 +20,7 @@ import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class ThrowBlockOutlinerUseTypeTest extends TestBase {
+public class ThrowBlockOutlinerArrayUseTypeTest extends TestBase {
 
   @Parameter(0)
   public TestParameters parameters;
@@ -57,21 +57,21 @@ public class ThrowBlockOutlinerUseTypeTest extends TestBase {
     assertEquals(1, outlines.size());
     ThrowBlockOutline outline = outlines.iterator().next();
     assertEquals(1, outline.getProto().getParameters().size());
-    assertEquals(Main.class.getTypeName(), outline.getProto().getParameter(0).getTypeName());
+    assertEquals(Main[].class.getTypeName(), outline.getProto().getParameter(0).getTypeName());
   }
 
   static class Main {
 
     public static void main(String[] args) {
-      Main main = new Main();
+      Main[] arr = new Main[0];
       if (args.length == 0) {
-        throw new MyException(new StringBuilder().append(main).toString(), main);
+        throw new MyException(new StringBuilder().append(arr).toString(), arr);
       }
     }
   }
 
   static class MyException extends RuntimeException {
 
-    MyException(String msg, Main main) {}
+    MyException(String msg, Main[] main) {}
   }
 }

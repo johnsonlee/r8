@@ -131,10 +131,13 @@ public class ThrowBlockOutlinerScanner {
       processThrowInstruction(
           outlineBuilder -> {
             // On successful outline creation, store the outline for later processing.
+            DexProto proto = outlineBuilder.getProto(appView);
+            if (proto == null) {
+              return;
+            }
             LirCode<?> lirCode = outlineBuilder.buildLirCode(appView, code.context());
             Wrapper<LirCode<?>> lirCodeWrapper =
                 ThrowBlockOutlinerLirCodeEquivalence.get().wrap(lirCode);
-            DexProto proto = outlineBuilder.getProto(appView);
             ThrowBlockOutline outline =
                 outlines.computeIfAbsent(
                     lirCodeWrapper, w -> new ThrowBlockOutline(w.get(), proto));
@@ -483,16 +486,17 @@ public class ThrowBlockOutlinerScanner {
     DexProto getProto(AppView<?> appView) {
       DexItemFactory factory = appView.dexItemFactory();
       DexType returnType = factory.voidType;
-      return factory.createProto(
-          returnType,
-          ListUtils.map(
-              outlinedArguments,
-              outlinedArgument -> {
-                TypeElement useType =
-                    TypeUtils.computeUseType(
-                        appView, factory.voidType, outlinedArgument.outValue());
-                return DexTypeUtils.toDexType(factory, useType);
-              }));
+      List<DexType> parameters = new ArrayList<>(outlinedArguments.size());
+      for (Argument outlinedArgument : outlinedArguments) {
+        TypeElement useType =
+            TypeUtils.computeUseType(appView, factory.voidType, outlinedArgument.outValue());
+        if (useType.isNullType()) {
+          // Instead of returning null here we could consider removing the parameter.
+          return null;
+        }
+        parameters.add(DexTypeUtils.toDexType(factory, useType));
+      }
+      return factory.createProto(returnType, parameters);
     }
 
     List<Value> buildArguments() {
