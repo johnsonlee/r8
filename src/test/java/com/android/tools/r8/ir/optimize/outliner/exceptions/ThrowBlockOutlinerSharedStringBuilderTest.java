@@ -23,7 +23,7 @@ import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
-import com.sun.tools.javac.util.List;
+import com.google.common.collect.Lists;
 import java.util.Collection;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -111,7 +111,7 @@ public class ThrowBlockOutlinerSharedStringBuilderTest extends TestBase {
     // The third argument has been weakened from java.lang.String to java.lang.Object due to
     // changing append(String) to append(Object).
     assertEquals(
-        List.of(
+        Lists.newArrayList(
             inspector.getTypeSubject(String.class),
             inspector.getTypeSubject(int.class),
             inspector.getTypeSubject(Object.class),
