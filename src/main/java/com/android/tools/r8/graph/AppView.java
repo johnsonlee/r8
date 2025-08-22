@@ -506,6 +506,14 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
     this.classesEscapingIntoLibrary = classesEscapingIntoLibrary;
   }
 
+  public boolean hasSourceDebugExtensions() {
+    return !sourceDebugExtensions.isEmpty();
+  }
+
+  public boolean hasSourceDebugExtension(DexClass clazz) {
+    return getSourceDebugExtensionForType(clazz) != null;
+  }
+
   public void setSourceDebugExtensionForType(DexClass clazz, DexValueString sourceDebugExtension) {
     sourceDebugExtensions.put(clazz.type, sourceDebugExtension);
   }

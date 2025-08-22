@@ -3,12 +3,16 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.utils;
 
+import static com.google.common.base.Predicates.alwaysTrue;
+
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.threading.TaskCollection;
 import com.android.tools.r8.threading.ThreadingModule;
 import com.android.tools.r8.utils.ListUtils.ReferenceAndIntConsumer;
 import com.android.tools.r8.utils.collections.DexClassAndMemberMap;
+import com.android.tools.r8.utils.timing.Timing;
+import com.android.tools.r8.utils.timing.TimingMerger;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -114,6 +118,31 @@ public class ThreadUtils {
       throw e.rethrow();
     }
     return tasks.awaitWithResults(predicate);
+  }
+
+  public static <T, E extends Exception> void processItemsThatMatches(
+      Collection<T> items,
+      Predicate<T> itemPredicate,
+      ThrowingBiConsumer<T, Timing, E> consumer,
+      InternalOptions options,
+      ExecutorService executorService,
+      TimingMerger timingMerger)
+      throws ExecutionException {
+    TaskCollection<Timing> tasks =
+        new TaskCollection<>(options.getThreadingModule(), executorService);
+    for (T item : items) {
+      if (itemPredicate.test(item)) {
+        tasks.submitUnchecked(
+            () -> {
+              Timing threadTiming = Timing.create("Batch job", options);
+              consumer.accept(item, threadTiming);
+              return threadTiming.end();
+            });
+      }
+    }
+    Collection<Timing> timings = tasks.awaitWithResults(alwaysTrue());
+    timingMerger.add(timings);
+    timingMerger.end();
   }
 
   public static <T> void processItems(

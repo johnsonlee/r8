@@ -315,6 +315,10 @@ public class KotlinSourceDebugExtensionParser {
       this.calleePositions = calleePositions;
     }
 
+    public SegmentTree<Position> getInlineePositions() {
+      return inlineePositions;
+    }
+
     public Map.Entry<Integer, Position> lookupInlinedPosition(int point) {
       return inlineePositions.findEntry(point);
     }

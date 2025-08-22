@@ -128,7 +128,10 @@ public interface PositionToMappedRangeMapper {
       int parameterCount = method.getParameters().size();
       DexCode code = method.getDefinition().getCode().asDexCode();
       assert DebugRepresentation.verifyLastExecutableInstructionWithinBound(code, maxEncodingPc);
-      codesToUpdate.add(new UpdateInfo(code, parameterCount, maxEncodingPc));
+      UpdateInfo updateInfo = new UpdateInfo(code, parameterCount, maxEncodingPc);
+      synchronized (codesToUpdate) {
+        codesToUpdate.add(updateInfo);
+      }
     }
 
     @Override

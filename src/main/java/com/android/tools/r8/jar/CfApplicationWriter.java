@@ -82,6 +82,7 @@ public class CfApplicationWriter {
           runAndWriteMap(
               inputApp,
               appView,
+              executorService,
               application.timing,
               OriginalSourceFiles.fromClasses(),
               DebugRepresentation.none(options));

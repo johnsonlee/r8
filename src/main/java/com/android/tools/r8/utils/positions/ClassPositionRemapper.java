@@ -16,6 +16,7 @@ import com.android.tools.r8.kotlin.KotlinSourceDebugExtensionParser.KotlinSource
 import com.android.tools.r8.utils.CfLineToMethodMapper;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.KotlinSourceDebugExtensionCollection;
 import com.android.tools.r8.utils.Pair;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -100,26 +101,32 @@ public interface ClassPositionRemapper {
 
   class KotlinInlineFunctionAppPositionRemapper implements AppPositionRemapper {
 
-    private final AppView<?> appView;
     private final AppPositionRemapper baseRemapper;
     private final DexItemFactory factory;
     private final CfLineToMethodMapper lineToMethodMapper;
+    private final KotlinSourceDebugExtensionCollection kotlinSourceDebugExtensions;
 
     KotlinInlineFunctionAppPositionRemapper(
         AppView<?> appView,
         AppPositionRemapper baseRemapper,
-        CfLineToMethodMapper lineToMethodMapper) {
-      this.appView = appView;
+        CfLineToMethodMapper lineToMethodMapper,
+        KotlinSourceDebugExtensionCollection kotlinSourceDebugExtensions) {
       this.baseRemapper = baseRemapper;
       this.factory = appView.dexItemFactory();
       this.lineToMethodMapper = lineToMethodMapper;
+      this.kotlinSourceDebugExtensions = kotlinSourceDebugExtensions;
     }
 
     @Override
     public ClassPositionRemapper createClassPositionRemapper(DexProgramClass clazz) {
       ClassPositionRemapper baseClassRemapper = baseRemapper.createClassPositionRemapper(clazz);
       assert baseClassRemapper == baseRemapper;
-      return new KotlinInlineFunctionClassPositionRemapper(clazz, baseClassRemapper);
+      KotlinSourceDebugExtensionParserResult kotlinSourceDebugExtension =
+          kotlinSourceDebugExtensions.get(clazz);
+      return kotlinSourceDebugExtension != null
+          ? new KotlinInlineFunctionClassPositionRemapper(
+              baseClassRemapper, kotlinSourceDebugExtension)
+          : baseClassRemapper;
     }
 
     class KotlinInlineFunctionClassPositionRemapper implements ClassPositionRemapper {
@@ -128,40 +135,33 @@ public interface ClassPositionRemapper {
       private final KotlinSourceDebugExtensionParserResult kotlinSourceDebugExtension;
 
       private KotlinInlineFunctionClassPositionRemapper(
-          DexProgramClass clazz, ClassPositionRemapper baseRemapper) {
+          ClassPositionRemapper baseRemapper,
+          KotlinSourceDebugExtensionParserResult kotlinSourceDebugExtension) {
+        assert kotlinSourceDebugExtension != null;
         this.baseRemapper = baseRemapper;
-        this.kotlinSourceDebugExtension =
-            KotlinSourceDebugExtensionParser.parse(appView.getSourceDebugExtensionForType(clazz));
+        this.kotlinSourceDebugExtension = kotlinSourceDebugExtension;
       }
 
       @Override
       public MethodPositionRemapper createMethodPositionRemapper() {
         MethodPositionRemapper baseMethodRemapper = baseRemapper.createMethodPositionRemapper();
-        return new KotlinInlineFunctionMethodPositionRemapper(this, baseMethodRemapper);
+        return new KotlinInlineFunctionMethodPositionRemapper(baseMethodRemapper);
       }
 
       class KotlinInlineFunctionMethodPositionRemapper implements MethodPositionRemapper {
 
-        private final KotlinInlineFunctionClassPositionRemapper classRemapper;
         private final MethodPositionRemapper baseRemapper;
 
         private KotlinInlineFunctionMethodPositionRemapper(
-            KotlinInlineFunctionClassPositionRemapper classRemapper,
             MethodPositionRemapper baseRemapper) {
-          this.classRemapper = classRemapper;
           this.baseRemapper = baseRemapper;
         }
 
         @Override
         public Pair<Position, Position> createRemappedPosition(Position position) {
           int line = position.getLine();
-          KotlinSourceDebugExtensionParserResult parsedData =
-              classRemapper.kotlinSourceDebugExtension;
-          if (parsedData == null) {
-            return baseRemapper.createRemappedPosition(position);
-          }
           Map.Entry<Integer, KotlinSourceDebugExtensionParser.Position> inlinedPosition =
-              parsedData.lookupInlinedPosition(line);
+              kotlinSourceDebugExtension.lookupInlinedPosition(line);
           if (inlinedPosition == null) {
             return baseRemapper.createRemappedPosition(position);
           }
@@ -193,7 +193,7 @@ public interface ClassPositionRemapper {
             if (!inlinee.equals(position.getMethod())) {
               // We have an inline from a different method than the current position.
               Entry<Integer, KotlinSourceDebugExtensionParser.Position> calleePosition =
-                  parsedData.lookupCalleePosition(line);
+                  kotlinSourceDebugExtension.lookupCalleePosition(line);
               if (calleePosition != null) {
                 // Take the first line as the callee position
                 int calleeLine = Math.max(0, calleePosition.getValue().getRange().from);

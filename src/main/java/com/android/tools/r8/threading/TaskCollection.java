@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.threading;
 
+import static com.google.common.base.Predicates.alwaysTrue;
+
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ThrowingAction;
 import com.android.tools.r8.utils.UncheckedExecutionException;
@@ -167,7 +169,7 @@ public class TaskCollection<T> {
 
   /** Derived await to get a subset of the results in a list. */
   public final List<T> awaitWithResults(Predicate<T> predicate) throws ExecutionException {
-    if (predicate == null) {
+    if (predicate == null || predicate == alwaysTrue()) {
       return awaitWithResults();
     }
     List<T> filtered = new ArrayList<>();
