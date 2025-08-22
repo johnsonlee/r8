@@ -232,7 +232,7 @@ public final class D8 {
             clazz -> {
               ProgramMethod classInitializer = clazz.getProgramClassInitializer();
               if (classInitializer != null) {
-                analysis.processNewlyLiveCode(classInitializer, null, null);
+                analysis.processNewlyLiveUnprocessedCode(classInitializer);
               }
             },
             appView.options().getThreadingModule(),

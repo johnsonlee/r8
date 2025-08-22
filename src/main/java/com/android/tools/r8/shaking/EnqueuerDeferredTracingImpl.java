@@ -23,7 +23,6 @@ import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.conversion.IRFinalizer;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
-import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
 import com.android.tools.r8.ir.conversion.passes.ThrowCatchOptimizer;
 import com.android.tools.r8.ir.optimize.AssumeInserter;
 import com.android.tools.r8.ir.optimize.CodeRewriter;
@@ -31,7 +30,6 @@ import com.android.tools.r8.ir.optimize.info.OptimizationInfoRemover;
 import com.android.tools.r8.ir.optimize.membervaluepropagation.assume.AssumeInfo;
 import com.android.tools.r8.shaking.Enqueuer.FieldAccessKind;
 import com.android.tools.r8.shaking.Enqueuer.FieldAccessMetadata;
-import com.android.tools.r8.shaking.Enqueuer.Mode;
 import com.android.tools.r8.shaking.EnqueuerWorklist.EnqueuerAction;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ThreadUtils;
@@ -52,7 +50,6 @@ public class EnqueuerDeferredTracingImpl extends EnqueuerDeferredTracing {
 
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
   private final Enqueuer enqueuer;
-  private final Mode mode;
   private final InternalOptions options;
 
   // Helper for rewriting code instances at the end of tree shaking.
@@ -68,10 +65,9 @@ public class EnqueuerDeferredTracingImpl extends EnqueuerDeferredTracing {
   private final ProgramFieldSet ineligibleForPruning = ProgramFieldSet.create();
 
   EnqueuerDeferredTracingImpl(
-      AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer, Mode mode) {
+      AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer) {
     this.appView = appView;
     this.enqueuer = enqueuer;
-    this.mode = mode;
     this.options = appView.options();
     this.rewriter = new EnqueuerDeferredTracingRewriter(appView);
   }
@@ -296,12 +292,7 @@ public class EnqueuerDeferredTracingImpl extends EnqueuerDeferredTracing {
       Map<DexProgramClass, ProgramMethodSet> initializedClassesWithContexts,
       Map<DexField, ProgramField> prunedFields) {
     // Build IR.
-    MutableMethodConversionOptions conversionOptions =
-        mode.isInitialTreeShaking()
-            ? MethodConversionOptions.forPreLirPhase(appView)
-            : MethodConversionOptions.forLirPhase(appView);
-
-    IRCode ir = method.buildIR(appView, conversionOptions);
+    IRCode ir = method.buildIR(appView, MethodConversionOptions.forLirPhase(appView));
 
     new AssumeInserter(appView).insertAssumeInstructions(ir, Timing.empty());
 
@@ -315,7 +306,7 @@ public class EnqueuerDeferredTracingImpl extends EnqueuerDeferredTracing {
 
     // Finalize out of IR.
     IRFinalizer<?> finalizer =
-        conversionOptions.getFinalizer(rewriter.getDeadCodeRemover(), appView);
+        ir.getConversionOptions().getFinalizer(rewriter.getDeadCodeRemover(), appView);
     Code newCode = finalizer.finalizeCode(ir, BytecodeMetadataProvider.empty(), Timing.empty());
     method.setCode(newCode, appView);
   }

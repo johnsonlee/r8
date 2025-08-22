@@ -23,7 +23,7 @@ public class TaskCollection<T> {
 
   private final ThreadingModule threadingModule;
   private final ExecutorService executorService;
-  private final List<Future<T>> futures;
+  private List<Future<T>> futures;
 
   public TaskCollection(
       ThreadingModule threadingModule, ExecutorService executorService, int initialCapacity) {
@@ -178,5 +178,15 @@ public class TaskCollection<T> {
           }
         });
     return filtered;
+  }
+
+  public final void removeCompletedFutures() {
+    List<Future<T>> pendingFutures = new ArrayList<>();
+    for (Future<T> future : futures) {
+      if (!future.isDone()) {
+        pendingFutures.add(future);
+      }
+    }
+    futures = pendingFutures;
   }
 }

@@ -23,7 +23,7 @@ import org.junit.Before;
 public abstract class AnalysisTestBase extends TestBase {
 
   public AppView<?> appView;
-  private final AndroidApp app;
+  protected final AndroidApp app;
   private final String className;
   protected final TestParameters parameters;
 

@@ -6,37 +6,40 @@ package com.android.tools.r8.resolution.interfacediamonds;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.TestAppViewBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.MethodResolutionResult;
+import com.android.tools.r8.lightir.LirCode;
+import com.android.tools.r8.lightir.LirOpcodes;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Streams;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class TwoDefaultMethodsWithoutTopTest extends TestBase {
 
-  private final TestParameters parameters;
+  @Parameter(0)
+  public TestParameters parameters;
 
-  @Parameterized.Parameters(name = "{0}")
+  @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
-  }
-
-  public TwoDefaultMethodsWithoutTopTest(TestParameters parameters) {
-    this.parameters = parameters;
   }
 
   private static final List<Class<?>> CLASSES =
@@ -45,7 +48,7 @@ public class TwoDefaultMethodsWithoutTopTest extends TestBase {
   @Test
   public void testResolution() throws Exception {
     // The resolution is runtime independent, so just run it on the default CF VM.
-    assumeTrue(parameters.isOrSimulateNoneRuntime());
+    parameters.assumeIsOrSimulateNoneRuntime();
     for (AndroidApiLevel minApi :
         ImmutableList.of(AndroidApiLevel.B, apiLevelWithDefaultInterfaceMethodsSupport())) {
       AppInfoWithLiveness appInfo =
@@ -62,20 +65,18 @@ public class TwoDefaultMethodsWithoutTopTest extends TestBase {
       if (minApi.isLessThan(apiLevelWithDefaultInterfaceMethodsSupport())) {
         // When desugaring a forwarding method throwing ICCE is inserted.
         // Check that the resolved method throws such an exception.
+        LirCode<?> lirCode =
+            resolutionResult.asSingleResolution().getResolvedMethod().getCode().asLirCode();
+        assertTrue(Streams.stream(lirCode).anyMatch(i -> i.getOpcode() == LirOpcodes.ATHROW));
         assertTrue(
-            resolutionResult
-                .asSingleResolution()
-                .getResolvedMethod()
-                .getCode()
-                .asCfCode()
-                .getInstructions()
-                .stream()
+            Arrays.stream(lirCode.getConstantPool())
+                .filter(c -> c instanceof DexType)
                 .anyMatch(
-                    i ->
-                        i.isTypeInstruction()
-                            && i.asTypeInstruction().getType()
-                                == appInfo.dexItemFactory()
-                                    .javaLangIncompatibleClassChangeErrorType));
+                    t ->
+                        ((DexType) t)
+                            .isIdenticalTo(
+                                appInfo.dexItemFactory()
+                                    .javaLangIncompatibleClassChangeErrorType)));
       } else {
         // When not desugaring resolution should fail. Check the failure dependencies are the two
         // default methods in conflict.
@@ -103,11 +104,10 @@ public class TwoDefaultMethodsWithoutTopTest extends TestBase {
 
   @Test
   public void testR8() throws Exception {
-    testForR8(parameters.getBackend())
+    testForR8(parameters)
         .addProgramClasses(CLASSES)
         .addProgramClassFileData(transformB())
         .addKeepMainRule(Main.class)
-        .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
         .assertFailureWithErrorThatMatches(containsString("IncompatibleClassChangeError"));
   }

@@ -40,8 +40,6 @@ import com.android.tools.r8.verticalclassmerging.VerticalClassMergerGraphLens;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import it.unimi.dsi.fastutil.objects.Object2BooleanArrayMap;
-import it.unimi.dsi.fastutil.objects.Object2BooleanMap;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
@@ -639,15 +637,6 @@ public abstract class GraphLens {
             result.put(rewrittenReference, mergedValue);
           }
         });
-    return result;
-  }
-
-  public <T extends DexReference> Object2BooleanMap<T> rewriteReferenceKeys(
-      Object2BooleanMap<T> map) {
-    Object2BooleanMap<T> result = new Object2BooleanArrayMap<>();
-    for (Object2BooleanMap.Entry<T> entry : map.object2BooleanEntrySet()) {
-      result.put(rewriteReference(entry.getKey()), entry.getBooleanValue());
-    }
     return result;
   }
 

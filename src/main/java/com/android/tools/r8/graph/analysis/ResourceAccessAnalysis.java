@@ -181,7 +181,8 @@ public class ResourceAccessAnalysis
         values = new IntArrayList(1);
         values.add(definition.asConstNumber().getIntValue());
       } else if (definition.isResourceConstNumber()) {
-        throw new Unreachable("Only running ResourceAccessAnalysis in initial tree shaking");
+        values = new IntArrayList(1);
+        values.add(definition.asResourceConstNumber().getValue());
       } else if (definition.isNewArrayEmpty()) {
         NewArrayEmpty newArrayEmpty = definition.asNewArrayEmpty();
         values = new IntArrayList();
@@ -191,7 +192,7 @@ public class ResourceAccessAnalysis
             if (constValue.isConstNumber()) {
               values.add(constValue.getDefinition().asConstNumber().getIntValue());
             } else if (constValue.isConstResourceNumber()) {
-              throw new Unreachable("Only running ResourceAccessAnalysis in initial tree shaking");
+              values.add(constValue.getDefinition().asResourceConstNumber().getValue());
             }
           } else {
             assert uniqueUser == staticPut;

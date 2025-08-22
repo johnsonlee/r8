@@ -16,6 +16,8 @@ import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.MethodResolutionResult;
+import com.android.tools.r8.lightir.LirCode;
+import com.android.tools.r8.lightir.LirOpcodes;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.transformers.ClassFileTransformer;
@@ -25,6 +27,7 @@ import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Streams;
 import java.util.Collection;
 import java.util.List;
 import org.junit.Test;
@@ -122,9 +125,16 @@ public class NestInvokeSpecialMethodPublicAccessWithIntermediateTest extends Tes
       Class<?> callerClass, AppInfoWithLiveness appInfo, DexMethod target) {
     CodeInspector inspector = new CodeInspector(appInfo.app());
     MethodSubject foo = inspector.clazz(callerClass).uniqueMethodWithOriginalName("foo");
+    LirCode<?> lirCode = foo.getMethod().getCode().asLirCode();
     assertTrue(
-        foo.streamInstructions()
-            .anyMatch(i -> i.asCfInstruction().isInvokeSpecial() && i.getMethod() == target));
+        Streams.stream(lirCode)
+            .filter(i -> i.getOpcode() == LirOpcodes.INVOKESUPER)
+            .anyMatch(
+                i -> {
+                  DexMethod invokedMethod =
+                      (DexMethod) lirCode.getConstantItem(i.getNextConstantOperand());
+                  return invokedMethod.isIdenticalTo(target);
+                }));
   }
 
   private DexMethod getTargetMethodSignature(Class<?> declaredClass, AppInfoWithLiveness appInfo) {

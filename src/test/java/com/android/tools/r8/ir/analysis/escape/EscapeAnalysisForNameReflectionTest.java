@@ -25,14 +25,16 @@ import java.util.Random;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class EscapeAnalysisForNameReflectionTest extends AnalysisTestBase {
 
-  @Parameterized.Parameters(name = "{0}")
+  @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
   }
@@ -47,6 +49,12 @@ public class EscapeAnalysisForNameReflectionTest extends AnalysisTestBase {
     return instruction ->
         instruction.isInvokeMethod()
             && instruction.asInvokeMethod().getInvokedMethod().name.toString().equals(name);
+  }
+
+  @Before
+  @Override
+  public void setup() throws Exception {
+    appView = computeAppViewWithClassHierarchy(app, null, this::configure);
   }
 
   @Test

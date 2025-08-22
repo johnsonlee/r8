@@ -2220,11 +2220,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
       currentPhase = LirPhase.POST;
     }
 
-    public void skipLirPhasesForTestingFinalOutput() {
-      assert currentPhase == LirPhase.PRE;
-      currentPhase = LirPhase.POST;
-    }
-
     public boolean isPreLirPhase() {
       return currentPhase == LirPhase.PRE;
     }

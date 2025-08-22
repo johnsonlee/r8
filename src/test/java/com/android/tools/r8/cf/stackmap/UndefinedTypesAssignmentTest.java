@@ -51,8 +51,11 @@ public class UndefinedTypesAssignmentTest extends TestBase {
   public void testR8() throws Exception {
     testForR8(parameters.getBackend())
         .addProgramClasses(TestClass.class)
-        .addDontWarn(I.class, A.class)
         .addKeepMainRule(TestClass.class)
+        .applyIf(
+            parameters.isCfRuntime(),
+            b -> b.addDontWarn(I.class, A.class),
+            b -> b.addDontWarn(A.class))
         .setMinApi(parameters)
         .allowDiagnosticWarningMessages()
         .compileWithExpectedDiagnostics(

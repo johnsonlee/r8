@@ -22,7 +22,7 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.analysis.EnqueuerAnalysisCollection;
 import com.android.tools.r8.graph.analysis.FinishedEnqueuerAnalysis;
-import com.android.tools.r8.graph.analysis.NewlyLiveCodeEnqueuerAnalysis;
+import com.android.tools.r8.graph.analysis.NewlyLiveUnprocessedCodeEnqueuerAnalysis;
 import com.android.tools.r8.ir.analysis.framework.intraprocedural.AbstractTransferFunction;
 import com.android.tools.r8.ir.analysis.framework.intraprocedural.DataflowAnalysisResult;
 import com.android.tools.r8.ir.analysis.framework.intraprocedural.DataflowAnalysisResult.FailedDataflowAnalysisResult;
@@ -31,11 +31,10 @@ import com.android.tools.r8.ir.analysis.framework.intraprocedural.cf.CfBlock;
 import com.android.tools.r8.ir.analysis.framework.intraprocedural.cf.CfControlFlowGraph;
 import com.android.tools.r8.ir.analysis.framework.intraprocedural.cf.CfIntraproceduralDataflowAnalysis;
 import com.android.tools.r8.optimize.interfaces.collection.NonEmptyOpenClosedInterfacesCollection;
-import com.android.tools.r8.shaking.DefaultEnqueuerUseRegistry;
 import com.android.tools.r8.shaking.Enqueuer;
-import com.android.tools.r8.shaking.EnqueuerWorklist;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.InternalOptions.OpenClosedInterfacesOptions;
+import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.ThreadUtils;
@@ -51,7 +50,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
 public class CfOpenClosedInterfacesAnalysis
-    implements NewlyLiveCodeEnqueuerAnalysis, FinishedEnqueuerAnalysis {
+    implements NewlyLiveUnprocessedCodeEnqueuerAnalysis, FinishedEnqueuerAnalysis {
 
   private static final int BATCH_SIZE = 100;
 
@@ -61,7 +60,7 @@ public class CfOpenClosedInterfacesAnalysis
   private final InternalOptions options;
 
   private final Set<DexClass> openInterfaces = SetUtils.newConcurrentHashSet();
-  private List<ProgramMethod> pendingMethods = new ArrayList<>(BATCH_SIZE);
+  private List<Pair<ProgramMethod, CfCode>> pendingMethods = new ArrayList<>(BATCH_SIZE);
   private final ProgramMethodMap<UnverifiableCfCodeDiagnostic> unverifiableCodeDiagnostics =
       ProgramMethodMap.createConcurrent();
 
@@ -80,17 +79,24 @@ public class CfOpenClosedInterfacesAnalysis
     if (enqueuer.getMode().isInitialTreeShaking()) {
       CfOpenClosedInterfacesAnalysis analysis =
           new CfOpenClosedInterfacesAnalysis(appView.withClassHierarchy(), enqueuer);
-      builder.addNewlyLiveCodeAnalysis(analysis).addFinishedAnalysis(analysis);
+      builder.addNewlyLiveUnprocessedCodeAnalysis(analysis).addFinishedAnalysis(analysis);
     }
   }
 
   @Override
-  public void processNewlyLiveCode(
-      ProgramMethod method, DefaultEnqueuerUseRegistry registry, EnqueuerWorklist worklist) {
-    pendingMethods.add(method);
+  public void processNewlyLiveUnprocessedCode(ProgramMethod method) {
+    // We need to save a reference to the CfCode object since the CfToLirConverter will convert it
+    // to LIR and update the method's code object.
+    Code code = method.getDefinition().getCode();
+    assert code != null;
+    if (!code.isCfCode()) {
+      assert code.isDexCode();
+      return;
+    }
+    pendingMethods.add(new Pair<>(method, code.asCfCode()));
     // Once we have accumulated <BATCH_SIZE> methods, analyze all of them concurrently.
     if (pendingMethods.size() == BATCH_SIZE) {
-      List<ProgramMethod> methods = pendingMethods;
+      List<Pair<ProgramMethod, CfCode>> methods = pendingMethods;
       enqueuer
           .getTaskCollection()
           .submitEnqueuerIndependentTask(
@@ -103,7 +109,7 @@ public class CfOpenClosedInterfacesAnalysis
   }
 
   @Override
-  public void done(Enqueuer enqueuer, ExecutorService executorService) throws ExecutionException {
+  public void done(Enqueuer enqueuer, ExecutorService executorService) {
     processPendingMethods(executorService);
     setClosedInterfaces();
     reportUnverifiableCodeDiagnostics();
@@ -115,12 +121,11 @@ public class CfOpenClosedInterfacesAnalysis
     pendingMethods.clear();
   }
 
-  private void processMethod(ProgramMethod method) {
-    Code code = method.getDefinition().getCode();
-    if (!code.isCfCode()) {
-      assert code.isDexCode();
-      return;
-    }
+  private void processMethod(Pair<ProgramMethod, CfCode> pair) {
+    processMethod(pair.getFirst(), pair.getSecond());
+  }
+
+  private void processMethod(ProgramMethod method, CfCode code) {
     CfCode cfCode = code.asCfCode();
     CfAnalysisConfig config = createConfig(method, cfCode);
     CfOpenClosedInterfacesAnalysisHelper helper =

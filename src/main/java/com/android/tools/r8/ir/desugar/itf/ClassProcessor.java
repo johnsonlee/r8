@@ -1057,7 +1057,7 @@ final class ClassProcessor {
     // In desugared library, emulated interface methods can be overridden by retarget lib members.
     DexEncodedMethod desugaringForwardingMethod =
         DexEncodedMethod.createDesugaringForwardingMethod(
-            target, clazz, forwardMethod, dexItemFactory, true);
+            appView, target, clazz, forwardMethod, true);
     if (!target.isProgramMethod() || target.getDefinition().isLibraryMethodOverride().isTrue()) {
       desugaringForwardingMethod.setLibraryMethodOverride(OptionalBool.TRUE);
     }

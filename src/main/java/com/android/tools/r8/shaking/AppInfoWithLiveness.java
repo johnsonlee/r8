@@ -24,7 +24,6 @@ import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
-import com.android.tools.r8.graph.DexMember;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexReference;
@@ -56,6 +55,7 @@ import com.android.tools.r8.ir.analysis.type.TypeAnalysis;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.desugar.LambdaDescriptor;
+import com.android.tools.r8.naming.IdentifierNameStringCollection;
 import com.android.tools.r8.naming.SeedMapper;
 import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration;
 import com.android.tools.r8.repackaging.RepackagingUtils;
@@ -75,7 +75,6 @@ import com.android.tools.r8.utils.structural.Ordered;
 import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
-import it.unimi.dsi.fastutil.objects.Object2BooleanMap;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Collections;
@@ -168,12 +167,13 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
    * Set of all methods including a RecordFieldValues instruction. Set only in final tree shaking.
    */
   public final Set<DexMethod> recordFieldValuesReferences;
+
   /**
    * All items with -identifiernamestring rule. Bound boolean value indicates the rule is explicitly
    * specified by users (<code>true</code>) or not, i.e., implicitly added by R8 (<code>false</code>
    * ).
    */
-  public final Object2BooleanMap<DexMember<?, ?>> identifierNameStrings;
+  public final IdentifierNameStringCollection identifierNameStrings;
 
   /**
    * A set of classpath types that are not referenced from the app, but which names can still lead
@@ -214,7 +214,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
       Set<DexMethod> whyAreYouNotInlining,
       Set<DexMethod> reprocess,
       PredicateSet<DexType> alwaysClassInline,
-      Object2BooleanMap<DexMember<?, ?>> identifierNameStrings,
+      IdentifierNameStringCollection identifierNameStrings,
       Set<DexType> prunedTypes,
       Set<DexType> prunedClasspathTypes,
       Map<DexField, Int2ReferenceMap<DexField>> switchMaps,
@@ -309,7 +309,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         pruneMethods(previous.whyAreYouNotInlining, prunedItems, tasks),
         pruneMethods(previous.reprocess, prunedItems, tasks),
         previous.alwaysClassInline,
-        pruneMapFromMembers(previous.identifierNameStrings, prunedItems, tasks),
+        previous.identifierNameStrings.prune(prunedItems, tasks),
         prunedItems.hasRemovedClasses()
             ? CollectionUtils.mergeSets(previous.prunedTypes, prunedItems.getRemovedClasses())
             : previous.prunedTypes,
@@ -374,19 +374,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
       Map<DexType, V> map, PrunedItems prunedItems, TaskCollection<?> tasks)
       throws ExecutionException {
     return pruneMap(map, prunedItems.getRemovedClasses(), tasks);
-  }
-
-  private static Object2BooleanMap<DexMember<?, ?>> pruneMapFromMembers(
-      Object2BooleanMap<DexMember<?, ?>> map, PrunedItems prunedItems, TaskCollection<?> tasks)
-      throws ExecutionException {
-    if (prunedItems.hasRemovedMembers()) {
-      tasks.submit(
-          () -> {
-            prunedItems.getRemovedFields().forEach(map::removeBoolean);
-            prunedItems.getRemovedMethods().forEach(map::removeBoolean);
-          });
-    }
-    return map;
   }
 
   private static <K, V> Map<K, V> pruneMap(
@@ -1018,7 +1005,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         lens.rewriteReferences(whyAreYouNotInlining),
         lens.rewriteReferences(reprocess),
         alwaysClassInline.rewriteItems(lens::lookupType),
-        lens.rewriteReferenceKeys(identifierNameStrings),
+        identifierNameStrings.rewrittenWithLens(lens),
         // Don't rewrite pruned types - the removed types are identified by their original name.
         prunedTypes,
         prunedClasspathTypes,

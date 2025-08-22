@@ -27,7 +27,6 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.optimize.AssertionsRewriter;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
-import com.android.tools.r8.shaking.DefaultEnqueuerUseRegistry;
 import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.shaking.EnqueuerWorklist;
 import com.android.tools.r8.utils.AssertionConfigurationWithDefault;
@@ -37,7 +36,7 @@ import java.util.stream.Collectors;
 import org.objectweb.asm.Opcodes;
 
 public class ClassInitializerAssertionEnablingAnalysis
-    implements TraceFieldAccessEnqueuerAnalysis, NewlyLiveCodeEnqueuerAnalysis {
+    implements TraceFieldAccessEnqueuerAnalysis, NewlyLiveUnprocessedCodeEnqueuerAnalysis {
   private final DexItemFactory dexItemFactory;
   private final OptimizationFeedback feedback;
   private final DexString kotlinAssertionsEnabled;
@@ -65,7 +64,7 @@ public class ClassInitializerAssertionEnablingAnalysis
       ClassInitializerAssertionEnablingAnalysis analysis =
           new ClassInitializerAssertionEnablingAnalysis(
               appView, OptimizationFeedbackSimple.getInstance());
-      builder.addTraceFieldAccessAnalysis(analysis).addNewlyLiveCodeAnalysis(analysis);
+      builder.addTraceFieldAccessAnalysis(analysis).addNewlyLiveUnprocessedCodeAnalysis(analysis);
     }
   }
 
@@ -94,8 +93,7 @@ public class ClassInitializerAssertionEnablingAnalysis
   }
 
   @Override
-  public void processNewlyLiveCode(
-      ProgramMethod method, DefaultEnqueuerUseRegistry registry, EnqueuerWorklist worklist) {
+  public void processNewlyLiveUnprocessedCode(ProgramMethod method) {
     DexEncodedMethod definition = method.getDefinition();
     if (!definition.hasCode() || !definition.getCode().isCfCode()) {
       return;

@@ -8,7 +8,6 @@ import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticType;
 import static org.hamcrest.CoreMatchers.allOf;
 import static org.hamcrest.CoreMatchers.containsString;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.fail;
 
 import com.android.tools.r8.CompilationFailedException;
@@ -17,7 +16,7 @@ import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.jasmin.JasminBuilder;
 import com.android.tools.r8.jasmin.JasminBuilder.ClassBuilder;
 import com.android.tools.r8.jasmin.JasminTestBase;
-import com.android.tools.r8.utils.UnverifiableCfCodeDiagnostic;
+import com.android.tools.r8.utils.StringDiagnostic;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -47,9 +46,20 @@ public class InconsistentLocalTypeOnExceptionEdgeTest extends JasminTestBase {
           .assertFailureWithErrorThatThrows(VerifyError.class);
     } else {
       try {
-        testForD8().addProgramClassFileData(classFileData).setMinApi(parameters).compile();
+        testForD8()
+            .addProgramClassFileData(classFileData)
+            .setMinApi(parameters)
+            .compileWithExpectedDiagnostics(
+                diagnostics ->
+                    diagnostics.assertErrorsMatch(
+                        allOf(
+                            diagnosticType(StringDiagnostic.class),
+                            diagnosticMessage(
+                                containsString(
+                                    "Cannot constrain type: INT for value: v1 by constraint:"
+                                        + " OBJECT")))));
       } catch (CompilationFailedException e) {
-        inspectCompilationFailedException(e);
+        // Expected.
       }
     }
 
@@ -61,18 +71,16 @@ public class InconsistentLocalTypeOnExceptionEdgeTest extends JasminTestBase {
           .setMinApi(parameters)
           .compileWithExpectedDiagnostics(
               diagnostics ->
-                  diagnostics.assertWarningsMatch(
+                  diagnostics.assertErrorsMatch(
                       allOf(
-                          diagnosticType(UnverifiableCfCodeDiagnostic.class),
+                          diagnosticType(StringDiagnostic.class),
                           diagnosticMessage(
-                              allOf(
-                                  containsString(
-                                      "Unverifiable code in `void Main.main(java.lang.String[])`"),
-                                  containsString(
-                                      "Expected object at local index 0, but was top"))))));
+                              containsString(
+                                  "Cannot constrain type: INT for value: v1 by constraint:"
+                                      + " OBJECT")))));
       fail("Expected compilation to fail");
     } catch (CompilationFailedException e) {
-      inspectCompilationFailedException(e);
+      // Expected.
     }
   }
 
@@ -99,11 +107,5 @@ public class InconsistentLocalTypeOnExceptionEdgeTest extends JasminTestBase {
         "  return",
         ".catch java/lang/Throwable from LabelTryStart to LabelTryEnd using LabelCatch");
     return appBuilder.buildClasses();
-  }
-
-  private void inspectCompilationFailedException(CompilationFailedException e) {
-    assertThat(
-        e.getCause().getMessage(),
-        containsString("Cannot constrain type: INT for value: v1 by constraint: OBJECT"));
   }
 }

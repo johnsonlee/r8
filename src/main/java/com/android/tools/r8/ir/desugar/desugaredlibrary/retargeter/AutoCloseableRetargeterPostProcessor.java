@@ -231,10 +231,10 @@ public class AutoCloseableRetargeterPostProcessor implements CfPostProcessingDes
     assert resolvedMethod != null;
     DexEncodedMethod desugaringForwardingMethod =
         DexEncodedMethod.createDesugaringForwardingMethod(
+            appView,
             resolvedMethod,
             clazz,
             forwardMethod,
-            appView.dexItemFactory(),
             appView.getSyntheticItems().isSynthetic(forwardMethod.getHolderType()));
     desugaringForwardingMethod.setLibraryMethodOverride(OptionalBool.TRUE);
     return desugaringForwardingMethod;

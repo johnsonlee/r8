@@ -840,6 +840,10 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     return code != null;
   }
 
+  public boolean hasLirCode() {
+    return code instanceof LirCode;
+  }
+
   public Code getCode() {
     checkIfObsolete();
     return code;
@@ -1273,14 +1277,15 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
   }
 
   public static DexEncodedMethod createDesugaringForwardingMethod(
+      AppView<?> appView,
       DexClassAndMethod target,
       DexClass clazz,
       DexMethod forwardMethod,
-      DexItemFactory factory,
       boolean targetIsStatic) {
     assert forwardMethod != null;
     // New method will have the same name, proto, and also all the flags of the
     // default method, including bridge flag.
+    DexItemFactory factory = appView.dexItemFactory();
     DexMethod newMethod = target.getReference().withHolder(clazz, factory);
     MethodAccessFlags newFlags = target.getAccessFlags().copy();
     // Some debuggers (like IntelliJ) automatically skip synthetic methods on single step.
@@ -1304,7 +1309,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
         .setAccessFlags(newFlags)
         .setGenericSignature(MethodTypeSignature.noSignature())
         .setAnnotations(DexAnnotationSet.empty())
-        .setCode(builder.buildCf())
+        .setCode(builder.build(appView))
         .setApiLevelForDefinition(target.getDefinition().getApiLevelForDefinition())
         .setApiLevelForCode(target.getDefinition().getApiLevelForCode())
         .build();

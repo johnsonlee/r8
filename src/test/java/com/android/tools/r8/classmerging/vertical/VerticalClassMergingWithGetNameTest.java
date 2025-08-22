@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.classmerging.vertical;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsentIf;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -36,18 +37,25 @@ public class VerticalClassMergingWithGetNameTest extends TestBase {
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
-        .addVerticallyMergedClassesInspector(
-            inspector -> inspector.assertMergedIntoSubtype(A.class))
         .enableInliningAnnotations()
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), Main.class)
         .apply(
             runResult -> {
+              // TODO(b/440035586): Extend lock candidate analysis to LIR.
+              ClassSubject aClassSubject = runResult.inspector().clazz(A.class);
+              assertThat(aClassSubject, isAbsentIf(parameters.isCfRuntime()));
+
               ClassSubject bClassSubject = runResult.inspector().clazz(B.class);
               assertThat(bClassSubject, isPresent());
+
+              // TODO(b/440035586): Extend lock candidate analysis to LIR.
               runResult.assertSuccessWithOutputLines(
-                  bClassSubject.getFinalName(), bClassSubject.getFinalName());
+                  parameters.isCfRuntime()
+                      ? bClassSubject.getFinalName()
+                      : aClassSubject.getFinalName(),
+                  bClassSubject.getFinalName());
             });
   }
 

@@ -36,6 +36,7 @@ import com.android.tools.r8.graph.ClassDefinition;
 import com.android.tools.r8.graph.ClassResolutionResult;
 import com.android.tools.r8.graph.ClasspathOrLibraryClass;
 import com.android.tools.r8.graph.ClasspathOrLibraryDefinition;
+import com.android.tools.r8.graph.Code;
 import com.android.tools.r8.graph.Definition;
 import com.android.tools.r8.graph.DexAnnotation;
 import com.android.tools.r8.graph.DexAnnotation.AnnotatedKind;
@@ -99,6 +100,7 @@ import com.android.tools.r8.graph.analysis.ResourceAccessAnalysis;
 import com.android.tools.r8.ir.analysis.proto.GeneratedMessageLiteBuilderShrinker;
 import com.android.tools.r8.ir.analysis.proto.ProtoEnqueuerUseRegistry;
 import com.android.tools.r8.ir.analysis.proto.schema.ProtoEnqueuerExtension;
+import com.android.tools.r8.ir.conversion.CfToLirConverter;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringCollection;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaringCollection;
@@ -114,6 +116,7 @@ import com.android.tools.r8.ir.desugar.lambda.SyntheticLambdaAccessorMethodConsu
 import com.android.tools.r8.ir.optimize.info.MutableMethodOptimizationInfo;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.kotlin.KotlinMetadataEnqueuerExtension;
+import com.android.tools.r8.naming.IdentifierNameStringCollection;
 import com.android.tools.r8.optimize.interfaces.analysis.CfOpenClosedInterfacesAnalysis;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
@@ -164,8 +167,6 @@ import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
-import it.unimi.dsi.fastutil.objects.Object2BooleanArrayMap;
-import it.unimi.dsi.fastutil.objects.Object2BooleanMap;
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -261,6 +262,7 @@ public class Enqueuer {
   private RootSet rootSet;
   private final EnqueuerUseRegistryFactory useRegistryFactory;
   private AnnotationRemover.Builder annotationRemoverBuilder;
+  private final CfToLirConverter cfToLirConverter;
 
   private final FieldAccessInfoCollectionImpl fieldAccessInfoCollection =
       new FieldAccessInfoCollectionImpl();
@@ -544,6 +546,10 @@ public class Enqueuer {
         new EnqueuerEnumReflectionAnalysisAndroid(appView, this).register(analysesBuilder);
       }
       CfOpenClosedInterfacesAnalysis.register(appView, this, analysesBuilder);
+      cfToLirConverter = CfToLirConverter.register(appView, this, analysesBuilder);
+      taskCollection.register(analysesBuilder);
+    } else {
+      cfToLirConverter = null;
     }
     analyses = analysesBuilder.build();
 
@@ -1168,6 +1174,9 @@ public class Enqueuer {
   }
 
   public void traceResourceValue(int value) {
+    if (mode.isInitialTreeShaking()) {
+      return;
+    }
     appView.getResourceShrinkerState().trace(value, "from dex");
   }
 
@@ -4186,12 +4195,10 @@ public class Enqueuer {
     }
 
     boolean isEmpty() {
-      boolean empty =
-          desugaredMethods.isEmpty()
-              && liveMethods.isEmpty()
-              && syntheticClasspathClasses.isEmpty()
-              && injectedInterfaces.isEmpty();
-      return empty;
+      return desugaredMethods.isEmpty()
+          && liveMethods.isEmpty()
+          && syntheticClasspathClasses.isEmpty()
+          && injectedInterfaces.isEmpty();
     }
 
     public void addLiveClasspathClass(DexClasspathClass clazz) {
@@ -4232,7 +4239,7 @@ public class Enqueuer {
       // All synthetic additions are initial tree shaking only. No need to track keep reasons.
       KeepReasonWitness fakeReason = enqueuer.graphReporter.fakeReportShouldNotBeUsed();
       for (ProgramMethod desugaredMethod : desugaredMethods) {
-        enqueuer.worklist.enqueueTraceCodeAction(desugaredMethod);
+        enqueuer.worklist.enqueueProcessCodeBeforeTracingAction(desugaredMethod);
       }
       for (ProgramMethod liveMethod : liveMethods.values()) {
         assert !enqueuer.targetedMethods.contains(liveMethod.getDefinition());
@@ -4289,7 +4296,14 @@ public class Enqueuer {
     // DEX code is not a supported input and can be ignored. Some legacy tests still pass DEX as
     // input (smali tests).
     assert method.getDefinition().hasCode();
-    if (method.getDefinition().getCode().isDexCode()) {
+    Code code = method.getDefinition().getCode();
+    if (code.isDexCode()) {
+      return false;
+    }
+    if (code.isLirCode()) {
+      // This is a forwarding method inserted by post processing desugaring.
+      assert method.getDefinition().isD8R8Synthesized();
+      assert worklist.isNonPushable();
       return false;
     }
     // TODO(b/294886627): This no longer includes the time to parse and check needs desugaring.
@@ -4334,7 +4348,7 @@ public class Enqueuer {
     if (desugaring.needsDesugaring(method)) {
       pendingCodeDesugaring.add(method);
     } else {
-      worklist.enqueueTraceCodeAction(method);
+      worklist.enqueueProcessCodeBeforeTracingAction(method);
     }
   }
 
@@ -4437,10 +4451,11 @@ public class Enqueuer {
       interfaceProcessor.finalizeMoveToCompanionMethod(method, companion);
       pendingMethodMoveInverse.remove(companion);
       // TODO(b/199043500): Once "live moved methods" are tracked this can be removed.
-      if (!isMethodLive(companion)) {
+      if (isMethodLive(companion)) {
+        additions.addMethodWithDesugaredCodeForTracing(companion);
+      } else {
         additions.addLiveMethod(companion);
       }
-      additions.addMethodWithDesugaredCodeForTracing(companion);
     }
 
     List<ProgramMethod> needsProcessing = eventConsumer.finalizeDesugaring();
@@ -4689,8 +4704,8 @@ public class Enqueuer {
             amendWithCompanionMethods(rootSet.whyAreYouNotInlining),
             amendWithCompanionMethods(rootSet.reprocess),
             rootSet.alwaysClassInline,
-            joinIdentifierNameStrings(
-                rootSet.identifierNameStrings,
+            new IdentifierNameStringCollection(
+                SetUtils.newIdentityHashSet(rootSet.identifierNameStrings),
                 reflectiveIdentification.getIdentifierNameStringAdditions()),
             emptySet(),
             prunedClasspathTypesBuilder.build(),
@@ -4830,18 +4845,6 @@ public class Enqueuer {
     Set<R> result = Sets.newIdentityHashSet();
     for (D item : set) {
       result.add(item.getReference());
-    }
-    return result;
-  }
-
-  private static Object2BooleanMap<DexMember<?, ?>> joinIdentifierNameStrings(
-      Set<DexMember<?, ?>> explicit, Set<DexMember<?, ?>> implicit) {
-    Object2BooleanMap<DexMember<?, ?>> result = new Object2BooleanArrayMap<>();
-    for (DexMember<?, ?> e : explicit) {
-      result.putIfAbsent(e, true);
-    }
-    for (DexMember<?, ?> i : implicit) {
-      result.putIfAbsent(i, false);
     }
     return result;
   }
@@ -5255,16 +5258,35 @@ public class Enqueuer {
   }
 
   private void traceNonDesugaredCode(ProgramMethod method, Timing timing) {
-    if (getMode().isInitialTreeShaking()) {
+    if (mode.isInitialTreeShaking()) {
+      if (method.getDefinition().getCode().isLirCode()) {
+        // We should only encounter LIR here in the post processing desugaring. The traced methods
+        // are synthetic forwarding methods that do not require desugaring.
+        assert method.getDefinition().isD8R8Synthesized();
+        assert worklist.isNonPushable();
+        traceCode(method, timing);
+        return;
+      }
       if (addToPendingDesugaring(method, timing)) {
         return;
       }
     }
 
-    traceCode(method, timing);
+    processCodeBeforeTracing(method, timing);
   }
 
-  void traceCode(ProgramMethod method, Timing timing) {
+  void processCodeBeforeTracing(ProgramMethod method, Timing timing) {
+    timing.begin("Notify processNewlyLiveUnprocessedCode");
+    analyses.processNewlyLiveUnprocessedCode(method);
+    timing.end();
+    if (cfToLirConverter != null && !appView.isCfByteCodePassThrough(method)) {
+      cfToLirConverter.processMethod(method);
+    } else {
+      traceCode(method, timing);
+    }
+  }
+
+  public void traceCode(ProgramMethod method, Timing timing) {
     timing.begin("Trace code");
     DefaultEnqueuerUseRegistry registry =
         useRegistryFactory.create(appView, method, this, appView.apiLevelCompute());

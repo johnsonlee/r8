@@ -7,6 +7,7 @@ import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexEncodedMethod;
+import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
@@ -16,6 +17,7 @@ import com.android.tools.r8.ir.code.NumberGenerator;
 import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
+import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
 import com.android.tools.r8.smali.SmaliBuilder.MethodSignature;
 import com.android.tools.r8.smali.SmaliTestBase;
 import com.android.tools.r8.utils.AndroidApp;
@@ -24,7 +26,6 @@ import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
-import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.util.List;
@@ -54,9 +55,7 @@ public class IrInjectionTestBase extends SmaliTestBase {
 
   public class TestApplication {
 
-    public final DexApplication application;
     public final AppView<?> appView;
-
     public final DexEncodedMethod method;
     public final IRCode code;
     public final List<IRCode> additionalCode;
@@ -72,14 +71,16 @@ public class IrInjectionTestBase extends SmaliTestBase {
         AppView<?> appView,
         MethodSubject method,
         List<Function<AppView<?>, IRCode>> additionalCode) {
-      this.application = appView.appInfo().app();
       this.appView = appView;
+      MutableMethodConversionOptions conversionOptions;
+      if (appView.enableWholeProgramOptimizations()) {
+        convertLirToDex();
+        conversionOptions = MethodConversionOptions.forPostLirPhase(appView);
+      } else {
+        conversionOptions = MethodConversionOptions.forD8(appView);
+      }
       this.method = method.getMethod();
-      appView.testing().skipLirPhasesForTestingFinalOutput();
-      this.code =
-          method
-              .getProgramMethod()
-              .buildIR(appView, MethodConversionOptions.forPostLirPhase(appView));
+      this.code = method.getProgramMethod().buildIR(appView, conversionOptions);
       code.removeRedundantBlocks();
       this.additionalCode = ListUtils.map(additionalCode, fn -> fn.apply(appView));
       this.consumers = new AndroidAppConsumers(appView.options());
@@ -96,6 +97,19 @@ public class IrInjectionTestBase extends SmaliTestBase {
       }
       while (valueNumberGenerator.peek() <= largestValueNumber) {
         valueNumberGenerator.next();
+      }
+    }
+
+    private void convertLirToDex() {
+      appView.testing().exitLirSupportedPhase();
+      for (DexProgramClass clazz : appView.appInfo().classes()) {
+        clazz.forEachProgramMethodMatching(
+            DexEncodedMethod::hasCode,
+            method -> {
+              IRCode code =
+                  method.buildIR(appView, MethodConversionOptions.forPostLirPhase(appView));
+              new IRConverter(appView).replaceCodeForTesting(code);
+            });
       }
     }
 

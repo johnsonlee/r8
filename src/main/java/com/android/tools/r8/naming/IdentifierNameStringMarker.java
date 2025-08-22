@@ -11,6 +11,7 @@ import static com.android.tools.r8.naming.IdentifierNameStringUtils.isReflection
 
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.errors.dontwarn.DontWarnConfiguration;
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.Definition;
 import com.android.tools.r8.graph.DexEncodedField;
@@ -43,12 +44,12 @@ import com.android.tools.r8.naming.identifiernamestring.IdentifierNameStringLook
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.TextPosition;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.google.common.collect.Streams;
-import it.unimi.dsi.fastutil.objects.Object2BooleanMap;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Objects;
@@ -57,13 +58,28 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
-public class IdentifierNameStringMarker extends CodeRewriterPass<AppInfoWithLiveness> {
+public class IdentifierNameStringMarker extends CodeRewriterPass<AppInfoWithClassHierarchy> {
 
-  private final Object2BooleanMap<DexMember<?, ?>> identifierNameStrings;
+  private final IdentifierNameStringCollection identifierNameStrings;
 
   public IdentifierNameStringMarker(AppView<AppInfoWithLiveness> appView) {
+    this(appView, appView.appInfo().identifierNameStrings);
+  }
+
+  public IdentifierNameStringMarker(
+      AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer) {
+    this(
+        appView,
+        new IdentifierNameStringCollection(
+            appView.rootSet().identifierNameStrings,
+            enqueuer.getReflectiveIdentification().getIdentifierNameStringAdditions()));
+  }
+
+  private IdentifierNameStringMarker(
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      IdentifierNameStringCollection identifierNameStrings) {
     super(appView);
-    this.identifierNameStrings = appView.appInfo().identifierNameStrings;
+    this.identifierNameStrings = identifierNameStrings;
   }
 
   @Override
@@ -99,7 +115,7 @@ public class IdentifierNameStringMarker extends CodeRewriterPass<AppInfoWithLive
 
   private void decoupleIdentifierNameStringInStaticField(DexEncodedField encodedField) {
     assert encodedField.accessFlags.isStatic();
-    if (!identifierNameStrings.containsKey(encodedField.getReference())) {
+    if (!identifierNameStrings.contains(encodedField.getReference())) {
       return;
     }
     DexValueString staticValue = encodedField.getStaticValue().asDexValueString();
@@ -167,7 +183,7 @@ public class IdentifierNameStringMarker extends CodeRewriterPass<AppInfoWithLive
 
   private DexReference getItemBasedStringForFieldPut(IRCode code, FieldPut fieldPut) {
     DexField field = fieldPut.getField();
-    if (!identifierNameStrings.containsKey(field)) {
+    if (!identifierNameStrings.contains(field)) {
       return null;
     }
     Value in = fieldPut.value();
@@ -242,7 +258,7 @@ public class IdentifierNameStringMarker extends CodeRewriterPass<AppInfoWithLive
       InvokeMethod invoke) {
     DexMethod invokedMethod = invoke.getInvokedMethod();
     boolean isClassNameComparison = isClassNameComparison(invoke, appView.dexItemFactory());
-    if (!identifierNameStrings.containsKey(invokedMethod) && !isClassNameComparison) {
+    if (!identifierNameStrings.contains(invokedMethod) && !isClassNameComparison) {
       return iterator;
     }
     List<Value> ins = invoke.arguments();
@@ -403,10 +419,9 @@ public class IdentifierNameStringMarker extends CodeRewriterPass<AppInfoWithLive
   }
 
   private void warnUndeterminedIdentifierIfNecessary(
-      DexReference member, ProgramMethod method, Instruction instruction, DexString original) {
-    assert member.isDexField() || member.isDexMethod();
+      DexMember<?, ?> member, ProgramMethod method, Instruction instruction, DexString original) {
     // Only issue warnings for -identifiernamestring rules explicitly added by the user.
-    boolean matchedByExplicitRule = identifierNameStrings.getBoolean(member);
+    boolean matchedByExplicitRule = identifierNameStrings.containsExplicit(member);
     if (!matchedByExplicitRule) {
       return;
     }

@@ -34,6 +34,15 @@ public abstract class MethodConversionOptions {
     return new MutableMethodConversionOptions(determineTarget(appView, null));
   }
 
+  // TODO(b/439952010): Once we have support for generating LIR in tree shaking when compiling to
+  //  CF, all uses of this method should be replaced by calls to forLirPhase().
+  public static MutableMethodConversionOptions forLirPhaseWhenDexing(AppView<?> appView) {
+    assert appView.enableWholeProgramOptimizations();
+    return appView.options().isGeneratingClassFiles()
+        ? forPreLirPhase(appView)
+        : forLirPhase(appView);
+  }
+
   public static MutableMethodConversionOptions forD8(AppView<?> appView) {
     return forD8(appView, null);
   }

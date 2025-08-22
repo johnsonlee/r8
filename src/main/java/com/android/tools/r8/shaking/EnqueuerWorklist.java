@@ -315,6 +315,26 @@ public abstract class EnqueuerWorklist {
     }
   }
 
+  static class ProcessCodeBeforeTracingAction extends EnqueuerAction {
+    private final ProgramMethod method;
+
+    ProcessCodeBeforeTracingAction(ProgramMethod method) {
+      this.method = method;
+    }
+
+    @Override
+    public void run(Enqueuer enqueuer, Timing timing) {
+      timing.begin(getName());
+      enqueuer.processCodeBeforeTracing(method, timing);
+      timing.end();
+    }
+
+    @Override
+    public void run(Enqueuer enqueuer) {
+      throw new Unreachable();
+    }
+  }
+
   static class TraceCodeAction extends EnqueuerAction {
     private final ProgramMethod method;
 
@@ -693,6 +713,10 @@ public abstract class EnqueuerWorklist {
     return queue.poll();
   }
 
+  public boolean isNonPushable() {
+    return false;
+  }
+
   abstract EnqueuerWorklist nonPushable();
 
   final void enqueueAll(Collection<? extends EnqueuerAction> actions) {
@@ -748,6 +772,8 @@ public abstract class EnqueuerWorklist {
 
   abstract void enqueueTraceTypeAccessFromAnnotationAction(
       DexType type, DexAnnotation annotation, ProgramDefinition context);
+
+  public abstract void enqueueProcessCodeBeforeTracingAction(ProgramMethod method);
 
   public abstract void enqueueTraceCodeAction(ProgramMethod method);
 
@@ -909,6 +935,11 @@ public abstract class EnqueuerWorklist {
     }
 
     @Override
+    public void enqueueProcessCodeBeforeTracingAction(ProgramMethod method) {
+      queue.add(new ProcessCodeBeforeTracingAction(method));
+    }
+
+    @Override
     public void enqueueTraceCodeAction(ProgramMethod method) {
       queue.add(new TraceCodeAction(method));
     }
@@ -992,6 +1023,11 @@ public abstract class EnqueuerWorklist {
 
     private NonPushableEnqueuerWorklist(PushableEnqueuerWorkList workList) {
       super(workList.enqueuer, workList.queue, workList.threadingModule);
+    }
+
+    @Override
+    public boolean isNonPushable() {
+      return true;
     }
 
     @Override
@@ -1097,6 +1133,11 @@ public abstract class EnqueuerWorklist {
     void enqueueTraceTypeAccessFromAnnotationAction(
         DexType type, DexAnnotation annotation, ProgramDefinition context) {
       throw attemptToEnqueue("TraceTypeAccessFromAnnotationAction " + type);
+    }
+
+    @Override
+    public void enqueueProcessCodeBeforeTracingAction(ProgramMethod method) {
+      throw attemptToEnqueue("ProcessCodeBeforeTracingAction " + method);
     }
 
     @Override
