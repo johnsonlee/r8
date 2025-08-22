@@ -109,7 +109,7 @@ public class CfOpenClosedInterfacesAnalysis
   }
 
   @Override
-  public void done(Enqueuer enqueuer, ExecutorService executorService) {
+  public void done(Enqueuer enqueuer, ExecutorService executorService) throws ExecutionException {
     processPendingMethods(executorService);
     setClosedInterfaces();
     reportUnverifiableCodeDiagnostics();
