@@ -173,7 +173,7 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
 
     public static class Builder {
 
-      private String keepVariant = "-keepclasseswithmembers";
+      private String keepVariant = "-keepclassmembers";
       private String conditionClass;
       private String conditionMembers;
       private String consequentClass;
@@ -348,6 +348,17 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
                 .setConsequentMembers("{ *; }")
                 .apply(fn)
                 .build());
+  }
+
+  // Rule added by rule extraction to avoid compat mode keeping the default constructor.
+  protected static void addDefaultInitWorkaround(
+      ExpectedRules.Builder b, Consumer<ExpectedKeepRule.Builder> fn) {
+    b.add(
+        ExpectedKeepRule.builder()
+            .setKeepVariant("-keep")
+            .setConsequentMembers("{ void finalize(); }")
+            .apply(fn)
+            .build());
   }
 
   static class ArchiveResourceProviderClassFilesOnly

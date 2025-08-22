@@ -87,6 +87,8 @@ public class KeepUsesReflectionForInstantiationAnyArgsConstructorTest
                     .setConsequentMembers("{ void <init>(...); }")
                     .build());
     addConsequentKotlinMetadata(builder, b -> b.apply(setCondition));
+    addDefaultInitWorkaround(
+        builder, b -> b.apply(setCondition).setConsequentClass(KeptClass.class));
     return builder.build();
   }
 
@@ -109,6 +111,11 @@ public class KeepUsesReflectionForInstantiationAnyArgsConstructorTest
                     .setConsequentMembers("{ void <init>(...); }")
                     .build());
     addConsequentKotlinMetadata(builder, b -> b.apply(setCondition));
+    addDefaultInitWorkaround(
+        builder,
+        b ->
+            b.apply(setCondition)
+                .setConsequentClass("com.android.tools.r8.keepanno.androidx.kt.KeptClass"));
     return builder.build();
   }
 

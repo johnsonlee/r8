@@ -1646,14 +1646,6 @@ public class KeepEdgeReader implements Opcodes {
               .addTarget(
                   KeepTarget.builder()
                       .setItemReference(memberBinding)
-                      // Keeping the kotlin.Metadata annotation on the members is not really needed,
-                      // as the annotation is only supported on classes. However, having it here
-                      // makes the keep rule extraction generate more compact rules.
-                      .setConstraints(
-                          KeepConstraints.defaultAdditions(
-                              KeepConstraints.builder()
-                                  .add(keepConstraintKotlinMetadataAnnotation)
-                                  .build()))
                       .build())
               .addTarget(KeepTarget.builder().setItemReference(kotlinMetadataBinding).build())
               .addTarget(
@@ -1845,7 +1837,17 @@ public class KeepEdgeReader implements Opcodes {
       KeepMemberBindingReference memberBindingKotlinDefault =
           bindingsHelper.defineFreshMemberBinding(
               KeepMemberItemPattern.builder()
-                  .setClassReference(classBinding)
+                  // Use a fresh class binding for the Kotlin $default method as otherwise this
+                  // method will be part of the required structure of the class matched. See test
+                  // KeepConjunctiveBindingsTest.
+                  .setClassReference(
+                      bindingsHelper.defineFreshClassBinding(
+                          KeepClassItemPattern.builder()
+                              .setClassPattern(
+                                  KeepClassPattern.builder()
+                                      .setClassNamePattern(qualifiedName)
+                                      .build())
+                              .build()))
                   .setMemberPattern(
                       KeepMethodPattern.builder()
                           .setNamePattern(methodNameKotlinDefault)
@@ -1889,23 +1891,10 @@ public class KeepEdgeReader implements Opcodes {
               .addTarget(
                   KeepTarget.builder()
                       .setItemReference(memberBinding)
-                      // Keeping the kotlin.Metadata annotation on the members is not really needed,
-                      // as the annotation is only supported on classes. However, having it here
-                      // makes the keep rule extraction generate more compact rules.
-                      .setConstraints(
-                          KeepConstraints.defaultAdditions(
-                              KeepConstraints.builder()
-                                  .add(keepConstraintKotlinMetadataAnnotation)
-                                  .build()))
                       .build())
               .addTarget(
                   KeepTarget.builder()
                       .setItemReference(memberBindingKotlinDefault)
-                      .setConstraints(
-                          KeepConstraints.defaultAdditions(
-                              KeepConstraints.builder()
-                                  .add(keepConstraintKotlinMetadataAnnotation)
-                                  .build()))
                       .build())
               .addTarget(KeepTarget.builder().setItemReference(kotlinMetadataBinding).build())
               .addTarget(

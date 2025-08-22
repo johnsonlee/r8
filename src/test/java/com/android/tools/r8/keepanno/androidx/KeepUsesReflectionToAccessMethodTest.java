@@ -81,6 +81,8 @@ public class KeepUsesReflectionToAccessMethodTest extends KeepAnnoTestExtractedR
               .build());
     }
     addConsequentKotlinMetadata(builder, b -> b.apply(setCondition));
+    addDefaultInitWorkaround(
+        builder, b -> b.apply(setCondition).setConsequentClass(KeptClass.class));
     return builder.build();
   }
 
@@ -101,6 +103,8 @@ public class KeepUsesReflectionToAccessMethodTest extends KeepAnnoTestExtractedR
               .build());
     }
     addConsequentKotlinMetadata(builder, b -> b.apply(setCondition));
+    addDefaultInitWorkaround(
+        builder, b -> b.apply(setCondition).setConsequentClass(consequentClass));
     return builder.build();
   }
 
@@ -159,7 +163,8 @@ public class KeepUsesReflectionToAccessMethodTest extends KeepAnnoTestExtractedR
                 ClassWithAnnotation.class,
                 MethodPredicate.onName("foo"),
                 builder -> buildUsesReflectionToAccessMethod(builder, KeptClass.class, "m"))),
-        getExpectedRulesJava(ClassWithAnnotation.class, "{ *** m(...); }"),
+        getExpectedRulesJava(
+            ClassWithAnnotation.class, "{ *** m(...); }", "{ *** m$default(...); }"),
         StringUtils.lines("4"));
   }
 
@@ -174,7 +179,8 @@ public class KeepUsesReflectionToAccessMethodTest extends KeepAnnoTestExtractedR
                 MethodPredicate.onName("foo"),
                 builder ->
                     buildUsesReflectionToAccessMethod(builder, KeptClass.class, "m", int.class))),
-        getExpectedRulesJava(ClassWithAnnotation.class, "{ *** m(int); }"),
+        getExpectedRulesJava(
+            ClassWithAnnotation.class, "{ *** m(int); }", "{ *** m$default(...); }"),
         parameters.isReference() ? StringUtils.lines("4") : StringUtils.lines("1"));
   }
 
@@ -192,7 +198,8 @@ public class KeepUsesReflectionToAccessMethodTest extends KeepAnnoTestExtractedR
             ClassWithAnnotation.class,
             "{ *** m(int); }",
             "{ *** m(int, long); }",
-            "{ *** m(java.lang.String, java.lang.String, java.lang.String); }"),
+            "{ *** m(java.lang.String, java.lang.String, java.lang.String); }",
+            "{ *** m$default(...); }"),
         parameters.isReference() ? StringUtils.lines("4") : StringUtils.lines("3"));
   }
 
@@ -218,7 +225,8 @@ public class KeepUsesReflectionToAccessMethodTest extends KeepAnnoTestExtractedR
             "com.android.tools.r8.keepanno.androidx.kt.Methods",
             "{ void foo(kotlin.reflect.KClass); }",
             "com.android.tools.r8.keepanno.androidx.kt.MethodsKeptClass",
-            "{ *** m(...); }"),
+            "{ *** m(...); }",
+            "{ *** m$default(...); }"),
         StringUtils.lines("4"));
   }
 
@@ -245,7 +253,8 @@ public class KeepUsesReflectionToAccessMethodTest extends KeepAnnoTestExtractedR
             "com.android.tools.r8.keepanno.androidx.kt.Methods",
             "{ void foo(kotlin.reflect.KClass); }",
             "com.android.tools.r8.keepanno.androidx.kt.MethodsKeptClass",
-            "{ *** m(int); }"),
+            "{ *** m(int); }",
+            "{ *** m$default(...); }"),
         r ->
             r.assertSuccessWithOutput(
                 parameters.isReference() ? StringUtils.lines("4") : StringUtils.lines("1")));
@@ -273,7 +282,8 @@ public class KeepUsesReflectionToAccessMethodTest extends KeepAnnoTestExtractedR
             "com.android.tools.r8.keepanno.androidx.kt.MethodsKeptClass",
             "{ *** m(int); }",
             "{ *** m(int, long); }",
-            "{ *** m(java.lang.String, java.lang.String, java.lang.String); }"));
+            "{ *** m(java.lang.String, java.lang.String, java.lang.String); }",
+            "{ *** m$default(...); }"));
   }
 
   @Test
@@ -299,7 +309,8 @@ public class KeepUsesReflectionToAccessMethodTest extends KeepAnnoTestExtractedR
             "com.android.tools.r8.keepanno.androidx.kt.MethodsWithDefaultArguments",
             "{ void foo(); }",
             "com.android.tools.r8.keepanno.androidx.kt.MethodsWithDefaultArgumentsKeptClass",
-            "{ *** m(...); *** m$default(...); }"),
+            "{ *** m(...); }",
+            "{ *** m$default(...); }"),
         b -> b.assertSuccessWithOutput(StringUtils.lines("3", "4", "5", "6", "7")));
   }
 
@@ -328,7 +339,8 @@ public class KeepUsesReflectionToAccessMethodTest extends KeepAnnoTestExtractedR
             "com.android.tools.r8.keepanno.androidx.kt.MethodsWithDefaultArguments",
             "{ void foo(); }",
             "com.android.tools.r8.keepanno.androidx.kt.MethodsWithDefaultArgumentsKeptClass",
-            "{ *** m(int, int); *** m$default(...); }"),
+            "{ *** m(int, int); }",
+            "{ *** m$default(...); }"),
         // TODO(b/392865072): Should be:
         r -> r.assertSuccessWithOutput(StringUtils.lines("3", "4", "5", "6", "7")));
   }
