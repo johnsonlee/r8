@@ -359,9 +359,9 @@ public final class EnqueuerAnalysisCollection {
 
   // Tear down events.
 
-  public void done(Enqueuer enqueuer) {
+  public void done(Enqueuer enqueuer, ExecutorService executorService) throws ExecutionException {
     for (FinishedEnqueuerAnalysis analysis : finishedAnalyses) {
-      analysis.done(enqueuer);
+      analysis.done(enqueuer, executorService);
     }
   }
 

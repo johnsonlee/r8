@@ -31,6 +31,7 @@ import com.google.common.collect.Sets;
 import java.util.ArrayDeque;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 
 /** Ensure classes passed to Mockito.mock() and Mockito.spy() are not marked as "final". */
 class EnqueuerMockitoAnalysis
@@ -152,7 +153,7 @@ class EnqueuerMockitoAnalysis
   }
 
   @Override
-  public void done(Enqueuer enqueuer) {
+  public void done(Enqueuer enqueuer, ExecutorService executorService) {
     // When Mockity.spy(instance) is used, all subtypes of the given type must be mockable.
     ImmediateAppSubtypingInfo subtypingInfo = enqueuer.getSubtypingInfo();
     ArrayDeque<DexClass> subclassDeque = new ArrayDeque<>();

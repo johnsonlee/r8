@@ -38,6 +38,7 @@ import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.InternalOptions.OpenClosedInterfacesOptions;
 import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.SetUtils;
+import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.UnverifiableCfCodeDiagnostic;
 import com.android.tools.r8.utils.WorkList;
 import com.android.tools.r8.utils.collections.ProgramMethodMap;
@@ -45,23 +46,30 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
 public class CfOpenClosedInterfacesAnalysis
     implements NewlyLiveCodeEnqueuerAnalysis, FinishedEnqueuerAnalysis {
 
+  private static final int BATCH_SIZE = 100;
+
   private final AppView<AppInfoWithClassHierarchy> appView;
   private final CfAssignability assignability;
+  private final Enqueuer enqueuer;
   private final InternalOptions options;
 
   private final Set<DexClass> openInterfaces = SetUtils.newConcurrentHashSet();
-
+  private List<ProgramMethod> pendingMethods = new ArrayList<>(BATCH_SIZE);
   private final ProgramMethodMap<UnverifiableCfCodeDiagnostic> unverifiableCodeDiagnostics =
       ProgramMethodMap.createConcurrent();
 
-  public CfOpenClosedInterfacesAnalysis(AppView<AppInfoWithClassHierarchy> appView) {
+  public CfOpenClosedInterfacesAnalysis(
+      AppView<AppInfoWithClassHierarchy> appView, Enqueuer enqueuer) {
     this.appView = appView;
     this.assignability = new CfSubtypingAssignability(appView);
+    this.enqueuer = enqueuer;
     this.options = appView.options();
   }
 
@@ -71,7 +79,7 @@ public class CfOpenClosedInterfacesAnalysis
       EnqueuerAnalysisCollection.Builder builder) {
     if (enqueuer.getMode().isInitialTreeShaking()) {
       CfOpenClosedInterfacesAnalysis analysis =
-          new CfOpenClosedInterfacesAnalysis(appView.withClassHierarchy());
+          new CfOpenClosedInterfacesAnalysis(appView.withClassHierarchy(), enqueuer);
       builder.addNewlyLiveCodeAnalysis(analysis).addFinishedAnalysis(analysis);
     }
   }
@@ -79,13 +87,32 @@ public class CfOpenClosedInterfacesAnalysis
   @Override
   public void processNewlyLiveCode(
       ProgramMethod method, DefaultEnqueuerUseRegistry registry, EnqueuerWorklist worklist) {
-    processMethod(method);
+    pendingMethods.add(method);
+    // Once we have accumulated <BATCH_SIZE> methods, analyze all of them concurrently.
+    if (pendingMethods.size() == BATCH_SIZE) {
+      List<ProgramMethod> methods = pendingMethods;
+      enqueuer
+          .getTaskCollection()
+          .submitEnqueuerIndependentTask(
+              () -> {
+                methods.forEach(this::processMethod);
+                return null;
+              });
+      pendingMethods = new ArrayList<>(BATCH_SIZE);
+    }
   }
 
   @Override
-  public void done(Enqueuer enqueuer) {
+  public void done(Enqueuer enqueuer, ExecutorService executorService) throws ExecutionException {
+    processPendingMethods(executorService);
     setClosedInterfaces();
     reportUnverifiableCodeDiagnostics();
+  }
+
+  private void processPendingMethods(ExecutorService executorService) throws ExecutionException {
+    ThreadUtils.processItems(
+        pendingMethods, this::processMethod, options.getThreadingModule(), executorService);
+    pendingMethods.clear();
   }
 
   private void processMethod(ProgramMethod method) {

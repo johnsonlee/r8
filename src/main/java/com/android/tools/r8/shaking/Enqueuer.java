@@ -257,6 +257,7 @@ public class Enqueuer {
   private final ExecutorService executorService;
   private ImmediateAppSubtypingInfo subtypingInfo;
   private final InternalOptions options;
+  private final EnqueuerTaskCollection taskCollection;
   private RootSet rootSet;
   private final EnqueuerUseRegistryFactory useRegistryFactory;
   private AnnotationRemover.Builder annotationRemoverBuilder;
@@ -496,6 +497,7 @@ public class Enqueuer {
     this.graphReporter = new GraphReporter(appView, keptGraphConsumer);
     this.missingClassesBuilder = appView.appInfo().getMissingClasses().builder();
     this.options = options;
+    this.taskCollection = new EnqueuerTaskCollection(options.getThreadingModule(), executorService);
     this.keepInfo = new MutableKeepInfoCollection(options);
     this.reflectiveIdentification = new EnqueuerReflectiveIdentification(appView, this);
     this.useRegistryFactory = createUseRegistryFactory();
@@ -814,6 +816,10 @@ public class Enqueuer {
 
   public ImmediateAppSubtypingInfo getSubtypingInfo() {
     return subtypingInfo;
+  }
+
+  public EnqueuerTaskCollection getTaskCollection() {
+    return taskCollection;
   }
 
   public boolean hasMinimumKeepInfoThatMatches(
@@ -3905,7 +3911,8 @@ public class Enqueuer {
     finalizeLibraryMethodOverrideInformation();
     timing.end();
     timing.begin("Finish analysis");
-    analyses.done(this);
+    taskCollection.awaitEnqueuerIndependentTasks();
+    analyses.done(this, executorService);
     if (appView.options().isOptimizedResourceShrinking()) {
       appView.getResourceShrinkerState().enqueuerDone(this.mode.isFinalTreeShaking());
     }

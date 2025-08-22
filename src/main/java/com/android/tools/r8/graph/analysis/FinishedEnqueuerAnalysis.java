@@ -4,6 +4,8 @@
 package com.android.tools.r8.graph.analysis;
 
 import com.android.tools.r8.shaking.Enqueuer;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 
 public interface FinishedEnqueuerAnalysis {
 
@@ -11,5 +13,5 @@ public interface FinishedEnqueuerAnalysis {
    * Called when the Enqueuer has reached the final fixpoint. Each analysis may use this callback to
    * perform some post-processing.
    */
-  default void done(Enqueuer enqueuer) {}
+  default void done(Enqueuer enqueuer, ExecutorService executorService) throws ExecutionException {}
 }
