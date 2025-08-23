@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.graph;
 
+import static com.android.tools.r8.DiagnosticsMatcher.diagnosticType;
+import static com.android.tools.r8.utils.codeinspector.AssertUtils.assertFailsCompilation;
 
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.NoHorizontalClassMerging;
@@ -11,7 +13,7 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfVm;
-import com.android.tools.r8.utils.codeinspector.AssertUtils;
+import com.android.tools.r8.utils.UnverifiableCfCodeDiagnostic;
 import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -62,7 +64,7 @@ public class MissingClassThrowingTest extends TestBase {
 
   @Test
   public void testSuperTypeOfExceptions() throws Exception {
-    AssertUtils.assertFailsCompilation(
+    assertFailsCompilation(
         () ->
             testForR8(parameters.getBackend())
                 .addProgramClasses(Program.class)
@@ -70,13 +72,16 @@ public class MissingClassThrowingTest extends TestBase {
                 .addKeepAllAttributes()
                 .addDontObfuscate()
                 .addDontShrink()
+                .allowDiagnosticWarningMessages()
                 .enableInliningAnnotations()
                 .enableNoHorizontalClassMergingAnnotations()
                 .debug()
                 .compileWithExpectedDiagnostics(
                     diagnostics ->
                         diagnostics
-                            .assertOnlyErrors()
+                            .assertNoInfos()
+                            .assertAllWarningsMatch(
+                                diagnosticType(UnverifiableCfCodeDiagnostic.class))
                             .inspectErrors(
                                 diagnostic ->
                                     diagnostic
