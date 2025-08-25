@@ -198,7 +198,7 @@ def ParseOptions():
                         help='Output directory for running locally.')
     result.add_argument('--patch-ref',
                         help='The patch ref for a try run. '
-                             'Should only be used from rex.py.')
+                        'Should only be used from rex.py.')
     result.add_argument('--skip-if-output-exists',
                         help='Skip if output exists.',
                         action='store_true',
@@ -223,6 +223,7 @@ def ParseOptions():
         options.benchmarks = INTERNAL_BENCHMARKS.keys()
     else:
         options.benchmarks = EXTERNAL_BENCHMARKS.keys()
+    options.is_try = options.patch_ref is not None
     options.quiet = not options.verbose
     del options.benchmark
     return options, args
@@ -275,14 +276,25 @@ def ParseBenchmarkResultJsonFile(result_json_file):
         return json.loads(''.join(lines))
 
 
-def GetArtifactLocation(benchmark, target, version, filename, branch=None):
+def GetArtifactLocation(benchmark,
+                        target,
+                        version,
+                        filename,
+                        branch=None,
+                        is_try=False):
     if version:
+        if is_try:
+            assert branch is None
+            return f'try/{benchmark}/{target}/{version}/{filename}'
         if branch and branch != 'main':
             return f'branches/{branch}/{benchmark}/{target}/{version}/{filename}'
         return f'{benchmark}/{target}/{version}/{filename}'
     else:
         commit = utils.get_HEAD_commit()
         branch = commit.branch()
+        if is_try:
+            assert branch is None
+            return f'try/{benchmark}/{target}/{commit.hash()}/{filename}'
         if branch == 'main':
             return f'{benchmark}/{target}/{commit.hash()}/{filename}'
         return f'branches/{branch}/{benchmark}/{target}/{commit.hash()}/{filename}'
@@ -298,8 +310,11 @@ def ArchiveBenchmarkResult(benchmark, target, benchmark_result_json_files,
     with open(result_file, 'w') as f:
         json.dump(MergeBenchmarkResultJsonFiles(benchmark_result_json_files), f)
     ArchiveOutputFile(result_file,
-                      GetArtifactLocation(benchmark, target, options.version,
-                                          'result.json'),
+                      GetArtifactLocation(benchmark,
+                                          target,
+                                          options.version,
+                                          'result.json',
+                                          is_try=options.is_try),
                       outdir=options.outdir)
 
 
@@ -322,9 +337,6 @@ def ArchiveOutputFile(file, dest, bucket=BUCKET, header=None, outdir=None):
 #     --bottom 7486f01e0622cb5935b77a92b59ddf1ca8dbd2e2
 def main():
     options, args = ParseOptions()
-    if options.patch_ref:
-        print('Received patch ref', options.patch_ref)
-        return
     Build(options)
     any_failed = False
     with utils.TempDir() as temp:
@@ -348,8 +360,11 @@ def main():
                     if options.outdir:
                         raise NotImplementedError
                     output = GetGSLocation(
-                        GetArtifactLocation(benchmark, target, options.version,
-                                            'result.json'))
+                        GetArtifactLocation(benchmark,
+                                            target,
+                                            options.version,
+                                            'result.json',
+                                            is_try=options.is_try))
                     if utils.cloud_storage_exists(output):
                         print(f'Skipping run, {output} already exists.')
                         continue
@@ -424,8 +439,11 @@ def main():
                                 os.environ.get('SWARMING_BOT_ID'))
                     ArchiveOutputFile(meta_file,
                                       GetArtifactLocation(
-                                          benchmark, target, options.version,
-                                          'meta'),
+                                          benchmark,
+                                          target,
+                                          options.version,
+                                          'meta',
+                                          is_try=options.is_try),
                                       outdir=options.outdir)
 
     # Only upload benchmark data when running on the perf bot.

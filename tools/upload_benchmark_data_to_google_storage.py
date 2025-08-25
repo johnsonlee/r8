@@ -70,8 +70,10 @@ def GetReleaseBranches():
 
 
 def CmpVersions(x, y):
-    semver_x = utils.check_basic_semver_version(x.version(), allowPrerelease=True)
-    semver_y = utils.check_basic_semver_version(y.version(), allowPrerelease=True)
+    semver_x = utils.check_basic_semver_version(x.version(),
+                                                allowPrerelease=True)
+    semver_y = utils.check_basic_semver_version(y.version(),
+                                                allowPrerelease=True)
     if semver_x.larger_than(semver_y):
         return 1
     if semver_y.larger_than(semver_x):
@@ -101,6 +103,17 @@ def GetReleaseCommits():
     return release_commits
 
 
+def GetTryCommits(local_bucket_try_dict):
+    try_commits = []
+    for key, value in local_bucket_try_dict.items():
+        # The hash is the 4th component in the path:
+        # try/{benchmark}/{target}/{commit.hash()}/{filename}.
+        try_hash = key.split('/')[3]
+        try_commit = historic_run.git_commit_from_hash(try_hash)
+        try_commits.append(try_commit)
+    return try_commits
+
+
 def ParseJsonFromCloudStorage(filename, local_bucket_dict):
     if not filename in local_bucket_dict:
         return None
@@ -108,7 +121,7 @@ def ParseJsonFromCloudStorage(filename, local_bucket_dict):
 
 
 def RecordBenchmarkResult(commit, benchmark, benchmark_info, local_bucket_dict,
-                          target, benchmarks):
+                          target, benchmarks, is_try):
     if not target in benchmark_info['targets']:
         return
     sub_benchmarks = benchmark_info.get('subBenchmarks', {})
@@ -116,25 +129,27 @@ def RecordBenchmarkResult(commit, benchmark, benchmark_info, local_bucket_dict,
     if sub_benchmarks_for_target:
         for sub_benchmark in sub_benchmarks_for_target:
             RecordSingleBenchmarkResult(commit, benchmark + sub_benchmark,
-                                        local_bucket_dict, target, benchmarks)
+                                        local_bucket_dict, target, benchmarks,
+                                        is_try)
     else:
         RecordSingleBenchmarkResult(commit, benchmark, local_bucket_dict,
-                                    target, benchmarks)
+                                    target, benchmarks, is_try)
 
 
 def RecordSingleBenchmarkResult(commit, benchmark, local_bucket_dict, target,
-                                benchmarks):
+                                benchmarks, is_try):
     filename = perf.GetArtifactLocation(benchmark,
                                         target,
                                         commit.hash(),
                                         'result.json',
-                                        branch=commit.branch())
+                                        branch=commit.branch(),
+                                        is_try=is_try)
     benchmark_data = ParseJsonFromCloudStorage(filename, local_bucket_dict)
     if benchmark_data:
         benchmarks[benchmark] = benchmark_data
 
 
-def RecordBenchmarkResults(commit, benchmarks, benchmark_data):
+def RecordBenchmarkResults(commit, benchmarks, benchmark_data, is_try):
     if benchmarks or benchmark_data:
         data = {
             'author': commit.author_name(),
@@ -143,6 +158,10 @@ def RecordBenchmarkResults(commit, benchmarks, benchmark_data):
             'title': commit.title(),
             'benchmarks': benchmarks
         }
+        if is_try:
+            # TODO(christofferqa): We should find the first parent on main
+            # to support running try jobs for CL chains.
+            data['parent_hash'] = commit.parent_hash()
         version = commit.version()
         if version:
             data['version'] = version
@@ -191,7 +210,7 @@ def run_local(local_bucket):
     commit_hashes = set()
     for benchmark in os.listdir(local_bucket):
         benchmark_dir = os.path.join(local_bucket, benchmark)
-        if not os.path.isdir(benchmark_dir):
+        if benchmark == 'try' or not os.path.isdir(benchmark_dir):
             continue
         for target in os.listdir(benchmark_dir):
             target_dir = os.path.join(local_bucket, benchmark, target)
@@ -215,6 +234,7 @@ def run_local(local_bucket):
 def run(commits, local_bucket, temp, outdir=None):
     print('Loading bucket into memory')
     local_bucket_dict = {}
+    local_bucket_try_dict = {}
     for (root, dirs, files) in os.walk(local_bucket):
         for file in files:
             if file != 'result.json':
@@ -222,10 +242,28 @@ def run(commits, local_bucket, temp, outdir=None):
             abs_path = os.path.join(root, file)
             rel_path = os.path.relpath(abs_path, local_bucket)
             with open(abs_path, 'r') as f:
-                local_bucket_dict[rel_path] = f.read()
+                dict_or_try_dict = local_bucket_try_dict if rel_path.startswith(
+                    'try/') else local_bucket_dict
+                dict_or_try_dict[rel_path] = f.read()
 
     # Aggregate all the result.json files into a single file that has the
     # same format as tools/perf/benchmark_data.json.
+    process_commits(commits, local_bucket_dict, temp, outdir)
+    process_commits(GetTryCommits(local_bucket_try_dict),
+                    local_bucket_try_dict,
+                    temp,
+                    outdir,
+                    is_try=True)
+
+    # Write remaining files to public bucket.
+    print('Writing static files')
+    if outdir is None:
+        for file in FILES:
+            dest = os.path.join(utils.TOOLS_DIR, 'perf', file)
+            perf.ArchiveOutputFile(dest, file)
+
+
+def process_commits(commits, local_bucket_dict, temp, outdir, is_try=False):
     print('Processing commits')
     d8_benchmark_data = []
     r8_benchmark_data = []
@@ -236,16 +274,18 @@ def run(commits, local_bucket, temp, outdir=None):
         retrace_benchmarks = {}
         for benchmark, benchmark_info in perf.ALL_BENCHMARKS.items():
             RecordBenchmarkResult(commit, benchmark, benchmark_info,
-                                  local_bucket_dict, 'd8', d8_benchmarks)
+                                  local_bucket_dict, 'd8', d8_benchmarks,
+                                  is_try)
             RecordBenchmarkResult(commit, benchmark, benchmark_info,
-                                  local_bucket_dict, 'r8-full', r8_benchmarks)
+                                  local_bucket_dict, 'r8-full', r8_benchmarks,
+                                  is_try)
             RecordBenchmarkResult(commit, benchmark, benchmark_info,
                                   local_bucket_dict, 'retrace',
-                                  retrace_benchmarks)
-        RecordBenchmarkResults(commit, d8_benchmarks, d8_benchmark_data)
-        RecordBenchmarkResults(commit, r8_benchmarks, r8_benchmark_data)
+                                  retrace_benchmarks, is_try)
+        RecordBenchmarkResults(commit, d8_benchmarks, d8_benchmark_data, is_try)
+        RecordBenchmarkResults(commit, r8_benchmarks, r8_benchmark_data, is_try)
         RecordBenchmarkResults(commit, retrace_benchmarks,
-                               retrace_benchmark_data)
+                               retrace_benchmark_data, is_try)
 
     # Trim data.
     print('Trimming data')
@@ -256,19 +296,14 @@ def run(commits, local_bucket, temp, outdir=None):
     # Write output JSON files to public bucket, or to tools/perf/ if running
     # with --local-bucket.
     print('Writing JSON')
-    ArchiveBenchmarkResults(d8_benchmark_data, 'd8_benchmark_data.json', outdir,
-                            temp)
-    ArchiveBenchmarkResults(r8_benchmark_data, 'r8_benchmark_data.json', outdir,
-                            temp)
+    data_file_suffix = '_try_data.json' if is_try else '_data.json'
+    ArchiveBenchmarkResults(d8_benchmark_data,
+                            'd8_benchmark' + data_file_suffix, outdir, temp)
+    ArchiveBenchmarkResults(r8_benchmark_data,
+                            'r8_benchmark' + data_file_suffix, outdir, temp)
     ArchiveBenchmarkResults(retrace_benchmark_data,
-                            'retrace_benchmark_data.json', outdir, temp)
-
-    # Write remaining files to public bucket.
-    print('Writing static files')
-    if outdir is None:
-        for file in FILES:
-            dest = os.path.join(utils.TOOLS_DIR, 'perf', file)
-            perf.ArchiveOutputFile(dest, file)
+                            'retrace_benchmark' + data_file_suffix, outdir,
+                            temp)
 
 
 def ParseOptions():
