@@ -589,7 +589,7 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
               }
             })
         .run(mainClass)
-        .apply(runResultConsumer::accept);
+        .apply(runResultConsumer);
   }
 
   protected void testExtractedRulesAndRunKotlin(
