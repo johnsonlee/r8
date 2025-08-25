@@ -196,6 +196,9 @@ def ParseOptions():
                         default=False)
     result.add_argument('--outdir',
                         help='Output directory for running locally.')
+    result.add_argument('--patch-ref',
+                        help='The patch ref for a try run. '
+                             'Should only be used from rex.py.')
     result.add_argument('--skip-if-output-exists',
                         help='Skip if output exists.',
                         action='store_true',
@@ -319,6 +322,9 @@ def ArchiveOutputFile(file, dest, bucket=BUCKET, header=None, outdir=None):
 #     --bottom 7486f01e0622cb5935b77a92b59ddf1ca8dbd2e2
 def main():
     options, args = ParseOptions()
+    if options.patch_ref:
+        print('Received patch ref', options.patch_ref)
+        return
     Build(options)
     any_failed = False
     with utils.TempDir() as temp:
