@@ -44,6 +44,12 @@ public class EnqueuerTaskCollection implements FixpointEnqueuerAnalysis, Finishe
     enqueuerIndependentTaskCollection.await();
   }
 
+  /** Returns true if all Enqueuer dependent tasks were removed due to their completion. */
+  public boolean removeCompletedEnqueuerDependentTasks() {
+    enqueuerDependentTaskCollection.removeCompletedFutures();
+    return enqueuerDependentTaskCollection.isEmpty();
+  }
+
   @Override
   public void notifyFixpoint(
       Enqueuer enqueuer, EnqueuerWorklist worklist, ExecutorService executorService, Timing timing)

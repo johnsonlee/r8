@@ -503,8 +503,7 @@ public class Enqueuer {
     this.keepInfo = new MutableKeepInfoCollection(options);
     this.reflectiveIdentification = new EnqueuerReflectiveIdentification(appView, this);
     this.useRegistryFactory = createUseRegistryFactory();
-    this.worklist =
-        EnqueuerWorklist.createWorklist(this, executorService, options.getThreadingModule());
+    this.worklist = EnqueuerWorklist.createWorklist(this, options.getThreadingModule());
     this.proguardCompatibilityActionsBuilder =
         mode.isInitialTreeShaking() && options.forceProguardCompatibility
             ? ProguardCompatibilityActions.builder()
@@ -4335,7 +4334,11 @@ public class Enqueuer {
         assert !desugaring.needsDesugaring(method);
         return false;
       }
-      worklist.enqueueFuture(() -> parseCodeAndCheckNeedsDesugaring(method));
+      taskCollection.submitEnqueuerDependentTask(
+          () -> {
+            parseCodeAndCheckNeedsDesugaring(method);
+            return null;
+          });
       return true;
     }
   }
@@ -4937,8 +4940,6 @@ public class Enqueuer {
     } finally {
       timing.end();
     }
-
-    assert worklist.verifyNoPendingFutures();
   }
 
   private void postProcessingDesugaring(Timing timing) throws ExecutionException {

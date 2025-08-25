@@ -22,17 +22,12 @@ import com.android.tools.r8.shaking.GraphReporter.KeepReasonWitness;
 import com.android.tools.r8.threading.ThreadingModule;
 import com.android.tools.r8.utils.Action;
 import com.android.tools.r8.utils.InternalOptions;
-import com.android.tools.r8.utils.UncheckedExecutionException;
 import com.android.tools.r8.utils.timing.Timing;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 
 public abstract class EnqueuerWorklist {
 
@@ -656,15 +651,14 @@ public abstract class EnqueuerWorklist {
   }
 
   final Enqueuer enqueuer;
-  final List<Future<Void>> futures = new ArrayList<>();
   final Queue<EnqueuerAction> queue;
   final ThreadingModule threadingModule;
 
   boolean processing;
 
   public static EnqueuerWorklist createWorklist(
-      Enqueuer enqueuer, ExecutorService executorService, ThreadingModule threadingModule) {
-    return new PushableEnqueuerWorkList(enqueuer, executorService, threadingModule);
+      Enqueuer enqueuer, ThreadingModule threadingModule) {
+    return new PushableEnqueuerWorkList(enqueuer, threadingModule);
   }
 
   private EnqueuerWorklist(
@@ -676,23 +670,16 @@ public abstract class EnqueuerWorklist {
 
   void process(Timing timing) throws ExecutionException {
     processing = true;
-    while (hasNext()) {
+    // Intentionally not awaiting the Enqueuer dependent tasks here, since this would await the
+    // completion of *all* futures. We just remove the completed futures and spin wait until the
+    // next worklist item is available.
+    while (hasNext() || !enqueuer.getTaskCollection().removeCompletedEnqueuerDependentTasks()) {
       while (hasNext()) {
         EnqueuerAction action = poll();
         action.run(enqueuer, timing);
       }
-      timing.begin("Await futures");
-      threadingModule.awaitFutures(futures);
-      futures.clear();
-      timing.end();
     }
     processing = false;
-    assert verifyNoPendingFutures();
-  }
-
-  boolean verifyNoPendingFutures() {
-    assert futures.isEmpty();
-    return true;
   }
 
   boolean verifyNotProcessing() {
@@ -731,8 +718,6 @@ public abstract class EnqueuerWorklist {
       MinimumKeepInfoCollection consequences) {
     enqueue(new ConditionalRuleConsequencesAction(consequences));
   }
-
-  abstract void enqueueFuture(Action action);
 
   abstract void enqueueMarkReachableDirectAction(
       DexMethod method, ProgramDefinition context, KeepReason reason);
@@ -805,12 +790,8 @@ public abstract class EnqueuerWorklist {
 
   static class PushableEnqueuerWorkList extends EnqueuerWorklist {
 
-    private final ExecutorService executorService;
-
-    PushableEnqueuerWorkList(
-        Enqueuer enqueuer, ExecutorService executorService, ThreadingModule threadingModule) {
+    PushableEnqueuerWorkList(Enqueuer enqueuer, ThreadingModule threadingModule) {
       super(enqueuer, new ConcurrentLinkedQueue<>(), threadingModule);
-      this.executorService = executorService;
     }
 
     @Override
@@ -829,17 +810,6 @@ public abstract class EnqueuerWorklist {
         queue.add(new AssertAction(assertion));
       }
       return true;
-    }
-
-    @Override
-    void enqueueFuture(Action action) {
-      // We currently only enqueue single threaded and thus do not need synchronization here.
-      assert processing;
-      try {
-        futures.add(threadingModule.submit(action, executorService));
-      } catch (ExecutionException e) {
-        throw new UncheckedExecutionException(e);
-      }
     }
 
     @Override
@@ -1049,11 +1019,6 @@ public abstract class EnqueuerWorklist {
     boolean enqueueAssertAction(Action assertion) {
       assertion.execute();
       return true;
-    }
-
-    @Override
-    void enqueueFuture(Action action) {
-      throw new Unreachable("Attempt to enqueue a future in a non pushable enqueuer work list");
     }
 
     @Override
