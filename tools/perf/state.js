@@ -64,28 +64,59 @@ function getCommits(zoom) {
   return commitsForSelectedBranch;
 }
 
+function getTryCommitsByParentHash(loadedTryCommits) {
+  const result = {};
+  for (var i = 0; i < loadedTryCommits.length; i++) {
+    const commit = loadedTryCommits[i];
+    const parentHash = commit["parent_hash"];
+    if (parentHash in loadedTryCommits) {
+      result[parentHash].push(commit);
+    } else {
+      result[parentHash] = [commit];
+    }
+  }
+  return result;
+}
+
 function hasLegend(legend) {
   return legends.has(legend);
 }
 
-function importCommits(url) {
-  return import(url, { with: { type: "json" }})
-      .then(module => {
-        commits = module.default;
-        commits.reverseInPlace();
-        // Amend the commits with their unique index.
-        var mainIndex = 0;
-        var releaseIndex = 0;
-        for (var i = 0; i < commits.length; i++) {
-          const commit = commits[i];
-          if (commit.version) {
-            commit.index = releaseIndex++;
-          } else {
-            commit.index = mainIndex++;
-          }
+function importCommits(url, tryUrl = null) {
+  const promises = [import(url, { with: { type: "json" }})];
+  if (tryUrl !== null) {
+    promises.push(import(tryUrl, { with: { type: "json" }}));
+  }
+  return Promise.all(promises).then(values => {
+    const loadedCommits = values[0].default;
+    const loadedTryCommits = values.length > 1 ? values[1].default : [];
+    const loadedTryCommitsByParentHash =
+        getTryCommitsByParentHash(loadedTryCommits);
+    // Amend the commits with their unique index.
+    var mainIndex = 0;
+    var releaseIndex = 0;
+    const processedCommits = []
+    for (var i = loadedCommits.length - 1; i >= 0; i--) {
+      const commit = loadedCommits[i];
+      commit.index = commit.version ? releaseIndex++ : mainIndex++;
+      processedCommits.push(commit);
+
+      // Include the try commits for this commit on main.
+      const hash = commit["hash"];
+      if (hash in loadedTryCommitsByParentHash) {
+        console.assert(!commit.version, "Try jobs for release not supported");
+        const tryCommitsForCurrentCommit = loadedTryCommitsByParentHash[hash];
+        for (var j = 0; j < tryCommitsForCurrentCommit.length; j++) {
+          const tryCommitForCurrentCommit = tryCommitsForCurrentCommit[j];
+          tryCommitForCurrentCommit.index = mainIndex++;
         }
-        return commits;
-      });
+        processedCommits.push(...tryCommitsForCurrentCommit);
+      }
+
+    }
+    commits = processedCommits;
+    return processedCommits;
+  });
 }
 
 function initializeBenchmarks() {

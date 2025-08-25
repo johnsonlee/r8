@@ -19,6 +19,7 @@ const showMoreLeft = document.getElementById('show-more-left');
 const showLessLeft = document.getElementById('show-less-left');
 const showLessRight = document.getElementById('show-less-right');
 const showMoreRight = document.getElementById('show-more-right');
+const trySelector = document.getElementById('try-checkbox');
 
 function getSelectedBranch() {
   console.assert(branchMain.checked || branchRelease.checked);
@@ -129,14 +130,26 @@ function initializeChartNavigation() {
     }
     chart.update(true, false);
   };
+
+  trySelector.onclick = event => chart.update(true, false);
 }
 
 function isCommitSelected(commit) {
   if (branchRelease.checked) {
-    return commit.version;
+    if (!commit.version) {
+      return false;
+    }
   } else {
-    return !commit.version;
+    if (commit.version) {
+      return false;
+    }
   }
+  if (!trySelector.checked) {
+    if ('parent_hash' in commit) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function transformRuntimeData(results) {
