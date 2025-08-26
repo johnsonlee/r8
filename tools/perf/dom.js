@@ -78,7 +78,7 @@ function initializeChartNavigation() {
             event, 'nearest', { intersect: true }, true);
     if (points.length > 0) {
       const point = points[0];
-      const commit = state.getCommit(point.index, null);
+      const commit = state.getCommit(point.index, state.zoom);
       window.open('https://r8.googlesource.com/r8/+/' + commit.hash, '_blank');
     }
   };
