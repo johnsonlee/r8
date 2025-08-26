@@ -14,6 +14,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 
 TARGETS = ['r8-full']
 NUM_COMMITS = 1000
@@ -27,11 +28,14 @@ FILES = [
 
 def DownloadCloudBucket(dest):
     os.makedirs(dest)
+    start = time.time()
     utils.download_file_from_cloud_storage(perf.GetGSLocation('*'),
                                            dest,
                                            concurrent=True,
                                            quiet=True,
                                            flags=['-R'])
+    end = time.time()
+    print("Download bucket finished in %ss" % (end - start))
 
 
 def GetMainCommits():
