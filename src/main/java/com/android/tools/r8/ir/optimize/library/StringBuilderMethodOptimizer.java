@@ -316,7 +316,7 @@ public class StringBuilderMethodOptimizer implements LibraryMethodModelCollectio
                 if (invokedMethod == dexItemFactory.objectMembers.toString
                     || invokedMethod == stringBuilderMethods.toString) {
                   // Only allow unused StringBuilders.
-                  if (invoke.hasOutValue() && invoke.outValue().hasNonDebugUsers()) {
+                  if (invoke.hasOutValue() && hasNonAssumeUsers(invoke.outValue())) {
                     return false;
                   }
                   break;
@@ -333,6 +333,18 @@ public class StringBuilderMethodOptimizer implements LibraryMethodModelCollectio
         }
       }
       return true;
+    }
+
+    private boolean hasNonAssumeUsers(Value value) {
+      if (value.hasPhiUsers()) {
+        return true;
+      }
+      for (Instruction aliasedUser : value.aliasedUsers()) {
+        if (!aliasedUser.isAssume() || hasNonAssumeUsers(aliasedUser.outValue())) {
+          return true;
+        }
+      }
+      return false;
     }
   }
 }

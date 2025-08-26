@@ -1148,7 +1148,11 @@ public class DexItemFactory {
               objectsMethods.requireNonNull,
               objectsMethods.requireNonNullWithMessage,
               objectsMethods.requireNonNullWithMessageSupplier,
+              stringBuilderMethods.toString,
               stringMembers.format,
+              stringMembers.substring,
+              stringMembers.substringWithEndIndex,
+              stringMembers.concat,
               stringMembers.formatWithLocale,
               stringMembers.valueOf)
           .addAll(boxedValueOfMethods())
