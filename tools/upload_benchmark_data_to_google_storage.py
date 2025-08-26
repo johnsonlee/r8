@@ -30,6 +30,7 @@ def DownloadCloudBucket(dest):
     utils.download_file_from_cloud_storage(perf.GetGSLocation('*'),
                                            dest,
                                            concurrent=True,
+                                           quiet=True,
                                            flags=['-R'])
 
 

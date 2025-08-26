@@ -93,7 +93,8 @@ def download_target(root, target, hash_or_version, is_hash, quiet=False):
     url = archive.GetUploadDestination(hash_or_version, target, is_hash)
     if not quiet:
         print('Downloading: ' + url + ' -> ' + download_path)
-    utils.download_file_from_cloud_storage(url, download_path, quiet=quiet)
+    utils.download_file_from_cloud_storage(
+        url, download_path, printcmd=not quiet, quiet=quiet)
 
 
 def main_download(hash, maps, targets, target_root, version, keepanno=False):
