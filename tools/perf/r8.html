@@ -6,6 +6,10 @@
   <link rel="stylesheet" href="stylesheet.css">
 </head>
 <body>
+  <div id="try-selector">
+    <input type="checkbox" id="try-checkbox" name="try-selector" checked>
+    <label for="try-checkbox">Try</label>
+  </div>
   <div id="runtime-fn">
     <input type="radio" id="runtime-min" name="runtime-fn" checked>
     <label for="runtime-min">Min</label>
@@ -40,16 +44,20 @@
   </div>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.1.0"></script>
   <script src="extensions.js"></script>
   <script src="utils.js"></script>
   <script type="module">
+    import annotations from "./annotations.js";
     import chart from "./chart.js";
     import dom from "./dom.js";
     import scales from "./scales.js";
     import state from "./state.js";
     import tooltip from "./tooltip.js";
 
-    const commits = await state.importCommits("./r8_benchmark_data.json");
+    const commits =
+        await state.importCommits(
+            "./r8_benchmark_data.json", "./r8_benchmark_try_data.json");
     state.initializeBenchmarks();
     state.initializeLegends({
       'Dex size': { default: true },
@@ -305,9 +313,34 @@
           borderColor: 'rgba(128, 128, 128, 0.7)',
           borderRadius: 4,
           borderWidth: 1,
-          color: context => chart.getDataPercentageChange(context) < 0 ? 'green' : 'red',
+          color: context => {
+            const commit = chart.getFilteredCommit(context.dataIndex);
+            if ('parent_hash' in commit) {
+              const percentageChange = chart.getDataPercentageChange(context);
+              if (percentageChange !== null && Math.abs(percentageChange) >= 0.1) {
+                // Fallthrough to use green or red.
+              } else {
+                // Use a darkgrey label color for try commits that did not
+                // change the benchmark by >=0.1%.
+                return '#393D47';
+              }
+            }
+            return chart.getDataPercentageChange(context) < 0 ? 'green' : 'red';
+          },
           display: context => {
-            var percentageChange = chart.getDataPercentageChange(context);
+            const commit = chart.getFilteredCommit(context.dataIndex);
+            // Always create a data label for try commits that include the
+            // initials, but only for the first dataset, to avoid creating many
+            // labels for the same try commit.
+            if ('parent_hash' in commit) {
+              const firstSelectedDataset = state.selectedLegends.values().next().value;
+              if (context.dataset.label == firstSelectedDataset) {
+                return true;
+              }
+            }
+            // Otherwise show a data label if the benchmark improved/regressed
+            // by at least .1%.
+            const percentageChange = chart.getDataPercentageChange(context);
             return percentageChange !== null && Math.abs(percentageChange) >= 0.1;
           },
           font: {

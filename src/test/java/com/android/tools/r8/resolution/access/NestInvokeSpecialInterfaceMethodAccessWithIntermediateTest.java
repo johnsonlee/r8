@@ -19,6 +19,9 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.MethodResolutionResult.NoSuchMethodResult;
+import com.android.tools.r8.ir.code.IRCode;
+import com.android.tools.r8.ir.conversion.IRConverter;
+import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
@@ -138,7 +141,8 @@ public class NestInvokeSpecialInterfaceMethodAccessWithIntermediateTest extends 
             .anyMatch(
                 i -> {
                   if (parameters.canUseDefaultAndStaticInterfaceMethodsWhenDesugaring()) {
-                    return i.asCfInstruction().isInvokeSpecial() && i.getMethod() == method;
+                    return i.asDexInstruction().isInvokeSuper()
+                        && i.getMethod().isIdenticalTo(method);
                   } else {
                     return i.isInvokeStatic()
                         && SyntheticItemsTestUtils.isInternalThrowNSME(
@@ -160,13 +164,29 @@ public class NestInvokeSpecialInterfaceMethodAccessWithIntermediateTest extends 
   }
 
   private AppView<AppInfoWithLiveness> getAppView() throws Exception {
-    return TestAppViewBuilder.builder()
-        .addProgramClasses(getClasses())
-        .addProgramClassFileData(getTransformedClasses())
-        .addLibraryFiles(parameters.getDefaultRuntimeLibrary())
-        .addKeepMainRule(Main.class)
-        .setMinApi(parameters)
-        .buildWithLiveness();
+    AppView<AppInfoWithLiveness> appView =
+        TestAppViewBuilder.builder()
+            .addProgramClasses(getClasses())
+            .addProgramClassFileData(getTransformedClasses())
+            .addLibraryFiles(parameters.getDefaultRuntimeLibrary())
+            .addKeepMainRule(Main.class)
+            .setMinApi(parameters)
+            .buildWithLiveness();
+    convertLirToDex(appView);
+    return appView;
+  }
+
+  private void convertLirToDex(AppView<AppInfoWithLiveness> appView) {
+    appView.testing().exitLirSupportedPhase();
+    IRConverter converter = new IRConverter(appView);
+    appView
+        .appInfo()
+        .forEachMethod(
+            method -> {
+              IRCode code =
+                  method.buildIR(appView, MethodConversionOptions.forPostLirPhase(appView));
+              converter.replaceCodeForTesting(code);
+            });
   }
 
   @Test

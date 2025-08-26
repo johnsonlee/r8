@@ -144,6 +144,7 @@ public class VerticalClassMerger {
     // The code must be rewritten before we remove the merged classes from the app. Otherwise we
     // can't build IR.
     rewriteCodeWithLens(executorService, timing);
+    lens.unsetCaches();
 
     // Remove merged classes from app now that the code is fully rewritten.
     removeMergedClasses(

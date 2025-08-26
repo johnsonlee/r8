@@ -345,8 +345,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     assert !proguardConfiguration.isObfuscating();
     getProguardConfiguration().getKeepAttributes().sourceFile = true;
     getProguardConfiguration().getKeepAttributes().sourceDebugExtension = true;
-    getProguardConfiguration().getKeepAttributes().localVariableTable = true;
-    getProguardConfiguration().getKeepAttributes().localVariableTypeTable = true;
   }
 
   void enableProtoShrinking() {
@@ -2219,11 +2217,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
     public void exitLirSupportedPhase() {
       assert isSupportedLirPhase();
-      currentPhase = LirPhase.POST;
-    }
-
-    public void skipLirPhasesForTestingFinalOutput() {
-      assert currentPhase == LirPhase.PRE;
       currentPhase = LirPhase.POST;
     }
 

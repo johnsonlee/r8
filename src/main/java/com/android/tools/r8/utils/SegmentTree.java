@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.utils;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.Consumer;
@@ -88,6 +89,10 @@ public class SegmentTree<V> {
     if (size == 0) {
       internalTree.clear();
     }
+  }
+
+  public Collection<V> values() {
+    return internalTree.values();
   }
 
   public void visitSegments(Consumer<V> consumer) {

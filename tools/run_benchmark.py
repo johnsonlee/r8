@@ -98,6 +98,10 @@ def parse_options(argv):
                         help='To enable verbose logging.',
                         action='store_true',
                         default=False)
+    result.add_argument('--warmup',
+                        '-w',
+                        help='Number of warmup iterations to run',
+                        type=int)
     options, args = result.parse_known_args(argv)
     options.quiet = not options.verbose
     # We must download the non-lib distribution when running with a specific
@@ -195,6 +199,8 @@ def run(options, r8jar, testjars):
         cmd.append(f'-DBENCHMARK_ITERATIONS={options.iterations}')
     if options.output:
         cmd.append(f'-DBENCHMARK_OUTPUT={options.output}')
+    if options.warmup is not None:
+        cmd.append(f'-DBENCHMARK_WARMUP_ITERATIONS={options.warmup}')
     cmd.extend(['-cp', ':'.join([r8jar] + testjars)])
     if options.debug_agent:
         cmd.append(

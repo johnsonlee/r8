@@ -47,6 +47,7 @@ import com.android.tools.r8.synthesis.SyntheticItems;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.IntBox;
 import com.android.tools.r8.utils.ListUtils;
+import com.android.tools.r8.utils.ObjectUtils;
 import com.android.tools.r8.utils.OneShotCollectionConsumer;
 import com.android.tools.r8.utils.OriginalSourceFiles;
 import com.android.tools.r8.utils.Pair;
@@ -216,8 +217,7 @@ public class MappedPositionToClassNameMapperBuilder {
       return this;
     }
 
-    @SuppressWarnings("ReferenceEquality")
-    public MappedPositionToClassNamingBuilder addMappedPositions(
+    public void addMappedPositions(
         ProgramMethod method,
         List<MappedPosition> mappedPositions,
         MethodPositionRemapper positionRemapper,
@@ -263,7 +263,8 @@ public class MappedPositionToClassNameMapperBuilder {
       }
 
       MethodSignature originalSignature =
-          MethodSignature.fromDexMethod(originalMethod, originalMethod.holder != originalType);
+          MethodSignature.fromDexMethod(
+              originalMethod, originalMethod.getHolderType().isNotIdenticalTo(originalType));
 
       MapVersion mapFileVersion = appView.options().getMapFileVersion();
       if (isIdentityMapping(
@@ -277,7 +278,7 @@ public class MappedPositionToClassNameMapperBuilder {
             || hasAtMostOnePosition(appView, definition)
             || !hasThrowingInstructions(definition)
             || appView.isCfByteCodePassThrough(method);
-        return this;
+        return;
       }
 
       if (ResidualSignatureMappingInformation.isSupported(mapFileVersion)) {
@@ -316,7 +317,7 @@ public class MappedPositionToClassNameMapperBuilder {
             getBuilder().addMappedRange(null, originalSignature, null, residualSignature.getName());
         methodSpecificMappingInformation.consume(
             info -> range.addMappingInformation(info, Unreachable::raise));
-        return this;
+        return;
       }
 
       Map<DexMethod, MethodSignature> signatures = new IdentityHashMap<>();
@@ -367,11 +368,11 @@ public class MappedPositionToClassNameMapperBuilder {
           Position lastPosition = lastMappedPosition.getPosition();
           if (mappedPositionRange.isOutOfRange()
               // Check if inline positions has changed
-              || currentPosition.getMethod() != lastPosition.getMethod()
+              || ObjectUtils.notIdentical(currentPosition.getMethod(), lastPosition.getMethod())
               || !Objects.equals(
                   currentPosition.getCallerPosition(), lastPosition.getCallerPosition())
               // Check if outline positions has changed
-              || !Objects.equals(
+              || ObjectUtils.notIdentical(
                   currentPosition.getOutlineCallee(), lastPosition.getOutlineCallee())
               || !Objects.equals(
                   currentPosition.getOutlinePositions(), lastPosition.getOutlinePositions())) {
@@ -450,7 +451,6 @@ public class MappedPositionToClassNameMapperBuilder {
       }
       assert mappedPositions.size() <= 1
           || getBuilder().hasNoOverlappingRangesForSignature(residualSignature);
-      return this;
     }
 
     private boolean verifyMethodMapping(

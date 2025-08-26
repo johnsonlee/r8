@@ -1,6 +1,7 @@
 // Copyright (c) 2024, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
+import annotations from "./annotations.js";
 import dom from "./dom.js";
 import scales from "./scales.js";
 import state from "./state.js";
@@ -8,6 +9,7 @@ import url from "./url.js";
 
 var chart = null;
 var dataProvider = null;
+var filteredCommits = null;
 
 function getBenchmarkColors(theChart) {
   const benchmarkColors = {};
@@ -31,16 +33,27 @@ function get() {
   return chart;
 }
 
-function getData() {
-  const filteredCommits = state.commits(state.zoom);
+function getChartData() {
   return dataProvider(filteredCommits);
 }
 
 function getDataLabelFormatter(value, context) {
-  var percentageChange = getDataPercentageChange(context);
-  var percentageChangeTwoDecimals = Math.round(percentageChange * 100) / 100;
-  var glyph = percentageChange < 0 ? '▼' : '▲';
-  return glyph + ' ' + percentageChangeTwoDecimals + '%';
+  const percentageChange = getDataPercentageChange(context);
+  const commit = getFilteredCommit(context.dataIndex);
+  var label = "";
+  // For try commits, always include the initials in the data label.
+  if ('parent_hash' in commit) {
+    const initials =
+        commit.author
+            .split(/\s/)
+            .reduce((initials, name) => initials += name.slice(0,1), '');
+    label += initials;
+  }
+  if (percentageChange !== null && Math.abs(percentageChange) >= 0.1) {
+    const glyph = percentageChange < 0 ? '▼' : '▲';
+    label += glyph + ' ' + percentageChange.toFixed(2) + '%';
+  }
+  return label;
 }
 
 function getDataPercentageChange(context) {
@@ -57,12 +70,19 @@ function getDataPercentageChange(context) {
   return (value - previousValue) / previousValue * 100;
 }
 
+function getFilteredCommit(index) {
+  return filteredCommits[index];
+}
+
 function initializeChart(options) {
+  setFilteredCommits();
   chart = new Chart(dom.canvas, {
-    data: getData(),
+    data: getChartData(),
     options: options,
     plugins: [ChartDataLabels]
   });
+  // Setup annotations.
+  annotations.configure(chart, filteredCommits);
   // Hide disabled legends.
   if (state.selectedLegends.size < state.legends.size) {
     update(false, true);
@@ -78,13 +98,19 @@ function setDataProvider(theDataProvider) {
  dataProvider = theDataProvider;
 }
 
+function setFilteredCommits() {
+  filteredCommits = state.commits(state.zoom);
+}
+
 function update(dataChanged, legendsChanged) {
   console.assert(state.zoom.left <= state.zoom.right);
 
   // Update datasets.
   if (dataChanged) {
-    const newData = getData();
-    Object.assign(chart.data, newData);
+    setFilteredCommits();
+    Object.assign(chart.data, getChartData());
+    // Update annotations.
+    annotations.configure(chart, filteredCommits);
     // Update chart.
     chart.update();
   }
@@ -114,6 +140,7 @@ export default {
   get: get,
   getDataLabelFormatter: getDataLabelFormatter,
   getDataPercentageChange: getDataPercentageChange,
+  getFilteredCommit: getFilteredCommit,
   initializeChart: initializeChart,
   setDataProvider: setDataProvider,
   update: update

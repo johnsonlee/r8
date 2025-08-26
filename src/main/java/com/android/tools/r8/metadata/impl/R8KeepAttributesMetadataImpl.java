@@ -39,14 +39,6 @@ public class R8KeepAttributesMetadataImpl implements R8KeepAttributesMetadata {
   private final boolean isInnerClassesKept;
 
   @Expose
-  @SerializedName("isLocalVariableTableKept")
-  private final boolean isLocalVariableTableKept;
-
-  @Expose
-  @SerializedName("isLocalVariableTypeTableKept")
-  private final boolean isLocalVariableTypeTableKept;
-
-  @Expose
   @SerializedName("isMethodParametersKept")
   private final boolean isMethodParametersKept;
 
@@ -87,10 +79,6 @@ public class R8KeepAttributesMetadataImpl implements R8KeepAttributesMetadata {
   private final boolean isSourceDebugExtensionKept;
 
   @Expose
-  @SerializedName("isSourceDirKept")
-  private final boolean isSourceDirKept;
-
-  @Expose
   @SerializedName("isSourceFileKept")
   private final boolean isSourceFileKept;
 
@@ -103,8 +91,6 @@ public class R8KeepAttributesMetadataImpl implements R8KeepAttributesMetadata {
     this.isEnclosingMethodKept = keepAttributes.enclosingMethod;
     this.isExceptionsKept = keepAttributes.exceptions;
     this.isInnerClassesKept = keepAttributes.innerClasses;
-    this.isLocalVariableTableKept = keepAttributes.localVariableTable;
-    this.isLocalVariableTypeTableKept = keepAttributes.localVariableTypeTable;
     this.isMethodParametersKept = keepAttributes.methodParameters;
     this.isPermittedSubclassesKept = keepAttributes.permittedSubclasses;
     this.isRuntimeInvisibleAnnotationsKept = keepAttributes.runtimeInvisibleAnnotations;
@@ -117,7 +103,6 @@ public class R8KeepAttributesMetadataImpl implements R8KeepAttributesMetadata {
     this.isRuntimeVisibleTypeAnnotationsKept = keepAttributes.runtimeVisibleTypeAnnotations;
     this.isSignatureKept = keepAttributes.signature;
     this.isSourceDebugExtensionKept = keepAttributes.sourceDebugExtension;
-    this.isSourceDirKept = keepAttributes.sourceDir;
     this.isSourceFileKept = keepAttributes.sourceFile;
     this.isStackMapTableKept = keepAttributes.stackMapTable;
   }
@@ -144,12 +129,12 @@ public class R8KeepAttributesMetadataImpl implements R8KeepAttributesMetadata {
 
   @Override
   public boolean isLocalVariableTableKept() {
-    return isLocalVariableTableKept;
+    return false;
   }
 
   @Override
   public boolean isLocalVariableTypeTableKept() {
-    return isLocalVariableTypeTableKept;
+    return false;
   }
 
   @Override
@@ -204,7 +189,7 @@ public class R8KeepAttributesMetadataImpl implements R8KeepAttributesMetadata {
 
   @Override
   public boolean isSourceDirKept() {
-    return isSourceDirKept;
+    return false;
   }
 
   @Override

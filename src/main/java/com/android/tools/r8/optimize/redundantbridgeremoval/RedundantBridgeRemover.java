@@ -288,7 +288,8 @@ public class RedundantBridgeRemover extends MemberRebindingHelper {
       extends DepthFirstTopDownClassHierarchyTraversal {
 
     private final ProgramMethodSet removedBridges = ProgramMethodSet.create();
-    private ProgramMethodSet superTargets = null;
+    private ProgramMethodSet superTargets = ProgramMethodSet.create();
+    private WorkList<DexProgramClass> superTargetsWorklist = WorkList.newIdentityWorkList();
 
     RedundantBridgeRemoverClassHierarchyTraversal() {
       super(
@@ -397,14 +398,12 @@ public class RedundantBridgeRemover extends MemberRebindingHelper {
     }
 
     private ProgramMethodSet getOrCreateSuperTargets(DexProgramClass root) {
-      if (superTargets != null) {
+      if (!superTargetsWorklist.addIfNotSeen(root)) {
         return superTargets;
       }
       AppView<? extends AppInfoWithClassHierarchy> appViewWithClassHierarchy = appView;
-      superTargets = ProgramMethodSet.create();
-      WorkList<DexProgramClass> worklist = WorkList.newIdentityWorkList(root);
-      while (worklist.hasNext()) {
-        DexProgramClass clazz = worklist.next();
+      while (superTargetsWorklist.hasNext()) {
+        DexProgramClass clazz = superTargetsWorklist.next();
         clazz.forEachProgramMethodMatching(
             DexEncodedMethod::hasCode,
             method ->
@@ -424,7 +423,7 @@ public class RedundantBridgeRemover extends MemberRebindingHelper {
                         }
                       }
                     }));
-        worklist.addIfNotSeen(immediateSubtypingInfo.getSubclasses(clazz));
+        superTargetsWorklist.addIfNotSeen(immediateSubtypingInfo.getSubclasses(clazz));
       }
       return superTargets;
     }

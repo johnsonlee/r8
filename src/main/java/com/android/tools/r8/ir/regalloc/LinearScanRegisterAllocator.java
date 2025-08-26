@@ -1252,8 +1252,13 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
       MoveException moveException = block.entry().asMoveException();
       LiveIntervals intervals = moveException.outValue().getLiveIntervals();
       if (intervals.getValue().hasAnyUsers()) {
-        LiveIntervals split = intervals.splitAfter(intervals.getValue().getDefinition(), mode);
-        unhandled.add(split);
+        // Split the live intervals immediately after the move-exception instruction. Check if the
+        // live intervals has already been split at this point due to an invoke/range instruction.
+        if (intervals.getSplitCovering(moveException).getEnd()
+            != toGapPosition(moveException.getNext().getNumber())) {
+          LiveIntervals split = intervals.splitAfter(intervals.getValue().getDefinition(), mode);
+          unhandled.add(split);
+        }
       }
       if (intervals.getStart() < moveException.getNumber()) {
         intervals = intervals.splitBefore(moveException, mode);

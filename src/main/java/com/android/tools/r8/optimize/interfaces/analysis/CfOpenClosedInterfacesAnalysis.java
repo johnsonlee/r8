@@ -1,7 +1,6 @@
 // Copyright (c) 2022, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-
 package com.android.tools.r8.optimize.interfaces.analysis;
 
 import com.android.tools.r8.cf.code.CfAssignability;
@@ -11,17 +10,19 @@ import com.android.tools.r8.cf.code.CfFrameVerifierEventConsumer;
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfSubtypingAssignability;
 import com.android.tools.r8.cf.code.frame.FrameType;
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
 import com.android.tools.r8.graph.CfCodeDiagnostics;
 import com.android.tools.r8.graph.Code;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndMember;
-import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
-import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.graph.analysis.EnqueuerAnalysisCollection;
+import com.android.tools.r8.graph.analysis.FinishedEnqueuerAnalysis;
+import com.android.tools.r8.graph.analysis.NewlyLiveUnprocessedCodeEnqueuerAnalysis;
 import com.android.tools.r8.ir.analysis.framework.intraprocedural.AbstractTransferFunction;
 import com.android.tools.r8.ir.analysis.framework.intraprocedural.DataflowAnalysisResult;
 import com.android.tools.r8.ir.analysis.framework.intraprocedural.DataflowAnalysisResult.FailedDataflowAnalysisResult;
@@ -30,9 +31,10 @@ import com.android.tools.r8.ir.analysis.framework.intraprocedural.cf.CfBlock;
 import com.android.tools.r8.ir.analysis.framework.intraprocedural.cf.CfControlFlowGraph;
 import com.android.tools.r8.ir.analysis.framework.intraprocedural.cf.CfIntraproceduralDataflowAnalysis;
 import com.android.tools.r8.optimize.interfaces.collection.NonEmptyOpenClosedInterfacesCollection;
-import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.InternalOptions.OpenClosedInterfacesOptions;
+import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.ThreadUtils;
@@ -40,7 +42,6 @@ import com.android.tools.r8.utils.UnverifiableCfCodeDiagnostic;
 import com.android.tools.r8.utils.WorkList;
 import com.android.tools.r8.utils.collections.ProgramMethodMap;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
@@ -48,49 +49,83 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
-public class CfOpenClosedInterfacesAnalysis {
+public class CfOpenClosedInterfacesAnalysis
+    implements NewlyLiveUnprocessedCodeEnqueuerAnalysis, FinishedEnqueuerAnalysis {
 
-  private final AppView<AppInfoWithLiveness> appView;
+  private static final int BATCH_SIZE = 100;
+
+  private final AppView<AppInfoWithClassHierarchy> appView;
   private final CfAssignability assignability;
+  private final Enqueuer enqueuer;
   private final InternalOptions options;
 
   private final Set<DexClass> openInterfaces = SetUtils.newConcurrentHashSet();
-
+  private List<Pair<ProgramMethod, CfCode>> pendingMethods = new ArrayList<>(BATCH_SIZE);
   private final ProgramMethodMap<UnverifiableCfCodeDiagnostic> unverifiableCodeDiagnostics =
       ProgramMethodMap.createConcurrent();
 
-  public CfOpenClosedInterfacesAnalysis(AppView<AppInfoWithLiveness> appView) {
+  public CfOpenClosedInterfacesAnalysis(
+      AppView<AppInfoWithClassHierarchy> appView, Enqueuer enqueuer) {
     this.appView = appView;
     this.assignability = new CfSubtypingAssignability(appView);
+    this.enqueuer = enqueuer;
     this.options = appView.options();
   }
 
-  public boolean run(ExecutorService executorService) throws ExecutionException {
-    processClasses(executorService);
+  public static void register(
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      Enqueuer enqueuer,
+      EnqueuerAnalysisCollection.Builder builder) {
+    if (enqueuer.getMode().isInitialTreeShaking()) {
+      CfOpenClosedInterfacesAnalysis analysis =
+          new CfOpenClosedInterfacesAnalysis(appView.withClassHierarchy(), enqueuer);
+      builder.addNewlyLiveUnprocessedCodeAnalysis(analysis).addFinishedAnalysis(analysis);
+    }
+  }
+
+  @Override
+  public void processNewlyLiveUnprocessedCode(ProgramMethod method) {
+    // We need to save a reference to the CfCode object since the CfToLirConverter will convert it
+    // to LIR and update the method's code object.
+    Code code = method.getDefinition().getCode();
+    assert code != null;
+    if (!code.isCfCode()) {
+      assert code.isDexCode();
+      return;
+    }
+    pendingMethods.add(new Pair<>(method, code.asCfCode()));
+    // Once we have accumulated <BATCH_SIZE> methods, analyze all of them concurrently.
+    if (pendingMethods.size() == BATCH_SIZE) {
+      List<Pair<ProgramMethod, CfCode>> methods = pendingMethods;
+      enqueuer
+          .getTaskCollection()
+          .submitEnqueuerIndependentTask(
+              () -> {
+                methods.forEach(this::processMethod);
+                return null;
+              });
+      pendingMethods = new ArrayList<>(BATCH_SIZE);
+    }
+  }
+
+  @Override
+  public void done(Enqueuer enqueuer, ExecutorService executorService) throws ExecutionException {
+    processPendingMethods(executorService);
     setClosedInterfaces();
     reportUnverifiableCodeDiagnostics();
-    return true;
   }
 
-  private void processClasses(ExecutorService executorService) throws ExecutionException {
+  private void processPendingMethods(ExecutorService executorService) throws ExecutionException {
     ThreadUtils.processItems(
-        appView.appInfo().classes(),
-        this::processClass,
-        appView.options().getThreadingModule(),
-        executorService);
+        pendingMethods, this::processMethod, options.getThreadingModule(), executorService);
+    pendingMethods.clear();
   }
 
-  private void processClass(DexProgramClass clazz) {
-    clazz.forEachProgramMethodMatching(
-        DexEncodedMethod::hasCode, method -> openInterfaces.addAll(processMethod(method)));
+  private void processMethod(Pair<ProgramMethod, CfCode> pair) {
+    processMethod(pair.getFirst(), pair.getSecond());
   }
 
-  private Set<DexClass> processMethod(ProgramMethod method) {
-    Code code = method.getDefinition().getCode();
-    if (!code.isCfCode()) {
-      assert code.isDefaultInstanceInitializerCode() || code.isDexCode() || code.isThrowNullCode();
-      return Collections.emptySet();
-    }
+  private void processMethod(ProgramMethod method, CfCode code) {
     CfCode cfCode = code.asCfCode();
     CfAnalysisConfig config = createConfig(method, cfCode);
     CfOpenClosedInterfacesAnalysisHelper helper =
@@ -102,7 +137,7 @@ public class CfOpenClosedInterfacesAnalysis {
     } else if (stackMapStatus.isValid()) {
       cfCode.setStackMapStatus(stackMapStatus);
     }
-    return helper.getOpenInterfaces();
+    openInterfaces.addAll(helper.getOpenInterfaces());
   }
 
   private CfAnalysisConfig createConfig(ProgramMethod method, CfCode code) {

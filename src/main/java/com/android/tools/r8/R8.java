@@ -75,7 +75,6 @@ import com.android.tools.r8.optimize.MemberRebindingIdentityLensFactory;
 import com.android.tools.r8.optimize.accessmodification.AccessModifier;
 import com.android.tools.r8.optimize.bridgehoisting.BridgeHoisting;
 import com.android.tools.r8.optimize.fields.FieldFinalizer;
-import com.android.tools.r8.optimize.interfaces.analysis.CfOpenClosedInterfacesAnalysis;
 import com.android.tools.r8.optimize.proto.ProtoNormalizer;
 import com.android.tools.r8.optimize.redundantbridgeremoval.RedundantBridgeRemover;
 import com.android.tools.r8.optimize.singlecaller.SingleCallerInliner;
@@ -466,6 +465,12 @@ public class R8 {
           assert appView.checkForTesting(() -> allReferencesAssignedApiLevel(appViewWithLiveness));
         }
 
+        if (options.isGeneratingClassFiles()) {
+          LirConverter.enterLirSupportedPhaseForCf(appViewWithLiveness, executorService);
+        } else {
+          assert appView.testing().isSupportedLirPhase();
+        }
+
         // Compute after initial round of tree shaking to not trigger on pruned classes.
         enableListIterationRewriter =
             ListIterationRewriter.shouldEnableForR8(appView, subtypingInfo);
@@ -479,11 +484,6 @@ public class R8 {
       AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
 
       options.reportLibraryAndProgramDuplicates(appViewWithLiveness);
-
-      new CfOpenClosedInterfacesAnalysis(appViewWithLiveness).run(executorService);
-
-      // TODO(b/225838009): Move higher up.
-      LirConverter.enterLirSupportedPhase(appViewWithLiveness, executorService);
 
       assert verifyNoJarApplicationReaders(appView.appInfo().classes());
       assert appView.checkForTesting(() -> allReferencesAssignedApiLevel(appViewWithLiveness));
@@ -1250,7 +1250,7 @@ public class R8 {
               shrinker.setDeadProtoTypes(appViewWithLiveness.appInfo().getDeadProtoTypes()));
     }
     MutableMethodConversionOptions conversionOptions =
-        MethodConversionOptions.forPreLirPhase(appView);
+        MethodConversionOptions.forLirPhaseWhenDexing(appView);
     appView.withGeneratedMessageLiteBuilderShrinker(
         shrinker ->
             shrinker.rewriteDeadBuilderReferencesFromDynamicMethods(

@@ -55,9 +55,11 @@ public class LirConverter {
   // Processing is done and no further uses of the meta-data should arise.
   private static final BytecodeMetadataProvider noMetadata = BytecodeMetadataProvider.empty();
 
-  public static void enterLirSupportedPhase(
+  public static void enterLirSupportedPhaseForCf(
       AppView<AppInfoWithLiveness> appView, ExecutorService executorService)
       throws ExecutionException {
+    // TODO(b/439952010): Add support for converting to LIR in tree shaking when compiling to CF.
+    assert appView.options().isGeneratingClassFiles();
     assert appView.testing().canUseLir(appView);
     assert appView.testing().isPreLirPhase();
     appView.testing().enterLirSupportedPhase();

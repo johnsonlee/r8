@@ -364,7 +364,8 @@ public class ApplicationWriter {
         DebugRepresentationPredicate representation =
             DebugRepresentation.fromFiles(virtualFiles, options);
         proguardMapId =
-            runAndWriteMap(inputApp, appView, timing, originalSourceFiles, representation);
+            runAndWriteMap(
+                inputApp, appView, executorService, timing, originalSourceFiles, representation);
       }
 
       // With the mapping id/hash known, it is safe to compute the remaining dex strings.

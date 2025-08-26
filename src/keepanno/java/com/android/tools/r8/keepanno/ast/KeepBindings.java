@@ -8,7 +8,7 @@ import com.android.tools.r8.keepanno.proto.KeepSpecProtos;
 import com.android.tools.r8.keepanno.proto.KeepSpecProtos.Bindings;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
@@ -179,7 +179,7 @@ public class KeepBindings {
     }
   }
 
-  public static class KeepBindingSymbol {
+  public static class KeepBindingSymbol implements Comparable<KeepBindingSymbol> {
     private final String hint;
     private String suffix = "";
 
@@ -205,12 +205,21 @@ public class KeepBindings {
     public int hashCode() {
       return System.identityHashCode(this);
     }
+
+    @Override
+    public int compareTo(KeepBindingSymbol other) {
+      int cmp = hint.compareTo(other.hint);
+      if (cmp != 0) {
+        return cmp;
+      }
+      return suffix.compareTo(other.suffix);
+    }
   }
 
   public static class Builder {
 
     private final Map<String, KeepBindingSymbol> reserved = new HashMap<>();
-    private final Map<KeepBindingSymbol, KeepItemPattern> bindings = new IdentityHashMap<>();
+    private final Map<KeepBindingSymbol, KeepItemPattern> bindings = new LinkedHashMap<>();
 
     public Builder applyProto(Bindings proto) {
       List<KeepSpecProtos.Binding> protoList = proto.getBindingsList();

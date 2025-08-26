@@ -13,6 +13,7 @@ import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.ProgramResource;
 import com.android.tools.r8.ProgramResourceProvider;
 import com.android.tools.r8.ResourceException;
+import com.android.tools.r8.TestRunResult;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.keepanno.KeepAnno;
 import com.android.tools.r8.keepanno.KeepAnnoParameters;
@@ -25,6 +26,7 @@ import com.android.tools.r8.transformers.ClassFileTransformer.AnnotationBuilder;
 import com.android.tools.r8.transformers.ClassFileTransformer.MethodPredicate;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.FileUtils;
+import com.android.tools.r8.utils.ThrowingConsumer;
 import com.android.tools.r8.utils.ZipUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -171,7 +173,7 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
 
     public static class Builder {
 
-      private String keepVariant = "-keepclasseswithmembers";
+      private String keepVariant = "-keepclassmembers";
       private String conditionClass;
       private String conditionMembers;
       private String consequentClass;
@@ -348,6 +350,17 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
                 .build());
   }
 
+  // Rule added by rule extraction to avoid compat mode keeping the default constructor.
+  protected static void addDefaultInitWorkaround(
+      ExpectedRules.Builder b, Consumer<ExpectedKeepRule.Builder> fn) {
+    b.add(
+        ExpectedKeepRule.builder()
+            .setKeepVariant("-keep")
+            .setConsequentMembers("{ void finalize(); }")
+            .apply(fn)
+            .build());
+  }
+
   static class ArchiveResourceProviderClassFilesOnly
       implements ProgramResourceProvider, DataResourceProvider {
 
@@ -521,7 +534,7 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
       List<byte[]> classFileData,
       String mainClass,
       ExpectedRules expectedRules,
-      String expectedOutput)
+      ThrowingConsumer<TestRunResult<?>, RuntimeException> runResultConsumer)
       throws Exception {
     // TODO(b/392865072): Legacy R8 fails with AssertionError: Synthetic class kinds should agree.
     assumeFalse(parameters.isLegacyR8());
@@ -576,14 +589,18 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
               }
             })
         .run(mainClass)
-        .assertSuccessWithOutput(expectedOutput);
+        .apply(runResultConsumer);
   }
 
   protected void testExtractedRulesAndRunKotlin(
       KotlinCompileMemoizer compilation, String mainClass, ExpectedRules expectedRules)
       throws Exception {
     testExtractedRulesAndRunKotlin(
-        compilation, ImmutableList.of(), mainClass, expectedRules, getExpectedOutputForKotlin());
+        compilation,
+        ImmutableList.of(),
+        mainClass,
+        expectedRules,
+        b -> b.assertSuccessWithOutput(getExpectedOutputForKotlin()));
   }
 
   protected void testExtractedRulesAndRunKotlin(
@@ -598,7 +615,22 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
         getTransformedClasses(compilation, transformerForClass),
         mainClass,
         expectedRules,
-        expectedOutput);
+        b -> b.assertSuccessWithOutput(expectedOutput));
+  }
+
+  protected void testExtractedRulesAndRunKotlin(
+      KotlinCompileMemoizer compilation,
+      BiFunction<ClassReference, byte[], byte[]> transformerForClass,
+      String mainClass,
+      ExpectedRules expectedRules,
+      ThrowingConsumer<TestRunResult<?>, RuntimeException> runResultConsumer)
+      throws Exception {
+    testExtractedRulesAndRunKotlin(
+        null,
+        getTransformedClasses(compilation, transformerForClass),
+        mainClass,
+        expectedRules,
+        runResultConsumer);
   }
 
   protected void testExtractedRulesAndRunKotlin(

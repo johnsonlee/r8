@@ -115,7 +115,7 @@ public class KotlinMetadataEnqueuerExtension
 
   @Override
   @SuppressWarnings("ReferenceEquality")
-  public void done(Enqueuer enqueuer) {
+  public void done(Enqueuer enqueuer, ExecutorService executorService) {
     boolean keepKotlinMetadata =
         KeepClassInfo.isKotlinMetadataClassKept(
             factory,

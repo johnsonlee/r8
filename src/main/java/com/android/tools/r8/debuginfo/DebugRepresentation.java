@@ -39,6 +39,10 @@ public class DebugRepresentation {
 
   public interface DebugRepresentationPredicate {
 
+    default boolean canUseDexPc(Collection<ProgramMethod> methods) {
+      return methods.size() == 1 && getDexPcEncodingCutoff(methods.iterator().next()) > 0;
+    }
+
     int getDexPcEncodingCutoff(ProgramMethod method);
   }
 

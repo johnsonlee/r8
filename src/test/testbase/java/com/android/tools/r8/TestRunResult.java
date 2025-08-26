@@ -43,7 +43,7 @@ public abstract class TestRunResult<RR extends TestRunResult<RR>> {
 
   public abstract RR disassemble() throws IOException, ExecutionException;
 
-  public <E extends Throwable> RR apply(ThrowingConsumer<RR, E> fn) throws E {
+  public <E extends Throwable> RR apply(ThrowingConsumer<? super RR, E> fn) throws E {
     fn.accept(self());
     return self();
   }

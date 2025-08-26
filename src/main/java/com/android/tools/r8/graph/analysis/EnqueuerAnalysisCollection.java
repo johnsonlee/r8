@@ -47,6 +47,7 @@ public final class EnqueuerAnalysisCollection {
   // Reachability events.
   private final NewlyFailedMethodResolutionEnqueuerAnalysis[] newlyFailedMethodResolutionAnalyses;
   private final NewlyLiveClassEnqueuerAnalysis[] newlyLiveClassAnalyses;
+  private final NewlyLiveUnprocessedCodeEnqueuerAnalysis[] newlyLiveUnprocessedCodeAnalyses;
   private final NewlyLiveCodeEnqueuerAnalysis[] newlyLiveCodeAnalyses;
   private final NewlyLiveFieldEnqueuerAnalysis[] newlyLiveFieldAnalyses;
   private final NewlyLiveMethodEnqueuerAnalysis[] newlyLiveMethodAnalyses;
@@ -75,6 +76,7 @@ public final class EnqueuerAnalysisCollection {
       // Reachability events.
       NewlyFailedMethodResolutionEnqueuerAnalysis[] newlyFailedMethodResolutionAnalyses,
       NewlyLiveClassEnqueuerAnalysis[] newlyLiveClassAnalyses,
+      NewlyLiveUnprocessedCodeEnqueuerAnalysis[] newlyLiveUnprocessedCodeAnalyses,
       NewlyLiveCodeEnqueuerAnalysis[] newlyLiveCodeAnalyses,
       NewlyLiveFieldEnqueuerAnalysis[] newlyLiveFieldAnalyses,
       NewlyLiveMethodEnqueuerAnalysis[] newlyLiveMethodAnalyses,
@@ -100,6 +102,7 @@ public final class EnqueuerAnalysisCollection {
     // Reachability events.
     this.newlyFailedMethodResolutionAnalyses = newlyFailedMethodResolutionAnalyses;
     this.newlyLiveClassAnalyses = newlyLiveClassAnalyses;
+    this.newlyLiveUnprocessedCodeAnalyses = newlyLiveUnprocessedCodeAnalyses;
     this.newlyLiveCodeAnalyses = newlyLiveCodeAnalyses;
     this.newlyLiveFieldAnalyses = newlyLiveFieldAnalyses;
     this.newlyLiveMethodAnalyses = newlyLiveMethodAnalyses;
@@ -128,6 +131,7 @@ public final class EnqueuerAnalysisCollection {
         && ArrayUtils.isEmpty(newInstanceAnalyses)
         && ArrayUtils.isEmpty(newlyFailedMethodResolutionAnalyses)
         && ArrayUtils.isEmpty(newlyLiveClassAnalyses)
+        && ArrayUtils.isEmpty(newlyLiveUnprocessedCodeAnalyses)
         && ArrayUtils.isEmpty(newlyLiveCodeAnalyses)
         && ArrayUtils.isEmpty(newlyLiveFieldAnalyses)
         && ArrayUtils.isEmpty(newlyLiveMethodAnalyses)
@@ -293,6 +297,12 @@ public final class EnqueuerAnalysisCollection {
     }
   }
 
+  public void processNewlyLiveUnprocessedCode(ProgramMethod method) {
+    for (NewlyLiveUnprocessedCodeEnqueuerAnalysis analysis : newlyLiveUnprocessedCodeAnalyses) {
+      analysis.processNewlyLiveUnprocessedCode(method);
+    }
+  }
+
   public void processNewlyLiveCode(
       ProgramMethod method, DefaultEnqueuerUseRegistry registry, EnqueuerWorklist worklist) {
     for (NewlyLiveCodeEnqueuerAnalysis analysis : newlyLiveCodeAnalyses) {
@@ -359,9 +369,9 @@ public final class EnqueuerAnalysisCollection {
 
   // Tear down events.
 
-  public void done(Enqueuer enqueuer) {
+  public void done(Enqueuer enqueuer, ExecutorService executorService) throws ExecutionException {
     for (FinishedEnqueuerAnalysis analysis : finishedAnalyses) {
-      analysis.done(enqueuer);
+      analysis.done(enqueuer, executorService);
     }
   }
 
@@ -404,6 +414,8 @@ public final class EnqueuerAnalysisCollection {
     private final List<NewlyFailedMethodResolutionEnqueuerAnalysis>
         newlyFailedMethodResolutionAnalyses = new ArrayList<>();
     private final List<NewlyLiveClassEnqueuerAnalysis> newlyLiveClassAnalyses = new ArrayList<>();
+    private final List<NewlyLiveUnprocessedCodeEnqueuerAnalysis> newlyLiveUnprocessedCodeAnalyses =
+        new ArrayList<>();
     private final List<NewlyLiveCodeEnqueuerAnalysis> newlyLiveCodeAnalyses = new ArrayList<>();
     private final List<NewlyLiveFieldEnqueuerAnalysis> newlyLiveFieldAnalyses = new ArrayList<>();
     private final List<NewlyLiveMethodEnqueuerAnalysis> newlyLiveMethodAnalyses = new ArrayList<>();
@@ -478,6 +490,12 @@ public final class EnqueuerAnalysisCollection {
 
     public Builder addNewlyLiveClassAnalysis(NewlyLiveClassEnqueuerAnalysis analysis) {
       newlyLiveClassAnalyses.add(analysis);
+      return this;
+    }
+
+    public Builder addNewlyLiveUnprocessedCodeAnalysis(
+        NewlyLiveUnprocessedCodeEnqueuerAnalysis analysis) {
+      newlyLiveUnprocessedCodeAnalyses.add(analysis);
       return this;
     }
 
@@ -556,6 +574,7 @@ public final class EnqueuerAnalysisCollection {
           newlyFailedMethodResolutionAnalyses.toArray(
               NewlyFailedMethodResolutionEnqueuerAnalysis[]::new),
           newlyLiveClassAnalyses.toArray(NewlyLiveClassEnqueuerAnalysis[]::new),
+          newlyLiveUnprocessedCodeAnalyses.toArray(NewlyLiveUnprocessedCodeEnqueuerAnalysis[]::new),
           newlyLiveCodeAnalyses.toArray(NewlyLiveCodeEnqueuerAnalysis[]::new),
           newlyLiveFieldAnalyses.toArray(NewlyLiveFieldEnqueuerAnalysis[]::new),
           newlyLiveMethodAnalyses.toArray(NewlyLiveMethodEnqueuerAnalysis[]::new),

@@ -31,7 +31,7 @@ public abstract class EnqueuerDeferredTracing {
         return empty();
       }
     }
-    return new EnqueuerDeferredTracingImpl(appView, enqueuer, mode);
+    return new EnqueuerDeferredTracingImpl(appView, enqueuer);
   }
 
   public static EmptyEnqueuerDeferredTracing empty() {

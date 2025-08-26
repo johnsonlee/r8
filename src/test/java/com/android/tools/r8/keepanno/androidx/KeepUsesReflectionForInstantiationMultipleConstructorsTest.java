@@ -106,6 +106,10 @@ public class KeepUsesReflectionForInstantiationMultipleConstructorsTest
                 .setConsequentMembers("{ void <init>(long); }")
                 .build())
         .apply(b -> addConsequentKotlinMetadata(b, bb -> bb.apply(setCondition)))
+        .apply(
+            b ->
+                addDefaultInitWorkaround(
+                    b, bb -> bb.apply(setCondition).setConsequentClass(KeptClass.class)))
         .build();
   }
 
@@ -132,6 +136,15 @@ public class KeepUsesReflectionForInstantiationMultipleConstructorsTest
                     b,
                     bb ->
                         bb.setConditionClass(conditionClass).setConditionMembers(conditionMember)))
+        .apply(
+            b ->
+                addDefaultInitWorkaround(
+                    b,
+                    bb ->
+                        bb.setConditionClass(conditionClass)
+                            .setConditionMembers(conditionMember)
+                            .setConsequentClass(
+                                "com.android.tools.r8.keepanno.androidx.kt.KeptClass")))
         .build();
   }
 

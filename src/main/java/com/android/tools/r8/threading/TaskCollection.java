@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.threading;
 
+import static com.google.common.base.Predicates.alwaysTrue;
+
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ThrowingAction;
 import com.android.tools.r8.utils.UncheckedExecutionException;
@@ -23,7 +25,7 @@ public class TaskCollection<T> {
 
   private final ThreadingModule threadingModule;
   private final ExecutorService executorService;
-  private final List<Future<T>> futures;
+  private List<Future<T>> futures;
 
   public TaskCollection(
       ThreadingModule threadingModule, ExecutorService executorService, int initialCapacity) {
@@ -167,7 +169,7 @@ public class TaskCollection<T> {
 
   /** Derived await to get a subset of the results in a list. */
   public final List<T> awaitWithResults(Predicate<T> predicate) throws ExecutionException {
-    if (predicate == null) {
+    if (predicate == null || predicate == alwaysTrue()) {
       return awaitWithResults();
     }
     List<T> filtered = new ArrayList<>();
@@ -178,5 +180,15 @@ public class TaskCollection<T> {
           }
         });
     return filtered;
+  }
+
+  public final void removeCompletedFutures() {
+    List<Future<T>> pendingFutures = new ArrayList<>();
+    for (Future<T> future : futures) {
+      if (!future.isDone()) {
+        pendingFutures.add(future);
+      }
+    }
+    futures = pendingFutures;
   }
 }

@@ -15,6 +15,7 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestCompileResult;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.BooleanBox;
@@ -22,6 +23,7 @@ import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
+import com.google.common.collect.Lists;
 import java.util.Collection;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -52,7 +54,7 @@ public class ThrowBlockOutlinerSharedStringBuilderTest extends TestBase {
                   options.getThrowBlockOutlinerOptions().enable = true;
                   options.getThrowBlockOutlinerOptions().outlineConsumerForTesting =
                       outlines -> {
-                        inspectOutlines(outlines);
+                        inspectOutlines(outlines, options.dexItemFactory());
                         receivedCallback.set();
                       };
                   options.getThrowBlockOutlinerOptions().outlineStrategyForTesting =
@@ -73,12 +75,13 @@ public class ThrowBlockOutlinerSharedStringBuilderTest extends TestBase {
         .assertFailureWithErrorThatMatches(containsString("j=0, i=1"));
   }
 
-  private void inspectOutlines(Collection<ThrowBlockOutline> outlines) {
+  private void inspectOutlines(Collection<ThrowBlockOutline> outlines, DexItemFactory factory) {
     // Verify that we have a single outline with two users.
     assertEquals(1, outlines.size());
     ThrowBlockOutline outline = outlines.iterator().next();
     assertEquals(2, outline.getNumberOfUsers());
     assertEquals(5, outline.getProto().getArity());
+    assertEquals(4, outline.getOptimizedProto(factory).getArity());
 
     // Verify that the last argument is known to be constant.
     AbstractValue lastArgument = ListUtils.last(outline.getArguments());
@@ -102,6 +105,18 @@ public class ThrowBlockOutlinerSharedStringBuilderTest extends TestBase {
             .streamInstructions()
             .anyMatch(i -> i.isNewInstance("java.lang.StringBuilder")));
     assertTrue(outlineMethodSubject.streamInstructions().anyMatch(i -> i.isConstString(", k=42")));
+
+    // Validate that type weakening from java.lang.String to java.lang.Object works.
+    // The first parameter is java.lang.String since it is passed to StringBuilder.<init>(String).
+    // The third argument has been weakened from java.lang.String to java.lang.Object due to
+    // changing append(String) to append(Object).
+    assertEquals(
+        Lists.newArrayList(
+            inspector.getTypeSubject(String.class),
+            inspector.getTypeSubject(int.class),
+            inspector.getTypeSubject(Object.class),
+            inspector.getTypeSubject(int.class)),
+        outlineMethodSubject.getParameters());
 
     // Validate that main() no longer uses StringBuilder and that it calls the outline twice.
     MethodSubject mainMethodSubject = inspector.clazz(Main.class).mainMethod();

@@ -66,7 +66,9 @@ class GitCommit(object):
         branches = subprocess.check_output(
             ['git', 'branch', '--contains',
              self.hash(), '-r']).decode('utf-8').strip().splitlines()
-        if len(branches) != 1:
+        if len(branches) == 0:
+            self._branch = None
+        elif len(branches) != 1:
             self._branch = 'main'
         else:
             branch = branches[0].strip()
@@ -101,6 +103,9 @@ class GitCommit(object):
 
     def committer_timestamp(self):
         return self.timestamp
+
+    def parent_hash(self):
+        return utils.get_nth_sha1_from_revision(1, self.hash())
 
     def version(self):
         if self._version_is_computed:

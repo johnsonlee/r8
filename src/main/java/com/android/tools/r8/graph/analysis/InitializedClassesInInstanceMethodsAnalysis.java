@@ -16,6 +16,7 @@ import com.android.tools.r8.shaking.EnqueuerWorklist;
 import com.android.tools.r8.utils.MapUtils;
 import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
 
 public class InitializedClassesInInstanceMethodsAnalysis
     implements FinishedEnqueuerAnalysis, NewlyInstantiatedClassEnqueuerAnalysis {
@@ -124,7 +125,7 @@ public class InitializedClassesInInstanceMethodsAnalysis
   }
 
   @Override
-  public void done(Enqueuer enqueuer) {
+  public void done(Enqueuer enqueuer, ExecutorService executorService) {
     appView.setInitializedClassesInInstanceMethods(
         new InitializedClassesInInstanceMethods(appView, mapping));
   }

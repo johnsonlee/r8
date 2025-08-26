@@ -233,6 +233,10 @@ public class CodeInspector {
     return dexItemFactory.createType(DescriptorUtils.javaTypeToDescriptorIgnorePrimitives(string));
   }
 
+  public TypeSubject getTypeSubject(Class<?> clazz) {
+    return getTypeSubject(clazz.getTypeName());
+  }
+
   public TypeSubject getTypeSubject(String string) {
     return new TypeSubject(
         this, dexItemFactory.createType(DescriptorUtils.javaTypeToDescriptor(string)));

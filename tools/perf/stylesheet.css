@@ -4,5 +4,5 @@ body {
   font-family: 'Roboto';
 }
 
-div#branch-selector { border-right: 1px grey solid; float: right; margin-right: 20pt; padding-right: 20pt; }
-div#runtime-fn { float: right; }
+div#branch-selector, div#runtime-fn { border-right: 1px grey solid; float: right; margin-right: 15pt; padding-right: 15pt; }
+div#try-selector { float: right; }

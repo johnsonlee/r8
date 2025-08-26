@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.regalloc;
 
-import static com.android.tools.r8.utils.codeinspector.AssertUtils.assertFailsCompilation;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -28,13 +27,13 @@ public class MoveExceptionInvokeRangeTest extends TestBase {
   @Test
   public void test() throws Exception {
     parameters.assumeDexRuntime();
-    assertFailsCompilation(
-        () ->
-            testForD8(parameters)
-                .addInnerClasses(getClass())
-                .release()
-                .setMinApi(parameters)
-                .compile());
+    testForD8(parameters)
+        .addInnerClasses(getClass())
+        .release()
+        .setMinApi(parameters)
+        .compile()
+        .run(parameters.getRuntime(), Main.class, "a", "b", "c", "d", "e")
+        .assertSuccessWithEmptyOutput();
   }
 
   static class Main {

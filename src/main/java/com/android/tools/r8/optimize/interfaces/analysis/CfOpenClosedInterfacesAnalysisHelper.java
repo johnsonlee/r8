@@ -1,7 +1,6 @@
 // Copyright (c) 2022, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-
 package com.android.tools.r8.optimize.interfaces.analysis;
 
 import com.android.tools.r8.cf.code.CfArrayStore;
@@ -10,6 +9,7 @@ import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfInvoke;
 import com.android.tools.r8.cf.code.CfStaticFieldWrite;
 import com.android.tools.r8.cf.code.frame.FrameType;
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCodeDiagnostics;
 import com.android.tools.r8.graph.DexClass;
@@ -21,7 +21,6 @@ import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
 import com.android.tools.r8.ir.analysis.type.InterfaceCollection;
 import com.android.tools.r8.ir.analysis.type.ReferenceTypeElement;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
-import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.UnverifiableCfCodeDiagnostic;
 import com.android.tools.r8.utils.collections.ProgramMethodMap;
@@ -30,7 +29,7 @@ import java.util.Set;
 
 class CfOpenClosedInterfacesAnalysisHelper {
 
-  private final AppView<AppInfoWithLiveness> appView;
+  private final AppView<AppInfoWithClassHierarchy> appView;
   private final DexItemFactory dexItemFactory;
   private final ProgramMethod method;
   private final InternalOptions options;
@@ -39,7 +38,7 @@ class CfOpenClosedInterfacesAnalysisHelper {
   private final ProgramMethodMap<UnverifiableCfCodeDiagnostic> unverifiableCodeDiagnostics;
 
   CfOpenClosedInterfacesAnalysisHelper(
-      AppView<AppInfoWithLiveness> appView,
+      AppView<AppInfoWithClassHierarchy> appView,
       ProgramMethod method,
       ProgramMethodMap<UnverifiableCfCodeDiagnostic> unverifiableCodeDiagnostics) {
     this.appView = appView;

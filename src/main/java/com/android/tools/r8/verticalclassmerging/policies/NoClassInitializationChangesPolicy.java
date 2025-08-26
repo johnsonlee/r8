@@ -6,7 +6,9 @@ package com.android.tools.r8.verticalclassmerging.policies;
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.ObjectAllocationInfoCollection;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.verticalclassmerging.VerticalMergeGroup;
 import com.google.common.collect.Sets;
@@ -42,6 +44,23 @@ public class NoClassInitializationChangesPolicy
         assert removed;
         return false;
       }
+    }
+
+    ObjectAllocationInfoCollection objectAllocationInfoCollection =
+        appView.appInfo().getObjectAllocationInfoCollection();
+    // When the source class does not declare a class initializer, then we can merge
+    // regardless of the class initialization side effects in the target class if
+    // there is no way to trigger the class initialization side effects of the source
+    // class directly.
+    //
+    // We therefore check if the source class is not instantiated by a new-instance
+    // instruction, and that there cannot be any invoke-static of static-get
+    // instructions that target the source class.
+    if ((sourceClass.isInterface()
+            || !objectAllocationInfoCollection.isInstantiatedDirectly(sourceClass))
+        && !sourceClass.hasStaticFields()
+        && !sourceClass.getMethodCollection().hasDirectMethods(DexEncodedMethod::isStatic)) {
+      return true;
     }
     assert !sourceClass.hasClassInitializer() || !targetClass.hasClassInitializer();
     return !targetClass.classInitializationMayHaveSideEffects(
