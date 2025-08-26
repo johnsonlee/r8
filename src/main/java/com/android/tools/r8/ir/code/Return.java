@@ -173,6 +173,11 @@ public class Return extends JumpInstruction {
     public Builder self() {
       return this;
     }
+
+    @Override
+    protected boolean verifyInstructionTypeCannotThrow() {
+      return true;
+    }
   }
 
   @Override

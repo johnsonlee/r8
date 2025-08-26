@@ -127,7 +127,11 @@ public class ThrowBlockOutlineMarkerRewriter {
 
             // Replace the throw instruction by a normal return.
             Return returnInstruction =
-                Return.builder().setPosition(Position.none()).setReturnValue(returnValue).build();
+                Return.builder()
+                    .setPositionForNonThrowingInstruction(
+                        throwInstruction.getPosition(), appView.options())
+                    .setReturnValue(returnValue)
+                    .build();
             block.replaceLastInstruction(returnInstruction);
 
             // Remove all outlined instructions bottom up.

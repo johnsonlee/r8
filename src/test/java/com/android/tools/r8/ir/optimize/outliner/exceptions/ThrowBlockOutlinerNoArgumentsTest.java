@@ -9,6 +9,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.TestCompileResult;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
@@ -26,13 +27,15 @@ import org.junit.runners.Parameterized.Parameters;
 
 public class ThrowBlockOutlinerNoArgumentsTest extends ThrowBlockOutlinerTestBase {
 
-  @Parameter(1)
+  @Parameter(2)
   public boolean minimizeSyntheticNames;
 
-  @Parameters(name = "{0}, minimizeSyntheticNames: {1}")
+  @Parameters(name = "{0}, mode: {1}, minimizeSyntheticNames: {2}")
   public static List<Object[]> extraData() {
     return buildParameters(
-        getTestParameters().withDexRuntimesAndAllApiLevels().build(), BooleanUtils.values());
+        getTestParameters().withDexRuntimesAndAllApiLevels().build(),
+        CompilationMode.values(),
+        BooleanUtils.values());
   }
 
   @Test
@@ -40,12 +43,11 @@ public class ThrowBlockOutlinerNoArgumentsTest extends ThrowBlockOutlinerTestBas
     TestCompileResult<?, ?> compileResult =
         testForD8(parameters)
             .addInnerClasses(getClass())
-            .addOptionsModification(this::configure)
+            .apply(this::configure)
             .addOptionsModification(
                 options ->
                     options.desugarSpecificOptions().minimizeSyntheticNames =
                         minimizeSyntheticNames)
-            .release()
             .compile()
             .inspect(this::inspectOutput);
     for (int i = 0; i < 3; i++) {

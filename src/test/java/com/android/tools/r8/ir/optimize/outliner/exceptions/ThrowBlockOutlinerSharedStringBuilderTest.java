@@ -29,8 +29,7 @@ public class ThrowBlockOutlinerSharedStringBuilderTest extends ThrowBlockOutline
     TestCompileResult<?, ?> compileResult =
         testForD8(parameters)
             .addInnerClasses(getClass())
-            .addOptionsModification(this::configure)
-            .release()
+            .apply(this::configure)
             .compile()
             .inspect(this::inspectOutput);
     compileResult
@@ -76,12 +75,12 @@ public class ThrowBlockOutlinerSharedStringBuilderTest extends ThrowBlockOutline
     assertTrue(outlineMethodSubject.streamInstructions().anyMatch(i -> i.isConstString(", k=42")));
 
     // Validate that type weakening from java.lang.String to java.lang.Object works.
-    // The first parameter is java.lang.String since it is passed to StringBuilder.<init>(String).
-    // The third argument has been weakened from java.lang.String to java.lang.Object due to
-    // changing append(String) to append(Object).
+    // The first parameter is java.lang.String in release mode since it is passed to
+    // StringBuilder.<init>(String). The third argument has been weakened from java.lang.String
+    // to java.lang.Object due to changing append(String) to append(Object).
     assertEquals(
         Lists.newArrayList(
-            inspector.getTypeSubject(String.class),
+            inspector.getTypeSubject(mode.isRelease() ? String.class : Object.class),
             inspector.getTypeSubject(int.class),
             inspector.getTypeSubject(Object.class),
             inspector.getTypeSubject(int.class)),

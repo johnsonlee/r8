@@ -6,13 +6,15 @@ package com.android.tools.r8.ir.optimize.outliner.exceptions;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import com.android.tools.r8.CompilationMode;
+import com.android.tools.r8.SingleTestRunResult;
 import com.android.tools.r8.TestBase;
+import com.android.tools.r8.TestCompilerBuilder;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.utils.BooleanBox;
-import com.android.tools.r8.utils.InternalOptions;
 import java.util.Collection;
+import java.util.List;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.runner.RunWith;
@@ -26,11 +28,15 @@ public abstract class ThrowBlockOutlinerTestBase extends TestBase {
   @Parameter(0)
   public TestParameters parameters;
 
+  @Parameter(1)
+  public CompilationMode mode;
+
   private final BooleanBox receivedCallback = new BooleanBox();
 
-  @Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return getTestParameters().withDexRuntimesAndAllApiLevels().build();
+  @Parameters(name = "{0}, mode: {1}")
+  public static List<Object[]> data() {
+    return buildParameters(
+        getTestParameters().withDexRuntimesAndAllApiLevels().build(), CompilationMode.values());
   }
 
   @Before
@@ -43,15 +49,23 @@ public abstract class ThrowBlockOutlinerTestBase extends TestBase {
     assertTrue(receivedCallback.isTrue());
   }
 
-  public void configure(InternalOptions options) {
-    assertFalse(options.getThrowBlockOutlinerOptions().enable);
-    options.getThrowBlockOutlinerOptions().enable = true;
-    options.getThrowBlockOutlinerOptions().outlineConsumerForTesting =
-        outlines -> {
-          inspectOutlines(outlines, options.dexItemFactory());
-          receivedCallback.set();
-        };
-    options.getThrowBlockOutlinerOptions().outlineStrategyForTesting = this::shouldOutline;
+  public void configure(
+      TestCompilerBuilder<?, ?, ?, ? extends SingleTestRunResult<?>, ?> testBuilder) {
+    testBuilder
+        .addOptionsModification(
+            options -> {
+              ThrowBlockOutlinerOptions outlinerOptions = options.getThrowBlockOutlinerOptions();
+              assertFalse(outlinerOptions.enable);
+              outlinerOptions.enable = true;
+              outlinerOptions.forceDebug = true;
+              outlinerOptions.outlineConsumerForTesting =
+                  outlines -> {
+                    inspectOutlines(outlines, options.dexItemFactory());
+                    receivedCallback.set();
+                  };
+              outlinerOptions.outlineStrategyForTesting = this::shouldOutline;
+            })
+        .setMode(mode);
   }
 
   public abstract void inspectOutlines(

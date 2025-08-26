@@ -28,8 +28,7 @@ public class ThrowBlockOutlinerConstArgumentTest extends ThrowBlockOutlinerTestB
     TestCompileResult<?, ?> compileResult =
         testForD8(parameters)
             .addInnerClasses(getClass())
-            .addOptionsModification(this::configure)
-            .release()
+            .apply(this::configure)
             .compile()
             .inspect(this::inspectOutput);
     for (int i = 0; i < 3; i++) {

@@ -15,8 +15,7 @@ public class ThrowBlockOutlinerUseTypeTest extends ThrowBlockOutlinerTestBase {
   public void test() throws Exception {
     testForD8(parameters)
         .addInnerClasses(getClass())
-        .addOptionsModification(this::configure)
-        .release()
+        .apply(this::configure)
         .compile()
         .run(parameters.getRuntime(), Main.class)
         .assertFailureWithErrorThatThrows(MyException.class);
