@@ -7,14 +7,11 @@ import static com.android.tools.r8.utils.codeinspector.CodeMatchers.isInvokeWith
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestCompileResult;
-import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
-import com.android.tools.r8.utils.BooleanBox;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
@@ -24,50 +21,33 @@ import it.unimi.dsi.fastutil.ints.IntSet;
 import java.util.Collection;
 import java.util.List;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
-@RunWith(Parameterized.class)
-public class ThrowBlockOutlinerNoArgumentsTest extends TestBase {
-
-  @Parameter(0)
-  public boolean minimizeSyntheticNames;
+public class ThrowBlockOutlinerNoArgumentsTest extends ThrowBlockOutlinerTestBase {
 
   @Parameter(1)
-  public TestParameters parameters;
+  public boolean minimizeSyntheticNames;
 
-  @Parameters(name = "{1}, minimizeSyntheticNames: {0}")
-  public static List<Object[]> data() {
+  @Parameters(name = "{0}, minimizeSyntheticNames: {1}")
+  public static List<Object[]> extraData() {
     return buildParameters(
-        BooleanUtils.values(), getTestParameters().withDexRuntimesAndAllApiLevels().build());
+        getTestParameters().withDexRuntimesAndAllApiLevels().build(), BooleanUtils.values());
   }
 
   @Test
   public void test() throws Exception {
-    BooleanBox receivedCallback = new BooleanBox();
     TestCompileResult<?, ?> compileResult =
         testForD8(parameters)
             .addInnerClasses(getClass())
+            .addOptionsModification(this::configure)
             .addOptionsModification(
-                options -> {
-                  options.desugarSpecificOptions().minimizeSyntheticNames = minimizeSyntheticNames;
-                  assertFalse(options.getThrowBlockOutlinerOptions().enable);
-                  options.getThrowBlockOutlinerOptions().enable = true;
-                  options.getThrowBlockOutlinerOptions().outlineConsumerForTesting =
-                      outlines -> {
-                        inspectOutlines(outlines);
-                        receivedCallback.set();
-                      };
-                  options.getThrowBlockOutlinerOptions().outlineStrategyForTesting =
-                      outline -> outline.getNumberOfUsers() >= 2;
-                })
+                options ->
+                    options.desugarSpecificOptions().minimizeSyntheticNames =
+                        minimizeSyntheticNames)
             .release()
             .compile()
             .inspect(this::inspectOutput);
-    assertTrue(receivedCallback.isTrue());
-
     for (int i = 0; i < 3; i++) {
       compileResult
           .run(parameters.getRuntime(), Main.class, Integer.toString(i))
@@ -81,7 +61,8 @@ public class ThrowBlockOutlinerNoArgumentsTest extends TestBase {
         .assertSuccessWithEmptyOutput();
   }
 
-  private void inspectOutlines(Collection<ThrowBlockOutline> outlines) {
+  @Override
+  public void inspectOutlines(Collection<ThrowBlockOutline> outlines, DexItemFactory factory) {
     // Verify that we have two outlines with one and three users, respectively.
     assertEquals(2, outlines.size());
     IntSet numberOfUsers = new IntArraySet();
