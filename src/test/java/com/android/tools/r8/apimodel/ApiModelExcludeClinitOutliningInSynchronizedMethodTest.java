@@ -49,7 +49,7 @@ public class ApiModelExcludeClinitOutliningInSynchronizedMethodTest extends Test
         .inspect(
             inspector ->
                 assertEquals(
-                    2,
+                    1, // Only one for android.graphics.SurfaceTexture.
                     inspector
                         .clazz(TestClass.class)
                         .uniqueMethodWithOriginalName("constructorArgumentInSynchronizedMethod")
@@ -99,7 +99,7 @@ public class ApiModelExcludeClinitOutliningInSynchronizedMethodTest extends Test
               // As android.graphics.SurfaceTexture was introduced in API level 11 the <clinit>
               // outline is inlined.
               assertEquals(
-                  1,
+                  0,
                   constructorArgumentInSynchronizedMethod
                       .streamInstructions()
                       .filter(InstructionSubject::isNewInstance)
