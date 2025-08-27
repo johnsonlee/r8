@@ -79,6 +79,7 @@ public final class BackportedMethods {
     factory.createSynthesizedType("Ljava/lang/Runnable;");
     factory.createSynthesizedType("Ljava/lang/RuntimeException;");
     factory.createSynthesizedType("Ljava/lang/SecurityException;");
+    factory.createSynthesizedType("Ljava/lang/System;");
     factory.createSynthesizedType("Ljava/lang/Thread;");
     factory.createSynthesizedType("Ljava/lang/reflect/Constructor;");
     factory.createSynthesizedType("Ljava/lang/reflect/InvocationTargetException;");
@@ -9948,6 +9949,109 @@ public final class BackportedMethods {
             new CfLoad(ValueType.OBJECT, 0),
             new CfReturn(ValueType.OBJECT),
             label6),
+        ImmutableList.of(),
+        ImmutableList.of());
+  }
+
+  public static CfCode ObjectsMethods_toIdentityString(DexItemFactory factory, DexMethod method) {
+    CfLabel label0 = new CfLabel();
+    CfLabel label1 = new CfLabel();
+    CfLabel label2 = new CfLabel();
+    CfLabel label3 = new CfLabel();
+    return new CfCode(
+        method.holder,
+        2,
+        1,
+        ImmutableList.of(
+            label0,
+            new CfLoad(ValueType.OBJECT, 0),
+            new CfIf(IfType.NE, ValueType.OBJECT, label2),
+            label1,
+            new CfNew(factory.createType("Ljava/lang/NullPointerException;")),
+            new CfStackInstruction(CfStackInstruction.Opcode.Dup),
+            new CfInvoke(
+                183,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/NullPointerException;"),
+                    factory.createProto(factory.voidType),
+                    factory.createString("<init>")),
+                false),
+            new CfThrow(),
+            label2,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0},
+                    new FrameType[] {FrameType.initializedNonNullReference(factory.objectType)})),
+            new CfNew(factory.stringBuilderType),
+            new CfStackInstruction(CfStackInstruction.Opcode.Dup),
+            new CfInvoke(
+                183,
+                factory.createMethod(
+                    factory.stringBuilderType,
+                    factory.createProto(factory.voidType),
+                    factory.createString("<init>")),
+                false),
+            new CfLoad(ValueType.OBJECT, 0),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.objectType,
+                    factory.createProto(factory.classType),
+                    factory.createString("getClass")),
+                false),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.classType,
+                    factory.createProto(factory.stringType),
+                    factory.createString("getName")),
+                false),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.stringBuilderType,
+                    factory.createProto(factory.stringBuilderType, factory.stringType),
+                    factory.createString("append")),
+                false),
+            new CfConstString(factory.createString("@")),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.stringBuilderType,
+                    factory.createProto(factory.stringBuilderType, factory.stringType),
+                    factory.createString("append")),
+                false),
+            new CfLoad(ValueType.OBJECT, 0),
+            new CfInvoke(
+                184,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/System;"),
+                    factory.createProto(factory.intType, factory.objectType),
+                    factory.createString("identityHashCode")),
+                false),
+            new CfInvoke(
+                184,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/Integer;"),
+                    factory.createProto(factory.stringType, factory.intType),
+                    factory.createString("toHexString")),
+                false),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.stringBuilderType,
+                    factory.createProto(factory.stringBuilderType, factory.stringType),
+                    factory.createString("append")),
+                false),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.stringBuilderType,
+                    factory.createProto(factory.stringType),
+                    factory.createString("toString")),
+                false),
+            new CfReturn(ValueType.OBJECT),
+            label3),
         ImmutableList.of(),
         ImmutableList.of());
   }

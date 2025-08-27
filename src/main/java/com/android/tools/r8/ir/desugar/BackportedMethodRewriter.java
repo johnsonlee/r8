@@ -1799,6 +1799,15 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
       DexMethod method;
       DexField field;
 
+      // String java.lang.Objects.toIdentityString(java.lang.Object)
+      type = factory.objectsType;
+      name = factory.createString("toIdentityString");
+      proto = factory.createProto(factory.stringType, factory.objectType);
+      method = factory.createMethod(type, proto, name);
+      addProvider(
+          new MethodWithForwardingGenerator(
+              method, BackportedMethods::ObjectsMethods_toIdentityString));
+
       // android.os.Build
       type = factory.androidOsBuildType;
 
