@@ -106,7 +106,6 @@ public final class D8Command extends BaseCompilerCommand {
         new ArrayList<>();
     private DesugarGraphConsumer desugarGraphConsumer = null;
     private SyntheticInfoConsumer syntheticInfoConsumer = null;
-    private StringConsumer desugaredLibraryKeepRuleConsumer = null;
     private String synthesizedClassPrefix =
         System.getProperty("com.android.tools.r8.synthesizedClassPrefix", "");
     private boolean enableMainDexListCheck = true;
@@ -339,17 +338,6 @@ public final class D8Command extends BaseCompilerCommand {
       } catch (IOException e) {
         error(origin, e);
       }
-    }
-
-    /**
-     * Set a consumer for receiving the keep rules to use when compiling the desugared library for
-     * the program being compiled in this compilation.
-     *
-     * @param keepRuleConsumer Consumer to receive the content once produced.
-     */
-    public Builder setDesugaredLibraryKeepRuleConsumer(StringConsumer keepRuleConsumer) {
-      this.desugaredLibraryKeepRuleConsumer = keepRuleConsumer;
-      return self();
     }
 
     /**
@@ -595,7 +583,6 @@ public final class D8Command extends BaseCompilerCommand {
           getDexClassChecksumFilter(),
           getDesugarGraphConsumer(),
           getSyntheticInfoConsumer(),
-          desugaredLibraryKeepRuleConsumer,
           desugaredLibrarySpecification,
           getAssertionsConfiguration(),
           getOutputInspections(),
@@ -624,7 +611,6 @@ public final class D8Command extends BaseCompilerCommand {
   private final GlobalSyntheticsConsumer globalSyntheticsConsumer;
   private final SyntheticInfoConsumer syntheticInfoConsumer;
   private final DesugarGraphConsumer desugarGraphConsumer;
-  private final StringConsumer desugaredLibraryKeepRuleConsumer;
   private final DesugaredLibrarySpecification desugaredLibrarySpecification;
   private final String synthesizedClassPrefix;
   private final boolean enableMainDexListCheck;
@@ -697,7 +683,6 @@ public final class D8Command extends BaseCompilerCommand {
       BiPredicate<String, Long> dexClassChecksumFilter,
       DesugarGraphConsumer desugarGraphConsumer,
       SyntheticInfoConsumer syntheticInfoConsumer,
-      StringConsumer desugaredLibraryKeepRuleConsumer,
       DesugaredLibrarySpecification desugaredLibrarySpecification,
       List<AssertionsConfiguration> assertionsConfiguration,
       List<Consumer<Inspector>> outputInspections,
@@ -745,7 +730,6 @@ public final class D8Command extends BaseCompilerCommand {
     this.globalSyntheticsConsumer = globalSyntheticsConsumer;
     this.syntheticInfoConsumer = syntheticInfoConsumer;
     this.desugarGraphConsumer = desugarGraphConsumer;
-    this.desugaredLibraryKeepRuleConsumer = desugaredLibraryKeepRuleConsumer;
     this.desugaredLibrarySpecification = desugaredLibrarySpecification;
     this.synthesizedClassPrefix = synthesizedClassPrefix;
     this.enableMainDexListCheck = enableMainDexListCheck;
@@ -765,7 +749,6 @@ public final class D8Command extends BaseCompilerCommand {
     globalSyntheticsConsumer = null;
     syntheticInfoConsumer = null;
     desugarGraphConsumer = null;
-    desugaredLibraryKeepRuleConsumer = null;
     desugaredLibrarySpecification = null;
     synthesizedClassPrefix = null;
     enableMainDexListCheck = true;
@@ -841,7 +824,6 @@ public final class D8Command extends BaseCompilerCommand {
     internal
         .getLibraryDesugaringOptions()
         .configureDesugaredLibrary(desugaredLibrarySpecification, synthesizedClassPrefix);
-    internal.desugaredLibraryKeepRuleConsumer = desugaredLibraryKeepRuleConsumer;
 
     if (internal.isGeneratingClassFiles()
         || (System.getProperty("com.android.tools.r8.enableApiOutliningAndStubbing") == null

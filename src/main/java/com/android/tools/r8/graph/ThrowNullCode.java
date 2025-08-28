@@ -5,7 +5,6 @@
 package com.android.tools.r8.graph;
 
 import com.android.tools.r8.cf.CfVersion;
-import com.android.tools.r8.dex.CodeToKeep;
 import com.android.tools.r8.dex.IndexedItemCollection;
 import com.android.tools.r8.dex.MixedSectionCollection;
 import com.android.tools.r8.dex.code.DexConst4;
@@ -275,11 +274,6 @@ public class ThrowNullCode extends Code implements CfWritableCode, DexWritableCo
         .write(shortBuffer, context, graphLens, codeLens, mapping, lensCodeRewriter);
     new DexThrow(register)
         .write(shortBuffer, context, graphLens, codeLens, mapping, lensCodeRewriter);
-  }
-
-  @Override
-  public void writeKeepRulesForDesugaredLibrary(CodeToKeep codeToKeep) {
-    // Intentionally empty.
   }
 
   @Override

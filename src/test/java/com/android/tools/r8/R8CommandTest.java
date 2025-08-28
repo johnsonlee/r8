@@ -135,17 +135,6 @@ public class R8CommandTest extends CommandTestBase<R8Command> {
   }
 
   @Test
-  public void desugaredLibraryKeepRuleConsumer() throws Exception {
-    StringConsumer stringConsumer = StringConsumer.emptyConsumer();
-    D8Command command =
-        D8Command.builder()
-            .setProgramConsumer(DexIndexedConsumer.emptyConsumer())
-            .setDesugaredLibraryKeepRuleConsumer(stringConsumer)
-            .build();
-    assertSame(command.getInternalOptions().desugaredLibraryKeepRuleConsumer, stringConsumer);
-  }
-
-  @Test
   public void defaultOutIsCwd() throws Throwable {
     Path working = temp.getRoot().toPath();
     Path input = getJarWithA();
@@ -944,41 +933,6 @@ public class R8CommandTest extends CommandTestBase<R8Command> {
             .getMachineDesugaredLibrarySpecification()
             .getRewriteType()
             .isEmpty());
-  }
-
-  @Test
-  public void desugaredLibraryWithOutputConf() throws CompilationFailedException, IOException {
-    Path pgout = temp.getRoot().toPath().resolve("pgout.conf");
-    R8Command r8Command =
-        parse(
-            "--desugared-lib",
-            LibraryDesugaringSpecification.JDK11.getSpecification().toString(),
-            "--lib",
-            ToolHelper.getAndroidJar(AndroidApiLevel.R).toString(),
-            "--desugared-lib-pg-conf-output",
-            pgout.toString());
-    InternalOptions options = getOptionsWithLoadedDesugaredLibraryConfiguration(r8Command, false);
-    assertFalse(
-        options
-            .getLibraryDesugaringOptions()
-            .getMachineDesugaredLibrarySpecification()
-            .getRewriteType()
-            .isEmpty());
-  }
-
-  @Test
-  public void desugaredLibraryWithOutputConfMissingArg() {
-    TestDiagnosticMessagesImpl diagnostics = new TestDiagnosticMessagesImpl();
-    try {
-      parse(
-          diagnostics,
-          "--desugared-lib",
-          LibraryDesugaringSpecification.JDK11.getSpecification().toString(),
-          "--desugared-lib-pg-conf-output");
-      fail("Expected parse error");
-    } catch (CompilationFailedException e) {
-      diagnostics.assertErrorsMatch(diagnosticMessage(containsString("Missing parameter")));
-    }
   }
 
   @Test

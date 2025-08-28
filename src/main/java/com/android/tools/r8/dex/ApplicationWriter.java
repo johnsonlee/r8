@@ -98,7 +98,6 @@ public class ApplicationWriter {
   public final AppView<?> appView;
   public final InternalOptions options;
 
-  private final CodeToKeep desugaredLibraryCodeToKeep;
   private final Predicate<DexType> isTypeMissing;
   private final Optional<Marker> currentMarker;
   public Collection<Marker> previousMarkers;
@@ -152,7 +151,6 @@ public class ApplicationWriter {
   protected ApplicationWriter(AppView<?> appView, Marker marker, DexIndexedConsumer consumer) {
     this.appView = appView;
     this.options = appView.options();
-    this.desugaredLibraryCodeToKeep = CodeToKeep.createCodeToKeep(appView);
     this.currentMarker = Optional.ofNullable(marker);
     this.programConsumer = consumer;
     this.isTypeMissing =
@@ -181,10 +179,6 @@ public class ApplicationWriter {
 
   private NamingLens getNamingLens() {
     return appView.getNamingLens();
-  }
-
-  public CodeToKeep getDesugaredLibraryCodeToKeep() {
-    return desugaredLibraryCodeToKeep;
   }
 
   private List<VirtualFile> distribute(ExecutorService executorService) {
@@ -392,11 +386,6 @@ public class ApplicationWriter {
       // Write the actual dex code.
       writeVirtualFiles(executorService, virtualFiles, forcedStrings, timing);
 
-      // A consumer can manage the generated keep rules.
-      if (options.desugaredLibraryKeepRuleConsumer != null && !desugaredLibraryCodeToKeep.isNop()) {
-        assert !options.getLibraryDesugaringOptions().isDesugaredLibraryCompilation();
-        desugaredLibraryCodeToKeep.generateKeepRules(options);
-      }
       // Fail if there are pending errors, e.g., the program consumers may have reported errors.
       options.reporter.failIfPendingErrors();
       // Supply info to all additional resource consumers.
@@ -903,8 +892,7 @@ public class ApplicationWriter {
       ByteBufferProvider provider,
       VirtualFile virtualFile,
       Timing timing) {
-    FileWriter fileWriter =
-        new FileWriter(appView, provider, objectMapping, desugaredLibraryCodeToKeep, virtualFile);
+    FileWriter fileWriter = new FileWriter(appView, provider, objectMapping, virtualFile);
     // Collect the non-fixed sections.
     timing.time("collect", fileWriter::collect);
     // Generate and write the bytes.

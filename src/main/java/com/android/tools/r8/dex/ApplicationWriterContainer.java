@@ -254,7 +254,6 @@ class ApplicationWriterContainer extends ApplicationWriter {
             appView,
             dexOutputBuffer,
             objectMapping,
-            getDesugaredLibraryCodeToKeep(),
             virtualFile,
             includeStringData);
     // Collect the non-fixed sections.

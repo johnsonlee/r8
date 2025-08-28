@@ -98,24 +98,4 @@ public class DesugaredLibraryTestBase extends TestBase {
         .filter(path -> path.toString().endsWith(suffix))
         .toArray(Path[]::new);
   }
-
-  public interface KeepRuleConsumer extends StringConsumer {
-
-    String get();
-
-    static KeepRuleConsumer emptyConsumer() {
-      return new KeepRuleConsumer() {
-
-        @Override
-        public String get() {
-          throw new Unreachable();
-        }
-
-        @Override
-        public void accept(String string, DiagnosticsHandler handler) {
-          // Intentionally empty.
-        }
-      };
-    }
-  }
 }

@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.graph;
 
-import com.android.tools.r8.dex.CodeToKeep;
 import com.android.tools.r8.dex.IndexedItemCollection;
 import com.android.tools.r8.dex.MixedSectionCollection;
 import com.android.tools.r8.errors.Unreachable;
@@ -62,8 +61,6 @@ public interface DexWritableCode {
       LensCodeRewriterUtils rewriter);
 
   void collectMixedSectionItems(MixedSectionCollection mixedItems);
-
-  void writeKeepRulesForDesugaredLibrary(CodeToKeep codeToKeep);
 
   GraphLens getCodeLens(AppView<?> appView);
 

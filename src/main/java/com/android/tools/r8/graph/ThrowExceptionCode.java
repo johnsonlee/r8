@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.graph;
 
-import com.android.tools.r8.dex.CodeToKeep;
 import com.android.tools.r8.dex.IndexedItemCollection;
 import com.android.tools.r8.dex.MixedSectionCollection;
 import com.android.tools.r8.dex.code.DexInvokeDirect;
@@ -246,11 +245,6 @@ public class ThrowExceptionCode extends Code implements DexWritableCode {
         .write(shortBuffer, context, graphLens, codeLens, mapping, lensCodeRewriter);
     new DexThrow(register)
         .write(shortBuffer, context, graphLens, codeLens, mapping, lensCodeRewriter);
-  }
-
-  @Override
-  public void writeKeepRulesForDesugaredLibrary(CodeToKeep codeToKeep) {
-    // Intentionally empty.
   }
 
   @Override

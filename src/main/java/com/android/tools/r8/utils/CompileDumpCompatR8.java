@@ -11,7 +11,6 @@ import com.android.tools.r8.FeatureSplit;
 import com.android.tools.r8.OutputMode;
 import com.android.tools.r8.R8;
 import com.android.tools.r8.R8Command;
-import com.android.tools.r8.StringConsumer;
 import com.android.tools.r8.utils.compiledump.CompilerCommandDumpUtils;
 import com.android.tools.r8.utils.compiledump.R8PartialDumpUtils;
 import com.android.tools.r8.utils.compiledump.ResourceShrinkerDumpUtils;
@@ -67,7 +66,6 @@ public class CompileDumpCompatR8 extends CompileDumpBase {
           "--pg-conf",
           "--pg-map-output",
           "--desugared-lib",
-          "--desugared-lib-pg-conf-output",
           "--partial-include",
           "--partial-exclude",
           "--threads",
@@ -112,7 +110,6 @@ public class CompileDumpCompatR8 extends CompileDumpBase {
     Path desugaredLibJson = null;
     Path partialIncludeFile = null;
     Path partialExcludeFile = null;
-    StringConsumer desugaredLibKeepRuleConsumer = null;
     CompilationMode compilationMode = CompilationMode.RELEASE;
     List<Path> program = new ArrayList<>();
     List<FeatureInputOutput> features = new ArrayList<>();
@@ -205,11 +202,6 @@ public class CompileDumpCompatR8 extends CompileDumpBase {
           case "--desugared-lib":
             {
               desugaredLibJson = Paths.get(operand);
-              break;
-            }
-          case "--desugared-lib-pg-conf-output":
-            {
-              desugaredLibKeepRuleConsumer = new StringConsumer.FileConsumer(Paths.get(operand));
               break;
             }
           case "--partial-include":
@@ -329,9 +321,6 @@ public class CompileDumpCompatR8 extends CompileDumpBase {
               ResourceShrinkerDumpUtils.setOptimziedResourceShrinking(
                   optimizedResourceShrinking.get(), commandBuilder),
           "Failed setting optimized resource shrinking flag.");
-    }
-    if (desugaredLibKeepRuleConsumer != null) {
-      commandBuilder.setDesugaredLibraryKeepRuleConsumer(desugaredLibKeepRuleConsumer);
     }
     if (outputMode != OutputMode.ClassFile) {
       commandBuilder.setMinApiLevel(minApi);

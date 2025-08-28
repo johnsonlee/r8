@@ -1342,10 +1342,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   public boolean relocatorCompilation = false;
 
-  // If null, no keep rules are recorded.
-  // If non null it records desugared library APIs used by the program.
-  public StringConsumer desugaredLibraryKeepRuleConsumer = null;
-
   // If null, no graph information needs to be provided for the keep/inclusion of classes
   // in the output. If non-null, each edge pertaining to kept parts of the resulting program
   // must be reported to the consumer.
