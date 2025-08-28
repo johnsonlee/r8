@@ -43,8 +43,7 @@ public class NestedStringBuilderTest extends TestBase {
               ClassSubject mainClass = codeInspector.clazz(MAIN);
               MethodSubject main = mainClass.uniqueMethod();
               assertEquals(
-                  // TODO(b/113859361): should be 1 after merging StringBuilder's
-                  2,
+                  1,
                   main.streamInstructions()
                       .filter(i -> i.isNewInstance(StringBuilder.class.getTypeName()))
                       .count());

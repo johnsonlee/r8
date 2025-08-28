@@ -125,9 +125,15 @@ class GitCommit(object):
 def git_commit_from_hash(hash):
     # If there is a tag for the given commit then the commit timestamp is on the
     # last line.
-    commit_timestamp_str = subprocess.check_output(
-        ['git', 'show', '--no-patch', '--no-notes', '--pretty=%ct',
-         hash]).decode('utf-8').strip().splitlines()[-1]
+    commit_timestamp_cmd = ['git', 'show', '--no-patch', '--no-notes', '--pretty=%ct',
+             hash]
+    try:
+        commit_timestamp_raw = subprocess.check_output(commit_timestamp_cmd)
+    except subprocess.CalledProcessError as e:
+        # Try to fetch the hash. This may be needed for try commits.
+        subprocess.check_output(['git', 'fetch', 'origin', hash])
+        commit_timestamp_raw = subprocess.check_output(commit_timestamp_cmd)
+    commit_timestamp_str = commit_timestamp_raw.decode('utf-8').strip().splitlines()[-1]
     commit_timestamp = int(commit_timestamp_str)
     destination_dir = '%s/%s/' % (MASTER_COMMITS, hash)
     destination = '%s%s' % (destination_dir, 'r8.jar')

@@ -1148,9 +1148,14 @@ public class DexItemFactory {
               objectsMethods.requireNonNull,
               objectsMethods.requireNonNullWithMessage,
               objectsMethods.requireNonNullWithMessageSupplier,
+              stringBuilderMethods.toString,
               stringMembers.format,
+              stringMembers.substring,
+              stringMembers.substringWithEndIndex,
+              stringMembers.concat,
               stringMembers.formatWithLocale,
               stringMembers.valueOf)
+          .addAll(javaUtilArraysMethods.copyOfMethods)
           .addAll(boxedValueOfMethods())
           .addAll(stringBufferMethods.appendMethods)
           .addAll(stringBuilderMethods.appendMethods)
@@ -1620,20 +1625,58 @@ public class DexItemFactory {
     public final DexMethod hashCode =
         createMethod(arraysType, createProto(intType, objectArrayType), "hashCode");
     public final DexMethod equalsObjectArray;
+    public final Set<DexMethod> copyOfMethods;
 
     private JavaUtilArraysMethods() {
       asList =
           createMethod(
-              arraysDescriptor,
-              createString("asList"),
-              listDescriptor,
-              new DexString[] {objectArrayDescriptor});
+              arraysType, createProto(javaUtilListType, objectArrayType), createString("asList"));
       equalsObjectArray =
           createMethod(
-              arraysDescriptor,
-              equalsMethodName,
-              booleanDescriptor,
-              new DexString[] {objectArrayDescriptor, objectArrayDescriptor});
+              arraysType,
+              createProto(booleanType, objectArrayType, objectArrayType),
+              equalsMethodName);
+      DexString copyOfMethodName = createString("copyOf");
+      DexMethod copyOfBoolean =
+          createMethod(
+              arraysType,
+              createProto(booleanArrayType, booleanArrayType, intType),
+              copyOfMethodName);
+      DexMethod copyOfByte =
+          createMethod(
+              arraysType, createProto(byteArrayType, byteArrayType, intType), copyOfMethodName);
+      DexMethod copyOfChar =
+          createMethod(
+              arraysType, createProto(charArrayType, charArrayType, intType), copyOfMethodName);
+      DexMethod copyOfDouble =
+          createMethod(
+              arraysType, createProto(doubleArrayType, doubleArrayType, intType), copyOfMethodName);
+      DexMethod copyOfFloat =
+          createMethod(
+              arraysType, createProto(floatArrayType, floatArrayType, intType), copyOfMethodName);
+      DexMethod copyOfInt =
+          createMethod(
+              arraysType, createProto(intArrayType, intArrayType, intType), copyOfMethodName);
+      DexMethod copyOfLong =
+          createMethod(
+              arraysType, createProto(longArrayType, longArrayType, intType), copyOfMethodName);
+      DexMethod copyOfShort =
+          createMethod(
+              arraysType, createProto(shortArrayType, shortArrayType, intType), copyOfMethodName);
+      DexMethod copyOfObject =
+          createMethod(
+              arraysType, createProto(objectArrayType, objectArrayType, intType), copyOfMethodName);
+      copyOfMethods =
+          ImmutableSet.of(
+              copyOfBoolean,
+              copyOfByte,
+              copyOfChar,
+              copyOfDouble,
+              copyOfFloat,
+              copyOfInt,
+              copyOfLong,
+              copyOfShort,
+              copyOfObject);
     }
   }
 

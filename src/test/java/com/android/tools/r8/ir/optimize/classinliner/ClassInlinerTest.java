@@ -42,6 +42,7 @@ import com.android.tools.r8.utils.codeinspector.FoundClassSubject;
 import com.android.tools.r8.utils.codeinspector.HorizontallyMergedClassesInspector;
 import com.google.common.collect.Sets;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.junit.Assume;
@@ -137,11 +138,12 @@ public class ClassInlinerTest extends ClassInlinerTestBase {
         Collections.emptySet(),
         collectTypes(clazz.uniqueMethodWithOriginalName("testCallOnIface2")));
 
-    assertEquals(
-        Sets.newHashSet(
-            "com.android.tools.r8.ir.optimize.classinliner.trivial.CycleReferenceAB",
-            "java.lang.StringBuilder"),
-        collectTypes(clazz.uniqueMethodWithOriginalName("testCycles")));
+    HashSet<String> expected =
+        Sets.newHashSet("com.android.tools.r8.ir.optimize.classinliner.trivial.CycleReferenceAB");
+    if (parameters.isCfRuntime()) {
+      expected.add("java.lang.StringBuilder");
+    }
+    assertEquals(expected, collectTypes(clazz.uniqueMethodWithOriginalName("testCycles")));
 
     assertEquals(
         Sets.newHashSet(

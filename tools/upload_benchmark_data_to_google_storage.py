@@ -14,23 +14,28 @@ import os
 import re
 import subprocess
 import sys
+import time
 
 TARGETS = ['r8-full']
 NUM_COMMITS = 1000
 
 FILES = [
-    'chart.js', 'd8.html', 'dom.js', 'extensions.js', 'r8.html', 'retrace.html',
-    'scales.js', 'state.js', 'stylesheet.css', 'tooltip.js', 'url.js',
-    'utils.js'
+    'annotations.js', 'chart.js', 'd8.html', 'dom.js', 'extensions.js',
+    'r8.html', 'retrace.html', 'scales.js', 'state.js', 'stylesheet.css',
+    'tooltip.js', 'url.js', 'utils.js'
 ]
 
 
 def DownloadCloudBucket(dest):
     os.makedirs(dest)
+    start = time.time()
     utils.download_file_from_cloud_storage(perf.GetGSLocation('*'),
                                            dest,
                                            concurrent=True,
+                                           quiet=True,
                                            flags=['-R'])
+    end = time.time()
+    print("Download bucket finished in %ss" % (end - start))
 
 
 def GetMainCommits():

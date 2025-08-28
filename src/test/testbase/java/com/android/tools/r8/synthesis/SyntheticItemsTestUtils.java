@@ -342,6 +342,10 @@ public class SyntheticItemsTestUtils {
     return SyntheticNaming.isSynthetic(reference, Phase.EXTERNAL, naming.OUTLINE);
   }
 
+  public static boolean isExternalApiOutlineClass(ClassReference reference) {
+    return SyntheticNaming.isSynthetic(reference, Phase.EXTERNAL, naming.API_MODEL_OUTLINE);
+  }
+
   public static boolean isInitializerTypeArgument(ClassReference reference) {
     return SyntheticNaming.isSynthetic(reference, null, naming.INIT_TYPE_ARGUMENT);
   }

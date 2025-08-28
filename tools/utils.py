@@ -502,15 +502,18 @@ def download_file_from_cloud_storage(source,
                                      destination,
                                      concurrent=False,
                                      flags=None,
+                                     printcmd=True,
                                      quiet=False):
     cmd = [get_gsutil()]
     if concurrent:
         cmd.append('-m')
+    if quiet:
+        cmd.append('-q')
     cmd.append('cp')
     if flags:
         cmd.extend(flags)
     cmd.extend([source, destination])
-    PrintCmd(cmd, quiet=quiet)
+    PrintCmd(cmd, quiet=not printcmd)
     subprocess.check_call(cmd)
 
 

@@ -8,17 +8,12 @@ import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestCompileResult;
-import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
-import com.android.tools.r8.utils.BooleanBox;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
@@ -26,45 +21,17 @@ import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import com.google.common.collect.Lists;
 import java.util.Collection;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameter;
-import org.junit.runners.Parameterized.Parameters;
 
-@RunWith(Parameterized.class)
-public class ThrowBlockOutlinerSharedStringBuilderTest extends TestBase {
-
-  @Parameter(0)
-  public TestParameters parameters;
-
-  @Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return getTestParameters().withDexRuntimesAndAllApiLevels().build();
-  }
+public class ThrowBlockOutlinerSharedStringBuilderTest extends ThrowBlockOutlinerTestBase {
 
   @Test
   public void test() throws Exception {
-    BooleanBox receivedCallback = new BooleanBox();
     TestCompileResult<?, ?> compileResult =
         testForD8(parameters)
             .addInnerClasses(getClass())
-            .addOptionsModification(
-                options -> {
-                  assertFalse(options.getThrowBlockOutlinerOptions().enable);
-                  options.getThrowBlockOutlinerOptions().enable = true;
-                  options.getThrowBlockOutlinerOptions().outlineConsumerForTesting =
-                      outlines -> {
-                        inspectOutlines(outlines, options.dexItemFactory());
-                        receivedCallback.set();
-                      };
-                  options.getThrowBlockOutlinerOptions().outlineStrategyForTesting =
-                      outline -> outline.getNumberOfUsers() >= 2;
-                })
-            .release()
+            .apply(this::configure)
             .compile()
             .inspect(this::inspectOutput);
-    assertTrue(receivedCallback.isTrue());
-
     compileResult
         .run(parameters.getRuntime(), Main.class, "0", "1")
         .assertFailureWithErrorThatThrows(IllegalArgumentException.class)
@@ -75,7 +42,8 @@ public class ThrowBlockOutlinerSharedStringBuilderTest extends TestBase {
         .assertFailureWithErrorThatMatches(containsString("j=0, i=1"));
   }
 
-  private void inspectOutlines(Collection<ThrowBlockOutline> outlines, DexItemFactory factory) {
+  @Override
+  public void inspectOutlines(Collection<ThrowBlockOutline> outlines, DexItemFactory factory) {
     // Verify that we have a single outline with two users.
     assertEquals(1, outlines.size());
     ThrowBlockOutline outline = outlines.iterator().next();
@@ -107,12 +75,12 @@ public class ThrowBlockOutlinerSharedStringBuilderTest extends TestBase {
     assertTrue(outlineMethodSubject.streamInstructions().anyMatch(i -> i.isConstString(", k=42")));
 
     // Validate that type weakening from java.lang.String to java.lang.Object works.
-    // The first parameter is java.lang.String since it is passed to StringBuilder.<init>(String).
-    // The third argument has been weakened from java.lang.String to java.lang.Object due to
-    // changing append(String) to append(Object).
+    // The first parameter is java.lang.String in release mode since it is passed to
+    // StringBuilder.<init>(String). The third argument has been weakened from java.lang.String
+    // to java.lang.Object due to changing append(String) to append(Object).
     assertEquals(
         Lists.newArrayList(
-            inspector.getTypeSubject(String.class),
+            inspector.getTypeSubject(mode.isRelease() ? String.class : Object.class),
             inspector.getTypeSubject(int.class),
             inspector.getTypeSubject(Object.class),
             inspector.getTypeSubject(int.class)),

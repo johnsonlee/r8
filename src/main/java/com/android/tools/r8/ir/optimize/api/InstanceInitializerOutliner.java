@@ -36,6 +36,7 @@ import com.android.tools.r8.ir.synthetic.ForwardMethodBuilder;
 import com.android.tools.r8.ir.synthetic.NewInstanceSourceCode;
 import com.android.tools.r8.shaking.ComputeApiLevelUseRegistry;
 import com.android.tools.r8.utils.AndroidApiLevel;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -50,10 +51,15 @@ import java.util.Set;
 public class InstanceInitializerOutliner extends CodeRewriterPass<AppInfo> {
 
   private final DexItemFactory factory;
+  private final Set<DexType> neverOutlineClinit;
 
   public InstanceInitializerOutliner(AppView<?> appView) {
     super(appView);
     this.factory = appView.dexItemFactory();
+    // android.graphics.SurfaceTexture has a finalizer which crash in native code if an instance is
+    // created without calling an initializer, see b/441137561.
+    this.neverOutlineClinit =
+        ImmutableSet.of(factory.createType("Landroid/graphics/SurfaceTexture;"));
   }
 
   @Override
@@ -171,6 +177,9 @@ public class InstanceInitializerOutliner extends CodeRewriterPass<AppInfo> {
 
   private boolean canSkipClInit(
       InstructionListIterator iterator, NewInstance newInstance, Value newInstanceOutValue) {
+    if (neverOutlineClinit.contains(newInstance.clazz)) {
+      return true;
+    }
     InvokeStatic definition = newInstanceOutValue.getDefinition().asInvokeStatic();
     assert definition != null;
     Position currentPosition = newInstance.getPosition();

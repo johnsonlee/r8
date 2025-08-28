@@ -8,15 +8,11 @@ import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestCompileResult;
-import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
-import com.android.tools.r8.utils.BooleanBox;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
@@ -24,45 +20,17 @@ import it.unimi.dsi.fastutil.ints.IntArraySet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.util.Collection;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameter;
-import org.junit.runners.Parameterized.Parameters;
 
-@RunWith(Parameterized.class)
-public class ThrowBlockOutlinerConstArgumentTest extends TestBase {
-
-  @Parameter(0)
-  public TestParameters parameters;
-
-  @Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return getTestParameters().withDexRuntimesAndAllApiLevels().build();
-  }
+public class ThrowBlockOutlinerConstArgumentTest extends ThrowBlockOutlinerTestBase {
 
   @Test
   public void test() throws Exception {
-    BooleanBox receivedCallback = new BooleanBox();
     TestCompileResult<?, ?> compileResult =
         testForD8(parameters)
             .addInnerClasses(getClass())
-            .addOptionsModification(
-                options -> {
-                  assertFalse(options.getThrowBlockOutlinerOptions().enable);
-                  options.getThrowBlockOutlinerOptions().enable = true;
-                  options.getThrowBlockOutlinerOptions().outlineConsumerForTesting =
-                      outlines -> {
-                        inspectOutlines(outlines);
-                        receivedCallback.set();
-                      };
-                  options.getThrowBlockOutlinerOptions().outlineStrategyForTesting =
-                      outline -> outline.getNumberOfUsers() >= 2;
-                })
-            .release()
+            .apply(this::configure)
             .compile()
             .inspect(this::inspectOutput);
-    assertTrue(receivedCallback.isTrue());
-
     for (int i = 0; i < 3; i++) {
       compileResult
           .run(parameters.getRuntime(), Main.class, Integer.toString(i))
@@ -77,7 +45,8 @@ public class ThrowBlockOutlinerConstArgumentTest extends TestBase {
         .assertSuccessWithEmptyOutput();
   }
 
-  private void inspectOutlines(Collection<ThrowBlockOutline> outlines) {
+  @Override
+  public void inspectOutlines(Collection<ThrowBlockOutline> outlines, DexItemFactory factory) {
     // Verify that we have two outlines with one and three users, respectively.
     assertEquals(2, outlines.size());
     IntSet numberOfUsers = new IntArraySet();

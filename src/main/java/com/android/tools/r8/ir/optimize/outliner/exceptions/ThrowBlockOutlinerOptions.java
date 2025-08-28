@@ -20,11 +20,18 @@ public class ThrowBlockOutlinerOptions {
       SystemPropertyUtils.parseSystemPropertyOrDefault(
           "com.android.tools.r8.throwblockoutliner.cost", -1);
 
+  public boolean forceDebug =
+      SystemPropertyUtils.parseSystemPropertyOrDefault(
+          "com.android.tools.r8.throwblockoutliner.forcedebug", false);
+
   public Consumer<Collection<ThrowBlockOutline>> outlineConsumerForTesting = null;
   public Predicate<ThrowBlockOutline> outlineStrategyForTesting = null;
 
   public boolean isEnabled(AppView<?> appView) {
     if (!appView.options().isGeneratingDex() || !enable) {
+      return false;
+    }
+    if (appView.options().debug && !forceDebug) {
       return false;
     }
     if (appView.enableWholeProgramOptimizations()) {

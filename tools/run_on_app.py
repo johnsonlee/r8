@@ -660,6 +660,7 @@ def run_with_options(options,
         destination = os.path.join(utils.LIBS, 'r8-' + options.hash + '.jar')
         utils.download_file_from_cloud_storage(download_path,
                                                destination,
+                                               printcmd=not quiet,
                                                quiet=quiet)
 
     # Additional flags for the compiler from the configuration file.
