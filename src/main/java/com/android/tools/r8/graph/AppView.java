@@ -1127,6 +1127,7 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
           ThreadTaskUtils.processTasks(
               executorService,
               appView.options(),
+              timing,
               timing
                   .beginMerger("Rewrite AppView concurrently", executorService)
                   .disableSlowestReporting(),

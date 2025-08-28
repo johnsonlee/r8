@@ -141,6 +141,7 @@ public class LineNumberOptimizer {
         },
         appView.options(),
         executorService,
+        timing,
         timing.beginMerger("Map positions concurrently", executorService));
     timing.end();
 

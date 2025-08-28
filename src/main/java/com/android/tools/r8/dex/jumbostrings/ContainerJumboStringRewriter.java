@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.dex.jumbostrings;
 
+import static com.google.common.base.Predicates.alwaysTrue;
+
 import com.android.tools.r8.debuginfo.DebugRepresentation;
 import com.android.tools.r8.dex.ApplicationWriter.LazyDexString;
 import com.android.tools.r8.dex.VirtualFile;
@@ -10,8 +12,6 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.ObjectToOffsetMapping;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.timing.Timing;
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -24,10 +24,10 @@ public class ContainerJumboStringRewriter extends JumboStringRewriter {
   }
 
   @Override
-  public Collection<Timing> processVirtualFiles(ExecutorService executorService)
+  public void processVirtualFiles(ExecutorService executorService, Timing timing)
       throws ExecutionException {
     if (virtualFiles.isEmpty()) {
-      return new ArrayList<>();
+      return;
     }
     // Collect strings from all virtual files into the last DEX section.
     VirtualFile lastFile = virtualFiles.get(virtualFiles.size() - 1);
@@ -35,30 +35,28 @@ public class ContainerJumboStringRewriter extends JumboStringRewriter {
     for (VirtualFile virtualFile : allExceptLastFile) {
       lastFile.indexedItems.addStrings(virtualFile.indexedItems.getStrings());
     }
-    Collection<Timing> timings = new ArrayList<>(virtualFiles.size());
     // Compute string layout and handle jumbo strings for the last DEX section.
-    timings.add(processVirtualFile(lastFile));
+    timing.begin("Process last virtual file");
+    processVirtualFile(lastFile, timing);
+    timing.end();
     // Handle jumbo strings for the remaining DEX sections using the string ids in the last DEX
     // section.
-    timings.addAll(
-        ThreadUtils.processItemsWithResults(
-            allExceptLastFile,
-            virtualFile ->
-                rewriteJumboStringsAndComputeDebugRepresentationWithExternalStringIds(
-                    virtualFile, lastFile.getObjectMapping()),
-            appView.options().getThreadingModule(),
-            executorService));
-    return timings;
+    ThreadUtils.processItemsThatMatches(
+        allExceptLastFile,
+        alwaysTrue(),
+        (virtualFile, threadTiming) ->
+            rewriteJumboStringsAndComputeDebugRepresentationWithExternalStringIds(
+                virtualFile, lastFile.getObjectMapping(), threadTiming),
+        appView.options(),
+        executorService,
+        timing,
+        timing.beginMerger("Pre-write phase", executorService));
   }
 
-  private Timing rewriteJumboStringsAndComputeDebugRepresentationWithExternalStringIds(
-      VirtualFile virtualFile, ObjectToOffsetMapping mapping) {
-    Timing fileTiming = Timing.create("VirtualFile " + virtualFile.getId(), options);
-    computeOffsetMappingAndRewriteJumboStringsWithExternalStringIds(
-        virtualFile, fileTiming, mapping);
+  private void rewriteJumboStringsAndComputeDebugRepresentationWithExternalStringIds(
+      VirtualFile virtualFile, ObjectToOffsetMapping mapping, Timing timing) {
+    computeOffsetMappingAndRewriteJumboStringsWithExternalStringIds(virtualFile, timing, mapping);
     DebugRepresentation.computeForFile(appView, virtualFile);
-    fileTiming.end();
-    return fileTiming;
   }
 
   private void computeOffsetMappingAndRewriteJumboStringsWithExternalStringIds(

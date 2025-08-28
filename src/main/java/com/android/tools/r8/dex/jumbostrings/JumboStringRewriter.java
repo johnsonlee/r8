@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.dex.jumbostrings;
 
+import static com.google.common.base.Predicates.alwaysTrue;
+
 import com.android.tools.r8.debuginfo.DebugRepresentation;
 import com.android.tools.r8.dex.ApplicationWriter.LazyDexString;
 import com.android.tools.r8.dex.VirtualFile;
@@ -14,7 +16,6 @@ import com.android.tools.r8.graph.ObjectToOffsetMapping;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.timing.Timing;
-import com.android.tools.r8.utils.timing.TimingMerger;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -44,24 +45,24 @@ public class JumboStringRewriter {
 
   public final void run(ExecutorService executorService, Timing timing) throws ExecutionException {
     // Compute offsets and rewrite jumbo strings so that code offsets are fixed.
-    TimingMerger merger = timing.beginMerger("Pre-write phase", executorService);
-    Collection<Timing> timings = processVirtualFiles(executorService);
-    merger.add(timings);
-    merger.end();
+    processVirtualFiles(executorService, timing);
   }
 
-  protected Collection<Timing> processVirtualFiles(ExecutorService executorService)
+  protected void processVirtualFiles(ExecutorService executorService, Timing timing)
       throws ExecutionException {
-    return ThreadUtils.processItemsWithResults(
-        virtualFiles, this::processVirtualFile, options.getThreadingModule(), executorService);
+    ThreadUtils.processItemsThatMatches(
+        virtualFiles,
+        alwaysTrue(),
+        this::processVirtualFile,
+        options,
+        executorService,
+        timing,
+        timing.beginMerger("Pre-write phase", executorService));
   }
 
-  protected final Timing processVirtualFile(VirtualFile virtualFile) {
-    Timing fileTiming = Timing.create("VirtualFile " + virtualFile.getId(), options);
-    computeOffsetMappingAndRewriteJumboStrings(virtualFile, fileTiming);
+  protected final void processVirtualFile(VirtualFile virtualFile, Timing timing) {
+    computeOffsetMappingAndRewriteJumboStrings(virtualFile, timing);
     DebugRepresentation.computeForFile(appView, virtualFile);
-    fileTiming.end();
-    return fileTiming;
   }
 
   private void computeOffsetMappingAndRewriteJumboStrings(VirtualFile virtualFile, Timing timing) {

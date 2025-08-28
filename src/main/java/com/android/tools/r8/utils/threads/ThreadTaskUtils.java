@@ -19,6 +19,7 @@ public class ThreadTaskUtils {
   public static void processTasks(
       ExecutorService executorService,
       InternalOptions options,
+      Timing timing,
       TimingMerger timingMerger,
       ThreadTask... tasks)
       throws ExecutionException {
@@ -43,7 +44,7 @@ public class ThreadTaskUtils {
       int taskIndex = 0;
       for (ThreadTask task : tasks) {
         if (task.shouldRun()) {
-          processTaskWithTiming(options, task, taskIndex++, taskCollection, timings);
+          processTaskWithTiming(options, task, taskIndex++, taskCollection, timing, timings);
         }
       }
       assert tasksToRun == taskIndex;
@@ -72,18 +73,23 @@ public class ThreadTaskUtils {
       ThreadTask task,
       int taskIndex,
       TaskCollection<?> taskCollection,
+      Timing timing,
       List<Timing> timings)
       throws ExecutionException {
     if (task.shouldRunOnThread()) {
-      taskCollection.submit(() -> executeTask(options, task, taskIndex, timings));
+      taskCollection.submit(() -> executeTask(options, task, taskIndex, timing, timings));
     } else {
-      executeTask(options, task, taskIndex, timings);
+      executeTask(options, task, taskIndex, timing, timings);
     }
   }
 
   private static void executeTask(
-      InternalOptions options, ThreadTask task, int taskIndex, List<Timing> timings) {
-    Timing threadTiming = Timing.create("Timing", options);
+      InternalOptions options,
+      ThreadTask task,
+      int taskIndex,
+      Timing timing,
+      List<Timing> timings) {
+    Timing threadTiming = timing.createThreadTiming("Timing", options);
     timings.set(taskIndex, threadTiming);
     threadTiming.begin("Task " + (taskIndex + 1));
     task.runWithRuntimeException(threadTiming);

@@ -126,19 +126,44 @@ public class ThreadUtils {
       ThrowingBiConsumer<T, Timing, E> consumer,
       InternalOptions options,
       ExecutorService executorService,
+      Timing timing,
       TimingMerger timingMerger)
+      throws ExecutionException {
+    processItemsThatMatches(
+        items,
+        itemPredicate,
+        consumer,
+        options,
+        executorService,
+        timing,
+        timingMerger,
+        (i, item) -> "Task " + i);
+  }
+
+  public static <T, E extends Exception> void processItemsThatMatches(
+      Collection<T> items,
+      Predicate<T> itemPredicate,
+      ThrowingBiConsumer<T, Timing, E> consumer,
+      InternalOptions options,
+      ExecutorService executorService,
+      Timing timing,
+      TimingMerger timingMerger,
+      IntObjToObjFunction<T, String> taskNameFunction)
       throws ExecutionException {
     TaskCollection<Timing> tasks =
         new TaskCollection<>(options.getThreadingModule(), executorService);
+    int i = 0;
     for (T item : items) {
       if (itemPredicate.test(item)) {
+        String taskName = taskNameFunction.apply(i, item);
         tasks.submitUnchecked(
             () -> {
-              Timing threadTiming = Timing.create("Batch job", options);
+              Timing threadTiming = timing.createThreadTiming(taskName, options);
               consumer.accept(item, threadTiming);
               return threadTiming.end();
             });
       }
+      i++;
     }
     Collection<Timing> timings = tasks.awaitWithResults(alwaysTrue());
     timingMerger.add(timings);

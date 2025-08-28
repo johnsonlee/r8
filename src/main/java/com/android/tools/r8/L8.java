@@ -121,7 +121,7 @@ public class L8 {
 
   private static void desugar(
       AndroidApp inputApp, InternalOptions options, ExecutorService executor) throws IOException {
-    Timing timing = Timing.create("L8 desugaring", options);
+    Timing timing = Timing.createRoot("L8 desugaring", options);
     assert options.isCfDesugaring();
     try {
       // Since L8 Cf representation is temporary, just disable long running back-end optimizations

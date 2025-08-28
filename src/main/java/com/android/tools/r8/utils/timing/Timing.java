@@ -19,10 +19,10 @@ public abstract class Timing implements AutoCloseable {
     if (options.partialSubCompilationConfiguration != null) {
       return options.partialSubCompilationConfiguration.timing;
     }
-    return create(title, options);
+    return internalCreate(title, options);
   }
 
-  public static Timing create(String title, InternalOptions options) {
+  private static Timing internalCreate(String title, InternalOptions options) {
     // We also create a timer when running assertions to validate wellformedness of the node stack.
     Timing timing =
         options.printTimes || InternalOptions.assertionsEnabled()
@@ -32,6 +32,10 @@ public abstract class Timing implements AutoCloseable {
       return new TimingWithCancellation(options, timing);
     }
     return timing;
+  }
+
+  public final Timing createThreadTiming(String title, InternalOptions options) {
+    return internalCreate(title, options);
   }
 
   public abstract Timing begin(String title);

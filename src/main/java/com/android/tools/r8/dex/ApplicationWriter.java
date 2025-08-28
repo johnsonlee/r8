@@ -294,7 +294,8 @@ public class ApplicationWriter {
         ThreadUtils.processItemsWithResults(
             virtualFiles,
             virtualFile -> {
-              Timing fileTiming = Timing.create("VirtualFile " + virtualFile.getId(), options);
+              Timing fileTiming =
+                  timing.createThreadTiming("VirtualFile " + virtualFile.getId(), options);
               writeVirtualFile(virtualFile, fileTiming, forcedStrings);
               fileTiming.end();
               return fileTiming;

@@ -44,7 +44,7 @@ class R8Partial {
 
   R8Partial(InternalOptions options) {
     this.options = options;
-    this.timing = Timing.create("R8 partial " + Version.LABEL, options);
+    this.timing = Timing.createRoot("R8 partial " + Version.LABEL, options);
   }
 
   static void runForTesting(AndroidApp app, InternalOptions options)
