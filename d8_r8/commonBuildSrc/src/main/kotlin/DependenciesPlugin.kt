@@ -811,6 +811,12 @@ object ThirdPartyDeps {
       Paths.get("third_party", "openjdk", "jdk-11-test").toFile(),
       Paths.get("third_party", "openjdk", "jdk-11-test.tar.gz.sha1").toFile(),
     )
+  val jdk21Float16Test =
+    ThirdPartyDependency(
+      "float16-test",
+      Paths.get("third_party", "openjdk", "float16-test").toFile(),
+      Paths.get("third_party", "openjdk", "float16-test.tar.gz.sha1").toFile(),
+    )
   val junit =
     ThirdPartyDependency(
       "junit",

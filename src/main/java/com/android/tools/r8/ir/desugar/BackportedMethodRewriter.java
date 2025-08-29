@@ -1808,6 +1808,22 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
           new MethodWithForwardingGenerator(
               method, BackportedMethods::ObjectsMethods_toIdentityString));
 
+      // short java.lang.Float.floatToFloat16(float)
+      // float java.lang.Float.float16ToFloat(short)
+      type = factory.boxedFloatType;
+      name = factory.createString("floatToFloat16");
+      proto = factory.createProto(factory.shortType, factory.floatType);
+      method = factory.createMethod(type, proto, name);
+      addProvider(
+          new MethodWithForwardingGenerator(
+              method, BackportedMethods::FloatMethods_floatToFloat16));
+      name = factory.createString("float16ToFloat");
+      proto = factory.createProto(factory.floatType, factory.shortType);
+      method = factory.createMethod(type, proto, name);
+      addProvider(
+          new MethodWithForwardingGenerator(
+              method, BackportedMethods::FloatMethods_float16ToFloat));
+
       // android.os.Build
       type = factory.androidOsBuildType;
 
