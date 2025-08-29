@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -61,19 +62,33 @@ public class ThrowBlockOutliner {
     }
   }
 
-  public void tearDownScanner(ExecutorService executorService) throws ExecutionException {
+  public void tearDownScanner(
+      Map<DexMethod, DexMethod> forcefullyMovedLambdaMethods, ExecutorService executorService)
+      throws ExecutionException {
     // Unset the scanner, which is responsible for computing outline candidates.
     assert scanner != null;
     Collection<ThrowBlockOutline> outlines = scanner.getOutlines();
     scanner = null;
 
     // Create outlines.
+    updateOutlineUsers(outlines, forcefullyMovedLambdaMethods);
     materializeOutlines(outlines, executorService);
     assert supplyOutlineConsumerForTesting(outlines);
 
     // Convert LIR to DEX.
     processMethods(outlines, executorService);
     appView.unsetThrowBlockOutliner();
+  }
+
+  private void updateOutlineUsers(
+      Collection<ThrowBlockOutline> outlines,
+      Map<DexMethod, DexMethod> forcefullyMovedLambdaMethods) {
+    if (forcefullyMovedLambdaMethods.isEmpty()) {
+      return;
+    }
+    for (ThrowBlockOutline outline : outlines) {
+      outline.updateUsers(forcefullyMovedLambdaMethods);
+    }
   }
 
   private void materializeOutlines(

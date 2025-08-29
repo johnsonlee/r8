@@ -282,7 +282,10 @@ public class PrimaryD8L8IRConverter extends IRConverter {
             .convertClasses(executorService, timing);
 
     // Process computed throw outlines.
-    appView.withThrowBlockOutliner(outliner -> outliner.tearDownScanner(executorService));
+    appView.withThrowBlockOutliner(
+        outliner ->
+            outliner.tearDownScanner(
+                classConverterResult.getForcefullyMovedLambdaMethods(), executorService));
 
     // The synthesis of accessibility bridges in nest based access desugaring will schedule and
     // await the processing of synthesized methods.

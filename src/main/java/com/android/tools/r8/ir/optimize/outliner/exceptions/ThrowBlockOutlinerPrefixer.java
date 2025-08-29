@@ -108,7 +108,6 @@ public class ThrowBlockOutlinerPrefixer {
     worklist.addIfNotSeen(stringBuilderRoot);
     while (worklist.hasNext()) {
       Value stringBuilderAlias = worklist.next();
-      assert !stringBuilderAlias.hasDebugUsers();
       if (stringBuilderAlias.hasPhiUsers()) {
         return null;
       }

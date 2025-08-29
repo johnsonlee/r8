@@ -26,11 +26,15 @@ import com.android.tools.r8.synthesis.SyntheticItems;
 import com.android.tools.r8.utils.structural.CompareToVisitor;
 import com.android.tools.r8.utils.structural.HashingVisitor;
 import com.google.common.collect.ConcurrentHashMultiset;
+import com.google.common.collect.HashMultiset;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multiset;
+import com.google.common.collect.Multiset.Entry;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 public class ThrowBlockOutline implements LirConstant {
 
@@ -156,6 +160,28 @@ public class ThrowBlockOutline implements LirConstant {
 
   public Multiset<DexMethod> getUsers() {
     return users;
+  }
+
+  public void updateUsers(Map<DexMethod, DexMethod> forcefullyMovedLambdaMethods) {
+    Iterator<Entry<DexMethod>> iterator = users.entrySet().iterator();
+    Multiset<DexMethod> newUsers = null;
+    while (iterator.hasNext()) {
+      Entry<DexMethod> entry = iterator.next();
+      DexMethod user = entry.getElement();
+      DexMethod newUser = forcefullyMovedLambdaMethods.get(user);
+      if (newUser != null) {
+        iterator.remove();
+        if (newUsers == null) {
+          newUsers = HashMultiset.create();
+        }
+        newUsers.add(newUser, entry.getCount());
+      }
+    }
+    if (newUsers != null) {
+      for (Entry<DexMethod> entry : newUsers.entrySet()) {
+        users.add(entry.getElement(), entry.getCount());
+      }
+    }
   }
 
   public boolean hasConstantArgument() {
