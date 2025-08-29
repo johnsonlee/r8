@@ -78,4 +78,58 @@ public final class IntegerMethods {
       CharSequence s, int beginIndex, int endIndex, int radix) throws NumberFormatException {
     return Integer.parseUnsignedInt(s.subSequence(beginIndex, endIndex).toString(), radix);
   }
+
+  public static int compress(int integer, int mask) {
+    int maskCount, maskPrefix, maskMove, bitsToMove;
+    // Clear irrelevant bits.
+    integer = integer & mask;
+    // Count 0's to right.
+    maskCount = ~mask << 1;
+    for (int i = 0; i < 5; i++) {
+      // Parallel suffix.
+      maskPrefix = maskCount ^ (maskCount << 1);
+      maskPrefix = maskPrefix ^ (maskPrefix << 2);
+      maskPrefix = maskPrefix ^ (maskPrefix << 4);
+      maskPrefix = maskPrefix ^ (maskPrefix << 8);
+      maskPrefix = maskPrefix ^ (maskPrefix << 16);
+      maskMove = maskPrefix & mask;
+      // Compress mask.
+      mask = mask ^ maskMove | (maskMove >>> (1 << i));
+      bitsToMove = integer & maskMove;
+      // Compress integer.
+      integer = integer ^ bitsToMove | (bitsToMove >>> (1 << i));
+      // Adjust the mask count by identifying bits that have 0 to the right
+      maskCount = maskCount & ~maskPrefix;
+    }
+    return integer;
+  }
+
+  public static int expand(int integer, int mask) {
+    int originalMask, maskCount, maskPrefix, maskMove, bitsToMove;
+    int[] array = new int[5];
+    int i;
+    originalMask = mask;
+    // Count 0's to right.
+    maskCount = ~mask << 1;
+    for (i = 0; i < 5; i++) {
+      // Parallel suffix.
+      maskPrefix = maskCount ^ (maskCount << 1);
+      maskPrefix = maskPrefix ^ (maskPrefix << 2);
+      maskPrefix = maskPrefix ^ (maskPrefix << 4);
+      maskPrefix = maskPrefix ^ (maskPrefix << 8);
+      maskPrefix = maskPrefix ^ (maskPrefix << 16);
+      maskMove = maskPrefix & mask;
+      array[i] = maskMove;
+      // Compress mask.
+      mask = (mask ^ maskMove) | (maskMove >>> (1 << i));
+      maskCount = maskCount & ~maskPrefix;
+    }
+    for (i = 4; i >= 0; i--) {
+      maskMove = array[i];
+      bitsToMove = integer << (1 << i);
+      integer = (integer & ~maskMove) | (bitsToMove & maskMove);
+    }
+    // Clear out extraneous bits.
+    return integer & originalMask;
+  }
 }

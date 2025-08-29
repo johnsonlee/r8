@@ -1824,6 +1824,33 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
           new MethodWithForwardingGenerator(
               method, BackportedMethods::FloatMethods_float16ToFloat));
 
+      // java.lang.Integer int compress(int, int)
+      // java.lang.Integer int expand(int, int)
+      type = factory.boxedIntType;
+      name = factory.createString("compress");
+      proto = factory.createProto(factory.intType, factory.intType, factory.intType);
+      method = factory.createMethod(type, proto, name);
+      addProvider(
+          new MethodWithForwardingGenerator(method, BackportedMethods::IntegerMethods_compress));
+      name = factory.createString("expand");
+      proto = factory.createProto(factory.intType, factory.intType, factory.intType);
+      method = factory.createMethod(type, proto, name);
+      addProvider(
+          new MethodWithForwardingGenerator(method, BackportedMethods::IntegerMethods_expand));
+
+      // java.lang.Long long compress(long, long)
+      // java.lang.Long long expand(long, long)
+      type = factory.boxedLongType;
+      name = factory.createString("compress");
+      proto = factory.createProto(factory.longType, factory.longType, factory.longType);
+      method = factory.createMethod(type, proto, name);
+      addProvider(
+          new MethodWithForwardingGenerator(method, BackportedMethods::LongMethods_compress));
+      name = factory.createString("expand");
+      proto = factory.createProto(factory.longType, factory.longType, factory.longType);
+      method = factory.createMethod(type, proto, name);
+      addProvider(new MethodWithForwardingGenerator(method, BackportedMethods::LongMethods_expand));
+
       // android.os.Build
       type = factory.androidOsBuildType;
 
