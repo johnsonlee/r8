@@ -28,4 +28,13 @@ public interface PartialOptimizationConfigurationBuilder {
    * @return instance which received the call for chaining of calls.
    */
   PartialOptimizationConfigurationBuilder addPackage(PackageReference packageReference);
+
+  /**
+   * Add a complete package including its sub-packages to be optimized with partial optimization.
+   *
+   * @param packageReference root package to be optimized.
+   * @return instance which received the call for chaining of calls.
+   */
+  PartialOptimizationConfigurationBuilder addPackageAndSubPackages(
+      PackageReference packageReference);
 }
