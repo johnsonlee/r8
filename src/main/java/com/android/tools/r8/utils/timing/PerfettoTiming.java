@@ -73,6 +73,7 @@ public class PerfettoTiming extends TimingImplBase {
 
   @Override
   public Timing begin(String title) {
+    assert threadTrack.getId() == Thread.currentThread().getId();
     threadTrack.beginSection(title);
     depth++;
     return this;
@@ -80,6 +81,7 @@ public class PerfettoTiming extends TimingImplBase {
 
   @Override
   public Timing end() {
+    assert threadTrack.getId() == Thread.currentThread().getId();
     threadTrack.endSection();
     depth--;
     return this;

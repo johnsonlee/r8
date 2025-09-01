@@ -31,6 +31,7 @@ class PerfettoThreadTiming extends TimingImplBase {
 
   @Override
   public Timing end() {
+    assert threadTrack.getId() == Thread.currentThread().getId();
     threadTrack.endSection();
     depth--;
     return this;
