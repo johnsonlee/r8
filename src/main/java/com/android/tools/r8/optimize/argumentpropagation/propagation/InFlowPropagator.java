@@ -5,6 +5,7 @@ package com.android.tools.r8.optimize.argumentpropagation.propagation;
 
 import static com.android.tools.r8.ir.analysis.type.Nullability.definitelyNotNull;
 import static com.android.tools.r8.ir.analysis.type.Nullability.maybeNull;
+import static com.google.common.base.Predicates.alwaysTrue;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexProgramClass;
@@ -34,6 +35,7 @@ import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.ThreadUtils;
+import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.Iterables;
 import java.util.ArrayDeque;
 import java.util.Collection;
@@ -73,12 +75,12 @@ public class InFlowPropagator {
     this.inFlowComparator = inFlowComparator;
   }
 
-  public void run(ExecutorService executorService) throws ExecutionException {
+  public void run(ExecutorService executorService, Timing timing) throws ExecutionException {
     // Compute strongly connected components so that we can compute the fixpoint of multiple flow
     // graphs in parallel.
     List<FlowGraph> flowGraphs = computeStronglyConnectedFlowGraphs();
     assert InFlowPropagatorDebugUtils.setEnableLoggingBits(flowGraphs);
-    processFlowGraphs(flowGraphs, executorService);
+    processFlowGraphs(flowGraphs, executorService, timing);
 
     // Account for the fact that fields that are read before they are written also needs to include
     // the default value in the field state. We only need to analyze if a given field is read before
@@ -86,21 +88,21 @@ public class InFlowPropagator {
     // perform this analysis after having computed the initial fixpoint(s). The hypothesis is that
     // many fields will have reached the unknown state after the initial fixpoint, meaning there is
     // fewer fields to analyze.
-    updateFieldStates(flowGraphs);
+    updateFieldStates(flowGraphs, timing);
     Map<FlowGraph, Deque<FlowGraphNode>> worklists =
-        includeDefaultValuesInFieldStates(flowGraphs, executorService);
+        includeDefaultValuesInFieldStates(flowGraphs, executorService, timing);
 
     // Since the inclusion of default values changes the flow graphs, we need to repeat the
     // fixpoint.
-    processWorklists(worklists, executorService);
+    processWorklists(worklists, executorService, timing);
 
     // The algorithm only changes the parameter states of each monomorphic method state. In case any
     // of these method states have effectively become unknown, we replace them by the canonicalized
     // unknown method state.
-    postProcessMethodStates(executorService);
+    postProcessMethodStates(executorService, timing);
 
     // Copy the result of the flow graph propagation back to the field state collection.
-    updateFieldStates(flowGraphs);
+    updateFieldStates(flowGraphs, timing);
   }
 
   private List<FlowGraph> computeStronglyConnectedFlowGraphs() {
@@ -122,9 +124,12 @@ public class InFlowPropagator {
   }
 
   private Map<FlowGraph, Deque<FlowGraphNode>> includeDefaultValuesInFieldStates(
-      List<FlowGraph> flowGraphs, ExecutorService executorService) throws ExecutionException {
-    DefaultFieldValueJoiner joiner = createDefaultFieldValueJoiner(flowGraphs);
-    return joiner.joinDefaultFieldValuesForFieldsWithReadBeforeWrite(executorService);
+      List<FlowGraph> flowGraphs, ExecutorService executorService, Timing timing)
+      throws ExecutionException {
+    try (Timing t0 = timing.begin("Include default values in field states")) {
+      DefaultFieldValueJoiner joiner = createDefaultFieldValueJoiner(flowGraphs);
+      return joiner.joinDefaultFieldValuesForFieldsWithReadBeforeWrite(executorService);
+    }
   }
 
   protected DefaultFieldValueJoiner createDefaultFieldValueJoiner(List<FlowGraph> flowGraphs) {
@@ -136,27 +141,45 @@ public class InFlowPropagator {
         immediateSubtypingInfo);
   }
 
-  private void processFlowGraphs(List<FlowGraph> flowGraphs, ExecutorService executorService)
+  private void processFlowGraphs(
+      List<FlowGraph> flowGraphs, ExecutorService executorService, Timing timing)
       throws ExecutionException {
-    ThreadUtils.processItems(
-        flowGraphs, this::process, appView.options().getThreadingModule(), executorService);
+    ThreadUtils.processItemsThatMatches(
+        flowGraphs,
+        alwaysTrue(),
+        this::process,
+        appView.options(),
+        executorService,
+        timing,
+        timing.beginMerger("Process flow graphs", executorService));
   }
 
   private void processWorklists(
-      Map<FlowGraph, Deque<FlowGraphNode>> worklists, ExecutorService executorService)
+      Map<FlowGraph, Deque<FlowGraphNode>> worklists,
+      ExecutorService executorService,
+      Timing timing)
       throws ExecutionException {
-    ThreadUtils.processMap(
-        worklists, this::process, appView.options().getThreadingModule(), executorService);
+    timing.begin("Process worklists");
+    ThreadUtils.processItemsThatMatches(
+        worklists.entrySet(),
+        alwaysTrue(),
+        (entry, threadTiming) -> process(entry.getKey(), threadTiming, entry.getValue()),
+        appView.options(),
+        executorService,
+        timing,
+        timing.beginMerger("Process worklists", executorService));
+    timing.end();
   }
 
-  private void process(FlowGraph flowGraph) {
+  private void process(FlowGraph flowGraph, Timing timing) {
     // Build a worklist containing all the nodes.
     Deque<FlowGraphNode> worklist = new ArrayDeque<>();
     flowGraph.forEachNode(worklist::add);
-    process(flowGraph, worklist);
+    process(flowGraph, timing, worklist);
   }
 
-  private void process(FlowGraph flowGraph, Deque<FlowGraphNode> worklist) {
+  @SuppressWarnings("UnusedVariable")
+  private void process(FlowGraph flowGraph, Timing timing, Deque<FlowGraphNode> worklist) {
     // Repeatedly propagate argument information through edges in the flow graph until there are no
     // more changes.
     // TODO(b/190154391): Consider a path p1 -> p2 -> p3 in the graph. If we process p2 first, then
@@ -325,15 +348,21 @@ public class InFlowPropagator {
     }
   }
 
-  private void postProcessMethodStates(ExecutorService executorService) throws ExecutionException {
-    ThreadUtils.processItems(
+  private void postProcessMethodStates(ExecutorService executorService, Timing timing)
+      throws ExecutionException {
+    timing.begin("Post-process method states");
+    ThreadUtils.processItemsThatMatches(
         appView.appInfo().classes(),
+        alwaysTrue(),
         this::postProcessMethodStates,
-        appView.options().getThreadingModule(),
-        executorService);
+        appView.options(),
+        executorService,
+        timing,
+        timing.beginMerger("Post-process method states", executorService));
+    timing.end();
   }
 
-  private void postProcessMethodStates(DexProgramClass clazz) {
+  private void postProcessMethodStates(DexProgramClass clazz, Timing timing) {
     clazz.forEachProgramMethod(this::postProcessMethodState);
   }
 
@@ -377,7 +406,8 @@ public class InFlowPropagator {
     }
   }
 
-  private void updateFieldStates(Collection<FlowGraph> flowGraphs) {
+  private void updateFieldStates(Collection<FlowGraph> flowGraphs, Timing timing) {
+    timing.begin("Update field states");
     for (FlowGraph flowGraph : flowGraphs) {
       flowGraph.forEachFieldNode(
           node -> {
@@ -390,5 +420,6 @@ public class InFlowPropagator {
                 : "Expected current state to be >= previous state";
           });
     }
+    timing.end();
   }
 }

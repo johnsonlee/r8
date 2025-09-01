@@ -225,6 +225,7 @@ public class PostMethodProcessor extends MethodProcessorWithWave {
       Timing timing)
       throws ExecutionException {
     TimingMerger merger = timing.beginMerger("secondary-processor", executorService);
+    int waveIndex = 0;
     while (!waves.isEmpty()) {
       wave = waves.removeFirst();
       assert !wave.isEmpty();
@@ -235,7 +236,7 @@ public class PostMethodProcessor extends MethodProcessorWithWave {
       assert waveExtension.isEmpty();
       do {
         assert feedback.noUpdatesLeft();
-        converter.waveStart(wave);
+        converter.waveStart(wave, ++waveIndex);
         Collection<Timing> timings =
             ThreadUtils.processItemsWithResults(
                 wave,
@@ -248,9 +249,8 @@ public class PostMethodProcessor extends MethodProcessorWithWave {
                 },
                 threadingModule,
                 executorService);
-        merger.add(timings);
         converter.waveDone(wave, executorService);
-        feedback.updateVisibleOptimizationInfo();
+        merger.add(timings);
         processed.addAll(wave);
         prepareForWaveExtensionProcessing();
       } while (!wave.isEmpty());

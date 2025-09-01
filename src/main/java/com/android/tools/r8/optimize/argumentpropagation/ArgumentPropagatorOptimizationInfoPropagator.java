@@ -98,7 +98,7 @@ public class ArgumentPropagatorOptimizationInfoPropagator {
             methodStates,
             immediateSubtypingInfo,
             inFlowComparator)
-        .run(executorService);
+        .run(executorService, timing);
     timing.end();
   }
 

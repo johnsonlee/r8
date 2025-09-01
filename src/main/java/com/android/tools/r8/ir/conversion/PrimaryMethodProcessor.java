@@ -29,7 +29,7 @@ public class PrimaryMethodProcessor extends MethodProcessorWithWave {
 
   interface WaveStartAction {
 
-    void notifyWaveStart(ProgramMethodSet wave);
+    void notifyWaveStart(ProgramMethodSet wave, int waveId);
   }
 
   interface WaveDoneAction {
@@ -124,13 +124,14 @@ public class PrimaryMethodProcessor extends MethodProcessorWithWave {
       ExecutorService executorService)
       throws ExecutionException {
     TimingMerger merger = timing.beginMerger("primary-processor", executorService);
+    int waveIndex = 0;
     while (!waves.isEmpty()) {
       wave = waves.removeFirst();
       assert !wave.isEmpty();
       assert waveExtension.isEmpty();
       do {
         processorContext = appView.createProcessorContext();
-        waveStartAction.notifyWaveStart(wave);
+        waveStartAction.notifyWaveStart(wave, ++waveIndex);
         Collection<Timing> timings =
             ThreadUtils.processItemsWithResults(
                 wave,
@@ -143,8 +144,8 @@ public class PrimaryMethodProcessor extends MethodProcessorWithWave {
                 },
                 appView.options().getThreadingModule(),
                 executorService);
-        merger.add(timings);
         waveDoneAction.notifyWaveDone(wave, executorService);
+        merger.add(timings);
         prepareForWaveExtensionProcessing();
       } while (!wave.isEmpty());
     }
