@@ -125,6 +125,9 @@ def main(argv, temp):
     if options.output:
         options.output = os.path.abspath(options.output)
 
+    if options.dump_trace_to_directory:
+        options.dump_trace_to_directory = os.path.abspath(options.dump_trace_to_directory)
+
     if options.temp:
         temp = options.temp
         os.makedirs(temp, exist_ok=True)
