@@ -10,20 +10,29 @@ class PerfettoThreadTiming extends TimingImplBase {
 
   private final ThreadTrack threadTrack;
 
+  private int depth = 0;
+
   PerfettoThreadTiming(ThreadTrack threadTrack) {
     this.threadTrack = threadTrack;
+  }
+
+  @Override
+  public void notifyThreadTimingFinished() {
+    assert depth == 0;
   }
 
   @Override
   public Timing begin(String title) {
     assert threadTrack.getId() == Thread.currentThread().getId();
     threadTrack.beginSection(title);
+    depth++;
     return this;
   }
 
   @Override
   public Timing end() {
     threadTrack.endSection();
+    depth--;
     return this;
   }
 

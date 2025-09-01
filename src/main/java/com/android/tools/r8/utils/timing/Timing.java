@@ -44,6 +44,10 @@ public abstract class Timing implements AutoCloseable {
     return internalCreate(title, options, null);
   }
 
+  public void notifyThreadTimingFinished() {
+    // Intentionally empty.
+  }
+
   public abstract Timing begin(String title);
 
   public abstract Timing end();
