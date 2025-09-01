@@ -390,6 +390,9 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   public boolean printTimes = System.getProperty("com.android.tools.r8.printtimes") != null;
   public String perfettoTraceDumpDirectory =
       System.getProperty("com.android.tools.r8.dumptracetodirectory");
+  public boolean enablePerfettoTraceMemoryTrack =
+      SystemPropertyUtils.parseSystemPropertyOrDefault(
+          "com.android.tools.r8.perfetto.memory", false);
   // To print memory one also have to enable printtimes.
   public boolean printMemory = System.getProperty("com.android.tools.r8.printmemory") != null;
 

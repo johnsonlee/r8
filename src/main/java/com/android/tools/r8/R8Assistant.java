@@ -55,7 +55,7 @@ public class R8Assistant {
   static void runInternal(
       R8AssistantCommand command, InternalOptions options, ExecutorService executorService)
       throws IOException {
-    Timing timing = Timing.createRoot("R8 Assistant " + Version.LABEL, options);
+    Timing timing = Timing.createRoot("R8 Assistant " + Version.LABEL, options, executorService);
     try {
       ApplicationReader applicationReader =
           new ApplicationReader(command.getInputApp(), options, timing);

@@ -56,6 +56,11 @@ def make_parser():
                         ' (defaults to app proguard config)',
                         choices=['default', 'force-enable', 'force-disable'],
                         default='default')
+    parser.add_argument('--perfetto-memory',
+                        '--perfetto_memory',
+                        help='Include memory usage in perfetto trace',
+                        default=False,
+                        action='store_true')
     parser.add_argument('--shrink',
                         help='Force enable/disable shrinking'
                         ' (defaults to app proguard config)',
@@ -649,6 +654,8 @@ def run1(out, args, otherargs, jdkhome=None, worker_id=None):
         if args.dump_trace_to_directory is not None:
             cmd.append('-Dcom.android.tools.r8.dumptracetodirectory=' +
                        args.dump_trace_to_directory)
+            if args.perfetto_memory:
+                cmd.append('-Dcom.android.tools.r8.perfetto.memory=1')
         if args.print_times:
             cmd.append('-Dcom.android.tools.r8.printtimes=1')
         if args.r8_flags:

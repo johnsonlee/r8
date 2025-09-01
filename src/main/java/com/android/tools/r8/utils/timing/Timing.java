@@ -15,18 +15,20 @@ public abstract class Timing implements AutoCloseable {
     return TimingEmpty.getEmpty();
   }
 
-  public static Timing createRoot(String title, InternalOptions options) {
+  public static Timing createRoot(
+      String title, InternalOptions options, ExecutorService executorService) {
     if (options.partialSubCompilationConfiguration != null) {
       return options.partialSubCompilationConfiguration.timing;
     }
-    return internalCreate(title, options);
+    return internalCreate(title, options, executorService);
   }
 
-  private static Timing internalCreate(String title, InternalOptions options) {
+  private static Timing internalCreate(
+      String title, InternalOptions options, ExecutorService executorService) {
     // We also create a timer when running assertions to validate wellformedness of the node stack.
     Timing timing;
     if (options.perfettoTraceDumpDirectory != null) {
-      timing = new PerfettoTiming(title, options);
+      timing = new PerfettoTiming(title, options, executorService);
     } else if (options.printTimes) {
       timing = new TimingImpl(title, options);
     } else {
@@ -39,7 +41,7 @@ public abstract class Timing implements AutoCloseable {
   }
 
   public Timing createThreadTiming(String title, InternalOptions options) {
-    return internalCreate(title, options);
+    return internalCreate(title, options, null);
   }
 
   public abstract Timing begin(String title);

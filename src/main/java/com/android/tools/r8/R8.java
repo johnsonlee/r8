@@ -172,12 +172,12 @@ public class R8 {
   private final Timing timing;
   private final InternalOptions options;
 
-  R8(InternalOptions options) {
+  R8(InternalOptions options, ExecutorService executor) {
     this.options = options;
     if (options.printMemory) {
       System.gc();
     }
-    timing = Timing.createRoot("R8 " + Version.LABEL, options);
+    timing = Timing.createRoot("R8 " + Version.LABEL, options, executor);
   }
 
   /**
@@ -252,12 +252,12 @@ public class R8 {
     if (options.partialCompilationConfiguration.isEnabled()
         && options.partialSubCompilationConfiguration == null) {
       try {
-        new R8Partial(options).runInternal(app, executor);
+        new R8Partial(options, executor).runInternal(app, executor);
       } catch (ResourceException e) {
         throw new RuntimeException(e);
       }
     } else {
-      new R8(options).runInternal(app, executor);
+      new R8(options, executor).runInternal(app, executor);
     }
   }
 

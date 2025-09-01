@@ -42,9 +42,9 @@ class R8Partial {
   private final InternalOptions options;
   private final Timing timing;
 
-  R8Partial(InternalOptions options) {
+  R8Partial(InternalOptions options, ExecutorService executor) {
     this.options = options;
-    this.timing = Timing.createRoot("R8 partial " + Version.LABEL, options);
+    this.timing = Timing.createRoot("R8 partial " + Version.LABEL, options, executor);
   }
 
   static void runForTesting(AndroidApp app, InternalOptions options)
@@ -54,7 +54,7 @@ class R8Partial {
         options.reporter,
         () -> {
           try {
-            new R8Partial(options).runInternal(app, executor);
+            new R8Partial(options, executor).runInternal(app, executor);
           } finally {
             executor.shutdown();
           }
