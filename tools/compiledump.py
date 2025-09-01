@@ -42,9 +42,7 @@ def make_parser():
                         '--compiler',
                         help='Compiler to use',
                         default=None)
-    parser.add_argument('--jdk',
-                        help='JDK to use',
-                        choices=jdk.ALL_JDKS)
+    parser.add_argument('--jdk', help='JDK to use', choices=jdk.ALL_JDKS)
     parser.add_argument('--minify',
                         help='Force enable/disable minification'
                         ' (defaults to app proguard config)',
@@ -210,8 +208,8 @@ class Dump(object):
                 # We can have either jar, res or both.
                 input_string = feature_jar
                 if feature_res:
-                   input_string = '%s:%s' % (
-                       feature_jar if feature_jar else '', feature_res)
+                    input_string = '%s:%s' % (feature_jar if feature_jar else
+                                              '', feature_res)
                 feature_jars.append(input_string)
                 i = i + 1
             else:
@@ -407,9 +405,6 @@ def determine_residual_art_profile_output(art_profile, temp):
     return os.path.join(temp, os.path.basename(art_profile)[:-4] + ".out.txt")
 
 
-def determine_desugared_lib_pg_conf_output(temp):
-    return os.path.join(temp, 'desugared-library-keep-rules.config')
-
 def output_name(input_name, suffix):
     return os.path.basename(input_name)[:-4] + ".out" + suffix
 
@@ -442,10 +437,12 @@ def determine_android_platform_build(args, build_properties):
         return True
     return build_properties.get('android-platform-build') == 'true'
 
+
 def determine_optimized_resource_shrinking(args, build_properties):
     if args.optimized_resource_shrinking:
         return True
     return build_properties.get('optimized-resource-shrinking') == 'true'
+
 
 def determine_enable_missing_library_api_modeling(args, build_properties):
     if args.enable_missing_library_api_modeling:
@@ -539,8 +536,7 @@ def clean_config_line(line, minify, optimize, shrink):
 def compile_reflective_helper(temp, jdkhome):
     gradle.RunGradle([utils.GRADLE_TASK_MAIN_COMPILE])
     base_path = os.path.join(
-        utils.REPO_ROOT,
-        'src/main/java/com/android/tools/r8/utils/compiledump')
+        utils.REPO_ROOT, 'src/main/java/com/android/tools/r8/utils/compiledump')
 
     cmd = [
         jdk.GetJavacExecutable(jdkhome),
@@ -552,6 +548,7 @@ def compile_reflective_helper(temp, jdkhome):
     cmd.extend(os.path.join(base_path, f) for f in os.listdir(base_path))
     utils.PrintCmd(cmd)
     subprocess.check_output(cmd)
+
 
 def prepare_r8_wrapper(dist, temp, jdkhome):
     compile_reflective_helper(temp, jdkhome)
@@ -702,8 +699,9 @@ def run1(out, args, otherargs, jdkhome=None, worker_id=None):
             cmd.extend(['--lib', dump.library_jar()])
         if is_r8_compiler(compiler) and dump.resource_ap_file():
             res_output = os.path.join(temp, 'app-res-out.ap_')
-            cmd.extend(['--android-resources', dump.resource_ap_file(),
-                        res_output])
+            cmd.extend(
+                ['--android-resources',
+                 dump.resource_ap_file(), res_output])
         if dump.classpath_jar() and not is_l8_compiler(compiler):
             cmd.extend([
                 '--target' if compiler == 'tracereferences' else '--classpath',
@@ -711,11 +709,6 @@ def run1(out, args, otherargs, jdkhome=None, worker_id=None):
             ])
         if dump.desugared_library_json() and not args.disable_desugared_lib:
             cmd.extend(['--desugared-lib', dump.desugared_library_json()])
-            if not is_l8_compiler(compiler):
-                cmd.extend([
-                    '--desugared-lib-pg-conf-output',
-                    determine_desugared_lib_pg_conf_output(temp)
-                ])
         if (is_r8_compiler(compiler) or compiler == 'l8') and config_files:
             if hasattr(args,
                        'config_files_consumer') and args.config_files_consumer:

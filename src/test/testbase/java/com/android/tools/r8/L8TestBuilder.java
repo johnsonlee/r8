@@ -170,6 +170,11 @@ public class L8TestBuilder {
   }
 
   public L8TestCompileResult compile() throws IOException, CompilationFailedException {
+    return compileWithExpectedDiagnostics(this::assertNoUnexpectedDiagnosticMessages);
+  }
+
+  public L8TestCompileResult compileWithExpectedDiagnostics(
+      Consumer<TestDiagnosticMessages> inspector) throws IOException, CompilationFailedException {
     // We wrap exceptions in a RuntimeException to call this from a lambda.
     AndroidAppConsumers sink = new AndroidAppConsumers();
     l8Builder
@@ -202,7 +207,7 @@ public class L8TestBuilder {
     if (programConsumer != null) {
       return null;
     }
-    assertNoUnexpectedDiagnosticMessages();
+    inspector.accept(state.getDiagnosticsMessages());
     return new L8TestCompileResult(
             sink.build(),
             apiLevel,
@@ -237,8 +242,7 @@ public class L8TestBuilder {
                 }));
   }
 
-  private void assertNoUnexpectedDiagnosticMessages() {
-    TestDiagnosticMessages diagnosticsMessages = state.getDiagnosticsMessages();
+  private void assertNoUnexpectedDiagnosticMessages(TestDiagnosticMessages diagnosticsMessages) {
     diagnosticsMessages.assertNoErrors();
     List<Diagnostic> warnings = diagnosticsMessages.getWarnings();
     // We allow warnings exclusively when using the extended version for JDK11 testing.

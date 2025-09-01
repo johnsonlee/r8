@@ -27,6 +27,7 @@ public class LibraryDesugaringTestConfiguration {
   public static class Builder {
 
     private final List<StringResource> desugaredLibrarySpecificationResources = new ArrayList<>();
+
     private Builder() {}
 
     public Builder addDesugaredLibraryConfiguration(StringResource desugaredLibrarySpecification) {

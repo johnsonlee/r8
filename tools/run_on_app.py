@@ -471,65 +471,6 @@ def should_build(options):
     return not options.no_build
 
 
-def build_desugared_library_dex(options, quiet, temp, android_java8_libs,
-                                desugared_lib_pg_conf, inputs, outdir):
-    if not inputs:
-        raise Exception(
-            "If 'android_java8_libs' is specified the inputs must be explicit" +
-            "(not defined using '-injars' in Proguard configuration files)")
-    if outdir.endswith('.zip') or outdir.endswith('.jar'):
-        raise Exception(
-            "If 'android_java8_libs' is specified the output must be a directory"
-        )
-
-    jar = None
-    main = None
-    if options.hash:
-        jar = os.path.join(utils.LIBS, 'r8-' + options.hash + '.jar')
-        main = 'com.android.tools.r8.R8'
-
-    # Determine the l8 tool.
-    assert (options.compiler_build in ['full', 'lib'])
-    lib_prefix = 'r8lib-' if options.compiler_build == 'lib' else ''
-    tool = lib_prefix + 'l8'
-
-    # Prepare out directory.
-    android_java8_libs_output = os.path.join(temp, 'android_java8_libs')
-    os.makedirs(android_java8_libs_output)
-
-    # Prepare arguments for L8.
-    args = [
-        '--desugared-lib',
-        android_java8_libs['config'],
-        '--lib',
-        android_java8_libs['library'],
-        '--output',
-        android_java8_libs_output,
-        '--pg-conf',
-        desugared_lib_pg_conf,
-        '--release',
-    ]
-    if 'pgconf' in android_java8_libs:
-        for pgconf in android_java8_libs['pgconf']:
-            args.extend(['--pg-conf', pgconf])
-    args.extend(android_java8_libs['program'])
-
-    # Run L8.
-    exit_code = toolhelper.run(tool,
-                               args,
-                               build=should_build(options),
-                               disable_assertions=options.disable_assertions,
-                               quiet=quiet,
-                               jar=jar,
-                               main=main)
-
-    # Copy the desugared library DEX to the output.
-    dex_file_name = ('classes' +
-                     str(len(glob(os.path.join(outdir, '*.dex'))) + 1) + '.dex')
-    shutil.copyfile(os.path.join(android_java8_libs_output, 'classes.dex'),
-                    os.path.join(outdir, dex_file_name))
-
-
 def run_with_options(options,
                      args,
                      extra_args=None,
@@ -705,15 +646,6 @@ def run_with_options(options,
                     additional_pg_conf = GenerateAdditionalProguardConfiguration(
                         temp, os.path.abspath(pg_outdir))
                     args.extend(['--pg-conf', additional_pg_conf])
-
-            android_java8_libs = values.get('android_java8_libs')
-            if android_java8_libs:
-                desugared_lib_pg_conf = os.path.join(
-                    temp, 'desugared-lib-pg-conf.txt')
-                args.extend(['--desugared-lib', android_java8_libs['config']])
-                args.extend(
-                    ['--desugared-lib-pg-conf-output', desugared_lib_pg_conf])
-
             stdout_path = os.path.join(temp, 'stdout')
             stderr_path = os.path.join(temp, 'stderr')
             with open(stdout_path, 'w') as stdout_workers:
@@ -728,11 +660,12 @@ def run_with_options(options,
                     if options.hash:
                         jar = os.path.join(utils.LIBS,
                                            'r8-' + options.hash + '.jar')
-                        main = 'com.android.tools.r8.' + options.compiler.upper()
+                        main = 'com.android.tools.r8.' + options.compiler.upper(
+                        )
                     if should_build(options):
                         gradle.RunGradle([
-                            utils.GRADLE_TASK_R8LIB
-                            if tool.startswith('r8lib') else utils.GRADLE_TASK_R8
+                            utils.GRADLE_TASK_R8LIB if tool.startswith('r8lib')
+                            else utils.GRADLE_TASK_R8
                         ])
                     t0 = time.time()
                     exit_code = toolhelper.run(
@@ -771,12 +704,6 @@ def run_with_options(options,
                 print('{}(MemoryUse): {}'.format(
                     options.print_memoryuse,
                     utils.grep_memoryuse(options.track_memory_to_file)))
-
-            if android_java8_libs:
-                build_desugared_library_dex(options, quiet, temp,
-                                            android_java8_libs,
-                                            desugared_lib_pg_conf, inputs,
-                                            outdir)
 
     if options.print_runtimeraw:
         print('{}(RunTimeRaw): {} ms'.format(options.print_runtimeraw,
