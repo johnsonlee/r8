@@ -6,7 +6,7 @@ package com.android.tools.r8.utils.timing;
 import com.android.tools.r8.utils.ThrowingAction;
 import com.android.tools.r8.utils.ThrowingSupplier;
 
-class TimingDelegate extends Timing {
+abstract class TimingDelegate extends Timing {
 
   private final Timing delegate;
 
@@ -48,10 +48,5 @@ class TimingDelegate extends Timing {
   @Override
   public void report() {
     delegate.report();
-  }
-
-  @Override
-  public void close() {
-    delegate.close();
   }
 }

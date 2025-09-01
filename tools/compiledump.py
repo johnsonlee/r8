@@ -42,6 +42,9 @@ def make_parser():
                         '--compiler',
                         help='Compiler to use',
                         default=None)
+    parser.add_argument('--dump-trace-to-directory',
+                        '--dump_trace_to_directory',
+                        help='Dump perfetto trace to the given directory')
     parser.add_argument('--jdk', help='JDK to use', choices=jdk.ALL_JDKS)
     parser.add_argument('--minify',
                         help='Force enable/disable minification'
@@ -643,6 +646,9 @@ def run1(out, args, otherargs, jdkhome=None, worker_id=None):
         if args.enable_test_assertions:
             cmd.append('-Dcom.android.tools.r8.enableTestAssertions=1')
         feature_jars = dump.feature_jars()
+        if args.dump_trace_to_directory is not None:
+            cmd.append('-Dcom.android.tools.r8.dumptracetodirectory=' +
+                       args.dump_trace_to_directory)
         if args.print_times:
             cmd.append('-Dcom.android.tools.r8.printtimes=1')
         if args.r8_flags:

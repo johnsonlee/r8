@@ -38,6 +38,9 @@ java {
 dependencies {
   implementation(":keepanno")
   implementation(":resourceshrinker")
+  compileOnly(Deps.androidxCollection)
+  compileOnly(Deps.androidxTracingDriver)
+  compileOnly(Deps.androidxTracingDriverWire)
   compileOnly(Deps.asm)
   implementation(":assistant")
   compileOnly(Deps.asmCommons)
@@ -264,6 +267,8 @@ tasks {
     exclude("META-INF/com.android.tools/**")
     exclude("META-INF/LICENSE*")
     exclude("META-INF/MANIFEST.MF")
+    exclude("META-INF/kotlinx_coroutines_core.version")
+    exclude("META-INF/androidx/**/LICENSE.txt")
     exclude("META-INF/maven/**")
     exclude("META-INF/proguard/**")
     exclude("META-INF/versions/**")
@@ -275,6 +280,7 @@ tasks {
     exclude("javax/annotation/**")
     exclude("wireless/**")
     exclude("google/protobuf/**")
+    exclude("DebugProbesKt.bin")
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     archiveFileName.set("deps.jar")
   }
@@ -291,6 +297,14 @@ val swissArmyKnifeWithoutLicense by registering(Zip::class) {
 
 fun relocateDepsExceptAsm(pkg: String): List<String> {
   return listOf("--map",
+                "android.aapt.**->${pkg}.android.aapt",
+                "--map",
+                "androidx.annotation.**->${pkg}.androidx.annotation",
+                "--map",
+                "androidx.collection.**->${pkg}.androidx.collection",
+                "--map",
+                "androidx.tracing.**->${pkg}.androidx.tracing",
+                "--map",
                 "com.android.**->${pkg}.com.android",
                 "--map",
                 "com.android.build.shrinker.**->${pkg}.resourceshrinker",
@@ -301,11 +315,15 @@ fun relocateDepsExceptAsm(pkg: String): List<String> {
                 "--map",
                 "com.google.thirdparty.**->${pkg}.com.google.thirdparty",
                 "--map",
+                "com.squareup.wire.**->${pkg}.com.squareup.wire",
+                "--map",
                 "it.unimi.dsi.fastutil.**->${pkg}.it.unimi.dsi.fastutil",
                 "--map",
                 "kotlin.**->${pkg}.jetbrains.kotlin",
                 "--map",
                 "kotlinx.**->${pkg}.jetbrains.kotlinx",
+                "--map",
+                "okio.**->${pkg}.okio",
                 "--map",
                 "org.jetbrains.**->${pkg}.org.jetbrains",
                 "--map",
@@ -316,8 +334,10 @@ fun relocateDepsExceptAsm(pkg: String): List<String> {
                 "com.google.j2objc.**->${pkg}.com.google.j2objc",
                 "--map",
                 "com.google.protobuf.**->${pkg}.com.google.protobuf",
-                 "--map",
-                "android.aapt.**->${pkg}.android.aapt")
+                "--map",
+                "perfetto.protos.**->${pkg}.perfetto.protos",
+                "--map",
+                "_COROUTINE.**->${pkg}._COROUTINE")
 }
 
 val r8WithRelocatedDeps by registering(Exec::class) {

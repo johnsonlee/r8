@@ -18,11 +18,12 @@ REPOSITORIES = [
     'B-Google=https://maven.google.com/',
     'C-Maven Central=https://repo1.maven.org/maven2/',
     "D-Gradle Plugins=https://plugins.gradle.org/m2/",
+    'E-AndroidX=https://androidx.dev/snapshots/builds/14007990/artifacts/repository',
 ]
 
-ANDRDID_SUPPORT_VERSION = '25.4.0'
-ASM_VERSION = '9.8' # When updating update tools/asmifier.py and Toolhelper as well.
-ESPRESSO_VERSION = '3.0.0'
+ANDROIDX_COLLECTION_VERSION = '1.6.0-SNAPSHOT'
+ANDROIDX_TRACING_DRIVER_VERSION = '1.0.0-SNAPSHOT'
+ASM_VERSION = '9.8'  # When updating update tools/asmifier.py and Toolhelper as well.
 FASTUTIL_VERSION = '7.2.1'
 KOTLIN_METADATA_VERSION = '2.2.10'
 KOTLIN_VERSION = '2.0.21'
@@ -43,16 +44,23 @@ AAPT2_PROTO_VERSION = '8.2.0-alpha10-10154469'
 STUDIO_SDK_VERSION = '31.5.0-alpha04'
 
 BUILD_DEPENDENCIES = [
+    'androidx.collection:collection:{version}'.format(
+        version=ANDROIDX_COLLECTION_VERSION),
+    'androidx.tracing:tracing-driver:{version}'.format(
+        version=ANDROIDX_TRACING_DRIVER_VERSION),
+    'androidx.tracing:tracing-driver-jvm:{version}'.format(
+        version=ANDROIDX_TRACING_DRIVER_VERSION),
+    'androidx.tracing:tracing-driver-wire:{version}'.format(
+        version=ANDROIDX_TRACING_DRIVER_VERSION),
+    'androidx.tracing:tracing-driver-wire-jvm:{version}'.format(
+        version=ANDROIDX_TRACING_DRIVER_VERSION),
     'com.google.code.gson:gson:{version}'.format(version=GSON_VERSION),
     'com.google.guava:guava:{version}'.format(version=GUAVA_VERSION),
     'it.unimi.dsi:fastutil:{version}'.format(version=FASTUTIL_VERSION),
-
     'org.ow2.asm:asm:{version}'.format(version=ASM_VERSION),
     'org.ow2.asm:asm-util:{version}'.format(version=ASM_VERSION),
     'org.ow2.asm:asm-commons:{version}'.format(version=ASM_VERSION),
-
     'com.google.errorprone:javac:9+181-r4173-1',
-
     'com.android.tools.build:aapt2-proto:{version}'.format(
         version=AAPT2_PROTO_VERSION),
     'com.android.tools.layoutlib:layoutlib-api:{version}'.format(
@@ -61,9 +69,8 @@ BUILD_DEPENDENCIES = [
     'com.android.tools:sdk-common:{version}'.format(version=STUDIO_SDK_VERSION),
     'com.google.protobuf:protobuf-java:{version}'.format(
         version=PROTOBUF_VERSION),
-
-    'org.jetbrains.kotlin:kotlin-assignment-compiler-plugin-embeddable:{version}'.format(
-        version=KOTLIN_VERSION),
+    'org.jetbrains.kotlin:kotlin-assignment-compiler-plugin-embeddable:{version}'
+    .format(version=KOTLIN_VERSION),
     'org.jetbrains.kotlin:kotlin-compiler-embeddable:{version}'.format(
         version=KOTLIN_VERSION),
     'org.jetbrains.kotlin:kotlin-gradle-plugin-api:{version}'.format(
@@ -72,12 +79,12 @@ BUILD_DEPENDENCIES = [
         version=KOTLIN_VERSION),
     'org.jetbrains.kotlin:kotlin-reflect:{version}'.format(
         version=KOTLIN_VERSION),
-    'org.jetbrains.kotlin:kotlin-sam-with-receiver-compiler-plugin-embeddable:{version}'.format(
-        version=KOTLIN_VERSION),
+    'org.jetbrains.kotlin:kotlin-sam-with-receiver-compiler-plugin-embeddable:{version}'
+    .format(version=KOTLIN_VERSION),
     'org.jetbrains.kotlin:kotlin-script-runtime:{version}'.format(
         version=KOTLIN_VERSION),
-    'org.jetbrains.kotlin:kotlin-scripting-compiler-embeddable:{version}'.format(
-        version=KOTLIN_VERSION),
+    'org.jetbrains.kotlin:kotlin-scripting-compiler-embeddable:{version}'.
+    format(version=KOTLIN_VERSION),
     'org.jetbrains.kotlin:kotlin-stdlib-jdk8:{version}'.format(
         version=KOTLIN_VERSION),
     'org.jetbrains.kotlin:kotlin-tooling-core:{version}'.format(
@@ -101,14 +108,15 @@ TEST_DEPENDENCIES = [
 ]
 
 PLUGIN_DEPENDENCIES = [
-  'com.google.protobuf:protobuf-gradle-plugin:0.9.4',
-  'org.gradle.kotlin.kotlin-dsl:org.gradle.kotlin.kotlin-dsl.gradle.plugin:pom:5.1.2',
-  'org.jetbrains.kotlin:kotlin-gradle-plugin-api:1.9.10',
-  'net.ltgt.errorprone:net.ltgt.errorprone.gradle.plugin:pom:3.0.1',
-  'org.spdx.sbom:org.spdx.sbom.gradle.plugin:pom:0.4.0',
-  # See https://github.com/FasterXML/jackson-core/issues/999.
-  'ch.randelshofer:fastdoubleparser:0.8.0',
+    'com.google.protobuf:protobuf-gradle-plugin:0.9.4',
+    'org.gradle.kotlin.kotlin-dsl:org.gradle.kotlin.kotlin-dsl.gradle.plugin:pom:5.1.2',
+    'org.jetbrains.kotlin:kotlin-gradle-plugin-api:1.9.10',
+    'net.ltgt.errorprone:net.ltgt.errorprone.gradle.plugin:pom:3.0.1',
+    'org.spdx.sbom:org.spdx.sbom.gradle.plugin:pom:0.4.0',
+    # See https://github.com/FasterXML/jackson-core/issues/999.
+    'ch.randelshofer:fastdoubleparser:0.8.0',
 ]
+
 
 def dependencies_tar(dependencies_path):
     return os.path.join(os.path.dirname(dependencies_path),
@@ -155,34 +163,33 @@ def parse_options():
         required=True,
         help='Path to a studio-main checkout (to get the tool '
         '//tools/base/bazel:local_maven_repository_generator_cli)')
-    result.add_argument(
-        '--plugin-deps',
-        '--plugin_deps',
-        default=False,
-        action='store_true',
-        help='Build repository Gradle plugin dependncies')
+    result.add_argument('--plugin-deps',
+                        '--plugin_deps',
+                        default=False,
+                        action='store_true',
+                        help='Build repository Gradle plugin dependncies')
     result.add_argument(
         '--include-maven-local',
         '--include_maven_local',
         metavar=('<path>'),
         default=False,
         help='Path to maven local repository to include as dependency source')
-    result.add_argument(
-        '--no-upload',
-        '--no_upload',
-        default=False,
-        action='store_true',
-        help="Don't upload to Google CLoud Storage")
+    result.add_argument('--no-upload',
+                        '--no_upload',
+                        default=False,
+                        action='store_true',
+                        help="Don't upload to Google CLoud Storage")
     return result.parse_args()
 
 
 def set_utime(path):
     os.utime(path, (0, 0))
     for root, dirs, files in os.walk(path):
-      for f in files:
-          os.utime(os.path.join(root, f), (0, 0))
-      for d in dirs:
-          os.utime(os.path.join(root, d), (0, 0))
+        for f in files:
+            os.utime(os.path.join(root, f), (0, 0))
+        for d in dirs:
+            os.utime(os.path.join(root, d), (0, 0))
+
 
 def main():
     args = parse_options()
@@ -191,35 +198,35 @@ def main():
     if args.include_maven_local:
         # Add the local repository as the first for it to take precedence.
         # Use A- prefix as current local_maven_repository_generator orderes by name.
-        repositories = ['A-Local=file://%s' % args.include_maven_local] + REPOSITORIES
+        repositories = ['A-Local=file://%s' % args.include_maven_local
+                       ] + REPOSITORIES
 
     dependencies = []
 
     if args.plugin_deps:
-        dependencies_plugin_path = os.path.join(utils.THIRD_PARTY, 'dependencies_plugin')
+        dependencies_plugin_path = os.path.join(utils.THIRD_PARTY,
+                                                'dependencies_plugin')
         remove_local_maven_repository(dependencies_plugin_path)
         print("Downloading to " + dependencies_plugin_path)
-        create_local_maven_repository(
-            args, dependencies_plugin_path, repositories, PLUGIN_DEPENDENCIES)
+        create_local_maven_repository(args, dependencies_plugin_path,
+                                      repositories, PLUGIN_DEPENDENCIES)
         set_utime(dependencies_plugin_path)
         dependencies.append('dependencies_plugin')
     else:
         dependencies_path = os.path.join(utils.THIRD_PARTY, 'dependencies')
         remove_local_maven_repository(dependencies_path)
         print("Downloading to " + dependencies_path)
-        create_local_maven_repository(
-            args, dependencies_path, repositories, BUILD_DEPENDENCIES + TEST_DEPENDENCIES)
+        create_local_maven_repository(args, dependencies_path, repositories,
+                                      BUILD_DEPENDENCIES + TEST_DEPENDENCIES)
         set_utime(dependencies_path)
         dependencies.append('dependencies')
 
     upload_cmds = []
     for dependency in dependencies:
         upload_cmds.append([
-            'upload_to_google_storage.py',
-            '-a',
-            '--bucket',
-            'r8-deps',
-            dependency])
+            'upload_to_google_storage.py', '-a', '--bucket', 'r8-deps',
+            dependency
+        ])
 
     if not args.no_upload:
         print("Uploading to Google Cloud Storage:")
@@ -227,8 +234,9 @@ def main():
             for cmd in upload_cmds:
                 subprocess.check_call(cmd)
     else:
-        print("Not uploading to Google Cloud Storage. "
-            + "Run the following commands in %s to do so manually" % utils.THIRD_PARTY)
+        print("Not uploading to Google Cloud Storage. " +
+              "Run the following commands in %s to do so manually" %
+              utils.THIRD_PARTY)
         for cmd in upload_cmds:
             print(" ".join(cmd))
 

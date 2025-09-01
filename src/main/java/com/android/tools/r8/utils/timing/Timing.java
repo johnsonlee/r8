@@ -24,17 +24,21 @@ public abstract class Timing implements AutoCloseable {
 
   private static Timing internalCreate(String title, InternalOptions options) {
     // We also create a timer when running assertions to validate wellformedness of the node stack.
-    Timing timing =
-        options.printTimes || InternalOptions.assertionsEnabled()
-            ? new TimingImpl(title, options)
-            : Timing.empty();
+    Timing timing;
+    if (options.perfettoTraceDumpDirectory != null) {
+      timing = new PerfettoTiming(title, options);
+    } else if (options.printTimes) {
+      timing = new TimingImpl(title, options);
+    } else {
+      timing = Timing.empty();
+    }
     if (options.cancelCompilationChecker != null) {
       return new TimingWithCancellation(options, timing);
     }
     return timing;
   }
 
-  public final Timing createThreadTiming(String title, InternalOptions options) {
+  public Timing createThreadTiming(String title, InternalOptions options) {
     return internalCreate(title, options);
   }
 
@@ -48,6 +52,10 @@ public abstract class Timing implements AutoCloseable {
     return beginMerger(title, ThreadUtils.getNumberOfThreads(executorService));
   }
 
+  public boolean isEmpty() {
+    return false;
+  }
+
   public abstract <E extends Exception> void time(String title, ThrowingAction<E> action) throws E;
 
   public abstract <T, E extends Exception> T time(String title, ThrowingSupplier<T, E> supplier)
@@ -57,5 +65,7 @@ public abstract class Timing implements AutoCloseable {
 
   // Remove throws from close() in AutoClosable to allow try with resources without explicit catch.
   @Override
-  public abstract void close();
+  public final void close() {
+    end();
+  }
 }

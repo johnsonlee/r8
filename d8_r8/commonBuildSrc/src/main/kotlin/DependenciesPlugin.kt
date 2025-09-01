@@ -435,6 +435,8 @@ object JvmCompatibility {
 }
 
 object Versions {
+  const val androidxCollectionVersion = "1.6.0-SNAPSHOT"
+  const val androidxTracingVersion = "1.0.0-SNAPSHOT"
   const val asmVersion = "9.8"
   const val errorproneVersion = "2.18.0"
   const val fastUtilVersion = "7.2.1"
@@ -450,6 +452,15 @@ object Versions {
 }
 
 object Deps {
+  val androidxCollection by lazy {
+    "androidx.collection:collection:${Versions.androidxCollectionVersion}"
+  }
+  val androidxTracingDriver by lazy {
+    "androidx.tracing:tracing-driver:${Versions.androidxTracingVersion}"
+  }
+  val androidxTracingDriverWire by lazy {
+    "androidx.tracing:tracing-driver-wire:${Versions.androidxTracingVersion}"
+  }
   val asm by lazy { "org.ow2.asm:asm:${Versions.asmVersion}" }
   val asmUtil by lazy { "org.ow2.asm:asm-util:${Versions.asmVersion}" }
   val asmCommons by lazy { "org.ow2.asm:asm-commons:${Versions.asmVersion}" }

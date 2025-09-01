@@ -3,12 +3,13 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.utils.timing;
 
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ThrowingAction;
 import com.android.tools.r8.utils.ThrowingSupplier;
-import java.util.Collection;
 
 class TimingEmpty extends Timing {
-  private static TimingEmpty INSTANCE = new TimingEmpty();
+
+  private static final TimingEmpty INSTANCE = new TimingEmpty();
 
   static Timing getEmpty() {
     return INSTANCE;
@@ -18,23 +19,12 @@ class TimingEmpty extends Timing {
 
   @Override
   public TimingMerger beginMerger(String title, int numberOfThreads) {
-    return new TimingMerger() {
-      @Override
-      public void add(Collection<Timing> timings) {}
+    return EmptyTimingMerger.get();
+  }
 
-      @Override
-      public void end() {}
-
-      @Override
-      public boolean isEmpty() {
-        return true;
-      }
-
-      @Override
-      public TimingMerger disableSlowestReporting() {
-        return this;
-      }
-    };
+  @Override
+  public Timing createThreadTiming(String title, InternalOptions options) {
+    return this;
   }
 
   @Override
@@ -45,6 +35,11 @@ class TimingEmpty extends Timing {
   @Override
   public Timing end() {
     return this;
+  }
+
+  @Override
+  public boolean isEmpty() {
+    return true;
   }
 
   @Override
@@ -59,7 +54,4 @@ class TimingEmpty extends Timing {
 
   @Override
   public void report() {}
-
-  @Override
-  public void close() {}
 }
