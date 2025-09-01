@@ -8,17 +8,15 @@ import com.android.tools.r8.errors.Unreachable;
 
 class PerfettoThreadTiming extends TimingImplBase {
 
-  private final int threadId;
   private final ThreadTrack threadTrack;
 
-  PerfettoThreadTiming(int threadId, ThreadTrack threadTrack) {
+  PerfettoThreadTiming(ThreadTrack threadTrack) {
     this.threadTrack = threadTrack;
-    this.threadId = threadId;
   }
 
   @Override
   public Timing begin(String title) {
-    assert threadId == Thread.currentThread().getId();
+    assert threadTrack.getId() == Thread.currentThread().getId();
     threadTrack.beginSection(title);
     return this;
   }

@@ -7,16 +7,15 @@ import androidx.tracing.driver.ProcessTrack;
 import androidx.tracing.driver.ThreadTrack;
 import androidx.tracing.driver.TraceContext;
 import androidx.tracing.driver.TraceDriver;
-import androidx.tracing.driver.wire.TraceSink_jvmKt;
+import androidx.tracing.driver.wire.TraceSink;
+import androidx.tracing.driver.wire.TraceSinkUtils;
 import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.utils.InternalOptions;
 import java.io.File;
-import kotlin.coroutines.CoroutineContext;
-import kotlinx.coroutines.Dispatchers;
 
 public class PerfettoTiming extends TimingImplBase {
 
-  private final androidx.tracing.driver.TraceSink sink;
+  private final TraceSink sink;
   private final TraceDriver traceDriver;
   private final ProcessTrack processTrack;
   private final ThreadTrack threadTrack;
@@ -29,8 +28,7 @@ public class PerfettoTiming extends TimingImplBase {
     }
     File directory = new File(options.perfettoTraceDumpDirectory);
     int sequenceId = 1;
-    CoroutineContext coroutineContext = Dispatchers.getIO();
-    sink = TraceSink_jvmKt.TraceSink(directory, sequenceId, coroutineContext);
+    sink = TraceSinkUtils.TraceSink(directory, sequenceId);
     traceDriver = new TraceDriver(sink, true);
     TraceContext traceContext = traceDriver.getContext();
     processTrack = traceContext.getOrCreateProcessTrack(1, title);
@@ -42,11 +40,8 @@ public class PerfettoTiming extends TimingImplBase {
   @Override
   public Timing createThreadTiming(String title, InternalOptions options) {
     int threadId = (int) Thread.currentThread().getId();
-    ThreadTrack threadTrack;
-    synchronized (processTrack) {
-      threadTrack = processTrack.getOrCreateThreadTrack(threadId, "Worker");
-    }
-    return new PerfettoThreadTiming(threadId, threadTrack).begin(title);
+    ThreadTrack threadTrack = processTrack.getOrCreateThreadTrack(threadId, "Worker");
+    return new PerfettoThreadTiming(threadTrack).begin(title);
   }
 
   @Override

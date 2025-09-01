@@ -18,7 +18,7 @@ REPOSITORIES = [
     'B-Google=https://maven.google.com/',
     'C-Maven Central=https://repo1.maven.org/maven2/',
     "D-Gradle Plugins=https://plugins.gradle.org/m2/",
-    'E-AndroidX=https://androidx.dev/snapshots/builds/14007990/artifacts/repository',
+    'E-AndroidX=https://androidx.dev/snapshots/builds/14020949/artifacts/repository',
 ]
 
 ANDROIDX_COLLECTION_VERSION = '1.6.0-SNAPSHOT'
