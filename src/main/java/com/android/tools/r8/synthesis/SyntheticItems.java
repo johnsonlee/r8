@@ -31,6 +31,7 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.MethodCollection;
 import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.graph.ProgramOrClasspathClass;
 import com.android.tools.r8.graph.ProgramOrClasspathDefinition;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.lens.NonIdentityGraphLens;
@@ -435,6 +436,12 @@ public class SyntheticItems {
 
   // Predicates and accessors.
   public ClassResolutionResult definitionFor(DexType type, DexApplication app) {
+    ProgramOrClasspathClass programOrClasspathClassNotOnLibrary =
+        app.definitionForProgramOrClasspathClassNotOnLibrary(type);
+    if (programOrClasspathClassNotOnLibrary != null) {
+      assert !isPendingSynthetic(type);
+      return programOrClasspathClassNotOnLibrary;
+    }
     SyntheticDefinition<?, ?, ?> item = pending.definitions.get(type);
     if (item != null) {
       DexClass clazz = item.getHolder();

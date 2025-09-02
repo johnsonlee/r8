@@ -126,6 +126,13 @@ public abstract class DexApplication implements DexDefinitionSupplier {
   @Override
   public abstract DexClass definitionFor(DexType type);
 
+  // Retrieves the program or classpath definition corresponding to the given type. If the type is
+  // also defined on the library, then this always returns null. Note that this may return null even
+  // when the given type is only defined in the program, since this is unimplemented in the lazy
+  // app implementation.
+  public abstract ProgramOrClasspathClass definitionForProgramOrClasspathClassNotOnLibrary(
+      DexType type);
+
   public abstract DexProgramClass programDefinitionFor(DexType type);
 
   @Override
