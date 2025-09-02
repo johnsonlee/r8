@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.graph;
 
+import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
+
 public interface DexDefinitionSupplier {
 
   /**
@@ -38,13 +40,10 @@ public interface DexDefinitionSupplier {
    * @param context Context from which the lookup is taking place.
    * @return Definition of the type or null if no definition exists.
    */
-  @SuppressWarnings("ReferenceEquality")
-  default DexClass definitionFor(DexType type, DexProgramClass context) {
-    return type == context.type ? context : contextIndependentDefinitionFor(type);
-  }
-
-  default DexClass definitionFor(DexType type, ProgramMethod context) {
-    return definitionFor(type, context.getHolder());
+  default DexClass definitionFor(DexType type, ProgramDefinition context) {
+    return type.isIdenticalTo(context.getContextType())
+        ? context.getContextClass()
+        : contextIndependentDefinitionFor(type);
   }
 
   /**
@@ -56,32 +55,18 @@ public interface DexDefinitionSupplier {
    * @param context Context from which the lookup is taking place.
    * @return Definition of the type if it is a program type or null if not or no definition exists.
    */
-  default DexProgramClass programDefinitionFor(DexType type, DexProgramClass context) {
-    return DexProgramClass.asProgramClassOrNull(definitionFor(type, context));
-  }
-
-  default DexProgramClass programDefinitionFor(DexType type, ProgramMethod context) {
-    return programDefinitionFor(type, context.getHolder());
+  default DexProgramClass programDefinitionFor(DexType type, ProgramDefinition context) {
+    return asProgramClassOrNull(definitionFor(type, context));
   }
 
   default <D extends DexEncodedMember<D, R>, R extends DexMember<D, R>>
-      DexClass definitionForHolder(DexEncodedMember<D, R> member, ProgramMethod context) {
-    return definitionForHolder(member.getReference(), context.getHolder());
+      DexClass definitionForHolder(DexEncodedMember<D, R> member, ProgramDefinition context) {
+    return definitionForHolder(member.getReference(), context.getContextClass());
   }
 
   default <D extends DexEncodedMember<D, R>, R extends DexMember<D, R>>
-      DexClass definitionForHolder(DexEncodedMember<D, R> member, DexProgramClass context) {
-    return definitionForHolder(member.getReference(), context);
-  }
-
-  default <D extends DexEncodedMember<D, R>, R extends DexMember<D, R>>
-      DexClass definitionForHolder(DexMember<D, R> member, ProgramMethod context) {
-    return definitionFor(member.holder, context.getHolder());
-  }
-
-  default <D extends DexEncodedMember<D, R>, R extends DexMember<D, R>>
-      DexClass definitionForHolder(DexMember<D, R> member, DexProgramClass context) {
-    return definitionFor(member.holder, context);
+      DexClass definitionForHolder(DexMember<D, R> member, ProgramDefinition context) {
+    return definitionFor(member.getHolderType(), context.getContextClass());
   }
 
   // Use definitionFor with a context or contextIndependentDefinitionFor without.
@@ -118,7 +103,7 @@ public interface DexDefinitionSupplier {
   // Use programDefinitionFor with a context.
   @Deprecated
   default DexProgramClass definitionForProgramType(DexType type) {
-    return DexProgramClass.asProgramClassOrNull(definitionFor(type));
+    return asProgramClassOrNull(definitionFor(type));
   }
 
   // Use definitionForHolder with a context.
