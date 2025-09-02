@@ -126,7 +126,6 @@ public class DexItemFactory {
       new ConcurrentHashMap<>();
   public final LRUCacheTable<InterfaceCollection, InterfaceCollection, InterfaceCollection>
       leastUpperBoundOfInterfacesTable = LRUCacheTable.create(8, 8);
-  boolean sorted = false;
 
   // Internal type containing only the null value.
   public static final DexType nullValueType = new DexType(new DexString("NULL"));
@@ -3002,12 +3001,10 @@ public class DexItemFactory {
   }
 
   public DexString createString(int size, byte[] content) {
-    assert !sorted;
     return canonicalize(strings, new DexString(size, content));
   }
 
   public DexString createString(String source) {
-    assert !sorted;
     return canonicalize(strings, new DexString(source));
   }
 
@@ -3069,7 +3066,6 @@ public class DexItemFactory {
    * "basename$holdername" or "basename$holdername$index".
    */
   public DexString createGloballyFreshMemberString(String baseName, DexType holder) {
-    assert !sorted;
     int index = 0;
     while (true) {
       String name = createMemberString(baseName, holder, index++);
@@ -3336,7 +3332,6 @@ public class DexItemFactory {
 
   // Non-synchronized internal create.
   private DexType internalCreateType(DexString descriptor) {
-    assert !sorted;
     assert descriptor != null;
     DexType result = types.get(descriptor);
     if (result == null) {
@@ -3424,7 +3419,6 @@ public class DexItemFactory {
   }
 
   public DexField createField(DexType clazz, DexType type, DexString name) {
-    assert !sorted;
     DexField field = new DexField(clazz, type, name, skipNameValidationForTesting);
     return canonicalize(fields, field);
   }
@@ -3441,13 +3435,11 @@ public class DexItemFactory {
   }
 
   public DexProto createProto(DexType returnType, DexTypeList parameters) {
-    assert !sorted;
     DexProto proto = new DexProto(returnType, parameters);
     return canonicalize(protos, proto);
   }
 
   public DexProto createProto(DexType returnType, DexType... parameters) {
-    assert !sorted;
     return createProto(
         returnType, parameters.length == 0 ? DexTypeList.empty() : new DexTypeList(parameters));
   }
@@ -3515,7 +3507,6 @@ public class DexItemFactory {
   }
 
   public DexMethod createMethod(DexType holder, DexProto proto, DexString name) {
-    assert !sorted;
     DexMethod method = new DexMethod(holder, proto, name, skipNameValidationForTesting);
     return canonicalize(methods, method);
   }
@@ -3552,7 +3543,6 @@ public class DexItemFactory {
       DexMember<? extends DexItem, ? extends DexMember<?, ?>> fieldOrMethod,
       boolean isInterface,
       DexMethod rewrittenTarget) {
-    assert !sorted;
     DexMethodHandle methodHandle =
         new DexMethodHandle(type, fieldOrMethod, isInterface, rewrittenTarget);
     return canonicalize(methodHandles, methodHandle);
@@ -3564,7 +3554,6 @@ public class DexItemFactory {
       DexMethodHandle bootstrapMethod,
       List<DexValue> bootstrapArgs) {
     // Call sites are never equal and therefore we do not canonicalize.
-    assert !sorted;
     return new DexCallSite(methodName, methodProto, bootstrapMethod, bootstrapArgs);
   }
 
@@ -3573,7 +3562,6 @@ public class DexItemFactory {
       DexString name,
       DexString returnTypeDescriptor,
       DexString[] parameterDescriptors) {
-    assert !sorted;
     DexType clazz = createType(clazzDescriptor);
     DexType returnType = createType(returnTypeDescriptor);
     DexType[] parameterTypes = new DexType[parameterDescriptors.length];
