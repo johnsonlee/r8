@@ -20,7 +20,6 @@ import com.android.tools.r8.graph.DexClassAndField;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexClasspathClass;
 import com.android.tools.r8.graph.DexDefinition;
-import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
@@ -978,8 +977,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
 
     CommittedItems committedItems =
         getSyntheticItems().commitRewrittenWithLens(application, lens, timing);
-    DexDefinitionSupplier definitionSupplier =
-        committedItems.getApplication().getDefinitionsSupplier(committedItems);
+    DexApplication committedApp = committedItems.getApplication();
     return new AppInfoWithLiveness(
         committedItems,
         getClassToFeatureSplitMap().rewrittenWithLens(lens, timing),
@@ -994,11 +992,10 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         lens.rewriteReferences(bootstrapMethods),
         lens.rewriteReferences(virtualMethodsTargetedByInvokeDirect),
         lens.rewriteReferences(liveMethods),
-        fieldAccessInfoCollection.rewrittenWithLens(definitionSupplier, lens, appliedLens, timing),
-        objectAllocationInfoCollection.rewrittenWithLens(
-            definitionSupplier, lens, appliedLens, timing),
-        lens.rewriteCallSites(callSites, definitionSupplier, timing),
-        keepInfo.rewrite(definitionSupplier, lens, application.options, timing),
+        fieldAccessInfoCollection.rewrittenWithLens(committedApp, lens, appliedLens, timing),
+        objectAllocationInfoCollection.rewrittenWithLens(committedApp, lens, appliedLens, timing),
+        lens.rewriteCallSites(callSites, committedApp, timing),
+        keepInfo.rewrite(committedApp, lens, application.options, timing),
         // Take any rule in case of collisions.
         lens.rewriteReferenceKeys(mayHaveSideEffects, (reference, rules) -> ListUtils.first(rules)),
         lens.rewriteReferences(alwaysInline),
