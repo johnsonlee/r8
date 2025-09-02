@@ -100,7 +100,7 @@ public class ClassTypeElement extends ReferenceTypeElement {
       assert appView != null;
       assert appView.enableWholeProgramOptimizations();
       return appView
-          .dexItemFactory()
+          .getTypeElementFactory()
           .getOrComputeLeastUpperBoundOfImplementedInterfaces(type, appView);
     }
     return lazyInterfaces;
@@ -113,7 +113,7 @@ public class ClassTypeElement extends ReferenceTypeElement {
     }
     InterfaceCollection defaultImplementedInterfaces =
         appView
-            .dexItemFactory()
+            .getTypeElementFactory()
             .getLeastUpperBoundOfImplementedInterfacesOrDefault(getClassType(), null);
     if (ObjectUtils.identical(lazyInterfaces, defaultImplementedInterfaces)) {
       return true;
@@ -408,7 +408,7 @@ public class ClassTypeElement extends ReferenceTypeElement {
             : computeLeastUpperBoundOfInterfaces(appView, interfaces, otherInterfaces);
     InterfaceCollection lubInterfacesDefault =
         appView
-            .dexItemFactory()
+            .getTypeElementFactory()
             .getOrComputeLeastUpperBoundOfImplementedInterfaces(lubType, appView);
     Nullability lubNullability = nullability().join(nullability);
 
@@ -580,13 +580,13 @@ public class ClassTypeElement extends ReferenceTypeElement {
       return InterfaceCollection.empty();
     }
     // Synchronization is required, see b/242286733.
-    synchronized (appView.dexItemFactory().leastUpperBoundOfInterfacesTable) {
+    synchronized (appView.getTypeElementFactory().leastUpperBoundOfInterfacesTable) {
       InterfaceCollection cached =
-          appView.dexItemFactory().leastUpperBoundOfInterfacesTable.get(s1, s2);
+          appView.getTypeElementFactory().leastUpperBoundOfInterfacesTable.get(s1, s2);
       if (cached != null) {
         return cached;
       }
-      cached = appView.dexItemFactory().leastUpperBoundOfInterfacesTable.get(s2, s1);
+      cached = appView.getTypeElementFactory().leastUpperBoundOfInterfacesTable.get(s2, s1);
       if (cached != null) {
         return cached;
       }
@@ -643,8 +643,8 @@ public class ClassTypeElement extends ReferenceTypeElement {
     InterfaceCollection lub = lubBuilder.build();
     // Cache the computation result only if the given two sets of interfaces are different.
     if (!s1.equals(s2)) {
-      synchronized (appView.dexItemFactory().leastUpperBoundOfInterfacesTable) {
-        appView.dexItemFactory().leastUpperBoundOfInterfacesTable.put(s1, s2, lub);
+      synchronized (appView.getTypeElementFactory().leastUpperBoundOfInterfacesTable) {
+        appView.getTypeElementFactory().leastUpperBoundOfInterfacesTable.put(s1, s2, lub);
       }
     }
     return lub;

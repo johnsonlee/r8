@@ -73,7 +73,7 @@ public class HorizontalClassMerger {
       assert ArtProfileCompletenessChecker.verify(appView);
 
       // Clear type elements cache after IR building.
-      appView.dexItemFactory().clearTypeElementsCache();
+      appView.getTypeElementFactory().clearTypeElementsCache();
       appView.notifyOptimizationFinishedForTesting();
     } else {
       appView.setHorizontallyMergedClasses(HorizontallyMergedClasses.empty());
@@ -387,7 +387,7 @@ public class HorizontalClassMerger {
     for (ClassMerger.Builder classMergerBuilder : classMergerBuilders) {
       classMergers.add(classMergerBuilder.build(lensBuilder));
     }
-    appView.dexItemFactory().clearTypeElementsCache();
+    appView.getTypeElementFactory().clearTypeElementsCache();
     return classMergers;
   }
 
@@ -407,7 +407,7 @@ public class HorizontalClassMerger {
           syntheticInitializerConverterBuilder,
           virtuallyMergedMethodsKeepInfoConsumer);
     }
-    appView.dexItemFactory().clearTypeElementsCache();
+    appView.getTypeElementFactory().clearTypeElementsCache();
     return prunedItemsBuilder.build();
   }
 

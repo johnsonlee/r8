@@ -496,7 +496,7 @@ public class R8 {
       // The class type lattice elements include information about the interfaces that a class
       // implements. This information can change as a result of vertical class merging, so we need
       // to clear the cache, so that we will recompute the type lattice elements.
-      appView.dexItemFactory().clearTypeElementsCache();
+      appView.getTypeElementFactory().clearTypeElementsCache();
 
       // This pass attempts to reduce the number of nests and nest size to allow further passes, and
       // should therefore be run after the publicizer.
@@ -534,7 +534,7 @@ public class R8 {
       appView.appInfo().getMainDexInfo().clearTracedMethodRoots();
 
       // None of the optimizations above should lead to the creation of type lattice elements.
-      assert appView.dexItemFactory().verifyNoCachedTypeElements();
+      assert appView.getTypeElementFactory().verifyNoCachedTypeElements();
       assert appView.checkForTesting(() -> allReferencesAssignedApiLevel(appViewWithLiveness));
 
       // Collect switch maps and ordinals maps.
@@ -558,7 +558,7 @@ public class R8 {
           appView, ALLOW_MISSING_ENUM_UNBOXING_UTILITY_METHODS);
 
       // Clear the reference type lattice element cache to reduce memory pressure.
-      appView.dexItemFactory().clearTypeElementsCache();
+      appView.getTypeElementFactory().clearTypeElementsCache();
 
       // At this point all code has been mapped according to the graph lens. We cannot remove the
       // graph lens entirely, though, since it is needed for mapping all field and method signatures
@@ -788,12 +788,12 @@ public class R8 {
       }
 
       if (!appView.hasCfByteCodePassThroughMethods()) {
-        assert appView.dexItemFactory().verifyNoCachedTypeElements();
+        assert appView.getTypeElementFactory().verifyNoCachedTypeElements();
 
         if (appView.hasLiveness()) {
           VerticalClassMerger.createForIntermediateClassMerging(appView.withLiveness(), timing)
               .runIfNecessary(executorService, timing);
-          assert appView.dexItemFactory().verifyNoCachedTypeElements();
+          assert appView.getTypeElementFactory().verifyNoCachedTypeElements();
         }
 
         genericContextBuilderBeforeFinalMerging = GenericSignatureContextBuilder.create(appView);
@@ -807,12 +807,12 @@ public class R8 {
                 finalRuntimeTypeCheckInfoBuilder != null
                     ? finalRuntimeTypeCheckInfoBuilder.build(appView.graphLens())
                     : null);
-        assert appView.dexItemFactory().verifyNoCachedTypeElements();
+        assert appView.getTypeElementFactory().verifyNoCachedTypeElements();
 
         if (appView.hasLiveness()) {
           VerticalClassMerger.createForFinalClassMerging(appView.withLiveness(), timing)
               .runIfNecessary(executorService, timing);
-          assert appView.dexItemFactory().verifyNoCachedTypeElements();
+          assert appView.getTypeElementFactory().verifyNoCachedTypeElements();
 
           new SingleCallerInliner(appViewWithLiveness).runIfNecessary(executorService, timing);
           new ProtoNormalizer(appViewWithLiveness).run(executorService, timing);
@@ -905,7 +905,7 @@ public class R8 {
 
       LirConverter.finalizeLirToOutputFormat(appView, timing, executorService);
       LirConverter.finalizeClasspathLirToOutputFormat(appView, timing, executorService);
-      assert appView.dexItemFactory().verifyNoCachedTypeElements();
+      assert appView.getTypeElementFactory().verifyNoCachedTypeElements();
 
       // Generate the resulting application resources.
       writeKeepDeclarationsToConfigurationConsumer(keepDeclarations);

@@ -160,7 +160,7 @@ public class CfToLirConverter implements FinishedEnqueuerAnalysis {
 
     // Conversion to LIR via IR will allocate type elements.
     // They are not needed after construction so remove them again.
-    appView.dexItemFactory().clearTypeElementsCache();
+    appView.getTypeElementFactory().clearTypeElementsCache();
   }
 
   private void processIdentifierNameStrings(

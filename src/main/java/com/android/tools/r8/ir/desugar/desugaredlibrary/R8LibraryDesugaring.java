@@ -174,7 +174,7 @@ public class R8LibraryDesugaring {
             executorService);
     timings.forEach(merger::add);
     merger.end();
-    appView.dexItemFactory().clearTypeElementsCache();
+    appView.getTypeElementFactory().clearTypeElementsCache();
 
     // Move the pending methods and mark them live and ready for tracing.
     timing.begin("Postlude");

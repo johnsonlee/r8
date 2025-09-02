@@ -223,8 +223,7 @@ class R8Partial {
     }
     r8Builder.validate();
     R8Command r8Command =
-        r8Builder.makeR8Command(
-            options.dexItemFactory().clearTypeElementsCache(), options.getProguardConfiguration());
+        r8Builder.makeR8Command(options.dexItemFactory(), options.getProguardConfiguration());
     AndroidApp r8App = r8Command.getInputApp();
     InternalOptions r8Options = r8Command.getInternalOptions();
     forwardOptions(r8Options);

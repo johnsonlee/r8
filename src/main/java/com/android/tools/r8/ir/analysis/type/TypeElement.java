@@ -436,7 +436,7 @@ public abstract class TypeElement {
       DexType type, Nullability nullability, AppView<?> appView) {
     assert type.isClassType();
     return appView
-        .dexItemFactory()
+        .getTypeElementFactory()
         .createReferenceTypeElement(type, nullability, appView)
         .asClassType();
   }
@@ -455,7 +455,7 @@ public abstract class TypeElement {
     if (type.isPrimitiveType()) {
       return PrimitiveTypeElement.fromDexType(type, asArrayElementType);
     }
-    return appView.dexItemFactory().createReferenceTypeElement(type, nullability, appView);
+    return appView.getTypeElementFactory().createReferenceTypeElement(type, nullability, appView);
   }
 
   public boolean isValueTypeCompatible(TypeElement other) {

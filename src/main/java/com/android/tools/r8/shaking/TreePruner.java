@@ -447,7 +447,7 @@ public class TreePruner {
       DirectMappedDexApplication application, ExecutorService executorService)
       throws ExecutionException {
     // Clear the type elements cache due to redundant interface removal.
-    appView.dexItemFactory().clearTypeElementsCache();
+    appView.getTypeElementFactory().clearTypeElementsCache();
 
     OptimizationFeedback feedback = OptimizationFeedbackSimple.getInstance();
     feedback.fixupOptimizationInfos(
@@ -468,7 +468,7 @@ public class TreePruner {
         });
 
     // Verify that the fixup did not lead to the caching of any elements.
-    assert appView.dexItemFactory().verifyNoCachedTypeElements();
+    assert appView.getTypeElementFactory().verifyNoCachedTypeElements();
   }
 
   private boolean verifyNoDeadFields(DexProgramClass clazz) {

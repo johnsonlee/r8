@@ -156,7 +156,7 @@ public class VerticalClassMerger {
     // Finally update the code lens to signal that the code is fully up to date.
     markRewrittenWithLens(executorService, timing);
 
-    appView.dexItemFactory().clearTypeElementsCache();
+    appView.getTypeElementFactory().clearTypeElementsCache();
     appView.notifyOptimizationFinishedForTesting();
   }
 

@@ -387,7 +387,7 @@ public class MemberRebindingAnalysis extends MemberRebindingHelper {
     MemberRebindingLens memberRebindingLens = lensBuilder.build();
     appView.setGraphLens(memberRebindingLens);
     eventConsumer.finished(appView, memberRebindingLens);
-    appView.dexItemFactory().clearTypeElementsCache();
+    appView.getTypeElementFactory().clearTypeElementsCache();
     appView.notifyOptimizationFinishedForTesting();
   }
 

@@ -123,7 +123,7 @@ public class UndoConstructorInlining {
         computeStronglyConnectedComponents();
     new LirRewriter(appView, ensureConstructorsOnClasses, stronglyConnectedComponents)
         .run(executorService);
-    appView.dexItemFactory().clearTypeElementsCache();
+    appView.getTypeElementFactory().clearTypeElementsCache();
   }
 
   private void ensureConstructorsOnSubclasses(
