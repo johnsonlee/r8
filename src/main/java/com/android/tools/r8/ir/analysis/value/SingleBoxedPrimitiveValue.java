@@ -35,7 +35,7 @@ public abstract class SingleBoxedPrimitiveValue extends SingleConstValue {
   }
 
   @Override
-  public boolean isMaterializableInAllContexts(AppView<AppInfoWithLiveness> appView) {
+  public boolean isMaterializableInAllContexts(AppView<? extends AppInfoWithLiveness> appView) {
     return true;
   }
 

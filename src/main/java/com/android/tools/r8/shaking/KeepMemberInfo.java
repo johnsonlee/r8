@@ -31,7 +31,7 @@ public abstract class KeepMemberInfo<B extends Builder<B, K>, K extends KeepMemb
   }
 
   public boolean isValuePropagationAllowed(
-      AppView<AppInfoWithLiveness> appView, ProgramMember<?, ?> member) {
+      AppView<? extends AppInfoWithLiveness> appView, ProgramMember<?, ?> member) {
     InternalOptions options = appView.options();
     if (!internalIsValuePropagationAllowed()) {
       return false;

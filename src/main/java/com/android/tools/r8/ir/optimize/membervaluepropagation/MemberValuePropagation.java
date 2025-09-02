@@ -43,9 +43,9 @@ import java.util.function.Predicate;
 
 public abstract class MemberValuePropagation<T extends AppInfo> {
 
-  final AppView<T> appView;
+  final AppView<? extends T> appView;
 
-  MemberValuePropagation(AppView<T> appView) {
+  MemberValuePropagation(AppView<? extends T> appView) {
     this.appView = appView;
   }
 
