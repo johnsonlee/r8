@@ -6,16 +6,55 @@ package com.android.tools.r8.naming;
 import com.android.tools.r8.MapIdEnvironment;
 import com.android.tools.r8.MapIdProvider;
 import com.android.tools.r8.dex.Marker.Tool;
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.utils.ChainableStringConsumer;
 import com.android.tools.r8.utils.ExceptionUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.Reporter;
+import com.android.tools.r8.utils.threads.AwaitableFuture;
+import com.android.tools.r8.utils.threads.AwaitableFutureValue;
+import com.android.tools.r8.utils.threads.AwaitableFutures;
+import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 
 public class ProguardMapSupplier {
+
+  public static class ProguardMapSupplierResult {
+    private final AwaitableFutureValue<ProguardMapId> proguardMapId;
+    private final AwaitableFuture mapWritten;
+
+    public static ProguardMapSupplierResult createEmpty() {
+      return new ProguardMapSupplierResult(
+          AwaitableFutureValue.createCompleted(null), AwaitableFuture.createCompleted());
+    }
+
+    public ProguardMapSupplierResult(
+        AwaitableFutureValue<ProguardMapId> proguardMapId, AwaitableFuture mapWritten) {
+      this.proguardMapId = proguardMapId;
+      this.mapWritten = mapWritten;
+    }
+
+    public AwaitableFutureValue<ProguardMapId> getProguardMapId() {
+      return proguardMapId;
+    }
+
+    public ProguardMapId awaitProguardMapId() throws ExecutionException {
+      return proguardMapId.awaitValue();
+    }
+
+    public AwaitableFuture getMapWritten() {
+      return mapWritten;
+    }
+
+    public void await() throws ExecutionException {
+      AwaitableFutures.awaitAll(proguardMapId, mapWritten);
+    }
+  }
 
   public static final int PG_MAP_ID_LENGTH = 64;
 
@@ -65,30 +104,57 @@ public class ProguardMapSupplier {
     return new ProguardMapSupplier(classNameMapper, options.tool, options);
   }
 
-  public ProguardMapId writeProguardMap() {
-    ProguardMapId proguardMapId = computeProguardMapId();
-    ProguardMapMarkerInfo markerInfo =
-        ProguardMapMarkerInfo.builder()
-            .setCompilerName(compiler.name())
-            .setProguardMapId(proguardMapId)
-            .setGeneratingDex(options.isGeneratingDex())
-            .setApiLevel(options.getMinApiLevel())
-            .setMapVersion(options.getMapFileVersion())
-            .build();
+  public ProguardMapSupplierResult writeProguardMap(
+      AppView<?> appView, ExecutorService executorService, Timing timing)
+      throws ExecutionException {
+    try (Timing t0 = timing.begin("Prepare write")) {
+      classNameMapper.prepareWrite(appView, executorService);
+    }
+    AwaitableFutureValue<ProguardMapId> proguardMapId =
+        computeProguardMapId(appView, executorService, timing);
+    AwaitableFuture mapWritten;
+    mapWritten =
+        AwaitableFuture.create(
+            () -> {
+              try (Timing threadTiming =
+                  timing.createThreadTiming("Write proguard map to consumer", appView.options())) {
+                ProguardMapMarkerInfo markerInfo =
+                    ProguardMapMarkerInfo.builder()
+                        .setCompilerName(compiler.name())
+                        .setProguardMapId(proguardMapId.awaitValue())
+                        .setGeneratingDex(options.isGeneratingDex())
+                        .setApiLevel(options.getMinApiLevel())
+                        .setMapVersion(options.getMapFileVersion())
+                        .build();
 
-    // Set or compose the marker in the preamble information.
-    classNameMapper.setPreamble(
-        ListUtils.concat(markerInfo.toPreamble(), classNameMapper.getPreamble()));
+                // Set or compose the marker in the preamble information.
+                classNameMapper.setPreamble(
+                    ListUtils.concat(markerInfo.toPreamble(), classNameMapper.getPreamble()));
 
-    consumer.accept(reporter, classNameMapper);
-    ExceptionUtils.withConsumeResourceHandler(reporter, this.consumer::finished);
-    return proguardMapId;
+                consumer.accept(reporter, classNameMapper);
+                ExceptionUtils.withConsumeResourceHandler(reporter, this.consumer::finished);
+              }
+              return null;
+            },
+            appView.options().getThreadingModule(),
+            executorService);
+    return new ProguardMapSupplierResult(proguardMapId, mapWritten);
   }
 
-  private ProguardMapId computeProguardMapId() {
-    ProguardMapIdBuilder builder = new ProguardMapIdBuilder();
-    classNameMapper.write(builder);
-    return builder.build(options.mapIdProvider);
+  private AwaitableFutureValue<ProguardMapId> computeProguardMapId(
+      AppView<?> appView, ExecutorService executorService, Timing timing)
+      throws ExecutionException {
+    return AwaitableFutureValue.create(
+        () -> {
+          try (Timing threadTiming =
+              timing.createThreadTiming("Compute proguard map id", appView.options())) {
+            ProguardMapIdBuilder builder = new ProguardMapIdBuilder();
+            classNameMapper.write(builder);
+            return builder.build(options.mapIdProvider);
+          }
+        },
+        appView.options().getThreadingModule(),
+        executorService);
   }
 
 

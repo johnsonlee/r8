@@ -24,7 +24,7 @@ import com.android.tools.r8.naming.MapVersion;
 import com.android.tools.r8.naming.MappingComposeException;
 import com.android.tools.r8.naming.MappingComposer;
 import com.android.tools.r8.naming.ProguardMapSupplier;
-import com.android.tools.r8.naming.ProguardMapSupplier.ProguardMapId;
+import com.android.tools.r8.naming.ProguardMapSupplier.ProguardMapSupplierResult;
 import com.android.tools.r8.naming.mappinginformation.MapVersionMappingInformation;
 import com.android.tools.r8.naming.mappinginformation.ResidualSignatureMappingInformation;
 import com.android.tools.r8.shaking.KeepInfoCollection;
@@ -46,7 +46,7 @@ import java.util.concurrent.ExecutorService;
 
 public class LineNumberOptimizer {
 
-  public static ProguardMapId runAndWriteMap(
+  public static ProguardMapSupplierResult runAndWriteMap(
       AndroidApp inputApp,
       AppView<?> appView,
       ExecutorService executorService,
@@ -57,12 +57,12 @@ public class LineNumberOptimizer {
     assert appView.options().hasMappingFileSupport();
     if (shouldEmitOriginalMappingFile(appView)) {
       appView.options().reporter.warning(new NotSupportedMapVersionForMappingComposeDiagnostic());
-      timing.begin("Write proguard map");
-      ProguardMapId proguardMapId =
+      timing.begin("Spawn write proguard map - emitting original mapping file");
+      ProguardMapSupplierResult result =
           ProguardMapSupplier.create(appView.appInfo().app().getProguardMap(), appView.options())
-              .writeProguardMap();
+              .writeProguardMap(appView, executorService, timing);
       timing.end();
-      return proguardMapId;
+      return result;
     }
     // When line number optimization is turned off the identity mapping for line numbers is
     // used. We still run the line number optimizer to collect line numbers and inline frame
@@ -76,8 +76,7 @@ public class LineNumberOptimizer {
     }
     if (appView.options().mappingComposeOptions().enableExperimentalMappingComposition
         && appView.appInfo().app().getProguardMap() != null) {
-      timing.begin("Proguard map composition");
-      try {
+      try (Timing t0 = timing.begin("Compose proguard map")) {
         mapper =
             ClassNameMapper.mapperFromStringWithPreamble(
                 MappingComposer.compose(
@@ -85,12 +84,13 @@ public class LineNumberOptimizer {
       } catch (IOException | MappingComposeException e) {
         throw new CompilationError(e.getMessage(), e);
       }
-      timing.end();
     }
-    timing.begin("Write proguard map");
-    ProguardMapId mapId = ProguardMapSupplier.create(mapper, appView.options()).writeProguardMap();
+    timing.begin("Spawn write proguard map");
+    ProguardMapSupplierResult result =
+        ProguardMapSupplier.create(mapper, appView.options())
+            .writeProguardMap(appView, executorService, timing);
     timing.end();
-    return mapId;
+    return result;
   }
 
   private static boolean shouldEmitOriginalMappingFile(AppView<?> appView) {

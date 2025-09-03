@@ -46,6 +46,7 @@ import com.android.tools.r8.metadata.impl.R8StatsMetadataImpl;
 import com.android.tools.r8.naming.KotlinModuleSynthesizer;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.naming.ProguardMapSupplier.ProguardMapId;
+import com.android.tools.r8.naming.ProguardMapSupplier.ProguardMapSupplierResult;
 import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration.R8PartialR8SubCompilationConfiguration;
 import com.android.tools.r8.partial.R8PartialUtils;
 import com.android.tools.r8.profile.startup.StartupCompleteness;
@@ -309,13 +310,13 @@ public class ApplicationWriter {
   public void write(ExecutorService executorService, AndroidApp inputApp)
       throws IOException, ExecutionException {
     Timing timing = appView.appInfo().app().timing;
-
     timing.begin("DexApplication.write");
 
     List<LazyDexString> lazyDexStrings = new ArrayList<>();
     computeMarkerStrings(lazyDexStrings);
     OriginalSourceFiles originalSourceFiles = computeSourceFileString(lazyDexStrings);
 
+    ProguardMapSupplierResult mapSupplierResult = ProguardMapSupplierResult.createEmpty();
     try {
       timing.begin("Insert Attribute Annotations");
       // TODO(b/151313715): Move this to the writer threads.
@@ -353,12 +354,11 @@ public class ApplicationWriter {
 
       // Now that the instruction offsets in each code object are fixed, compute the mapping file
       // content.
-      ProguardMapId proguardMapId = null;
       if (willComputeProguardMap()) {
         // TODO(b/220999985): Refactor line number optimization to be per file and thread it above.
         DebugRepresentationPredicate representation =
             DebugRepresentation.fromFiles(virtualFiles, options);
-        proguardMapId =
+        mapSupplierResult =
             runAndWriteMap(
                 inputApp, appView, executorService, timing, originalSourceFiles, representation);
       }
@@ -367,7 +367,7 @@ public class ApplicationWriter {
       timing.begin("Compute lazy strings");
       List<DexString> forcedStrings = new ArrayList<>();
       for (LazyDexString lazyDexString : lazyDexStrings) {
-        forcedStrings.add(lazyDexString.compute(proguardMapId));
+        forcedStrings.add(lazyDexString.compute(mapSupplierResult.awaitProguardMapId()));
       }
       timing.end();
 
@@ -393,6 +393,7 @@ public class ApplicationWriter {
         supplyAdditionalConsumers(appView, virtualFiles);
       }
     } finally {
+      mapSupplierResult.await();
       timing.end();
     }
   }

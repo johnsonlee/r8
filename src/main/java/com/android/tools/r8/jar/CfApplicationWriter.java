@@ -15,13 +15,14 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
-import com.android.tools.r8.naming.ProguardMapSupplier.ProguardMapId;
+import com.android.tools.r8.naming.ProguardMapSupplier.ProguardMapSupplierResult;
 import com.android.tools.r8.threading.TaskCollection;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.ExceptionUtils;
 import com.android.tools.r8.utils.InternalGlobalSyntheticsProgramConsumer.InternalGlobalSyntheticsCfConsumer;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.OriginalSourceFiles;
+import com.android.tools.r8.utils.timing.Timing;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -75,58 +76,67 @@ public class CfApplicationWriter {
   private void writeApplication(
       AndroidApp inputApp, ClassFileConsumer consumer, ExecutorService executorService)
       throws ExecutionException {
-    ProguardMapId proguardMapId = null;
-    if (options.hasMappingFileSupport()) {
-      assert marker.isPresent();
-      proguardMapId =
-          runAndWriteMap(
-              inputApp,
-              appView,
-              executorService,
-              application.timing,
-              OriginalSourceFiles.fromClasses(),
-              DebugRepresentation.none(options));
-      marker.get().setPgMapId(proguardMapId.getId());
-    }
-    Optional<String> markerString = marker.filter(this::includeMarker).map(Marker::toString);
-    SourceFileEnvironment sourceFileEnvironment = null;
-    if (options.sourceFileProvider != null) {
-      sourceFileEnvironment = ApplicationWriter.createSourceFileEnvironment(proguardMapId);
-    }
-    LensCodeRewriterUtils rewriter = new LensCodeRewriterUtils(appView);
-    Collection<DexProgramClass> classes = application.classes();
-    Collection<DexProgramClass> globalSyntheticClasses = new ArrayList<>();
-    if (options.intermediate && options.hasGlobalSyntheticsConsumer()) {
-      Collection<DexProgramClass> allClasses = classes;
-      classes = new ArrayList<>(allClasses.size());
-      for (DexProgramClass clazz : allClasses) {
-        if (appView.getSyntheticItems().isGlobalSyntheticClassTransitive(clazz)) {
-          globalSyntheticClasses.add(clazz);
-          Consumer<DexProgramClass> globalSyntheticCreatedCallback =
-              appView.options().testing.globalSyntheticCreatedCallback;
-          if (globalSyntheticCreatedCallback != null) {
-            globalSyntheticCreatedCallback.accept(clazz);
+    Timing timing = appView.appInfo().app().timing;
+    timing.begin("CfApplication.write");
+
+    ProguardMapSupplierResult mapSupplierResult = ProguardMapSupplierResult.createEmpty();
+    try {
+      if (options.hasMappingFileSupport()) {
+        assert marker.isPresent();
+        mapSupplierResult =
+            runAndWriteMap(
+                inputApp,
+                appView,
+                executorService,
+                timing,
+                OriginalSourceFiles.fromClasses(),
+                DebugRepresentation.none(options));
+        marker.get().setPgMapId(mapSupplierResult.awaitProguardMapId().getId());
+      }
+      Optional<String> markerString = marker.filter(this::includeMarker).map(Marker::toString);
+      SourceFileEnvironment sourceFileEnvironment = null;
+      if (options.sourceFileProvider != null) {
+        sourceFileEnvironment =
+            ApplicationWriter.createSourceFileEnvironment(mapSupplierResult.awaitProguardMapId());
+      }
+      LensCodeRewriterUtils rewriter = new LensCodeRewriterUtils(appView);
+      Collection<DexProgramClass> classes = application.classes();
+      Collection<DexProgramClass> globalSyntheticClasses = new ArrayList<>();
+      if (options.intermediate && options.hasGlobalSyntheticsConsumer()) {
+        Collection<DexProgramClass> allClasses = classes;
+        classes = new ArrayList<>(allClasses.size());
+        for (DexProgramClass clazz : allClasses) {
+          if (appView.getSyntheticItems().isGlobalSyntheticClassTransitive(clazz)) {
+            globalSyntheticClasses.add(clazz);
+            Consumer<DexProgramClass> globalSyntheticCreatedCallback =
+                appView.options().testing.globalSyntheticCreatedCallback;
+            if (globalSyntheticCreatedCallback != null) {
+              globalSyntheticCreatedCallback.accept(clazz);
+            }
+          } else {
+            classes.add(clazz);
           }
-        } else {
-          classes.add(clazz);
         }
       }
-    }
-    supplyConsumer(
-        consumer, classes, markerString, rewriter, sourceFileEnvironment, executorService);
-    if (!globalSyntheticClasses.isEmpty()) {
-      InternalGlobalSyntheticsCfConsumer globalsConsumer =
-          new InternalGlobalSyntheticsCfConsumer(options.getGlobalSyntheticsConsumer(), appView);
       supplyConsumer(
-          globalsConsumer,
-          globalSyntheticClasses,
-          markerString,
-          rewriter,
-          sourceFileEnvironment,
-          executorService);
-      globalsConsumer.finished(appView);
+          consumer, classes, markerString, rewriter, sourceFileEnvironment, executorService);
+      if (!globalSyntheticClasses.isEmpty()) {
+        InternalGlobalSyntheticsCfConsumer globalsConsumer =
+            new InternalGlobalSyntheticsCfConsumer(options.getGlobalSyntheticsConsumer(), appView);
+        supplyConsumer(
+            globalsConsumer,
+            globalSyntheticClasses,
+            markerString,
+            rewriter,
+            sourceFileEnvironment,
+            executorService);
+        globalsConsumer.finished(appView);
+      }
+      ApplicationWriter.supplyAdditionalConsumers(appView, Collections.emptyList());
+    } finally {
+      mapSupplierResult.await();
+      timing.end();
     }
-    ApplicationWriter.supplyAdditionalConsumers(appView, Collections.emptyList());
   }
 
   private void supplyConsumer(
