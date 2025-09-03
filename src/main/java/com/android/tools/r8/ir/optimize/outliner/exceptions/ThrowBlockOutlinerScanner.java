@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize.outliner.exceptions;
 
+import static com.android.tools.r8.ir.code.Opcodes.ASSUME;
 import static com.android.tools.r8.ir.code.Opcodes.CONST_NUMBER;
 import static com.android.tools.r8.ir.code.Opcodes.CONST_STRING;
 import static com.android.tools.r8.ir.code.Opcodes.DEBUG_LOCAL_READ;
@@ -25,7 +26,9 @@ import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.analysis.type.TypeUtils;
 import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
+import com.android.tools.r8.ir.code.AliasedValueConfiguration;
 import com.android.tools.r8.ir.code.Argument;
+import com.android.tools.r8.ir.code.Assume;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.BasicBlockInstructionListIterator;
 import com.android.tools.r8.ir.code.ConstInstruction;
@@ -191,6 +194,9 @@ public class ThrowBlockOutlinerScanner {
     private void processInstruction(
         Instruction instruction, Consumer<OutlineBuilder> continuation) {
       switch (instruction.opcode()) {
+        case ASSUME:
+          processAssume(instruction.asAssume(), continuation);
+          return;
         case CONST_NUMBER:
         case CONST_STRING:
           processConstInstruction(instruction.asConstInstruction(), continuation);
@@ -228,6 +234,12 @@ public class ThrowBlockOutlinerScanner {
       startOutline(instruction.getNext(), continuation);
     }
 
+    private void processAssume(Assume instruction, Consumer<OutlineBuilder> continuation) {
+      // We treat the in-value and the out-value of the Assume as aliases. This is handled
+      // implicitly in the OutlineBuilder.
+      processNonMaterializingDebugInstruction(instruction, continuation);
+    }
+
     private void processConstInstruction(
         ConstInstruction instruction,
         Consumer<OutlineBuilder> continuation) {
@@ -236,15 +248,9 @@ public class ThrowBlockOutlinerScanner {
 
     private void processDebugLocalWrite(
         DebugLocalWrite instruction, Consumer<OutlineBuilder> continuation) {
-      processPredecessorInstructionOrStartOutline(
-          instruction,
-          outlineBuilder -> {
-            // Join the two values from the DebugLocalWrite instruction in the outline.
-            Value outlinedSrcValue =
-                outlineBuilder.getOutlinedValueOrCreateArgument(instruction.src());
-            outlineBuilder.map(instruction.outValue(), outlinedSrcValue);
-            continuation.accept(outlineBuilder);
-          });
+      // We treat the in-value and the out-value of the DebugLocalWrite as aliases. This is handled
+      // implicitly in the OutlineBuilder.
+      processNonMaterializingDebugInstruction(instruction, continuation);
     }
 
     private void processNonMaterializingDebugInstruction(
@@ -462,6 +468,20 @@ public class ThrowBlockOutlinerScanner {
 
   private static class OutlineBuilder {
 
+    private static final AliasedValueConfiguration aliasing =
+        new AliasedValueConfiguration() {
+
+          @Override
+          public boolean isIntroducingAnAlias(Instruction instruction) {
+            return instruction.isAssume() || instruction.isDebugLocalWrite();
+          }
+
+          @Override
+          public Value getAliasForOutValue(Instruction instruction) {
+            return instruction.getFirstOperand();
+          }
+        };
+
     private final Instruction firstOutlinedInstruction;
 
     private final List<Argument> outlinedArguments = new ArrayList<>();
@@ -496,8 +516,9 @@ public class ThrowBlockOutlinerScanner {
     }
 
     void map(Value value, Value outlinedValue) {
-      assert !outlinedValues.containsKey(value);
-      outlinedValues.put(value, outlinedValue);
+      Value root = value.getAliasedValue(aliasing);
+      assert !outlinedValues.containsKey(root);
+      outlinedValues.put(root, outlinedValue);
     }
 
     Instruction getFirstOutlinedInstruction() {
@@ -505,15 +526,17 @@ public class ThrowBlockOutlinerScanner {
     }
 
     Value getOutlinedValue(Value value) {
-      return outlinedValues.get(value);
+      Value root = value.getAliasedValue(aliasing);
+      return outlinedValues.get(root);
     }
 
     Value getOutlinedValueOrCreateArgument(Value value) {
-      Value outlinedValue = getOutlinedValue(value);
+      Value root = value.getAliasedValue(aliasing);
+      Value outlinedValue = getOutlinedValue(root);
       if (outlinedValue != null) {
         return outlinedValue;
       }
-      return addArgument(value).outValue();
+      return addArgument(root).outValue();
     }
 
     DexProto getProto(AppView<?> appView) {
