@@ -36,7 +36,6 @@ import java.util.concurrent.Executors;
 public class Bisect {
 
   private final BisectOptions options;
-  private final Timing timing;
 
   public interface Command {
 
@@ -69,7 +68,6 @@ public class Bisect {
 
   public Bisect(BisectOptions options) {
     this.options = options;
-    this.timing = Timing.create("bisect", new InternalOptions());
   }
 
   public static DexProgramClass run(BisectState state, Command command, Path output,
@@ -177,7 +175,7 @@ public class Bisect {
   private DexApplication readApp(Path apk, InternalOptions options, ExecutorService executor)
       throws IOException {
     AndroidApp app = AndroidApp.builder().addProgramFiles(apk).build();
-    return new ApplicationReader(app, options, timing).read(executor);
+    return new ApplicationReader(app, options, Timing.empty()).read(executor);
   }
 
   private static void writeApp(DexApplication app, Path output, ExecutorService executor)

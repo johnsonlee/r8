@@ -111,6 +111,15 @@ public class DirectMappedDexApplication extends DexApplication {
   }
 
   @Override
+  public ProgramOrClasspathClass definitionForProgramOrClasspathClassNotOnLibrary(DexType type) {
+    ProgramOrClasspathClass programOrClasspathClass = programOrClasspathClasses.get(type);
+    if (programOrClasspathClass != null && !libraryClasses.containsKey(type)) {
+      return programOrClasspathClass;
+    }
+    return null;
+  }
+
+  @Override
   public DexProgramClass programDefinitionFor(DexType type) {
     ProgramOrClasspathClass programOrClasspathClass = programOrClasspathClasses.get(type);
     return programOrClasspathClass == null ? null : programOrClasspathClass.asProgramClass();

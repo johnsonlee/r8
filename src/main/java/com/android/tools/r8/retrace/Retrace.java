@@ -269,7 +269,7 @@ public class Retrace<T, ST extends StackTraceElementProxy<T, ST>> extends Retrac
     try {
       InternalOptions internalOptions = new InternalOptions();
       internalOptions.printMemory = command.printMemory();
-      Timing timing = Timing.create("R8 retrace", internalOptions);
+      Timing timing = Timing.createRoot("R8 retrace", internalOptions, null);
       RetraceOptions options = command.getOptions();
       MappingSupplier<?> mappingSupplier = options.getMappingSupplier();
       if (command.getOptions().isVerifyMappingFileHash()) {

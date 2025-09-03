@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.optimize.argumentpropagation;
 
+import static com.google.common.base.Predicates.alwaysTrue;
+
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexMethodSignature;
 import com.android.tools.r8.graph.DexProgramClass;
@@ -18,8 +20,6 @@ import com.android.tools.r8.optimize.argumentpropagation.propagation.VirtualDisp
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.timing.Timing;
-import com.android.tools.r8.utils.timing.TimingMerger;
-import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -71,27 +71,21 @@ public class ArgumentPropagatorOptimizationInfoPropagator {
       Timing timing)
       throws ExecutionException {
     timing.begin("Propagate argument information for virtual methods");
-    TimingMerger merger = timing.beginMerger("Fork", executorService);
-    Collection<Timing> timings =
-        ThreadUtils.processItemsWithResults(
-            stronglyConnectedProgramComponents,
-            classes -> {
-              Timing threadTiming =
-                  Timing.create(
-                      classes.iterator().next().getTypeName()
-                          + " ("
-                          + classes.size()
-                          + "/"
-                          + appView.appInfo().classes().size()
-                          + ")",
-                      appView.options());
-              processStronglyConnectedComponent(classes, threadTiming);
-              return threadTiming.end();
-            },
-            appView.options().getThreadingModule(),
-            executorService);
-    merger.add(timings);
-    merger.end();
+    ThreadUtils.processItemsThatMatches(
+        stronglyConnectedProgramComponents,
+        alwaysTrue(),
+        this::processStronglyConnectedComponent,
+        appView.options(),
+        executorService,
+        timing,
+        timing.beginMerger("Fork", executorService),
+        (i, classes) ->
+            classes.iterator().next().getTypeName()
+                + " ("
+                + classes.size()
+                + "/"
+                + appView.appInfo().classes().size()
+                + ")");
     timing.end();
 
     // Solve the parameter flow constraints.
@@ -104,7 +98,7 @@ public class ArgumentPropagatorOptimizationInfoPropagator {
             methodStates,
             immediateSubtypingInfo,
             inFlowComparator)
-        .run(executorService);
+        .run(executorService, timing);
     timing.end();
   }
 

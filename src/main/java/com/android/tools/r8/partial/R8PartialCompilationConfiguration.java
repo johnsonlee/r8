@@ -275,13 +275,38 @@ public class R8PartialCompilationConfiguration {
 
     @Override
     public PartialOptimizationConfigurationBuilder addClass(ClassReference classReference) {
+      if (classReference.getBinaryName().contains("*")) {
+        throw new IllegalArgumentException("Illegal package name: " + classReference.getTypeName());
+      }
       includePredicates.add(createPredicate("L" + classReference.getBinaryName()));
       return this;
     }
 
     @Override
     public PartialOptimizationConfigurationBuilder addPackage(PackageReference packageReference) {
-      includePredicates.add(createPredicate("L" + packageReference.getPackageBinaryName() + "/*"));
+      if (packageReference.getPackageBinaryName().contains("*")) {
+        throw new IllegalArgumentException(
+            "Illegal package name: " + packageReference.getPackageName());
+      }
+      if (packageReference.getPackageBinaryName().isEmpty()) {
+        includePredicates.add(new UnnamedPackageMatcher());
+      } else {
+        includePredicates.add(
+            createPredicate("L" + packageReference.getPackageBinaryName() + "/*"));
+      }
+      return this;
+    }
+
+    @Override
+    public PartialOptimizationConfigurationBuilder addPackageAndSubPackages(
+        PackageReference packageReference) {
+      if (packageReference.getPackageBinaryName().isEmpty()) {
+        includePredicates.add(new AllClassesMatcher());
+      } else {
+        includePredicates.add(
+            new PackageAndSubpackagePrefixMatcher(
+                "L" + packageReference.getPackageBinaryName() + "/"));
+      }
       return this;
     }
   }

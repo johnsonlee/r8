@@ -3,14 +3,12 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.synthesis;
 
-import com.android.tools.r8.graph.ClassResolutionResult;
 import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.synthesis.SyntheticItems.GlobalSyntheticsStrategy;
 import com.android.tools.r8.synthesis.SyntheticItems.State;
 import com.google.common.collect.ImmutableList;
 import java.util.Collection;
-import java.util.function.Function;
 
 /**
  * Represents an application with a fully "committed" addition of synthetic items.
@@ -23,7 +21,7 @@ import java.util.function.Function;
  * classes collection, and it must also satisfy that all synthetic types are indeed contained in the
  * applications program class collection.
  */
-public class CommittedItems implements SyntheticDefinitionsProvider {
+public class CommittedItems {
 
   // Immutable package accessible fields to allow SyntheticItems creation.
   final DexApplication application;
@@ -60,12 +58,5 @@ public class CommittedItems implements SyntheticDefinitionsProvider {
 
   public Collection<DexType> getCommittedProgramTypes() {
     return committedProgramTypes;
-  }
-
-  @Override
-  public ClassResolutionResult definitionFor(
-      DexType type, Function<DexType, ClassResolutionResult> baseDefinitionFor) {
-    // All synthetic types are committed to the application so lookup is just the base lookup.
-    return baseDefinitionFor.apply(type);
   }
 }

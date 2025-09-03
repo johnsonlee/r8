@@ -45,15 +45,8 @@ BUCKET = 'r8-test-results'
 NUMBER_OF_TEST_REPORTS = 5
 REPORTS_PATH = os.path.join(utils.BUILD, 'reports')
 REPORT_INDEX = ['tests', 'test', 'index.html']
-VALID_RUNTIMES = [
-    'none',
-    'jdk8',
-    'jdk9',
-    'jdk11',
-    'jdk17',
-    'jdk21',
-    'jdk24'
-] + ['dex-%s' % dexvm for dexvm in ALL_ART_VMS]
+VALID_RUNTIMES = ['none', 'jdk8', 'jdk9', 'jdk11', 'jdk17', 'jdk21', 'jdk24'
+                 ] + ['dex-%s' % dexvm for dexvm in ALL_ART_VMS]
 
 
 def ParseOptions():
@@ -153,8 +146,7 @@ def ParseOptions():
                         help='Use a custom java version to run tests.')
     result.add_argument('--java-max-memory-size',
                         '--java_max_memory_size',
-                        help='Set memory for running tests, default 4G',
-                        default=os.environ.get('R8_JAVA_MAX_MEMORY_SIZE', '4G'))
+                        help='Set memory for running tests, default 4G')
     result.add_argument(
         '--test-namespace',
         '--test_namespace',
@@ -287,6 +279,11 @@ def ParseOptions():
                         default=False,
                         action='store_true')
     options, args = result.parse_known_args()
+    if options.java_max_memory_size is None:
+        # YouTubeV1719Test OOM's with 4G, so raise xmx to 6G when running internal tests.
+        default_xmx = '4G' if options.no_internal else '6G'
+        options.java_max_memory_size = os.environ.get('R8_JAVA_MAX_MEMORY_SIZE',
+                                                      default_xmx)
     if options.land_bypass_hooks:
         options.land = True
     return options, args
@@ -412,7 +409,7 @@ def test(options, args):
         # Default is 3, but some VMs become unresponsive with this value.
         # Increase to reduce concurrency.
         if not os.environ.get('R8_GRADLE_CORES_PER_FORK'):
-          os.environ['R8_GRADLE_CORES_PER_FORK'] = '5'
+            os.environ['R8_GRADLE_CORES_PER_FORK'] = '5'
 
     # Set all necessary Gradle properties and options first.
     if options.shard_count:

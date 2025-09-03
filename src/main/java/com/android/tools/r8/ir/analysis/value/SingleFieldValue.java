@@ -120,7 +120,7 @@ public abstract class SingleFieldValue extends SingleValue {
   }
 
   @Override
-  public boolean isMaterializableInAllContexts(AppView<AppInfoWithLiveness> appView) {
+  public boolean isMaterializableInAllContexts(AppView<? extends AppInfoWithLiveness> appView) {
     DexEncodedField encodedField = appView.appInfo().resolveField(field).getResolvedField();
     if (encodedField == null) {
       assert false;

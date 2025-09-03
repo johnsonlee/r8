@@ -12,7 +12,16 @@ public class TimingWithCancellation extends TimingDelegate {
 
   public TimingWithCancellation(InternalOptions options, Timing timing) {
     super(timing);
+    assert options.cancelCompilationChecker != null;
     this.options = options;
+  }
+
+  @Override
+  public Timing createThreadTiming(String title, InternalOptions options) {
+    if (getDelegate().isEmpty()) {
+      return this;
+    }
+    return new TimingWithCancellation(options, getDelegate().createThreadTiming(title, options));
   }
 
   @Override

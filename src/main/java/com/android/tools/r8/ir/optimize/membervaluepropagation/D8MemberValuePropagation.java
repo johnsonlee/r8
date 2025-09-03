@@ -22,7 +22,7 @@ import java.util.Set;
 
 public class D8MemberValuePropagation extends MemberValuePropagation<AppInfo> {
 
-  public D8MemberValuePropagation(AppView<AppInfo> appView) {
+  public D8MemberValuePropagation(AppView<?> appView) {
     super(appView);
   }
 

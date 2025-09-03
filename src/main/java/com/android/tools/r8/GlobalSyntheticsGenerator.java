@@ -119,7 +119,9 @@ public class GlobalSyntheticsGenerator {
       ExceptionUtils.withCompilationHandler(
           options.reporter,
           () -> {
-            Timing timing = Timing.create("GlobalSyntheticsGenerator " + Version.LABEL, options);
+            Timing timing =
+                Timing.createRoot(
+                    "GlobalSyntheticsGenerator " + Version.LABEL, options, executorService);
             try {
               timing.begin("Read input app");
               AppView<AppInfo> appView = readApp(app, options, executorService, timing);

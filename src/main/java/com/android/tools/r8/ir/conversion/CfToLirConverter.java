@@ -8,17 +8,22 @@ import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
 import com.android.tools.r8.graph.DexEncodedMethod;
+import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.analysis.EnqueuerAnalysisCollection;
 import com.android.tools.r8.graph.analysis.FinishedEnqueuerAnalysis;
 import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
 import com.android.tools.r8.ir.code.IRCode;
+import com.android.tools.r8.ir.code.Instruction;
+import com.android.tools.r8.ir.code.StaticGet;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
+import com.android.tools.r8.ir.conversion.passes.BranchSimplifier;
 import com.android.tools.r8.ir.conversion.passes.CodeRewriterPassCollection;
 import com.android.tools.r8.ir.conversion.passes.ConstResourceNumberRewriter;
 import com.android.tools.r8.ir.conversion.passes.StringSwitchConverter;
 import com.android.tools.r8.ir.optimize.DeadCodeRemover;
+import com.android.tools.r8.ir.optimize.membervaluepropagation.D8MemberValuePropagation;
 import com.android.tools.r8.lightir.IR2LirConverter;
 import com.android.tools.r8.lightir.LirCode;
 import com.android.tools.r8.lightir.LirStrategy;
@@ -115,6 +120,11 @@ public class CfToLirConverter implements FinishedEnqueuerAnalysis {
     }
     IRCode code = method.buildIR(appView, MethodConversionOptions.forLirPhase(appView));
     codeRewriterPassCollection.run(code, null, null, Timing.empty(), null, appView.options());
+    if (appView.options().isGeneratingDex() && isCodeReadingSdkInt(code)) {
+      new D8MemberValuePropagation(appView).run(code);
+      new BranchSimplifier(appView).simplifyIf(code);
+      new DeadCodeRemover(appView).run(code, Timing.empty());
+    }
     LirCode<Integer> lirCode =
         IR2LirConverter.translate(
             code,
@@ -122,6 +132,16 @@ public class CfToLirConverter implements FinishedEnqueuerAnalysis {
             LirStrategy.getDefaultStrategy().getEncodingStrategy(),
             appView.options());
     method.setCode(lirCode, appView);
+  }
+
+  private boolean isCodeReadingSdkInt(IRCode code) {
+    DexField SDK_INT = appView.dexItemFactory().androidOsBuildVersionMembers.SDK_INT;
+    for (StaticGet staticGet : code.<StaticGet>instructions(Instruction::isStaticGet)) {
+      if (staticGet.getField().isIdenticalTo(SDK_INT)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   @Override
@@ -140,7 +160,7 @@ public class CfToLirConverter implements FinishedEnqueuerAnalysis {
 
     // Conversion to LIR via IR will allocate type elements.
     // They are not needed after construction so remove them again.
-    appView.dexItemFactory().clearTypeElementsCache();
+    appView.getTypeElementFactory().clearTypeElementsCache();
   }
 
   private void processIdentifierNameStrings(

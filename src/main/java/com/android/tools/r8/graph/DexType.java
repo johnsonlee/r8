@@ -210,7 +210,7 @@ public class DexType extends DexReference implements NamingLensComparable<DexTyp
             appView, initialAccessHolder, ignore, seen);
   }
 
-  public boolean isAlwaysNull(AppView<AppInfoWithLiveness> appView) {
+  public boolean isAlwaysNull(AppView<? extends AppInfoWithLiveness> appView) {
     if (!isClassType()) {
       return false;
     }

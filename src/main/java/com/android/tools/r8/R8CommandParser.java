@@ -57,7 +57,6 @@ public class R8CommandParser extends BaseCompilerCommandParser<R8Command, R8Comm
           "--pg-map-output",
           "--partition-map-output",
           "--desugared-lib",
-          "--desugared-lib-pg-conf-output",
           "--map-id-template",
           "--source-file-template",
           ART_PROFILE_FLAG,
@@ -93,11 +92,6 @@ public class R8CommandParser extends BaseCompilerCommandParser<R8Command, R8Comm
         .add(ParseFlagInfoImpl.getPgMapOutput())
         .add(ParseFlagInfoImpl.getPartitionMapOutput())
         .add(ParseFlagInfoImpl.getDesugaredLib())
-        .add(
-            flag1(
-                "--desugared-lib-pg-conf-output",
-                "<file>",
-                "Output the Proguard configuration for L8 to <file>."))
         .add(flag0("--no-tree-shaking", "Force disable tree shaking of unreachable classes."))
         .add(flag0("--no-minification", "Force disable minification of names."))
         .add(flag0("--no-data-resources", "Ignore all data resources."))
@@ -342,9 +336,6 @@ public class R8CommandParser extends BaseCompilerCommandParser<R8Command, R8Comm
         builder.setPartitionMapOutputPath(Paths.get(nextArg));
       } else if (arg.equals("--desugared-lib")) {
         builder.addDesugaredLibraryConfiguration(StringResource.fromFile(Paths.get(nextArg)));
-      } else if (arg.equals("--desugared-lib-pg-conf-output")) {
-        StringConsumer consumer = new StringConsumer.FileConsumer(Paths.get(nextArg));
-        builder.setDesugaredLibraryKeepRuleConsumer(consumer);
       } else if (arg.equals("--no-data-resources")) {
         state.includeDataResources = false;
       } else if (arg.equals("--map-id-template")) {

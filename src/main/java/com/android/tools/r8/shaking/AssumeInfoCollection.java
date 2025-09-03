@@ -51,7 +51,7 @@ public class AssumeInfoCollection {
   }
 
   public boolean isMaterializableInAllContexts(
-      AppView<AppInfoWithLiveness> appView, DexClassAndMember<?, ?> member) {
+      AppView<? extends AppInfoWithLiveness> appView, DexClassAndMember<?, ?> member) {
     AbstractValue assumeValue = get(member).getAssumeValue();
     return assumeValue.isSingleValue()
         && assumeValue.asSingleValue().isMaterializableInAllContexts(appView);

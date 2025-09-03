@@ -199,8 +199,7 @@ public class AppInfo implements DexDefinitionSupplier {
   @Override
   public ClassResolutionResult contextIndependentDefinitionForWithResolutionResult(DexType type) {
     assert checkIfObsolete();
-    return syntheticItems.definitionFor(
-        type, app::contextIndependentDefinitionForWithResolutionResult);
+    return syntheticItems.definitionFor(type, app);
   }
 
   @Override
@@ -209,9 +208,7 @@ public class AppInfo implements DexDefinitionSupplier {
   }
 
   public final DexClass definitionForWithoutExistenceAssert(DexType type) {
-    assert checkIfObsolete();
-    return syntheticItems
-        .definitionFor(type, app::contextIndependentDefinitionForWithResolutionResult)
+    return contextIndependentDefinitionForWithResolutionResult(type)
         .toSingleClassWithProgramOverLibrary();
   }
 

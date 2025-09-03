@@ -72,7 +72,7 @@ public class Relocator {
       AndroidApp inputApp,
       InternalOptions options)
       throws IOException {
-    Timing timing = Timing.create("Relocator", options);
+    Timing timing = Timing.createRoot("Relocator", options, executor);
     try {
       DexApplication app = new ApplicationReader(inputApp, options, timing).read(executor);
       AppInfo appInfo =

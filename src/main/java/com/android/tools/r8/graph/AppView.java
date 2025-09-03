@@ -28,6 +28,7 @@ import com.android.tools.r8.ir.analysis.proto.GeneratedExtensionRegistryShrinker
 import com.android.tools.r8.ir.analysis.proto.GeneratedMessageLiteBuilderShrinker;
 import com.android.tools.r8.ir.analysis.proto.GeneratedMessageLiteShrinker;
 import com.android.tools.r8.ir.analysis.proto.ProtoShrinker;
+import com.android.tools.r8.ir.analysis.type.TypeElementFactory;
 import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
 import com.android.tools.r8.ir.analysis.value.AbstractValueJoiner.AbstractValueConstantPropagationJoiner;
 import com.android.tools.r8.ir.analysis.value.AbstractValueJoiner.AbstractValueFieldJoiner;
@@ -154,6 +155,9 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
   private Set<DexMethod> cfByteCodePassThrough = ImmutableSet.of();
   private final Map<DexType, DexValueString> sourceDebugExtensions = new IdentityHashMap<>();
   private final Map<DexType, String> sourceFileForPrunedTypes = new IdentityHashMap<>();
+
+  // Types.
+  private TypeElementFactory typeElementFactory = new TypeElementFactory();
 
   private SeedMapper applyMappingSeedMapper;
 
@@ -350,6 +354,10 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
   public void setMethodResolutionOptimizationInfoCollection(
       MethodResolutionOptimizationInfoCollection getMethodResolutionOptimizationInfoCollection) {
     this.methodResolutionOptimizationInfoCollection = getMethodResolutionOptimizationInfoCollection;
+  }
+
+  public TypeElementFactory getTypeElementFactory() {
+    return typeElementFactory;
   }
 
   public InstanceFieldInitializationInfoFactory instanceFieldInitializationInfoFactory() {
@@ -1127,6 +1135,7 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
           ThreadTaskUtils.processTasks(
               executorService,
               appView.options(),
+              timing,
               timing
                   .beginMerger("Rewrite AppView concurrently", executorService)
                   .disableSlowestReporting(),

@@ -31,6 +31,7 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.MethodCollection;
 import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.graph.ProgramOrClasspathClass;
 import com.android.tools.r8.graph.ProgramOrClasspathDefinition;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.lens.NonIdentityGraphLens;
@@ -70,7 +71,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import org.objectweb.asm.ClassWriter;
 
-public class SyntheticItems implements SyntheticDefinitionsProvider {
+public class SyntheticItems {
 
   public boolean isSyntheticClassEligibleForMerging(DexProgramClass clazz) {
     SyntheticDefinition<?, ?, ?> definition = pending.definitions.get(clazz.type);
@@ -434,26 +435,25 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
   }
 
   // Predicates and accessors.
-  @Override
-  public ClassResolutionResult definitionFor(
-      DexType type, Function<DexType, ClassResolutionResult> baseDefinitionFor) {
-    DexClass clazz = null;
-    SyntheticKind kind = null;
+  public ClassResolutionResult definitionFor(DexType type, DexApplication app) {
+    ProgramOrClasspathClass programOrClasspathClassNotOnLibrary =
+        app.definitionForProgramOrClasspathClassNotOnLibrary(type);
+    if (programOrClasspathClassNotOnLibrary != null) {
+      assert !isPendingSynthetic(type);
+      return programOrClasspathClassNotOnLibrary;
+    }
     SyntheticDefinition<?, ?, ?> item = pending.definitions.get(type);
     if (item != null) {
-      clazz = item.getHolder();
-      kind = item.getKind();
+      DexClass clazz = item.getHolder();
       assert clazz.isProgramClass() == item.isProgramDefinition();
       assert clazz.isClasspathClass() == item.isClasspathDefinition();
-    }
-    if (clazz != null) {
-      assert kind != null;
-      assert !baseDefinitionFor.apply(type).hasClassResolutionResult()
-              || kind.isMayOverridesNonProgramType()
+      assert !app.contextIndependentDefinitionForWithResolutionResult(type)
+                  .hasClassResolutionResult()
+              || item.getKind().isMayOverridesNonProgramType()
           : "Pending synthetic definition also present in the active program: " + type;
       return clazz;
     }
-    return baseDefinitionFor.apply(type);
+    return app.contextIndependentDefinitionForWithResolutionResult(type);
   }
 
   public boolean isFinalized() {

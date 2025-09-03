@@ -129,7 +129,6 @@ public final class R8Command extends BaseCompilerCommand {
     private final List<ProguardConfigurationSource> mainDexRules = new ArrayList<>();
     private Consumer<ProguardConfiguration.Builder> proguardConfigurationConsumerForTesting = null;
     private Consumer<List<ProguardConfigurationRule>> syntheticProguardRulesConsumer = null;
-    private StringConsumer desugaredLibraryKeepRuleConsumer = null;
     private final List<KeepSpecificationSource> keepSpecifications = new ArrayList<>();
     private final List<ProguardConfigurationSource> proguardConfigs = new ArrayList<>();
     private boolean disableTreeShaking = false;
@@ -355,17 +354,6 @@ public final class R8Command extends BaseCompilerCommand {
     @Override
     public Builder setProguardMapConsumer(StringConsumer proguardMapConsumer) {
       return super.setProguardMapConsumer(proguardMapConsumer);
-    }
-
-    /**
-     * Set a consumer for receiving the keep rules to use when compiling the desugared library for
-     * the program being compiled in this compilation.
-     *
-     * @param keepRuleConsumer Consumer to receive the content once produced.
-     */
-    public Builder setDesugaredLibraryKeepRuleConsumer(StringConsumer keepRuleConsumer) {
-      this.desugaredLibraryKeepRuleConsumer = keepRuleConsumer;
-      return self();
     }
 
     /**
@@ -907,7 +895,6 @@ public final class R8Command extends BaseCompilerCommand {
               isOptimizeMultidexForLinearAlloc(),
               getIncludeClassesChecksum(),
               getDexClassChecksumFilter(),
-              desugaredLibraryKeepRuleConsumer,
               desugaredLibrarySpecification,
               featureSplitConfigurationBuilder.build(),
               getAssertionsConfiguration(),
@@ -1167,7 +1154,6 @@ public final class R8Command extends BaseCompilerCommand {
   private final GraphConsumer keptGraphConsumer;
   private final GraphConsumer mainDexKeptGraphConsumer;
   private final Consumer<List<ProguardConfigurationRule>> syntheticProguardRulesConsumer;
-  private final StringConsumer desugaredLibraryKeepRuleConsumer;
   private final DesugaredLibrarySpecification desugaredLibrarySpecification;
   private final FeatureSplitConfiguration featureSplitConfiguration;
   private final String synthesizedClassPrefix;
@@ -1258,7 +1244,6 @@ public final class R8Command extends BaseCompilerCommand {
       boolean optimizeMultidexForLinearAlloc,
       boolean encodeChecksum,
       BiPredicate<String, Long> dexClassChecksumFilter,
-      StringConsumer desugaredLibraryKeepRuleConsumer,
       DesugaredLibrarySpecification desugaredLibrarySpecification,
       FeatureSplitConfiguration featureSplitConfiguration,
       List<AssertionsConfiguration> assertionsConfiguration,
@@ -1322,7 +1307,6 @@ public final class R8Command extends BaseCompilerCommand {
     this.keptGraphConsumer = keptGraphConsumer;
     this.mainDexKeptGraphConsumer = mainDexKeptGraphConsumer;
     this.syntheticProguardRulesConsumer = syntheticProguardRulesConsumer;
-    this.desugaredLibraryKeepRuleConsumer = desugaredLibraryKeepRuleConsumer;
     this.desugaredLibrarySpecification = desugaredLibrarySpecification;
     this.featureSplitConfiguration = featureSplitConfiguration;
     this.synthesizedClassPrefix = synthesizedClassPrefix;
@@ -1354,7 +1338,6 @@ public final class R8Command extends BaseCompilerCommand {
     keptGraphConsumer = null;
     mainDexKeptGraphConsumer = null;
     syntheticProguardRulesConsumer = null;
-    desugaredLibraryKeepRuleConsumer = null;
     desugaredLibrarySpecification = null;
     featureSplitConfiguration = null;
     synthesizedClassPrefix = null;
@@ -1531,7 +1514,6 @@ public final class R8Command extends BaseCompilerCommand {
       internal.apiModelingOptions().disableStubbingOfClasses();
       internal.ignoreUnusedProguardRules = true;
     }
-    internal.desugaredLibraryKeepRuleConsumer = desugaredLibraryKeepRuleConsumer;
 
     // Set up the map and source file providers.
     // Note that minify/optimize settings must be set on internal options before doing this.

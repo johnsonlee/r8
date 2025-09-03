@@ -131,6 +131,11 @@ public class LazyLoadedDexApplication extends DexApplication {
   }
 
   @Override
+  public ProgramOrClasspathClass definitionForProgramOrClasspathClassNotOnLibrary(DexType type) {
+    return null;
+  }
+
+  @Override
   public DexProgramClass programDefinitionFor(DexType type) {
     assert type.isClassType() : "Cannot lookup definition for type: " + type;
     return programClasses.get(type);

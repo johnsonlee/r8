@@ -79,6 +79,7 @@ public final class BackportedMethods {
     factory.createSynthesizedType("Ljava/lang/Runnable;");
     factory.createSynthesizedType("Ljava/lang/RuntimeException;");
     factory.createSynthesizedType("Ljava/lang/SecurityException;");
+    factory.createSynthesizedType("Ljava/lang/System;");
     factory.createSynthesizedType("Ljava/lang/Thread;");
     factory.createSynthesizedType("Ljava/lang/reflect/Constructor;");
     factory.createSynthesizedType("Ljava/lang/reflect/InvocationTargetException;");
@@ -2860,6 +2861,691 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
+  public static CfCode FloatMethods_float16ToFloat(DexItemFactory factory, DexMethod method) {
+    CfLabel label0 = new CfLabel();
+    CfLabel label1 = new CfLabel();
+    CfLabel label2 = new CfLabel();
+    CfLabel label3 = new CfLabel();
+    CfLabel label4 = new CfLabel();
+    CfLabel label5 = new CfLabel();
+    CfLabel label6 = new CfLabel();
+    CfLabel label7 = new CfLabel();
+    CfLabel label8 = new CfLabel();
+    CfLabel label9 = new CfLabel();
+    CfLabel label10 = new CfLabel();
+    CfLabel label11 = new CfLabel();
+    CfLabel label12 = new CfLabel();
+    CfLabel label13 = new CfLabel();
+    CfLabel label14 = new CfLabel();
+    CfLabel label15 = new CfLabel();
+    CfLabel label16 = new CfLabel();
+    CfLabel label17 = new CfLabel();
+    CfLabel label18 = new CfLabel();
+    CfLabel label19 = new CfLabel();
+    CfLabel label20 = new CfLabel();
+    CfLabel label21 = new CfLabel();
+    CfLabel label22 = new CfLabel();
+    CfLabel label23 = new CfLabel();
+    CfLabel label24 = new CfLabel();
+    CfLabel label25 = new CfLabel();
+    CfLabel label26 = new CfLabel();
+    CfLabel label27 = new CfLabel();
+    CfLabel label28 = new CfLabel();
+    CfLabel label29 = new CfLabel();
+    CfLabel label30 = new CfLabel();
+    CfLabel label31 = new CfLabel();
+    return new CfCode(
+        method.holder,
+        3,
+        18,
+        ImmutableList.of(
+            label0,
+            new CfConstNumber(32768, ValueType.INT),
+            new CfStore(ValueType.INT, 1),
+            label1,
+            new CfConstNumber(10, ValueType.INT),
+            new CfStore(ValueType.INT, 2),
+            label2,
+            new CfConstNumber(31, ValueType.INT),
+            new CfStore(ValueType.INT, 3),
+            label3,
+            new CfConstNumber(1023, ValueType.INT),
+            new CfStore(ValueType.INT, 4),
+            label4,
+            new CfConstNumber(1056964608, ValueType.INT),
+            new CfStore(ValueType.INT, 5),
+            label5,
+            new CfLoad(ValueType.INT, 5),
+            new CfInvoke(
+                184,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/Float;"),
+                    factory.createProto(factory.floatType, factory.intType),
+                    factory.createString("intBitsToFloat")),
+                false),
+            new CfStore(ValueType.FLOAT, 6),
+            label6,
+            new CfConstNumber(4194304, ValueType.INT),
+            new CfStore(ValueType.INT, 7),
+            label7,
+            new CfConstNumber(15, ValueType.INT),
+            new CfStore(ValueType.INT, 8),
+            label8,
+            new CfConstNumber(127, ValueType.INT),
+            new CfStore(ValueType.INT, 9),
+            label9,
+            new CfConstNumber(23, ValueType.INT),
+            new CfStore(ValueType.INT, 10),
+            label10,
+            new CfLoad(ValueType.INT, 0),
+            new CfConstNumber(65535, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.INT),
+            new CfStore(ValueType.INT, 11),
+            label11,
+            new CfLoad(ValueType.INT, 11),
+            new CfLoad(ValueType.INT, 1),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.INT),
+            new CfStore(ValueType.INT, 12),
+            label12,
+            new CfLoad(ValueType.INT, 11),
+            new CfLoad(ValueType.INT, 2),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Ushr, NumericType.INT),
+            new CfLoad(ValueType.INT, 3),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.INT),
+            new CfStore(ValueType.INT, 13),
+            label13,
+            new CfLoad(ValueType.INT, 11),
+            new CfLoad(ValueType.INT, 4),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.INT),
+            new CfStore(ValueType.INT, 14),
+            label14,
+            new CfConstNumber(0, ValueType.INT),
+            new CfStore(ValueType.INT, 15),
+            label15,
+            new CfConstNumber(0, ValueType.INT),
+            new CfStore(ValueType.INT, 16),
+            label16,
+            new CfLoad(ValueType.INT, 13),
+            new CfIf(IfType.NE, ValueType.INT, label23),
+            label17,
+            new CfLoad(ValueType.INT, 14),
+            new CfIf(IfType.EQ, ValueType.INT, label29),
+            label18,
+            new CfLoad(ValueType.INT, 5),
+            new CfLoad(ValueType.INT, 14),
+            new CfArithmeticBinop(CfArithmeticBinop.Opcode.Add, NumericType.INT),
+            new CfInvoke(
+                184,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/Float;"),
+                    factory.createProto(factory.floatType, factory.intType),
+                    factory.createString("intBitsToFloat")),
+                false),
+            new CfStore(ValueType.FLOAT, 17),
+            label19,
+            new CfLoad(ValueType.FLOAT, 17),
+            new CfLoad(ValueType.FLOAT, 6),
+            new CfArithmeticBinop(CfArithmeticBinop.Opcode.Sub, NumericType.FLOAT),
+            new CfStore(ValueType.FLOAT, 17),
+            label20,
+            new CfLoad(ValueType.INT, 12),
+            new CfIf(IfType.NE, ValueType.INT, label21),
+            new CfLoad(ValueType.FLOAT, 17),
+            new CfGoto(label22),
+            label21,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17},
+                    new FrameType[] {
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.floatType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.floatType()
+                    })),
+            new CfLoad(ValueType.FLOAT, 17),
+            new CfNeg(NumericType.FLOAT),
+            label22,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17},
+                    new FrameType[] {
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.floatType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.floatType()
+                    }),
+                new ArrayDeque<>(Arrays.asList(FrameType.floatType()))),
+            new CfReturn(ValueType.FLOAT),
+            label23,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
+                    new FrameType[] {
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.floatType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType()
+                    })),
+            new CfLoad(ValueType.INT, 14),
+            new CfConstNumber(13, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.INT),
+            new CfStore(ValueType.INT, 16),
+            label24,
+            new CfLoad(ValueType.INT, 13),
+            new CfConstNumber(31, ValueType.INT),
+            new CfIfCmp(IfType.NE, ValueType.INT, label28),
+            label25,
+            new CfConstNumber(255, ValueType.INT),
+            new CfStore(ValueType.INT, 15),
+            label26,
+            new CfLoad(ValueType.INT, 16),
+            new CfIf(IfType.EQ, ValueType.INT, label29),
+            label27,
+            new CfLoad(ValueType.INT, 16),
+            new CfLoad(ValueType.INT, 7),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Or, NumericType.INT),
+            new CfStore(ValueType.INT, 16),
+            new CfGoto(label29),
+            label28,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
+                    new FrameType[] {
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.floatType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType()
+                    })),
+            new CfLoad(ValueType.INT, 13),
+            new CfLoad(ValueType.INT, 8),
+            new CfArithmeticBinop(CfArithmeticBinop.Opcode.Sub, NumericType.INT),
+            new CfLoad(ValueType.INT, 9),
+            new CfArithmeticBinop(CfArithmeticBinop.Opcode.Add, NumericType.INT),
+            new CfStore(ValueType.INT, 15),
+            label29,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
+                    new FrameType[] {
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.floatType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType()
+                    })),
+            new CfLoad(ValueType.INT, 12),
+            new CfConstNumber(16, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.INT),
+            new CfLoad(ValueType.INT, 15),
+            new CfLoad(ValueType.INT, 10),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Or, NumericType.INT),
+            new CfLoad(ValueType.INT, 16),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Or, NumericType.INT),
+            new CfStore(ValueType.INT, 17),
+            label30,
+            new CfLoad(ValueType.INT, 17),
+            new CfInvoke(
+                184,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/Float;"),
+                    factory.createProto(factory.floatType, factory.intType),
+                    factory.createString("intBitsToFloat")),
+                false),
+            new CfReturn(ValueType.FLOAT),
+            label31),
+        ImmutableList.of(),
+        ImmutableList.of());
+  }
+
+  public static CfCode FloatMethods_floatToFloat16(DexItemFactory factory, DexMethod method) {
+    CfLabel label0 = new CfLabel();
+    CfLabel label1 = new CfLabel();
+    CfLabel label2 = new CfLabel();
+    CfLabel label3 = new CfLabel();
+    CfLabel label4 = new CfLabel();
+    CfLabel label5 = new CfLabel();
+    CfLabel label6 = new CfLabel();
+    CfLabel label7 = new CfLabel();
+    CfLabel label8 = new CfLabel();
+    CfLabel label9 = new CfLabel();
+    CfLabel label10 = new CfLabel();
+    CfLabel label11 = new CfLabel();
+    CfLabel label12 = new CfLabel();
+    CfLabel label13 = new CfLabel();
+    CfLabel label14 = new CfLabel();
+    CfLabel label15 = new CfLabel();
+    CfLabel label16 = new CfLabel();
+    CfLabel label17 = new CfLabel();
+    CfLabel label18 = new CfLabel();
+    CfLabel label19 = new CfLabel();
+    CfLabel label20 = new CfLabel();
+    CfLabel label21 = new CfLabel();
+    CfLabel label22 = new CfLabel();
+    CfLabel label23 = new CfLabel();
+    CfLabel label24 = new CfLabel();
+    CfLabel label25 = new CfLabel();
+    CfLabel label26 = new CfLabel();
+    CfLabel label27 = new CfLabel();
+    CfLabel label28 = new CfLabel();
+    CfLabel label29 = new CfLabel();
+    CfLabel label30 = new CfLabel();
+    CfLabel label31 = new CfLabel();
+    CfLabel label32 = new CfLabel();
+    CfLabel label33 = new CfLabel();
+    CfLabel label34 = new CfLabel();
+    CfLabel label35 = new CfLabel();
+    CfLabel label36 = new CfLabel();
+    CfLabel label37 = new CfLabel();
+    return new CfCode(
+        method.holder,
+        3,
+        18,
+        ImmutableList.of(
+            label0,
+            new CfConstNumber(10, ValueType.INT),
+            new CfStore(ValueType.INT, 1),
+            label1,
+            new CfConstNumber(15, ValueType.INT),
+            new CfStore(ValueType.INT, 2),
+            label2,
+            new CfConstNumber(15, ValueType.INT),
+            new CfStore(ValueType.INT, 3),
+            label3,
+            new CfConstNumber(127, ValueType.INT),
+            new CfStore(ValueType.INT, 4),
+            label4,
+            new CfConstNumber(23, ValueType.INT),
+            new CfStore(ValueType.INT, 5),
+            label5,
+            new CfConstNumber(31, ValueType.INT),
+            new CfStore(ValueType.INT, 6),
+            label6,
+            new CfConstNumber(255, ValueType.INT),
+            new CfStore(ValueType.INT, 7),
+            label7,
+            new CfConstNumber(8388607, ValueType.INT),
+            new CfStore(ValueType.INT, 8),
+            label8,
+            new CfLoad(ValueType.FLOAT, 0),
+            new CfInvoke(
+                184,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/Float;"),
+                    factory.createProto(factory.intType, factory.floatType),
+                    factory.createString("floatToRawIntBits")),
+                false),
+            new CfStore(ValueType.INT, 9),
+            label9,
+            new CfLoad(ValueType.INT, 9),
+            new CfLoad(ValueType.INT, 6),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Ushr, NumericType.INT),
+            new CfStore(ValueType.INT, 10),
+            label10,
+            new CfLoad(ValueType.INT, 9),
+            new CfLoad(ValueType.INT, 5),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Ushr, NumericType.INT),
+            new CfLoad(ValueType.INT, 7),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.INT),
+            new CfStore(ValueType.INT, 11),
+            label11,
+            new CfLoad(ValueType.INT, 9),
+            new CfLoad(ValueType.INT, 8),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.INT),
+            new CfStore(ValueType.INT, 12),
+            label12,
+            new CfConstNumber(0, ValueType.INT),
+            new CfStore(ValueType.INT, 13),
+            label13,
+            new CfConstNumber(0, ValueType.INT),
+            new CfStore(ValueType.INT, 14),
+            label14,
+            new CfLoad(ValueType.INT, 11),
+            new CfConstNumber(255, ValueType.INT),
+            new CfIfCmp(IfType.NE, ValueType.INT, label19),
+            label15,
+            new CfConstNumber(31, ValueType.INT),
+            new CfStore(ValueType.INT, 13),
+            label16,
+            new CfLoad(ValueType.INT, 12),
+            new CfIf(IfType.EQ, ValueType.INT, label17),
+            new CfConstNumber(512, ValueType.INT),
+            new CfGoto(label18),
+            label17,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14},
+                    new FrameType[] {
+                      FrameType.floatType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType()
+                    })),
+            new CfConstNumber(0, ValueType.INT),
+            label18,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14},
+                    new FrameType[] {
+                      FrameType.floatType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType()
+                    }),
+                new ArrayDeque<>(Arrays.asList(FrameType.intType()))),
+            new CfStore(ValueType.INT, 14),
+            new CfGoto(label36),
+            label19,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14},
+                    new FrameType[] {
+                      FrameType.floatType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType()
+                    })),
+            new CfLoad(ValueType.INT, 11),
+            new CfLoad(ValueType.INT, 4),
+            new CfArithmeticBinop(CfArithmeticBinop.Opcode.Sub, NumericType.INT),
+            new CfLoad(ValueType.INT, 3),
+            new CfArithmeticBinop(CfArithmeticBinop.Opcode.Add, NumericType.INT),
+            new CfStore(ValueType.INT, 11),
+            label20,
+            new CfLoad(ValueType.INT, 11),
+            new CfConstNumber(31, ValueType.INT),
+            new CfIfCmp(IfType.LT, ValueType.INT, label22),
+            label21,
+            new CfConstNumber(31, ValueType.INT),
+            new CfStore(ValueType.INT, 13),
+            new CfGoto(label36),
+            label22,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14},
+                    new FrameType[] {
+                      FrameType.floatType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType()
+                    })),
+            new CfLoad(ValueType.INT, 11),
+            new CfIf(IfType.GT, ValueType.INT, label32),
+            label23,
+            new CfLoad(ValueType.INT, 11),
+            new CfConstNumber(-10, ValueType.INT),
+            new CfIfCmp(IfType.GE, ValueType.INT, label24),
+            new CfGoto(label36),
+            label24,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14},
+                    new FrameType[] {
+                      FrameType.floatType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType()
+                    })),
+            new CfLoad(ValueType.INT, 12),
+            new CfConstNumber(8388608, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Or, NumericType.INT),
+            new CfStore(ValueType.INT, 12),
+            label25,
+            new CfConstNumber(14, ValueType.INT),
+            new CfLoad(ValueType.INT, 11),
+            new CfArithmeticBinop(CfArithmeticBinop.Opcode.Sub, NumericType.INT),
+            new CfStore(ValueType.INT, 15),
+            label26,
+            new CfLoad(ValueType.INT, 12),
+            new CfLoad(ValueType.INT, 15),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shr, NumericType.INT),
+            new CfStore(ValueType.INT, 14),
+            label27,
+            new CfLoad(ValueType.INT, 12),
+            new CfConstNumber(1, ValueType.INT),
+            new CfLoad(ValueType.INT, 15),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.INT),
+            new CfConstNumber(1, ValueType.INT),
+            new CfArithmeticBinop(CfArithmeticBinop.Opcode.Sub, NumericType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.INT),
+            new CfStore(ValueType.INT, 16),
+            label28,
+            new CfConstNumber(1, ValueType.INT),
+            new CfLoad(ValueType.INT, 15),
+            new CfConstNumber(1, ValueType.INT),
+            new CfArithmeticBinop(CfArithmeticBinop.Opcode.Sub, NumericType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.INT),
+            new CfStore(ValueType.INT, 17),
+            label29,
+            new CfLoad(ValueType.INT, 16),
+            new CfLoad(ValueType.INT, 14),
+            new CfConstNumber(1, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.INT),
+            new CfArithmeticBinop(CfArithmeticBinop.Opcode.Add, NumericType.INT),
+            new CfLoad(ValueType.INT, 17),
+            new CfIfCmp(IfType.LE, ValueType.INT, label31),
+            label30,
+            new CfIinc(14, 1),
+            label31,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14},
+                    new FrameType[] {
+                      FrameType.floatType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType()
+                    })),
+            new CfGoto(label36),
+            label32,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14},
+                    new FrameType[] {
+                      FrameType.floatType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType()
+                    })),
+            new CfLoad(ValueType.INT, 11),
+            new CfStore(ValueType.INT, 13),
+            label33,
+            new CfLoad(ValueType.INT, 12),
+            new CfConstNumber(13, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shr, NumericType.INT),
+            new CfStore(ValueType.INT, 14),
+            label34,
+            new CfLoad(ValueType.INT, 12),
+            new CfConstNumber(8191, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.INT),
+            new CfLoad(ValueType.INT, 14),
+            new CfConstNumber(1, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.INT),
+            new CfArithmeticBinop(CfArithmeticBinop.Opcode.Add, NumericType.INT),
+            new CfConstNumber(4096, ValueType.INT),
+            new CfIfCmp(IfType.LE, ValueType.INT, label36),
+            label35,
+            new CfIinc(14, 1),
+            label36,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14},
+                    new FrameType[] {
+                      FrameType.floatType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType()
+                    })),
+            new CfLoad(ValueType.INT, 10),
+            new CfLoad(ValueType.INT, 2),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.INT),
+            new CfLoad(ValueType.INT, 13),
+            new CfLoad(ValueType.INT, 1),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.INT),
+            new CfLoad(ValueType.INT, 14),
+            new CfArithmeticBinop(CfArithmeticBinop.Opcode.Add, NumericType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Or, NumericType.INT),
+            new CfNumberConversion(NumericType.INT, NumericType.SHORT),
+            new CfReturn(ValueType.INT),
+            label37),
+        ImmutableList.of(),
+        ImmutableList.of());
+  }
+
   public static CfCode FloatMethods_isFinite(DexItemFactory factory, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
@@ -2983,6 +3669,151 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
+  public static CfCode IntegerMethods_compress(DexItemFactory factory, DexMethod method) {
+    CfLabel label0 = new CfLabel();
+    CfLabel label1 = new CfLabel();
+    CfLabel label2 = new CfLabel();
+    CfLabel label3 = new CfLabel();
+    CfLabel label4 = new CfLabel();
+    CfLabel label5 = new CfLabel();
+    CfLabel label6 = new CfLabel();
+    CfLabel label7 = new CfLabel();
+    CfLabel label8 = new CfLabel();
+    CfLabel label9 = new CfLabel();
+    CfLabel label10 = new CfLabel();
+    CfLabel label11 = new CfLabel();
+    CfLabel label12 = new CfLabel();
+    CfLabel label13 = new CfLabel();
+    CfLabel label14 = new CfLabel();
+    CfLabel label15 = new CfLabel();
+    CfLabel label16 = new CfLabel();
+    return new CfCode(
+        method.holder,
+        4,
+        7,
+        ImmutableList.of(
+            label0,
+            new CfLoad(ValueType.INT, 0),
+            new CfLoad(ValueType.INT, 1),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.INT),
+            new CfStore(ValueType.INT, 0),
+            label1,
+            new CfLoad(ValueType.INT, 1),
+            new CfConstNumber(-1, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.INT),
+            new CfConstNumber(1, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.INT),
+            new CfStore(ValueType.INT, 2),
+            label2,
+            new CfConstNumber(0, ValueType.INT),
+            new CfStore(ValueType.INT, 6),
+            label3,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3, 4, 5, 6},
+                    new FrameType[] {
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.oneWord(),
+                      FrameType.oneWord(),
+                      FrameType.oneWord(),
+                      FrameType.intType()
+                    })),
+            new CfLoad(ValueType.INT, 6),
+            new CfConstNumber(5, ValueType.INT),
+            new CfIfCmp(IfType.GE, ValueType.INT, label15),
+            label4,
+            new CfLoad(ValueType.INT, 2),
+            new CfLoad(ValueType.INT, 2),
+            new CfConstNumber(1, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.INT),
+            new CfStore(ValueType.INT, 3),
+            label5,
+            new CfLoad(ValueType.INT, 3),
+            new CfLoad(ValueType.INT, 3),
+            new CfConstNumber(2, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.INT),
+            new CfStore(ValueType.INT, 3),
+            label6,
+            new CfLoad(ValueType.INT, 3),
+            new CfLoad(ValueType.INT, 3),
+            new CfConstNumber(4, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.INT),
+            new CfStore(ValueType.INT, 3),
+            label7,
+            new CfLoad(ValueType.INT, 3),
+            new CfLoad(ValueType.INT, 3),
+            new CfConstNumber(8, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.INT),
+            new CfStore(ValueType.INT, 3),
+            label8,
+            new CfLoad(ValueType.INT, 3),
+            new CfLoad(ValueType.INT, 3),
+            new CfConstNumber(16, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.INT),
+            new CfStore(ValueType.INT, 3),
+            label9,
+            new CfLoad(ValueType.INT, 3),
+            new CfLoad(ValueType.INT, 1),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.INT),
+            new CfStore(ValueType.INT, 4),
+            label10,
+            new CfLoad(ValueType.INT, 1),
+            new CfLoad(ValueType.INT, 4),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.INT),
+            new CfLoad(ValueType.INT, 4),
+            new CfConstNumber(1, ValueType.INT),
+            new CfLoad(ValueType.INT, 6),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Ushr, NumericType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Or, NumericType.INT),
+            new CfStore(ValueType.INT, 1),
+            label11,
+            new CfLoad(ValueType.INT, 0),
+            new CfLoad(ValueType.INT, 4),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.INT),
+            new CfStore(ValueType.INT, 5),
+            label12,
+            new CfLoad(ValueType.INT, 0),
+            new CfLoad(ValueType.INT, 5),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.INT),
+            new CfLoad(ValueType.INT, 5),
+            new CfConstNumber(1, ValueType.INT),
+            new CfLoad(ValueType.INT, 6),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Ushr, NumericType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Or, NumericType.INT),
+            new CfStore(ValueType.INT, 0),
+            label13,
+            new CfLoad(ValueType.INT, 2),
+            new CfLoad(ValueType.INT, 3),
+            new CfConstNumber(-1, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.INT),
+            new CfStore(ValueType.INT, 2),
+            label14,
+            new CfIinc(6, 1),
+            new CfGoto(label3),
+            label15,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2},
+                    new FrameType[] {
+                      FrameType.intType(), FrameType.intType(), FrameType.intType()
+                    })),
+            new CfLoad(ValueType.INT, 0),
+            new CfReturn(ValueType.INT),
+            label16),
+        ImmutableList.of(),
+        ImmutableList.of());
+  }
+
   public static CfCode IntegerMethods_divideUnsigned(DexItemFactory factory, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
@@ -3012,6 +3843,220 @@ public final class BackportedMethods {
             new CfNumberConversion(NumericType.LONG, NumericType.INT),
             new CfReturn(ValueType.INT),
             label3),
+        ImmutableList.of(),
+        ImmutableList.of());
+  }
+
+  public static CfCode IntegerMethods_expand(DexItemFactory factory, DexMethod method) {
+    CfLabel label0 = new CfLabel();
+    CfLabel label1 = new CfLabel();
+    CfLabel label2 = new CfLabel();
+    CfLabel label3 = new CfLabel();
+    CfLabel label4 = new CfLabel();
+    CfLabel label5 = new CfLabel();
+    CfLabel label6 = new CfLabel();
+    CfLabel label7 = new CfLabel();
+    CfLabel label8 = new CfLabel();
+    CfLabel label9 = new CfLabel();
+    CfLabel label10 = new CfLabel();
+    CfLabel label11 = new CfLabel();
+    CfLabel label12 = new CfLabel();
+    CfLabel label13 = new CfLabel();
+    CfLabel label14 = new CfLabel();
+    CfLabel label15 = new CfLabel();
+    CfLabel label16 = new CfLabel();
+    CfLabel label17 = new CfLabel();
+    CfLabel label18 = new CfLabel();
+    CfLabel label19 = new CfLabel();
+    CfLabel label20 = new CfLabel();
+    CfLabel label21 = new CfLabel();
+    CfLabel label22 = new CfLabel();
+    return new CfCode(
+        method.holder,
+        4,
+        9,
+        ImmutableList.of(
+            label0,
+            new CfConstNumber(5, ValueType.INT),
+            new CfNewArray(factory.intArrayType),
+            new CfStore(ValueType.OBJECT, 7),
+            label1,
+            new CfLoad(ValueType.INT, 1),
+            new CfStore(ValueType.INT, 2),
+            label2,
+            new CfLoad(ValueType.INT, 1),
+            new CfConstNumber(-1, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.INT),
+            new CfConstNumber(1, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.INT),
+            new CfStore(ValueType.INT, 3),
+            label3,
+            new CfConstNumber(0, ValueType.INT),
+            new CfStore(ValueType.INT, 8),
+            label4,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8},
+                    new FrameType[] {
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.oneWord(),
+                      FrameType.oneWord(),
+                      FrameType.oneWord(),
+                      FrameType.initializedNonNullReference(factory.intArrayType),
+                      FrameType.intType()
+                    })),
+            new CfLoad(ValueType.INT, 8),
+            new CfConstNumber(5, ValueType.INT),
+            new CfIfCmp(IfType.GE, ValueType.INT, label15),
+            label5,
+            new CfLoad(ValueType.INT, 3),
+            new CfLoad(ValueType.INT, 3),
+            new CfConstNumber(1, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.INT),
+            new CfStore(ValueType.INT, 4),
+            label6,
+            new CfLoad(ValueType.INT, 4),
+            new CfLoad(ValueType.INT, 4),
+            new CfConstNumber(2, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.INT),
+            new CfStore(ValueType.INT, 4),
+            label7,
+            new CfLoad(ValueType.INT, 4),
+            new CfLoad(ValueType.INT, 4),
+            new CfConstNumber(4, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.INT),
+            new CfStore(ValueType.INT, 4),
+            label8,
+            new CfLoad(ValueType.INT, 4),
+            new CfLoad(ValueType.INT, 4),
+            new CfConstNumber(8, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.INT),
+            new CfStore(ValueType.INT, 4),
+            label9,
+            new CfLoad(ValueType.INT, 4),
+            new CfLoad(ValueType.INT, 4),
+            new CfConstNumber(16, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.INT),
+            new CfStore(ValueType.INT, 4),
+            label10,
+            new CfLoad(ValueType.INT, 4),
+            new CfLoad(ValueType.INT, 1),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.INT),
+            new CfStore(ValueType.INT, 5),
+            label11,
+            new CfLoad(ValueType.OBJECT, 7),
+            new CfLoad(ValueType.INT, 8),
+            new CfLoad(ValueType.INT, 5),
+            new CfArrayStore(MemberType.INT),
+            label12,
+            new CfLoad(ValueType.INT, 1),
+            new CfLoad(ValueType.INT, 5),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.INT),
+            new CfLoad(ValueType.INT, 5),
+            new CfConstNumber(1, ValueType.INT),
+            new CfLoad(ValueType.INT, 8),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Ushr, NumericType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Or, NumericType.INT),
+            new CfStore(ValueType.INT, 1),
+            label13,
+            new CfLoad(ValueType.INT, 3),
+            new CfLoad(ValueType.INT, 4),
+            new CfConstNumber(-1, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.INT),
+            new CfStore(ValueType.INT, 3),
+            label14,
+            new CfIinc(8, 1),
+            new CfGoto(label4),
+            label15,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8},
+                    new FrameType[] {
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.oneWord(),
+                      FrameType.oneWord(),
+                      FrameType.oneWord(),
+                      FrameType.initializedNonNullReference(factory.intArrayType),
+                      FrameType.intType()
+                    })),
+            new CfConstNumber(4, ValueType.INT),
+            new CfStore(ValueType.INT, 8),
+            label16,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8},
+                    new FrameType[] {
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.oneWord(),
+                      FrameType.oneWord(),
+                      FrameType.oneWord(),
+                      FrameType.initializedNonNullReference(factory.intArrayType),
+                      FrameType.intType()
+                    })),
+            new CfLoad(ValueType.INT, 8),
+            new CfIf(IfType.LT, ValueType.INT, label21),
+            label17,
+            new CfLoad(ValueType.OBJECT, 7),
+            new CfLoad(ValueType.INT, 8),
+            new CfArrayLoad(MemberType.INT),
+            new CfStore(ValueType.INT, 5),
+            label18,
+            new CfLoad(ValueType.INT, 0),
+            new CfConstNumber(1, ValueType.INT),
+            new CfLoad(ValueType.INT, 8),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.INT),
+            new CfStore(ValueType.INT, 6),
+            label19,
+            new CfLoad(ValueType.INT, 0),
+            new CfLoad(ValueType.INT, 5),
+            new CfConstNumber(-1, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.INT),
+            new CfLoad(ValueType.INT, 6),
+            new CfLoad(ValueType.INT, 5),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Or, NumericType.INT),
+            new CfStore(ValueType.INT, 0),
+            label20,
+            new CfIinc(8, -1),
+            new CfGoto(label16),
+            label21,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8},
+                    new FrameType[] {
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.oneWord(),
+                      FrameType.oneWord(),
+                      FrameType.oneWord(),
+                      FrameType.initializedNonNullReference(factory.intArrayType),
+                      FrameType.intType()
+                    })),
+            new CfLoad(ValueType.INT, 0),
+            new CfLoad(ValueType.INT, 2),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.INT),
+            new CfReturn(ValueType.INT),
+            label22),
         ImmutableList.of(),
         ImmutableList.of());
   }
@@ -3517,6 +4562,170 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
+  public static CfCode LongMethods_compress(DexItemFactory factory, DexMethod method) {
+    CfLabel label0 = new CfLabel();
+    CfLabel label1 = new CfLabel();
+    CfLabel label2 = new CfLabel();
+    CfLabel label3 = new CfLabel();
+    CfLabel label4 = new CfLabel();
+    CfLabel label5 = new CfLabel();
+    CfLabel label6 = new CfLabel();
+    CfLabel label7 = new CfLabel();
+    CfLabel label8 = new CfLabel();
+    CfLabel label9 = new CfLabel();
+    CfLabel label10 = new CfLabel();
+    CfLabel label11 = new CfLabel();
+    CfLabel label12 = new CfLabel();
+    CfLabel label13 = new CfLabel();
+    CfLabel label14 = new CfLabel();
+    CfLabel label15 = new CfLabel();
+    CfLabel label16 = new CfLabel();
+    CfLabel label17 = new CfLabel();
+    return new CfCode(
+        method.holder,
+        6,
+        13,
+        ImmutableList.of(
+            label0,
+            new CfLoad(ValueType.LONG, 0),
+            new CfLoad(ValueType.LONG, 2),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.LONG),
+            new CfStore(ValueType.LONG, 0),
+            label1,
+            new CfLoad(ValueType.LONG, 2),
+            new CfConstNumber(-1, ValueType.LONG),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.LONG),
+            new CfConstNumber(1, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.LONG),
+            new CfStore(ValueType.LONG, 4),
+            label2,
+            new CfConstNumber(0, ValueType.INT),
+            new CfStore(ValueType.INT, 12),
+            label3,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12},
+                    new FrameType[] {
+                      FrameType.longType(),
+                      FrameType.longHighType(),
+                      FrameType.longType(),
+                      FrameType.longHighType(),
+                      FrameType.longType(),
+                      FrameType.longHighType(),
+                      FrameType.oneWord(),
+                      FrameType.oneWord(),
+                      FrameType.oneWord(),
+                      FrameType.oneWord(),
+                      FrameType.oneWord(),
+                      FrameType.oneWord(),
+                      FrameType.intType()
+                    })),
+            new CfLoad(ValueType.INT, 12),
+            new CfConstNumber(6, ValueType.INT),
+            new CfIfCmp(IfType.GE, ValueType.INT, label16),
+            label4,
+            new CfLoad(ValueType.LONG, 4),
+            new CfLoad(ValueType.LONG, 4),
+            new CfConstNumber(1, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.LONG),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.LONG),
+            new CfStore(ValueType.LONG, 6),
+            label5,
+            new CfLoad(ValueType.LONG, 6),
+            new CfLoad(ValueType.LONG, 6),
+            new CfConstNumber(2, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.LONG),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.LONG),
+            new CfStore(ValueType.LONG, 6),
+            label6,
+            new CfLoad(ValueType.LONG, 6),
+            new CfLoad(ValueType.LONG, 6),
+            new CfConstNumber(4, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.LONG),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.LONG),
+            new CfStore(ValueType.LONG, 6),
+            label7,
+            new CfLoad(ValueType.LONG, 6),
+            new CfLoad(ValueType.LONG, 6),
+            new CfConstNumber(8, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.LONG),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.LONG),
+            new CfStore(ValueType.LONG, 6),
+            label8,
+            new CfLoad(ValueType.LONG, 6),
+            new CfLoad(ValueType.LONG, 6),
+            new CfConstNumber(16, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.LONG),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.LONG),
+            new CfStore(ValueType.LONG, 6),
+            label9,
+            new CfLoad(ValueType.LONG, 6),
+            new CfLoad(ValueType.LONG, 6),
+            new CfConstNumber(32, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.LONG),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.LONG),
+            new CfStore(ValueType.LONG, 6),
+            label10,
+            new CfLoad(ValueType.LONG, 6),
+            new CfLoad(ValueType.LONG, 2),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.LONG),
+            new CfStore(ValueType.LONG, 8),
+            label11,
+            new CfLoad(ValueType.LONG, 2),
+            new CfLoad(ValueType.LONG, 8),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.LONG),
+            new CfLoad(ValueType.LONG, 8),
+            new CfConstNumber(1, ValueType.INT),
+            new CfLoad(ValueType.INT, 12),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Ushr, NumericType.LONG),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Or, NumericType.LONG),
+            new CfStore(ValueType.LONG, 2),
+            label12,
+            new CfLoad(ValueType.LONG, 0),
+            new CfLoad(ValueType.LONG, 8),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.LONG),
+            new CfStore(ValueType.LONG, 10),
+            label13,
+            new CfLoad(ValueType.LONG, 0),
+            new CfLoad(ValueType.LONG, 10),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.LONG),
+            new CfLoad(ValueType.LONG, 10),
+            new CfConstNumber(1, ValueType.INT),
+            new CfLoad(ValueType.INT, 12),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Ushr, NumericType.LONG),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Or, NumericType.LONG),
+            new CfStore(ValueType.LONG, 0),
+            label14,
+            new CfLoad(ValueType.LONG, 4),
+            new CfLoad(ValueType.LONG, 6),
+            new CfConstNumber(-1, ValueType.LONG),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.LONG),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.LONG),
+            new CfStore(ValueType.LONG, 4),
+            label15,
+            new CfIinc(12, 1),
+            new CfGoto(label3),
+            label16,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3, 4, 5},
+                    new FrameType[] {
+                      FrameType.longType(),
+                      FrameType.longHighType(),
+                      FrameType.longType(),
+                      FrameType.longHighType(),
+                      FrameType.longType(),
+                      FrameType.longHighType()
+                    })),
+            new CfLoad(ValueType.LONG, 0),
+            new CfReturn(ValueType.LONG),
+            label17),
+        ImmutableList.of(),
+        ImmutableList.of());
+  }
+
   public static CfCode LongMethods_divideUnsigned(DexItemFactory factory, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
@@ -3683,6 +4892,256 @@ public final class BackportedMethods {
             new CfArithmeticBinop(CfArithmeticBinop.Opcode.Add, NumericType.LONG),
             new CfReturn(ValueType.LONG),
             label15),
+        ImmutableList.of(),
+        ImmutableList.of());
+  }
+
+  public static CfCode LongMethods_expand(DexItemFactory factory, DexMethod method) {
+    CfLabel label0 = new CfLabel();
+    CfLabel label1 = new CfLabel();
+    CfLabel label2 = new CfLabel();
+    CfLabel label3 = new CfLabel();
+    CfLabel label4 = new CfLabel();
+    CfLabel label5 = new CfLabel();
+    CfLabel label6 = new CfLabel();
+    CfLabel label7 = new CfLabel();
+    CfLabel label8 = new CfLabel();
+    CfLabel label9 = new CfLabel();
+    CfLabel label10 = new CfLabel();
+    CfLabel label11 = new CfLabel();
+    CfLabel label12 = new CfLabel();
+    CfLabel label13 = new CfLabel();
+    CfLabel label14 = new CfLabel();
+    CfLabel label15 = new CfLabel();
+    CfLabel label16 = new CfLabel();
+    CfLabel label17 = new CfLabel();
+    CfLabel label18 = new CfLabel();
+    CfLabel label19 = new CfLabel();
+    CfLabel label20 = new CfLabel();
+    CfLabel label21 = new CfLabel();
+    CfLabel label22 = new CfLabel();
+    CfLabel label23 = new CfLabel();
+    return new CfCode(
+        method.holder,
+        6,
+        16,
+        ImmutableList.of(
+            label0,
+            new CfConstNumber(6, ValueType.INT),
+            new CfNewArray(factory.longArrayType),
+            new CfStore(ValueType.OBJECT, 14),
+            label1,
+            new CfLoad(ValueType.LONG, 2),
+            new CfStore(ValueType.LONG, 4),
+            label2,
+            new CfLoad(ValueType.LONG, 2),
+            new CfConstNumber(-1, ValueType.LONG),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.LONG),
+            new CfConstNumber(1, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.LONG),
+            new CfStore(ValueType.LONG, 6),
+            label3,
+            new CfConstNumber(0, ValueType.INT),
+            new CfStore(ValueType.INT, 15),
+            label4,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
+                    new FrameType[] {
+                      FrameType.longType(),
+                      FrameType.longHighType(),
+                      FrameType.longType(),
+                      FrameType.longHighType(),
+                      FrameType.longType(),
+                      FrameType.longHighType(),
+                      FrameType.longType(),
+                      FrameType.longHighType(),
+                      FrameType.oneWord(),
+                      FrameType.oneWord(),
+                      FrameType.oneWord(),
+                      FrameType.oneWord(),
+                      FrameType.oneWord(),
+                      FrameType.oneWord(),
+                      FrameType.initializedNonNullReference(factory.longArrayType),
+                      FrameType.intType()
+                    })),
+            new CfLoad(ValueType.INT, 15),
+            new CfConstNumber(6, ValueType.INT),
+            new CfIfCmp(IfType.GE, ValueType.INT, label16),
+            label5,
+            new CfLoad(ValueType.LONG, 6),
+            new CfLoad(ValueType.LONG, 6),
+            new CfConstNumber(1, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.LONG),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.LONG),
+            new CfStore(ValueType.LONG, 8),
+            label6,
+            new CfLoad(ValueType.LONG, 8),
+            new CfLoad(ValueType.LONG, 8),
+            new CfConstNumber(2, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.LONG),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.LONG),
+            new CfStore(ValueType.LONG, 8),
+            label7,
+            new CfLoad(ValueType.LONG, 8),
+            new CfLoad(ValueType.LONG, 8),
+            new CfConstNumber(4, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.LONG),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.LONG),
+            new CfStore(ValueType.LONG, 8),
+            label8,
+            new CfLoad(ValueType.LONG, 8),
+            new CfLoad(ValueType.LONG, 8),
+            new CfConstNumber(8, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.LONG),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.LONG),
+            new CfStore(ValueType.LONG, 8),
+            label9,
+            new CfLoad(ValueType.LONG, 8),
+            new CfLoad(ValueType.LONG, 8),
+            new CfConstNumber(16, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.LONG),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.LONG),
+            new CfStore(ValueType.LONG, 8),
+            label10,
+            new CfLoad(ValueType.LONG, 8),
+            new CfLoad(ValueType.LONG, 8),
+            new CfConstNumber(32, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.LONG),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.LONG),
+            new CfStore(ValueType.LONG, 8),
+            label11,
+            new CfLoad(ValueType.LONG, 8),
+            new CfLoad(ValueType.LONG, 2),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.LONG),
+            new CfStore(ValueType.LONG, 10),
+            label12,
+            new CfLoad(ValueType.OBJECT, 14),
+            new CfLoad(ValueType.INT, 15),
+            new CfLoad(ValueType.LONG, 10),
+            new CfArrayStore(MemberType.LONG),
+            label13,
+            new CfLoad(ValueType.LONG, 2),
+            new CfLoad(ValueType.LONG, 10),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.LONG),
+            new CfLoad(ValueType.LONG, 10),
+            new CfConstNumber(1, ValueType.INT),
+            new CfLoad(ValueType.INT, 15),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Ushr, NumericType.LONG),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Or, NumericType.LONG),
+            new CfStore(ValueType.LONG, 2),
+            label14,
+            new CfLoad(ValueType.LONG, 6),
+            new CfLoad(ValueType.LONG, 8),
+            new CfConstNumber(-1, ValueType.LONG),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.LONG),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.LONG),
+            new CfStore(ValueType.LONG, 6),
+            label15,
+            new CfIinc(15, 1),
+            new CfGoto(label4),
+            label16,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
+                    new FrameType[] {
+                      FrameType.longType(),
+                      FrameType.longHighType(),
+                      FrameType.longType(),
+                      FrameType.longHighType(),
+                      FrameType.longType(),
+                      FrameType.longHighType(),
+                      FrameType.longType(),
+                      FrameType.longHighType(),
+                      FrameType.oneWord(),
+                      FrameType.oneWord(),
+                      FrameType.oneWord(),
+                      FrameType.oneWord(),
+                      FrameType.oneWord(),
+                      FrameType.oneWord(),
+                      FrameType.initializedNonNullReference(factory.longArrayType),
+                      FrameType.intType()
+                    })),
+            new CfConstNumber(5, ValueType.INT),
+            new CfStore(ValueType.INT, 15),
+            label17,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
+                    new FrameType[] {
+                      FrameType.longType(),
+                      FrameType.longHighType(),
+                      FrameType.longType(),
+                      FrameType.longHighType(),
+                      FrameType.longType(),
+                      FrameType.longHighType(),
+                      FrameType.longType(),
+                      FrameType.longHighType(),
+                      FrameType.oneWord(),
+                      FrameType.oneWord(),
+                      FrameType.oneWord(),
+                      FrameType.oneWord(),
+                      FrameType.oneWord(),
+                      FrameType.oneWord(),
+                      FrameType.initializedNonNullReference(factory.longArrayType),
+                      FrameType.intType()
+                    })),
+            new CfLoad(ValueType.INT, 15),
+            new CfIf(IfType.LT, ValueType.INT, label22),
+            label18,
+            new CfLoad(ValueType.OBJECT, 14),
+            new CfLoad(ValueType.INT, 15),
+            new CfArrayLoad(MemberType.LONG),
+            new CfStore(ValueType.LONG, 10),
+            label19,
+            new CfLoad(ValueType.LONG, 0),
+            new CfConstNumber(1, ValueType.INT),
+            new CfLoad(ValueType.INT, 15),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Shl, NumericType.LONG),
+            new CfStore(ValueType.LONG, 12),
+            label20,
+            new CfLoad(ValueType.LONG, 0),
+            new CfLoad(ValueType.LONG, 10),
+            new CfConstNumber(-1, ValueType.LONG),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.LONG),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.LONG),
+            new CfLoad(ValueType.LONG, 12),
+            new CfLoad(ValueType.LONG, 10),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.LONG),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Or, NumericType.LONG),
+            new CfStore(ValueType.LONG, 0),
+            label21,
+            new CfIinc(15, -1),
+            new CfGoto(label17),
+            label22,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
+                    new FrameType[] {
+                      FrameType.longType(),
+                      FrameType.longHighType(),
+                      FrameType.longType(),
+                      FrameType.longHighType(),
+                      FrameType.longType(),
+                      FrameType.longHighType(),
+                      FrameType.longType(),
+                      FrameType.longHighType(),
+                      FrameType.oneWord(),
+                      FrameType.oneWord(),
+                      FrameType.oneWord(),
+                      FrameType.oneWord(),
+                      FrameType.oneWord(),
+                      FrameType.oneWord(),
+                      FrameType.initializedNonNullReference(factory.longArrayType),
+                      FrameType.intType()
+                    })),
+            new CfLoad(ValueType.LONG, 0),
+            new CfLoad(ValueType.LONG, 4),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.LONG),
+            new CfReturn(ValueType.LONG),
+            label23),
         ImmutableList.of(),
         ImmutableList.of());
   }
@@ -9948,6 +11407,109 @@ public final class BackportedMethods {
             new CfLoad(ValueType.OBJECT, 0),
             new CfReturn(ValueType.OBJECT),
             label6),
+        ImmutableList.of(),
+        ImmutableList.of());
+  }
+
+  public static CfCode ObjectsMethods_toIdentityString(DexItemFactory factory, DexMethod method) {
+    CfLabel label0 = new CfLabel();
+    CfLabel label1 = new CfLabel();
+    CfLabel label2 = new CfLabel();
+    CfLabel label3 = new CfLabel();
+    return new CfCode(
+        method.holder,
+        2,
+        1,
+        ImmutableList.of(
+            label0,
+            new CfLoad(ValueType.OBJECT, 0),
+            new CfIf(IfType.NE, ValueType.OBJECT, label2),
+            label1,
+            new CfNew(factory.createType("Ljava/lang/NullPointerException;")),
+            new CfStackInstruction(CfStackInstruction.Opcode.Dup),
+            new CfInvoke(
+                183,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/NullPointerException;"),
+                    factory.createProto(factory.voidType),
+                    factory.createString("<init>")),
+                false),
+            new CfThrow(),
+            label2,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0},
+                    new FrameType[] {FrameType.initializedNonNullReference(factory.objectType)})),
+            new CfNew(factory.stringBuilderType),
+            new CfStackInstruction(CfStackInstruction.Opcode.Dup),
+            new CfInvoke(
+                183,
+                factory.createMethod(
+                    factory.stringBuilderType,
+                    factory.createProto(factory.voidType),
+                    factory.createString("<init>")),
+                false),
+            new CfLoad(ValueType.OBJECT, 0),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.objectType,
+                    factory.createProto(factory.classType),
+                    factory.createString("getClass")),
+                false),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.classType,
+                    factory.createProto(factory.stringType),
+                    factory.createString("getName")),
+                false),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.stringBuilderType,
+                    factory.createProto(factory.stringBuilderType, factory.stringType),
+                    factory.createString("append")),
+                false),
+            new CfConstString(factory.createString("@")),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.stringBuilderType,
+                    factory.createProto(factory.stringBuilderType, factory.stringType),
+                    factory.createString("append")),
+                false),
+            new CfLoad(ValueType.OBJECT, 0),
+            new CfInvoke(
+                184,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/System;"),
+                    factory.createProto(factory.intType, factory.objectType),
+                    factory.createString("identityHashCode")),
+                false),
+            new CfInvoke(
+                184,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/Integer;"),
+                    factory.createProto(factory.stringType, factory.intType),
+                    factory.createString("toHexString")),
+                false),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.stringBuilderType,
+                    factory.createProto(factory.stringBuilderType, factory.stringType),
+                    factory.createString("append")),
+                false),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.stringBuilderType,
+                    factory.createProto(factory.stringType),
+                    factory.createString("toString")),
+                false),
+            new CfReturn(ValueType.OBJECT),
+            label3),
         ImmutableList.of(),
         ImmutableList.of());
   }

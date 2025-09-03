@@ -205,4 +205,60 @@ public final class LongMethods {
       return new String(buf, i, buf.length - i);
     }
   }
+
+  public static long compress(long lng, long mask) {
+    long maskCount, maskPrefix, maskMove, bitsToMove;
+    // Clear irrelevant bits.
+    lng = lng & mask;
+    // Count 0's to right.
+    maskCount = ~mask << 1;
+    for (int i = 0; i < 6; i++) {
+      // Parallel suffix.
+      maskPrefix = maskCount ^ (maskCount << 1);
+      maskPrefix = maskPrefix ^ (maskPrefix << 2);
+      maskPrefix = maskPrefix ^ (maskPrefix << 4);
+      maskPrefix = maskPrefix ^ (maskPrefix << 8);
+      maskPrefix = maskPrefix ^ (maskPrefix << 16);
+      maskPrefix = maskPrefix ^ (maskPrefix << 32);
+      maskMove = maskPrefix & mask;
+      // Compress mask.
+      mask = (mask ^ maskMove) | (maskMove >>> (1 << i));
+      bitsToMove = lng & maskMove;
+      // Compress integer.
+      lng = (lng ^ bitsToMove) | (bitsToMove >>> (1 << i));
+      // Adjust the mask count by identifying bits that have 0 to the right
+      maskCount = maskCount & ~maskPrefix;
+    }
+    return lng;
+  }
+
+  public static long expand(long lng, long mask) {
+    long originalMask, maskCount, maskPrefix, maskMove, bitsToMove;
+    long[] array = new long[6];
+    int i;
+    originalMask = mask;
+    // Count 0's to right.
+    maskCount = ~mask << 1;
+    for (i = 0; i < 6; i++) {
+      // Parallel suffix.
+      maskPrefix = maskCount ^ (maskCount << 1);
+      maskPrefix = maskPrefix ^ (maskPrefix << 2);
+      maskPrefix = maskPrefix ^ (maskPrefix << 4);
+      maskPrefix = maskPrefix ^ (maskPrefix << 8);
+      maskPrefix = maskPrefix ^ (maskPrefix << 16);
+      maskPrefix = maskPrefix ^ (maskPrefix << 32);
+      maskMove = maskPrefix & mask;
+      array[i] = maskMove;
+      // Compress mask.
+      mask = (mask ^ maskMove) | (maskMove >>> (1 << i));
+      maskCount = maskCount & ~maskPrefix;
+    }
+    for (i = 5; i >= 0; i--) {
+      maskMove = array[i];
+      bitsToMove = lng << (1 << i);
+      lng = (lng & ~maskMove) | (bitsToMove & maskMove);
+    }
+    // Clear out extraneous bits.
+    return lng & originalMask;
+  }
 }

@@ -11,7 +11,6 @@ import com.android.tools.r8.cf.code.CfLabel;
 import com.android.tools.r8.cf.code.CfLoad;
 import com.android.tools.r8.cf.code.CfPosition;
 import com.android.tools.r8.cf.code.CfReturnVoid;
-import com.android.tools.r8.dex.CodeToKeep;
 import com.android.tools.r8.dex.IndexedItemCollection;
 import com.android.tools.r8.dex.MixedSectionCollection;
 import com.android.tools.r8.dex.code.DexInvokeDirect;
@@ -441,11 +440,6 @@ public class DefaultInstanceInitializerCode extends Code
     new DexInvokeDirect(1, parentConstructor, 0, 0, 0, 0, 0)
         .write(shortBuffer, context, graphLens, codeLens, mapping, lensCodeRewriter);
     new DexReturnVoid().write(shortBuffer, context, graphLens, codeLens, mapping, lensCodeRewriter);
-  }
-
-  @Override
-  public void writeKeepRulesForDesugaredLibrary(CodeToKeep codeToKeep) {
-    // Intentionally empty.
   }
 
   @Override

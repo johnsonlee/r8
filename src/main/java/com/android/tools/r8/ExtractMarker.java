@@ -83,8 +83,7 @@ public class ExtractMarker {
     InternalOptions options = new InternalOptions();
     options.skipReadingDexCode = true;
     options.setMinApiLevel(AndroidApiLevel.P);
-    DexApplication dexApp =
-        new ApplicationReader(app, options, Timing.create("ExtractMarker", options)).read();
+    DexApplication dexApp = new ApplicationReader(app, options, Timing.empty()).read();
     return dexApp.dexItemFactory.extractMarkers();
   }
 

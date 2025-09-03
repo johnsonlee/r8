@@ -156,7 +156,7 @@ public class VerticalClassMerger {
     // Finally update the code lens to signal that the code is fully up to date.
     markRewrittenWithLens(executorService, timing);
 
-    appView.dexItemFactory().clearTypeElementsCache();
+    appView.getTypeElementFactory().clearTypeElementsCache();
     appView.notifyOptimizationFinishedForTesting();
   }
 
@@ -189,7 +189,8 @@ public class VerticalClassMerger {
         ThreadUtils.processItemsWithResults(
             connectedComponents,
             connectedComponent -> {
-              Timing threadTiming = Timing.create("Compute classes to merge in component", options);
+              Timing threadTiming =
+                  timing.createThreadTiming("Compute classes to merge in component", options);
               ConnectedComponentVerticalClassMerger connectedComponentMerger =
                   new VerticalClassMergerPolicyExecutor(appView, immediateSubtypingInfo)
                       .run(connectedComponent, policies, executorService, threadTiming);
@@ -223,7 +224,8 @@ public class VerticalClassMerger {
         ThreadUtils.processItemsWithResults(
             connectedComponentMergers,
             connectedComponentMerger -> {
-              Timing threadTiming = Timing.create("Merge classes in component", options);
+              Timing threadTiming =
+                  timing.createThreadTiming("Merge classes in component", options);
               VerticalClassMergerResult.Builder verticalClassMergerComponentResult =
                   connectedComponentMerger.run(classMergerSharedData);
               verticalClassMergerResult.merge(verticalClassMergerComponentResult);

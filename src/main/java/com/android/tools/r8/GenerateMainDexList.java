@@ -38,18 +38,18 @@ import java.util.concurrent.ExecutorService;
 
 @KeepForApi
 public class GenerateMainDexList {
-  private final Timing timing;
+
   private final InternalOptions options;
 
   public GenerateMainDexList(InternalOptions options) {
-    timing = Timing.create("maindex", options);
     this.options = options;
   }
 
   private void run(AndroidApp app, ExecutorService executor, SortingStringConsumer consumer)
       throws IOException {
     try {
-      DexApplication application = new ApplicationReader(app, options, timing).read(executor);
+      DexApplication application =
+          new ApplicationReader(app, options, Timing.empty()).read(executor);
       traceMainDexForGenerateMainDexList(executor, application)
           .forEach(type -> consumer.accept(type.toBinaryName() + ".class", options.reporter));
       consumer.finished(options.reporter);
@@ -97,7 +97,7 @@ public class GenerateMainDexList {
     Enqueuer enqueuer =
         EnqueuerFactory.createForGenerateMainDexList(
             appView, executor, subtypingInfo, graphConsumer);
-    MainDexInfo mainDexInfo = enqueuer.traceMainDex(executor, timing);
+    MainDexInfo mainDexInfo = enqueuer.traceMainDex(executor, Timing.empty());
     R8.processWhyAreYouKeepingAndCheckDiscarded(
         mainDexRootSet,
         () -> {
@@ -116,7 +116,7 @@ public class GenerateMainDexList {
         enqueuer,
         true,
         options,
-        timing,
+        Timing.empty(),
         executor);
 
     return mainDexInfo;

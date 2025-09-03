@@ -55,6 +55,9 @@ def parse_options(argv):
         'Enable Java debug agent and suspend compilation (default disabled)',
         default=False,
         action='store_true')
+    result.add_argument('--dump-trace-to-directory',
+                        '--dump_trace_to_directory',
+                        help='Dump perfetto trace to the given directory')
     result.add_argument('--nolib',
                         '--no-lib',
                         '--no-r8lib',
@@ -78,6 +81,11 @@ def parse_options(argv):
                         type=int)
     result.add_argument('--output',
                         help='Output path where to write the result')
+    result.add_argument('--perfetto-memory',
+                        '--perfetto_memory',
+                        help='Include memory usage in perfetto trace',
+                        default=False,
+                        action='store_true')
     result.add_argument('--print-times',
                         help='Print timing information from r8',
                         default=False,
@@ -116,6 +124,9 @@ def main(argv, temp):
 
     if options.output:
         options.output = os.path.abspath(options.output)
+
+    if options.dump_trace_to_directory:
+        options.dump_trace_to_directory = os.path.abspath(options.dump_trace_to_directory)
 
     if options.temp:
         temp = options.temp
@@ -186,6 +197,11 @@ def run(options, r8jar, testjars):
     ]
     if options.enable_assertions:
         cmd.append('-ea')
+    if options.dump_trace_to_directory is not None:
+        cmd.append('-Dcom.android.tools.r8.dumptracetodirectory=' +
+                   options.dump_trace_to_directory)
+        if options.perfetto_memory:
+            cmd.append('-Dcom.android.tools.r8.perfetto.memory=1')
     if options.print_times:
         cmd.append('-Dcom.android.tools.r8.printtimes=1')
     if not options.golem:

@@ -38,14 +38,14 @@ public class SyntheticInitializerConverter {
 
   public void convertClassInitializers(ExecutorService executorService) throws ExecutionException {
     if (!classInitializers.isEmpty()) {
-      assert appView.dexItemFactory().verifyNoCachedTypeElements();
+      assert appView.getTypeElementFactory().verifyNoCachedTypeElements();
       IRConverter converter = new IRConverter(appView);
       ThreadUtils.processItems(
           classInitializers,
           method -> processMethod(method, converter),
           appView.options().getThreadingModule(),
           executorService);
-      appView.dexItemFactory().clearTypeElementsCache();
+      appView.getTypeElementFactory().clearTypeElementsCache();
     }
   }
 

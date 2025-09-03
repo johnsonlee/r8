@@ -5,8 +5,6 @@ package com.android.tools.r8.utils.timing;
 
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.SystemPropertyUtils;
-import com.android.tools.r8.utils.ThrowingAction;
-import com.android.tools.r8.utils.ThrowingSupplier;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
@@ -14,7 +12,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
-public class TimingImpl extends Timing {
+public class TimingImpl extends TimingImplBase {
 
   private static final int MINIMUM_REPORT_MS =
       SystemPropertyUtils.parseSystemPropertyOrDefault(
@@ -367,31 +365,6 @@ public class TimingImpl extends Timing {
     }
     stack.push(child);
     return this;
-  }
-
-  @Override
-  public <E extends Exception> void time(String title, ThrowingAction<E> action) throws E {
-    begin(title);
-    try {
-      action.execute();
-    } finally {
-      end();
-    }
-  }
-
-  @Override
-  public <T, E extends Exception> T time(String title, ThrowingSupplier<T, E> supplier) throws E {
-    begin(title);
-    try {
-      return supplier.get();
-    } finally {
-      end();
-    }
-  }
-
-  @Override
-  public final void close() {
-    end();
   }
 
   @Override

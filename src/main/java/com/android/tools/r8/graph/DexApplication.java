@@ -9,7 +9,6 @@ package com.android.tools.r8.graph;
 import com.android.tools.r8.DataResourceProvider;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.naming.ClassNameMapper;
-import com.android.tools.r8.synthesis.SyntheticDefinitionsProvider;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.ImmutableList;
@@ -53,31 +52,6 @@ public abstract class DexApplication implements DexDefinitionSupplier {
   @Override
   public DexItemFactory dexItemFactory() {
     return dexItemFactory;
-  }
-
-  public DexDefinitionSupplier getDefinitionsSupplier(
-      SyntheticDefinitionsProvider syntheticDefinitionsProvider) {
-    DexApplication self = this;
-    return new DexDefinitionSupplier() {
-      @Override
-      public ClassResolutionResult contextIndependentDefinitionForWithResolutionResult(
-          DexType type) {
-        return syntheticDefinitionsProvider.definitionFor(
-            type, self::contextIndependentDefinitionForWithResolutionResult);
-      }
-
-      @Override
-      public DexClass definitionFor(DexType type) {
-        return syntheticDefinitionsProvider
-            .definitionFor(type, self::contextIndependentDefinitionForWithResolutionResult)
-            .toSingleClassWithProgramOverLibrary();
-      }
-
-      @Override
-      public DexItemFactory dexItemFactory() {
-        return self.dexItemFactory;
-      }
-    };
   }
 
   // Reorder classes randomly. Note that the order of classes in program or library
@@ -151,6 +125,13 @@ public abstract class DexApplication implements DexDefinitionSupplier {
 
   @Override
   public abstract DexClass definitionFor(DexType type);
+
+  // Retrieves the program or classpath definition corresponding to the given type. If the type is
+  // also defined on the library, then this always returns null. Note that this may return null even
+  // when the given type is only defined in the program, since this is unimplemented in the lazy
+  // app implementation.
+  public abstract ProgramOrClasspathClass definitionForProgramOrClasspathClassNotOnLibrary(
+      DexType type);
 
   public abstract DexProgramClass programDefinitionFor(DexType type);
 

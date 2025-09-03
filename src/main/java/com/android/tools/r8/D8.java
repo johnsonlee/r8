@@ -202,7 +202,7 @@ public final class D8 {
       System.out.println("D8 is running with free memory:" + runtime.freeMemory());
       System.out.println("D8 is running with max memory:" + runtime.maxMemory());
     }
-    Timing timing = Timing.createRoot("D8 " + Version.LABEL, options);
+    Timing timing = Timing.createRoot("D8 " + Version.LABEL, options, executor);
     try {
       timing.begin("Pre conversion");
       // Synthetic assertion to check that testing assertions works and can be enabled.
@@ -296,7 +296,7 @@ public final class D8 {
       // which will construct a graph lens.
       if (options.isGeneratingDex() && !options.mainDexKeepRules.isEmpty()) {
         timing.begin("Generate main-dex list");
-        appView.dexItemFactory().clearTypeElementsCache();
+        appView.getTypeElementFactory().clearTypeElementsCache();
         MainDexInfo mainDexInfo =
             new GenerateMainDexList(options).traceMainDexForD8(appView, executor);
         appView.setAppInfo(appView.appInfo().rebuildWithMainDexInfo(mainDexInfo));

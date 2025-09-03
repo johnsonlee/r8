@@ -17,7 +17,8 @@ LATEST_VERSION = '17.19'
 VERSIONS = {
     '17.19': {
         'deploy': {
-            'sanitize_libraries': False,
+            'sanitize_libraries':
+                False,
             'inputs': ['%s_deploy.jar' % V17_19_PREFIX],
             'libraries': [
                 os.path.join(
@@ -30,29 +31,13 @@ VERSIONS = {
                 '%s/proguardsettings/YouTubeRelease_proguard.config' %
                 utils.THIRD_PARTY, utils.IGNORE_WARNINGS_RULES
             ],
-            'min-api': ANDROID_M_API,
+            'min-api':
+                ANDROID_M_API,
             'system-properties': [
                 # TODO(b/235169948): Reenable -checkenumunboxed.
                 # '-Dcom.android.tools.r8.experimental.enablecheckenumunboxed=1',
                 '-Dcom.android.tools.r8.experimental.enableconvertchecknotnull=1'
             ],
-            'android_java8_libs': {
-                'config':
-                    '%s/desugar_jdk_libs/full_desugar_jdk_libs.json' %
-                    V17_19_BASE,
-                # Intentionally not adding desugar_jdk_libs_configuration.jar since it
-                # is part of jdk_libs_to_desugar.jar in YouTube 17.19.
-                'program': [
-                    '%s/desugar_jdk_libs/jdk_libs_to_desugar.jar' % V17_19_BASE
-                ],
-                'library':
-                    '%s/android_jar/lib-v33/android.jar' % utils.THIRD_PARTY,
-                'pgconf': [
-                    '%s/desugar_jdk_libs/base.pgcfg' % V17_19_BASE,
-                    '%s/desugar_jdk_libs/minify_desugar_jdk_libs.pgcfg' %
-                    V17_19_BASE
-                ]
-            }
         },
     },
 }

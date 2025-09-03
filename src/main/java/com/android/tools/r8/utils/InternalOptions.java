@@ -388,11 +388,17 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   }
 
   public boolean printTimes = System.getProperty("com.android.tools.r8.printtimes") != null;
+  public String perfettoTraceDumpDirectory =
+      System.getProperty("com.android.tools.r8.dumptracetodirectory");
+  public boolean enablePerfettoTraceMemoryTrack =
+      SystemPropertyUtils.parseSystemPropertyOrDefault(
+          "com.android.tools.r8.perfetto.memory", false);
   // To print memory one also have to enable printtimes.
   public boolean printMemory = System.getProperty("com.android.tools.r8.printmemory") != null;
 
   public boolean isPrintTimesReportingEnabled() {
-    return printTimes && partialSubCompilationConfiguration == null;
+    return (printTimes || perfettoTraceDumpDirectory != null)
+        && partialSubCompilationConfiguration == null;
   }
 
   // TODO(b/340669208): Figure out if this should be default behavior.
@@ -1341,10 +1347,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   public StringConsumer configurationConsumer = null;
 
   public boolean relocatorCompilation = false;
-
-  // If null, no keep rules are recorded.
-  // If non null it records desugared library APIs used by the program.
-  public StringConsumer desugaredLibraryKeepRuleConsumer = null;
 
   // If null, no graph information needs to be provided for the keep/inclusion of classes
   // in the output. If non-null, each edge pertaining to kept parts of the resulting program

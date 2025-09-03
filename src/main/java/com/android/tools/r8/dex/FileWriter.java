@@ -100,7 +100,6 @@ public class FileWriter {
   private final InternalOptions options;
   private final DexOutputBuffer dest;
   private final MixedSectionOffsets mixedSectionOffsets;
-  private final CodeToKeep desugaredLibraryCodeToKeep;
   private final VirtualFile virtualFile;
   private final boolean includeStringData;
 
@@ -108,13 +107,11 @@ public class FileWriter {
       AppView<?> appView,
       ByteBufferProvider provider,
       ObjectToOffsetMapping mapping,
-      CodeToKeep desugaredLibraryCodeToKeep,
       VirtualFile virtualFile) {
     this(
         appView,
         new DexOutputBuffer(provider),
         mapping,
-        desugaredLibraryCodeToKeep,
         virtualFile,
         true);
   }
@@ -123,7 +120,6 @@ public class FileWriter {
       AppView<?> appView,
       DexOutputBuffer dexOutputBuffer,
       ObjectToOffsetMapping mapping,
-      CodeToKeep desugaredLibraryCodeToKeep,
       VirtualFile virtualFile,
       boolean includeStringData) {
     this.appView = appView;
@@ -132,7 +128,6 @@ public class FileWriter {
     this.options = appView.options();
     this.dest = dexOutputBuffer;
     this.mixedSectionOffsets = new MixedSectionOffsets(options);
-    this.desugaredLibraryCodeToKeep = desugaredLibraryCodeToKeep;
     this.virtualFile = virtualFile;
     this.includeStringData = includeStringData;
   }
@@ -548,7 +543,6 @@ public class FileWriter {
   }
 
   private void writeClassDefItem(DexProgramClass clazz) {
-    desugaredLibraryCodeToKeep.recordHierarchyOf(clazz);
     dest.putInt(mapping.getOffsetFor(clazz.type));
     dest.putInt(clazz.accessFlags.getAsDexAccessFlags());
     dest.putInt(
@@ -583,7 +577,7 @@ public class FileWriter {
     int insnSizeOffset = dest.position();
     dest.forward(4);
     // Write instruction stream.
-    dest.putInstructions(appView, code, method, mapping, desugaredLibraryCodeToKeep);
+    dest.putInstructions(appView, code, method, mapping);
     // Compute size and do the backward/forward dance to write the size at the beginning.
     int insnSize = dest.position() - insnSizeOffset - 4;
     dest.rewind(insnSize + 4);
@@ -611,7 +605,6 @@ public class FileWriter {
         for (TypeAddrPair pair : handler.pairs) {
           dest.putUleb128(mapping.getOffsetFor(pair.getType(graphLens, codeLens)));
           dest.putUleb128(pair.addr);
-          desugaredLibraryCodeToKeep.recordClass(pair.getType(graphLens, codeLens));
         }
         if (hasCatchAll) {
           dest.putUleb128(handler.catchAllAddr);
@@ -720,7 +713,6 @@ public class FileWriter {
       dest.putUleb128(nextOffset - currentOffset);
       currentOffset = nextOffset;
       dest.putUleb128(field.accessFlags.getAsDexAccessFlags());
-      desugaredLibraryCodeToKeep.recordField(field.getReference());
     }
   }
 
@@ -737,7 +729,6 @@ public class FileWriter {
       currentOffset = nextOffset;
       dest.putUleb128(method.accessFlags.getAsDexAccessFlags());
       DexWritableCode code = method.getDexWritableCodeOrNull();
-      desugaredLibraryCodeToKeep.recordMethod(method.getReference());
       if (code == null) {
         assert method.shouldNotHaveCode();
         dest.putUleb128(0);

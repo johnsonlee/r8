@@ -7,7 +7,6 @@ import static com.android.tools.r8.graph.DexDebugEventBuilder.addDefaultEventWit
 import static com.android.tools.r8.utils.DexDebugUtils.computePreamblePosition;
 import static com.android.tools.r8.utils.DexDebugUtils.verifySetPositionFramesFollowedByDefaultEvent;
 
-import com.android.tools.r8.dex.CodeToKeep;
 import com.android.tools.r8.dex.IndexedItemCollection;
 import com.android.tools.r8.dex.MixedSectionCollection;
 import com.android.tools.r8.dex.code.CfOrDexInstruction;
@@ -853,26 +852,6 @@ public class DexCode extends Code
       size += insn.getSize();
     }
     return size;
-  }
-
-  @Override
-  public void writeKeepRulesForDesugaredLibrary(CodeToKeep desugaredLibraryCodeToKeep) {
-    for (DexInstruction instruction : instructions) {
-      DexMethod method = instruction.getMethod();
-      DexField field = instruction.getField();
-      if (field != null) {
-        assert method == null;
-        desugaredLibraryCodeToKeep.recordField(field);
-      } else if (method != null) {
-        desugaredLibraryCodeToKeep.recordMethod(method);
-      } else if (instruction.isConstClass()) {
-        desugaredLibraryCodeToKeep.recordClass(instruction.asConstClass().getType());
-      } else if (instruction.isInstanceOf()) {
-        desugaredLibraryCodeToKeep.recordClass(instruction.asInstanceOf().getType());
-      } else if (instruction.isCheckCast()) {
-        desugaredLibraryCodeToKeep.recordClass(instruction.asCheckCast().getType());
-      }
-    }
   }
 
   @Override

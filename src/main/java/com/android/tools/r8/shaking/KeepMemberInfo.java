@@ -31,7 +31,7 @@ public abstract class KeepMemberInfo<B extends Builder<B, K>, K extends KeepMemb
   }
 
   public boolean isValuePropagationAllowed(
-      AppView<AppInfoWithLiveness> appView, ProgramMember<?, ?> member) {
+      AppView<? extends AppInfoWithLiveness> appView, ProgramMember<?, ?> member) {
     InternalOptions options = appView.options();
     if (!internalIsValuePropagationAllowed()) {
       return false;
@@ -91,10 +91,18 @@ public abstract class KeepMemberInfo<B extends Builder<B, K>, K extends KeepMemb
     }
   }
 
+  private boolean internalBooleanEquals(K other) {
+    return allowValuePropagation == other.internalIsValuePropagationAllowed();
+  }
+
+  @Override
+  public boolean equalsWithAnnotations(K other) {
+    return super.equalsWithAnnotations(other) && internalBooleanEquals(other);
+  }
+
   @Override
   public boolean equalsNoAnnotations(K other) {
-    return super.equalsNoAnnotations(other)
-        && (allowValuePropagation == other.internalIsValuePropagationAllowed());
+    return super.equalsNoAnnotations(other) && internalBooleanEquals(other);
   }
 
   @Override
@@ -103,6 +111,17 @@ public abstract class KeepMemberInfo<B extends Builder<B, K>, K extends KeepMemb
     int index = super.numberOfBooleans();
     hash += bit(allowValuePropagation, index);
     return hash;
+  }
+
+  protected static boolean handle(String key, String value, Builder<?, ?> builder) {
+    if (KeepInfo.handle(key, value, builder)) {
+      return true;
+    }
+    if (key.equals("allowValuePropagation")) {
+      builder.setAllowValuePropagation(Boolean.parseBoolean(value));
+      return true;
+    }
+    return false;
   }
 
   @Override

@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.ir.conversion;
 
+import static com.google.common.base.Predicates.alwaysTrue;
+
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.Code;
 import com.android.tools.r8.graph.DexClass;
@@ -20,7 +22,6 @@ import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.collections.ImmutableDeque;
 import com.android.tools.r8.utils.timing.Timing;
-import com.android.tools.r8.utils.timing.TimingMerger;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -169,21 +170,17 @@ public abstract class ClassConverter {
       // Process the wave and wait for all IR processing to complete.
       methodProcessor.newWave();
       checkWaveDeterminism(wave);
-      TimingMerger merger = timing.beginMerger("Class conversion", executorService);
-      Collection<Timing> timings =
-          ThreadUtils.processItemsWithResults(
-              wave,
-              clazz -> {
-                Timing threadTiming =
-                    convertClass(clazz, instructionDesugaringEventConsumerForWave);
-                threadTiming.end();
-                return threadTiming;
-              },
-              appView.options().getThreadingModule(),
-              executorService);
+      ThreadUtils.processItemsThatMatches(
+          wave,
+          alwaysTrue(),
+          (clazz, threadTiming) ->
+              convertClass(clazz, instructionDesugaringEventConsumerForWave, threadTiming),
+          appView.options(),
+          executorService,
+          timing,
+          timing.beginMerger("Class conversion", executorService),
+          (i, clazz) -> clazz.getTypeName());
       methodProcessor.awaitMethodProcessing();
-      merger.add(timings);
-      merger.end();
 
       // Finalize the desugaring of the processed classes. This may require processing (and
       // reprocessing) of some methods.
@@ -279,8 +276,10 @@ public abstract class ClassConverter {
             });
   }
 
-  abstract Timing convertClass(
-      DexProgramClass clazz, CfInstructionDesugaringEventConsumer desugaringEventConsumer);
+  abstract void convertClass(
+      DexProgramClass clazz,
+      CfInstructionDesugaringEventConsumer desugaringEventConsumer,
+      Timing timing);
 
   void convertMethods(
       DexProgramClass clazz,
@@ -305,11 +304,11 @@ public abstract class ClassConverter {
     }
 
     @Override
-    Timing convertClass(
-        DexProgramClass clazz, CfInstructionDesugaringEventConsumer desugaringEventConsumer) {
-      Timing threadTiming = Timing.create(clazz.getTypeName(), appView.options());
-      convertMethods(clazz, desugaringEventConsumer, threadTiming);
-      return threadTiming;
+    void convertClass(
+        DexProgramClass clazz,
+        CfInstructionDesugaringEventConsumer desugaringEventConsumer,
+        Timing timing) {
+      convertMethods(clazz, desugaringEventConsumer, timing);
     }
 
     @Override
@@ -331,18 +330,18 @@ public abstract class ClassConverter {
     }
 
     @Override
-    Timing convertClass(
-        DexProgramClass clazz, CfInstructionDesugaringEventConsumer desugaringEventConsumer) {
+    void convertClass(
+        DexProgramClass clazz,
+        CfInstructionDesugaringEventConsumer desugaringEventConsumer,
+        Timing timing) {
       // Classes which has already been through library desugaring will not go through IR
       // processing again.
-      Timing threadTiming = Timing.create(clazz.getTypeName(), appView.options());
       LibraryDesugaredChecker libraryDesugaredChecker = new LibraryDesugaredChecker(appView);
       if (libraryDesugaredChecker.isClassLibraryDesugared(clazz)) {
         alreadyLibraryDesugared.add(clazz.getType());
       } else {
-        convertMethods(clazz, desugaringEventConsumer, threadTiming);
+        convertMethods(clazz, desugaringEventConsumer, timing);
       }
-      return threadTiming;
     }
 
     @Override

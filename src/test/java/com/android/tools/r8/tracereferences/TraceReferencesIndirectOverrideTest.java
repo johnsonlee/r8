@@ -6,11 +6,12 @@ package com.android.tools.r8.tracereferences;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import com.android.tools.r8.DiagnosticsHandler;
+import com.android.tools.r8.StringConsumer;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
-import com.android.tools.r8.desugar.desugaredlibrary.test.TestingKeepRuleConsumer;
 import com.android.tools.r8.utils.NopDiagnosticsHandler;
 import com.android.tools.r8.utils.ZipUtils.ZipBuilder;
 import java.nio.file.Path;
@@ -70,5 +71,37 @@ public class TraceReferencesIndirectOverrideTest extends TestBase {
 
     @Override
     public void shouldBeKept() {}
+  }
+
+  private static class TestingKeepRuleConsumer implements StringConsumer {
+
+    StringBuilder stringBuilder = new StringBuilder();
+    String result = null;
+
+    @Override
+    public void accept(String string, DiagnosticsHandler handler) {
+      assert stringBuilder != null;
+      assert result == null;
+      stringBuilder.append(string);
+    }
+
+    @Override
+    public void finished(DiagnosticsHandler handler) {
+      assert stringBuilder != null;
+      assert result == null;
+      result = stringBuilder.toString();
+      stringBuilder = null;
+    }
+
+    public String get() {
+      // TODO(clement): remove that branch once StringConsumer has finished again.
+      if (stringBuilder != null) {
+        finished(null);
+      }
+
+      assert stringBuilder == null;
+      assert result != null;
+      return result;
+    }
   }
 }

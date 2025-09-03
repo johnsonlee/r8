@@ -98,6 +98,13 @@ public final class ObjectsMethods {
     return Objects.toString(o, "null");
   }
 
+  public static String toIdentityString(Object object) {
+    if (object == null) {
+      throw new NullPointerException();
+    }
+    return object.getClass().getName() + "@" + Integer.toHexString(System.identityHashCode(object));
+  }
+
   public static String toStringDefault(Object o, String nullDefault) {
     return o == null ? nullDefault : o.toString();
   }

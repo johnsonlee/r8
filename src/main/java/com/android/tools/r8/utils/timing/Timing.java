@@ -15,23 +15,37 @@ public abstract class Timing implements AutoCloseable {
     return TimingEmpty.getEmpty();
   }
 
-  public static Timing createRoot(String title, InternalOptions options) {
+  public static Timing createRoot(
+      String title, InternalOptions options, ExecutorService executorService) {
     if (options.partialSubCompilationConfiguration != null) {
       return options.partialSubCompilationConfiguration.timing;
     }
-    return create(title, options);
+    return internalCreate(title, options, executorService);
   }
 
-  public static Timing create(String title, InternalOptions options) {
+  private static Timing internalCreate(
+      String title, InternalOptions options, ExecutorService executorService) {
     // We also create a timer when running assertions to validate wellformedness of the node stack.
-    Timing timing =
-        options.printTimes || InternalOptions.assertionsEnabled()
-            ? new TimingImpl(title, options)
-            : Timing.empty();
+    Timing timing;
+    if (options.perfettoTraceDumpDirectory != null) {
+      timing = new PerfettoTiming(title, options, executorService);
+    } else if (options.printTimes) {
+      timing = new TimingImpl(title, options);
+    } else {
+      timing = Timing.empty();
+    }
     if (options.cancelCompilationChecker != null) {
       return new TimingWithCancellation(options, timing);
     }
     return timing;
+  }
+
+  public Timing createThreadTiming(String title, InternalOptions options) {
+    return internalCreate(title, options, null);
+  }
+
+  public void notifyThreadTimingFinished() {
+    // Intentionally empty.
   }
 
   public abstract Timing begin(String title);
@@ -44,6 +58,10 @@ public abstract class Timing implements AutoCloseable {
     return beginMerger(title, ThreadUtils.getNumberOfThreads(executorService));
   }
 
+  public boolean isEmpty() {
+    return false;
+  }
+
   public abstract <E extends Exception> void time(String title, ThrowingAction<E> action) throws E;
 
   public abstract <T, E extends Exception> T time(String title, ThrowingSupplier<T, E> supplier)
@@ -53,5 +71,7 @@ public abstract class Timing implements AutoCloseable {
 
   // Remove throws from close() in AutoClosable to allow try with resources without explicit catch.
   @Override
-  public abstract void close();
+  public final void close() {
+    end();
+  }
 }

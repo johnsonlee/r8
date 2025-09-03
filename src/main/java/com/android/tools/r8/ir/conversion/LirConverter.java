@@ -104,7 +104,7 @@ public class LirConverter {
         executorService);
     // Conversion to LIR via IR will allocate type elements.
     // They are not needed after construction so remove them again.
-    appView.dexItemFactory().clearTypeElementsCache();
+    appView.getTypeElementFactory().clearTypeElementsCache();
   }
 
   public static void rewriteLirWithLens(
@@ -168,7 +168,7 @@ public class LirConverter {
         executorService);
 
     // Clear the reference type cache after conversion to reduce memory pressure.
-    appView.dexItemFactory().clearTypeElementsCache();
+    appView.getTypeElementFactory().clearTypeElementsCache();
   }
 
   public static void rewriteLirMethodWithLens(
@@ -219,7 +219,8 @@ public class LirConverter {
               clazz.forEachProgramMethodMatching(
                   DexEncodedMethod::hasCode,
                   m -> {
-                    Timing threadTiming = Timing.create(m.toSourceString(), appView.options());
+                    Timing threadTiming =
+                        timing.createThreadTiming(m.toSourceString(), appView.options());
                     finalizeLirMethodToOutputFormat(
                         m, deadCodeRemover, appView, codeRewriterPassCollection, threadTiming);
                     threadTimings.add(threadTiming.end());
@@ -232,7 +233,7 @@ public class LirConverter {
     merger.end();
     timing.end();
     // Clear the reference type cache after conversion to reduce memory pressure.
-    appView.dexItemFactory().clearTypeElementsCache();
+    appView.getTypeElementFactory().clearTypeElementsCache();
     // At this point all code has been mapped according to the graph lens.
     assert appView.graphLens().isMemberRebindingIdentityLens()
         && appView.graphLens().asMemberRebindingIdentityLens().getPrevious() == appView.codeLens();
@@ -321,7 +322,7 @@ public class LirConverter {
     timing.end();
 
     // Clear the reference type cache after conversion to reduce memory pressure.
-    appView.dexItemFactory().clearTypeElementsCache();
+    appView.getTypeElementFactory().clearTypeElementsCache();
   }
 
   private static void finalizeClasspathLirMethodToOutputFormat(

@@ -18,6 +18,7 @@ import com.android.tools.r8.assistant.runtime.ReflectiveOperationJsonLogger;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.shaking.KeepInfoCollectionExported;
 import com.android.tools.r8.utils.Box;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -88,6 +89,13 @@ public class AtomicUpdaterJsonTest extends TestBase {
     assertTrue(updater0.isKeptBy(keepInfoCollectionExported));
     assertTrue(updater1.isKeptBy(keepInfoCollectionExported));
     assertTrue(updater2.isKeptBy(keepInfoCollectionExported));
+
+    File folder = temp.newFolder();
+    keepInfoCollectionExported.exportToDirectory(folder.toPath());
+    KeepInfoCollectionExported keepInfoCollectionExported2 =
+        KeepInfoCollectionExported.parse(folder.toPath());
+
+    assertEquals(keepInfoCollectionExported, keepInfoCollectionExported2);
   }
 
   public static class Instrumentation extends ReflectiveOperationJsonLogger {

@@ -353,6 +353,10 @@ public abstract class KeepAnnotationCollectionInfo {
 
   public abstract boolean isRemovalAllowed(DexAnnotation annotation);
 
+  public boolean isExported() {
+    return false;
+  }
+
   public boolean isLessThanOrEqualTo(KeepAnnotationCollectionInfo other) {
     if (this == other) {
       return true;
@@ -363,7 +367,24 @@ public abstract class KeepAnnotationCollectionInfo {
     if (isTop() || other.isBottom()) {
       return false;
     }
+    if (isExported() || other.isExported()) {
+      throw new Unreachable("Should not compare exported annotation collection info.");
+    }
     return asIntermediate().internalIsLessThanOrEqualTo(other.asIntermediate());
+  }
+
+  public boolean isEqualTo(KeepAnnotationCollectionInfo other) {
+    if (isTopOrBottom() || other.isTopOrBottom()) {
+      return this == other;
+    }
+    if (getClass() != other.getClass()) {
+      return false;
+    }
+    if (isExported()) {
+      return toString().equals(other.toString());
+    }
+    return asIntermediate().internalIsLessThanOrEqualTo(other.asIntermediate())
+        && other.asIntermediate().internalIsLessThanOrEqualTo(asIntermediate());
   }
 
   public static class Builder {
@@ -389,7 +410,7 @@ public abstract class KeepAnnotationCollectionInfo {
     private Map<DexType, KeepAnnotationInfo> specificTypeInfo = null;
     private boolean export = false;
 
-    private Builder(KeepAnnotationInfo anyTypeInfo) {
+    Builder(KeepAnnotationInfo anyTypeInfo) {
       assert anyTypeInfo != null;
       assert anyTypeInfo.isAnyType();
       this.anyTypeInfo = anyTypeInfo;

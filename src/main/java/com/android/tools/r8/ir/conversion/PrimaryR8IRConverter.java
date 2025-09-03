@@ -102,7 +102,7 @@ public class PrimaryR8IRConverter extends IRConverter {
                   primaryMethodProcessor,
                   methodProcessingContext,
                   MethodConversionOptions.forLirPhase(appView),
-                  Timing.create(method.toSourceString(), options)),
+                  timing.createThreadTiming(method.toSourceString(), options)),
           this::waveStart,
           this::waveDone,
           timing,
@@ -197,7 +197,7 @@ public class PrimaryR8IRConverter extends IRConverter {
                     postMethodProcessor,
                     methodProcessingContext,
                     MethodConversionOptions.forLirPhase(appView),
-                    Timing.create(method.toSourceString(), options)),
+                    timing.createThreadTiming(method.toSourceString(), options)),
             this,
             feedback,
             appView.options().getThreadingModule(),
@@ -252,25 +252,29 @@ public class PrimaryR8IRConverter extends IRConverter {
     }
   }
 
-  public void waveStart(ProgramMethodSet wave) {
+  public void waveStart(ProgramMethodSet wave, int waveId) {
     onWaveDoneActions = Collections.synchronizedList(new ArrayList<>());
+    timing.begin("Wave " + waveId);
   }
 
   public void waveDone(ProgramMethodSet wave, ExecutorService executorService) {
-    delayedOptimizationFeedback.refineAppInfoWithLiveness(appView.appInfo().withLiveness());
-    delayedOptimizationFeedback.updateVisibleOptimizationInfo();
-    if (fieldAccessAnalysis != null && fieldAccessAnalysis.fieldAssignmentTracker() != null) {
-      fieldAccessAnalysis.fieldAssignmentTracker().waveDone(wave, delayedOptimizationFeedback);
-    }
-    appView.withArgumentPropagator(ArgumentPropagator::waveDone);
-    if (appView.options().protoShrinking().enableRemoveProtoEnumSwitchMap()) {
-      appView.protoShrinker().protoEnumSwitchMapRemover.updateVisibleStaticFieldValues();
-    }
-    enumUnboxer.updateEnumUnboxingCandidatesInfo();
-    assert delayedOptimizationFeedback.noUpdatesLeft();
-    if (onWaveDoneActions != null) {
-      onWaveDoneActions.forEach(com.android.tools.r8.utils.Action::execute);
-      onWaveDoneActions = null;
+    timing.end();
+    try (Timing t0 = timing.begin("Wave done")) {
+      delayedOptimizationFeedback.refineAppInfoWithLiveness(appView.appInfo().withLiveness());
+      delayedOptimizationFeedback.updateVisibleOptimizationInfo();
+      if (fieldAccessAnalysis != null && fieldAccessAnalysis.fieldAssignmentTracker() != null) {
+        fieldAccessAnalysis.fieldAssignmentTracker().waveDone(wave, delayedOptimizationFeedback);
+      }
+      appView.withArgumentPropagator(ArgumentPropagator::waveDone);
+      if (appView.options().protoShrinking().enableRemoveProtoEnumSwitchMap()) {
+        appView.protoShrinker().protoEnumSwitchMapRemover.updateVisibleStaticFieldValues();
+      }
+      enumUnboxer.updateEnumUnboxingCandidatesInfo();
+      assert delayedOptimizationFeedback.noUpdatesLeft();
+      if (onWaveDoneActions != null) {
+        onWaveDoneActions.forEach(com.android.tools.r8.utils.Action::execute);
+        onWaveDoneActions = null;
+      }
     }
   }
 

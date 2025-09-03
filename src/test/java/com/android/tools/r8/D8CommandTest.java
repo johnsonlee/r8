@@ -98,17 +98,6 @@ public class D8CommandTest extends CommandTestBase<D8Command> {
   }
 
   @Test
-  public void desugaredLibraryKeepRuleConsumer() throws Exception {
-    StringConsumer stringConsumer = StringConsumer.emptyConsumer();
-    D8Command command =
-        D8Command.builder()
-            .setProgramConsumer(DexIndexedConsumer.emptyConsumer())
-            .setDesugaredLibraryKeepRuleConsumer(stringConsumer)
-            .build();
-    assertSame(command.getInternalOptions().desugaredLibraryKeepRuleConsumer, stringConsumer);
-  }
-
-  @Test
   public void defaultOutIsCwd() throws Throwable {
     Path working = temp.getRoot().toPath();
     Path input = Paths.get(EXAMPLES_BUILD_DIR + "/arithmetic.jar").toAbsolutePath();
@@ -715,41 +704,6 @@ public class D8CommandTest extends CommandTestBase<D8Command> {
             .getMachineDesugaredLibrarySpecification()
             .getRewriteType()
             .isEmpty());
-  }
-
-  @Test
-  public void desugaredLibraryWithOutputConf() throws CompilationFailedException, IOException {
-    Path pgout = temp.getRoot().toPath().resolve("pgout.conf");
-    D8Command d8Command =
-        parse(
-            "--desugared-lib",
-            LibraryDesugaringSpecification.JDK11.getSpecification().toString(),
-            "--lib",
-            ToolHelper.getAndroidJar(AndroidApiLevel.R).toString(),
-            "--desugared-lib-pg-conf-output",
-            pgout.toString());
-    InternalOptions options = getOptionsWithLoadedDesugaredLibraryConfiguration(d8Command, false);
-    assertFalse(
-        options
-            .getLibraryDesugaringOptions()
-            .getMachineDesugaredLibrarySpecification()
-            .getRewriteType()
-            .isEmpty());
-  }
-
-  @Test
-  public void desugaredLibraryWithOutputConfMissingArg() {
-    TestDiagnosticMessagesImpl diagnostics = new TestDiagnosticMessagesImpl();
-    try {
-      parse(
-          diagnostics,
-          "--desugared-lib",
-          LibraryDesugaringSpecification.JDK11.getSpecification().toString(),
-          "--desugared-lib-pg-conf-output");
-      fail("Expected parse error");
-    } catch (CompilationFailedException e) {
-      diagnostics.assertErrorsMatch(diagnosticMessage(containsString("Missing parameter")));
-    }
   }
 
   @Test

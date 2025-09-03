@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.internal;
 
+import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
 import static com.android.tools.r8.ToolHelper.isLocalDevelopment;
 import static com.android.tools.r8.ToolHelper.shouldRunSlowTests;
 import static com.android.tools.r8.internal.proto.ProtoShrinkingTestBase.assertRewrittenProtoSchemasMatch;
@@ -11,6 +12,7 @@ import static com.android.tools.r8.internal.proto.ProtoShrinkingTestBase.keepDyn
 import static com.android.tools.r8.internal.proto.ProtoShrinkingTestBase.keepNewMessageInfoSignatureRule;
 import static org.hamcrest.CoreMatchers.anyOf;
 import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.CoreMatchers.equalTo;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
@@ -38,7 +40,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.concurrent.ExecutionException;
 import org.junit.After;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -138,9 +139,6 @@ public class YouTubeV1719Test extends YouTubeCompilationTestBase {
    */
   @Test
   public void testR8() throws Exception {
-    assumeTrue(isLocalDevelopment());
-    assumeTrue(shouldRunSlowTests());
-
     // Compile app using R8, passing the startup list.
     R8TestCompileResult r8CompileResult =
         compileApplicationWithR8(
@@ -185,7 +183,7 @@ public class YouTubeV1719Test extends YouTubeCompilationTestBase {
       dump(r8CompileResult, l8R8CompileResult);
     }
 
-    inspect(r8CompileResult, l8CompileResult);
+    inspect(r8CompileResult, l8R8CompileResult);
   }
 
   /**
@@ -242,12 +240,28 @@ public class YouTubeV1719Test extends YouTubeCompilationTestBase {
   }
 
   private L8TestCompileResult compileDesugaredLibraryWithL8()
-      throws CompilationFailedException, IOException, ExecutionException {
+      throws CompilationFailedException, IOException {
     return testForL8(getApiLevel(), Backend.CF)
         .setDesugaredLibrarySpecification(getDesugaredLibraryConfiguration())
         .addProgramFiles(getDesugaredLibraryJDKLibs())
         .addLibraryFiles(getLibraryFileWithoutDesugaredLibrary())
-        .compile();
+        .compileWithExpectedDiagnostics(
+            diagnostics -> {
+              diagnostics
+                  .assertNoInfos()
+                  .assertWarningsMatch(
+                      diagnosticMessage(
+                          equalTo(
+                              "Human desugared library specification format version 100 mismatches "
+                                  + "the parser expected version (101). This is allowed and should "
+                                  + "happen only while extending the specifications.")),
+                      diagnosticMessage(
+                          equalTo(
+                              "Retargeting non final method java.nio.channels.FileChannel"
+                                  + " java.io.FileInputStream.getChannel() which could lead to"
+                                  + " invalid runtime execution in overrides.")))
+                  .assertNoErrors();
+            });
   }
 
   private R8TestCompileResult compileDesugaredLibraryWithR8(
@@ -263,10 +277,10 @@ public class YouTubeV1719Test extends YouTubeCompilationTestBase {
         .compile();
   }
 
-  private void inspect(R8TestCompileResult r8CompileResult, L8TestCompileResult l8CompileResult)
+  private void inspect(R8TestCompileResult r8CompileResult, R8TestCompileResult l8R8CompileResult)
       throws IOException, ResourceException {
     r8CompileResult.runDex2Oat(parameters.getRuntime()).assertNoVerificationErrors();
-    l8CompileResult.runDex2Oat(parameters.getRuntime()).assertNoVerificationErrors();
+    l8R8CompileResult.runDex2Oat(parameters.getRuntime()).assertNoVerificationErrors();
 
     int applicationSize = r8CompileResult.getApp().applicationSize();
     if (applicationSize > MAX_APPLICATION_SIZE) {
@@ -277,7 +291,7 @@ public class YouTubeV1719Test extends YouTubeCompilationTestBase {
               + applicationSize);
     }
 
-    int desugaredLibrarySize = l8CompileResult.getApp().applicationSize();
+    int desugaredLibrarySize = l8R8CompileResult.getApp().applicationSize();
     if (desugaredLibrarySize > MAX_DESUGARED_LIBRARY_SIZE) {
       reporter.error(
           "Expected desugared library size to be <="

@@ -96,8 +96,7 @@ public class DexOutputBuffer {
       AppView<?> appView,
       DexWritableCode code,
       ProgramMethod context,
-      ObjectToOffsetMapping mapping,
-      CodeToKeep desugaredLibraryCodeToKeep) {
+      ObjectToOffsetMapping mapping) {
     int size = code.codeSizeInBytes();
     ensureSpaceFor(size * Short.BYTES);
     assert byteBuffer.position() % 2 == 0;
@@ -109,7 +108,6 @@ public class DexOutputBuffer {
         code.getCodeLens(appView),
         mapping.getLensCodeRewriter(),
         mapping);
-    code.writeKeepRulesForDesugaredLibrary(desugaredLibraryCodeToKeep);
     byteBuffer.position(byteBuffer.position() + shortBuffer.position() * Short.BYTES);
   }
 

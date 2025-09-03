@@ -22,10 +22,8 @@ import com.android.tools.r8.utils.BitUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.timing.Timing;
-import com.android.tools.r8.utils.timing.TimingMerger;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,8 +41,6 @@ class ApplicationWriterContainer extends ApplicationWriter {
       List<VirtualFile> virtualFiles,
       List<DexString> forcedStrings,
       Timing timing) {
-    TimingMerger merger = timing.beginMerger("Write files", executorService);
-    Collection<Timing> timings;
     Map<FeatureSplit, List<VirtualFile>> virtualFilesForContainers = new HashMap<>();
     List<VirtualFile> virtualFilesOutsideContainer = new ArrayList<>();
     virtualFiles.forEach(
@@ -59,27 +55,26 @@ class ApplicationWriterContainer extends ApplicationWriter {
                 .add(virtualFile);
           }
         });
-    virtualFiles = null;
 
-    timings = new ArrayList<>();
     // Write non container virtual files.
+    timing.begin("Write non container virtual files");
     for (VirtualFile virtualFile : virtualFilesOutsideContainer) {
-      Timing fileTiming = Timing.create("VirtualFile " + virtualFile.getId(), options);
-      writeVirtualFile(virtualFile, fileTiming, forcedStrings);
-      fileTiming.end();
-      timings.add(fileTiming);
+      timing.begin("VirtualFile " + virtualFile.getId());
+      writeVirtualFile(virtualFile, timing, forcedStrings);
+      timing.end();
     }
-    // Write container virtual files.
-    virtualFilesForContainers.forEach(
-        (split, virtualFilesForContainer) ->
-            writeContainer(forcedStrings, timings, virtualFilesForContainer));
+    timing.end();
 
-    merger.add(timings);
-    merger.end();
+    // Write container virtual files.
+    timing.begin("Write container virtual files");
+    for (List<VirtualFile> virtualFilesForContainer : virtualFilesForContainers.values()) {
+      writeContainer(forcedStrings, timing, virtualFilesForContainer);
+    }
+    timing.end();
   }
 
   private void writeContainer(
-      List<DexString> forcedStrings, Collection<Timing> timings, List<VirtualFile> virtualFiles) {
+      List<DexString> forcedStrings, Timing timing, List<VirtualFile> virtualFiles) {
     ProgramConsumer consumer;
     ByteBufferProvider byteBufferProvider;
     if (programConsumer != null) {
@@ -103,37 +98,36 @@ class ApplicationWriterContainer extends ApplicationWriter {
 
     for (int i = 0; i < virtualFiles.size(); i++) {
       VirtualFile virtualFile = virtualFiles.get(i);
-      Timing fileTiming = Timing.create("VirtualFile " + virtualFile.getId(), options);
-      if (virtualFile.isEmpty()) {
-        continue;
-      }
-      DexContainerSection section =
-          writeVirtualFileSection(
-              virtualFile,
-              fileTiming,
-              forcedStrings,
-              offset,
-              dexOutputBuffer,
-              i == virtualFiles.size() - 1);
-
-      if (InternalOptions.assertionsEnabled()) {
-        // Check that writing did not modify already written sections.
-        byte[] outputSoFar = dexOutputBuffer.asArray();
-        for (int j = 0; j < offset; j++) {
-          assert tempForAssertions[j] == outputSoFar[j];
+      try (Timing t0 = timing.begin("VirtualFile " + virtualFile.getId())) {
+        if (virtualFile.isEmpty()) {
+          continue;
         }
-        // Copy written sections including the one just written
-        tempForAssertions = new byte[section.getLayout().getEndOfFile()];
-        for (int j = 0; j < section.getLayout().getEndOfFile(); j++) {
-          tempForAssertions[j] = outputSoFar[j];
-        }
-      }
+        DexContainerSection section =
+            writeVirtualFileSection(
+                virtualFile,
+                timing,
+                forcedStrings,
+                offset,
+                dexOutputBuffer,
+                i == virtualFiles.size() - 1);
 
-      offset = section.getLayout().getEndOfFile();
-      assert BitUtils.isAligned(4, offset);
-      sections.add(section);
-      fileTiming.end();
-      timings.add(fileTiming);
+        if (InternalOptions.assertionsEnabled()) {
+          // Check that writing did not modify already written sections.
+          byte[] outputSoFar = dexOutputBuffer.asArray();
+          for (int j = 0; j < offset; j++) {
+            assert tempForAssertions[j] == outputSoFar[j];
+          }
+          // Copy written sections including the one just written
+          tempForAssertions = new byte[section.getLayout().getEndOfFile()];
+          for (int j = 0; j < section.getLayout().getEndOfFile(); j++) {
+            tempForAssertions[j] = outputSoFar[j];
+          }
+        }
+
+        offset = section.getLayout().getEndOfFile();
+        assert BitUtils.isAligned(4, offset);
+        sections.add(section);
+      }
     }
 
     if (globalsSyntheticsConsumer != null) {
@@ -260,7 +254,6 @@ class ApplicationWriterContainer extends ApplicationWriter {
             appView,
             dexOutputBuffer,
             objectMapping,
-            getDesugaredLibraryCodeToKeep(),
             virtualFile,
             includeStringData);
     // Collect the non-fixed sections.
