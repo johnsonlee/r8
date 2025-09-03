@@ -74,6 +74,7 @@ ALL_DEPS_JAR = os.path.join(LIBS, 'deps_all.jar')
 R8_JAR = os.path.join(LIBS, 'r8.jar')
 R8LIB_JAR = os.path.join(LIBS, 'r8lib.jar')
 R8LIB_MAP = '%s.map' % R8LIB_JAR
+R8LIB_PARTITION_MAP = '%s_map.zip' % R8LIB_JAR
 R8_SRC_JAR = os.path.join(LIBS, 'r8-src.jar')
 R8LIB_EXCLUDE_DEPS_JAR = os.path.join(LIBS, 'r8lib-exclude-deps.jar')
 R8_FULL_EXCLUDE_DEPS_JAR = os.path.join(LIBS, 'r8-full-exclude-deps.jar')
