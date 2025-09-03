@@ -472,11 +472,18 @@ public class StringBuilderAppendOptimizer extends CodeRewriterPass<AppInfo> {
               childGraphState.roots.forEach(
                   (value, sbNode) -> {
                     rootsInChildStateCounts.put(value, rootsInChildStateCounts.getInt(value) + 1);
+                  });
+              childGraphState.roots.forEach(
+                  (value, sbNode) -> {
                     StringBuilderNode currentRoot = state.roots.get(value);
                     StringBuilderNode currentTail = state.tails.get(value);
                     if (currentRoot == null) {
                       assert currentTail == null;
-                      if (childStates.size() == 1) {
+                      boolean onlyOneSuccessor = childStates.size() == 1;
+                      boolean onlyUsedInOneSubtreeAndAlreadySplit =
+                          rootsInChildStateCounts.getInt(value) == 1
+                              && sbNode.isSplitReferenceNode();
+                      if (onlyOneSuccessor || onlyUsedInOneSubtreeAndAlreadySplit) {
                         state.roots.put(value, sbNode);
                         state.tails.put(value, sbNode);
                         return;
@@ -492,7 +499,6 @@ public class StringBuilderAppendOptimizer extends CodeRewriterPass<AppInfo> {
                     assert currentTail != null;
                     // Link next node from successor
                     currentTail.addSuccessor(sbNode);
-                    sbNode.addPredecessor(currentTail);
                   });
               if (childState.seenAndNotProcessed()) {
                 childGraphState.isPartOfLoop = true;
@@ -503,10 +509,12 @@ public class StringBuilderAppendOptimizer extends CodeRewriterPass<AppInfo> {
             for (Entry<Value> valueEntry : rootsInChildStateCounts.reference2IntEntrySet()) {
               assert valueEntry.getIntValue() <= childStates.size();
               if (valueEntry.getIntValue() < childStates.size()) {
-                SplitReferenceNode splitNode = StringBuilderNode.createSplitReferenceNode();
                 StringBuilderNode tail = state.tails.get(valueEntry.getKey());
                 assert tail != null;
-                splitNode.addPredecessor(tail);
+                if (tail.isSplitReferenceNode()) {
+                  continue;
+                }
+                SplitReferenceNode splitNode = StringBuilderNode.createSplitReferenceNode();
                 tail.addSuccessor(splitNode);
               }
             }

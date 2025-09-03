@@ -4336,7 +4336,9 @@ public class Enqueuer {
       }
       taskCollection.submitEnqueuerDependentTask(
           () -> {
+            Timing threadTiming = timing.createThreadTiming("Parse CF", options);
             parseCodeAndCheckNeedsDesugaring(method);
+            threadTiming.end().notifyThreadTimingFinished();
             return null;
           });
       return true;
@@ -5281,7 +5283,7 @@ public class Enqueuer {
     analyses.processNewlyLiveUnprocessedCode(method);
     timing.end();
     if (cfToLirConverter != null && !appView.isCfByteCodePassThrough(method)) {
-      cfToLirConverter.processMethod(method);
+      cfToLirConverter.processMethod(method, timing);
     } else {
       traceCode(method, timing);
     }

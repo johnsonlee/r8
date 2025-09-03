@@ -24,6 +24,10 @@ public class ThrowBlockOutlinerOptions {
       SystemPropertyUtils.parseSystemPropertyOrDefault(
           "com.android.tools.r8.throwblockoutliner.forcedebug", false);
 
+  public final int forceUsers =
+      SystemPropertyUtils.parseSystemPropertyOrDefault(
+          "com.android.tools.r8.throwblockoutliner.users", Integer.MAX_VALUE);
+
   public Consumer<Collection<ThrowBlockOutline>> outlineConsumerForTesting = null;
   public Predicate<ThrowBlockOutline> outlineStrategyForTesting = null;
 

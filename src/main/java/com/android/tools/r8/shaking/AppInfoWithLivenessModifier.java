@@ -34,8 +34,7 @@ public class AppInfoWithLivenessModifier {
   public void modify(AppInfoWithLiveness appInfo) {
     // Instantiated classes.
     noLongerInstantiatedClasses.forEach(appInfo::removeFromSingleTargetLookupCache);
-    appInfo.mutateObjectAllocationInfoCollection(
-        mutator -> noLongerInstantiatedClasses.forEach(mutator::markNoLongerInstantiated));
+    appInfo.removeNoLongerInstantiatedClasses(noLongerInstantiatedClasses);
     // Written fields.
     MutableFieldAccessInfoCollection<?, ? extends MutableFieldAccessInfo>
         fieldAccessInfoCollection = appInfo.getMutableFieldAccessInfoCollection();

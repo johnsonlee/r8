@@ -144,7 +144,7 @@ def get_map_from_r8_source_file_attribute(args, r8_source_file, use_partition_ma
     # First check local mapping file for map hash.
     if path.exists(utils.R8LIB_MAP) and get_hash_from_map_file(
             utils.R8LIB_MAP) == maphash:
-        return utils.R8LIB_MAP
+        return utils.R8LIB_PARTITION_MAP if use_partition_map else utils.R8LIB_MAP
     try:
         # Look for mapping file on GCS based on the version or commit hash
         # found in the source file atttribute.

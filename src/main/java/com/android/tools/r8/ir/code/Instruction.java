@@ -403,6 +403,10 @@ public abstract class Instruction
     return this;
   }
 
+  public void remove() {
+    block.getInstructions().removeAndDetachInValues(this);
+  }
+
   public void removeOrReplaceByDebugLocalRead() {
     block.getInstructions().removeOrReplaceByDebugLocalRead(this);
   }

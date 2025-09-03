@@ -10,6 +10,7 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.BasicBlockInstructionListIterator;
+import com.android.tools.r8.ir.code.DebugLocalRead;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InvokeStatic;
@@ -140,7 +141,16 @@ public class ThrowBlockOutlineMarkerRewriter {
                 instruction != outlineMarker;
                 instruction = instructionIterator.previous()) {
               if (instruction.hasUnusedOutValue()) {
-                instruction.removeOrReplaceByDebugLocalRead();
+                // We are not using `removeOrReplaceByDebugLocalRead` here due to the backwards
+                // iteration.
+                if (instruction.getDebugValues().isEmpty()) {
+                  instruction.remove();
+                } else {
+                  DebugLocalRead replacement = new DebugLocalRead();
+                  instruction.replace(replacement);
+                  Instruction previous = instructionIterator.previous();
+                  assert previous == replacement;
+                }
               }
             }
           }

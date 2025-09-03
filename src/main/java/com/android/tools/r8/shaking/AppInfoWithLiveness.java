@@ -739,9 +739,9 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     return objectAllocationInfoCollection;
   }
 
-  void mutateObjectAllocationInfoCollection(
-      Consumer<ObjectAllocationInfoCollectionImpl.Builder> mutator) {
-    objectAllocationInfoCollection.mutate(mutator, this);
+  void removeNoLongerInstantiatedClasses(Set<DexProgramClass> noLongerInstantiatedClasses) {
+    objectAllocationInfoCollection.removeNoLongerInstantiatedClasses(
+        noLongerInstantiatedClasses, this);
   }
 
   void removeFromSingleTargetLookupCache(DexClass clazz) {

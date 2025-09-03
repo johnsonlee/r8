@@ -10,6 +10,7 @@ import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import com.android.tools.r8.ir.desugar.LambdaDescriptor;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.GraphReporter;
 import com.android.tools.r8.shaking.InstantiationReason;
 import com.android.tools.r8.shaking.KeepReason;
@@ -75,6 +76,9 @@ public abstract class ObjectAllocationInfoCollectionImpl implements ObjectAlloca
   }
 
   public abstract void mutate(Consumer<Builder> mutator, AppInfo appInfo);
+
+  public abstract void removeNoLongerInstantiatedClasses(
+      Set<DexProgramClass> noLongerInstantiatedClasses, AppInfoWithLiveness appInfo);
 
   /**
    * True if a class type might be instantiated directly at the given type.
@@ -350,6 +354,52 @@ public abstract class ObjectAllocationInfoCollectionImpl implements ObjectAlloca
       repopulateInstantiatedHierarchy(appInfo);
     }
 
+    @Override
+    public void removeNoLongerInstantiatedClasses(
+        Set<DexProgramClass> noLongerInstantiatedClasses, AppInfoWithLiveness appInfo) {
+      noLongerInstantiatedClasses.forEach(
+          clazz -> {
+            classesWithAllocationSiteTracking.remove(clazz);
+            classesWithoutAllocationSiteTracking.remove(clazz);
+            assert instantiatedHierarchy != null;
+            clearClass(appInfo, clazz);
+          });
+    }
+
+    private void clearClass(AppInfoWithLiveness appInfo, DexClass clz) {
+      clz.forEachImmediateSupertype(superType -> clearSupertype(superType, clz, appInfo));
+    }
+
+    private void clearSupertype(DexType superType, DexClass clz, AppInfoWithLiveness appInfo) {
+      Set<DexClass> instantiatedSubclasses = instantiatedHierarchy.get(superType);
+      if (instantiatedSubclasses == null) {
+        return;
+      }
+      instantiatedSubclasses.remove(clz);
+      if (!instantiatedSubclasses.isEmpty()) {
+        return;
+      }
+      instantiatedHierarchy.remove(superType);
+      // Check if the superclass needs to be cleared too.
+      if (instantiatedLambdas.containsKey(superType)) {
+        return;
+      }
+      DexClass superClass = appInfo.definitionFor(superType);
+      if (superClass == null) {
+        return;
+      }
+      if (superClass.isProgramClass()) {
+        DexProgramClass superProgramClass = superClass.asProgramClass();
+        if (classesWithAllocationSiteTracking.containsKey(superProgramClass)
+            || classesWithoutAllocationSiteTracking.contains(superProgramClass)
+            || interfacesWithUnknownSubtypeHierarchy.contains(superProgramClass)) {
+          return;
+        }
+      }
+      // The super class is no longer instantiated. Recursively remove it.
+      clearClass(appInfo, superClass);
+    }
+
     private boolean shouldTrackAllocationSitesForClass(
         DexProgramClass clazz, InstantiationReason instantiationReason) {
       if (!data.trackAllocationSites) {
@@ -477,12 +527,6 @@ public abstract class ObjectAllocationInfoCollectionImpl implements ObjectAlloca
       subtypes.add(subtype);
       instantiatedHierarchy.put(type, subtypes);
       populateInstantiatedHierarchy(definitions, type);
-    }
-
-    public void markNoLongerInstantiated(DexProgramClass clazz) {
-      classesWithAllocationSiteTracking.remove(clazz);
-      classesWithoutAllocationSiteTracking.remove(clazz);
-      instantiatedHierarchy = null;
     }
 
     Builder rewrittenWithLens(

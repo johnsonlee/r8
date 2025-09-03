@@ -67,7 +67,7 @@ public class CfToLirConverter implements FinishedEnqueuerAnalysis {
     return null;
   }
 
-  public void processMethod(ProgramMethod method) {
+  public void processMethod(ProgramMethod method, Timing timing) {
     if (enqueuer.getWorklist().isNonPushable()) {
       // Post processing desugaring that is generating CF instead of LIR.
       // TODO(b/439952010): Avoid single-threaded LIR conversion during post processing.
@@ -80,8 +80,10 @@ public class CfToLirConverter implements FinishedEnqueuerAnalysis {
         .getTaskCollection()
         .submitEnqueuerDependentTask(
             () -> {
+              Timing threadTiming = timing.createThreadTiming("CF->LIR", appView.options());
               convert(method);
               enqueuer.getWorklist().enqueueTraceCodeAction(method);
+              threadTiming.end().notifyThreadTimingFinished();
               return null;
             });
   }
