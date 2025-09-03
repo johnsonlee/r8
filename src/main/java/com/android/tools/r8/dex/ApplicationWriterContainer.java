@@ -259,6 +259,6 @@ class ApplicationWriterContainer extends ApplicationWriter {
     // Collect the non-fixed sections.
     timing.time("collect", fileWriter::collect);
     // Generate and write the bytes.
-    return timing.time("generate", () -> fileWriter.generate(offset, CONTAINER_DEX));
+    return timing.time("generate", () -> fileWriter.generate(timing, offset, CONTAINER_DEX));
   }
 }

@@ -57,6 +57,7 @@ import com.android.tools.r8.utils.DexVersion;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.LebUtils;
+import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.objects.Object2IntLinkedOpenHashMap;
@@ -200,12 +201,12 @@ public class FileWriter {
     }
   }
 
-  public ByteBufferResult generate() {
-    DexContainerSection res = generate(0, SINGLE_DEX);
+  public ByteBufferResult generate(Timing timing) {
+    DexContainerSection res = generate(timing, 0, SINGLE_DEX);
     return new ByteBufferResult(res.getBuffer().stealByteBuffer(), res.getLayout().getEndOfFile());
   }
 
-  public DexContainerSection generate(int offset, DexVersion.Layout layoutType) {
+  public DexContainerSection generate(Timing timing, int offset, DexVersion.Layout layoutType) {
     // Check restrictions on interface methods.
     checkInterfaceMethods();
 
@@ -213,119 +214,127 @@ public class FileWriter {
     assert verifyNames();
 
     Layout layout = Layout.from(mapping, offset, layoutType, includeStringData);
-    layout.setCodesOffset(layout.dataSectionOffset);
+    MixedSectionLayoutStrategy mixedSectionLayoutStrategy = null;
+    try (Timing t0 = timing.begin("Write codes")) {
+      layout.setCodesOffset(layout.dataSectionOffset);
 
-    // Sort the codes first, as their order might impact size due to alignment constraints.
-    MixedSectionLayoutStrategy mixedSectionLayoutStrategy =
-        MixedSectionLayoutStrategy.create(appView, mixedSectionOffsets, virtualFile);
-    Collection<ProgramMethod> codes = mixedSectionLayoutStrategy.getCodeLayout();
+      // Sort the codes first, as their order might impact size due to alignment constraints.
+      mixedSectionLayoutStrategy =
+          MixedSectionLayoutStrategy.create(appView, mixedSectionOffsets, virtualFile);
+      Collection<ProgramMethod> codes = mixedSectionLayoutStrategy.getCodeLayout();
 
-    // Output the debug_info_items first, as they have no dependencies.
-    SizeAndCount sizeAndCountOfCodeItems = sizeAndCountOfCodeItems(codes);
-    dest.moveTo(layout.getCodesOffset() + sizeAndCountOfCodeItems.size);
-    if (mixedSectionOffsets.getDebugInfos().isEmpty()) {
-      layout.setDebugInfosOffset(0);
-    } else {
-      // Ensure deterministic ordering of debug info by sorting consistent with the code objects.
-      layout.setDebugInfosOffset(dest.align(1));
-      Set<DexDebugInfoForWriting> seen = new HashSet<>(mixedSectionOffsets.getDebugInfos().size());
-      for (ProgramMethod method : codes) {
-        DexWritableCode code = method.getDefinition().getCode().asDexWritableCode();
-        DexDebugInfoForWriting info = code.getDebugInfoForWriting();
-        if (info != null && seen.add(info)) {
-          writeDebugItem(code, info);
-        }
-      }
-    }
-
-    // Remember the typelist offset for later.
-    layout.setTypeListsOffset(dest.align(4)); // type_list are aligned.
-
-    // Now output the code.
-    dest.moveTo(layout.getCodesOffset());
-    assert dest.isAligned(4);
-    Map<DexWritableCacheKey, Integer> offsetCache = new HashMap<>();
-    for (ProgramMethod method : codes) {
-      DexWritableCode dexWritableCode = method.getDefinition().getCode().asDexWritableCode();
-      if (!options.canUseCanonicalizedCodeObjects()) {
-        writeCodeItem(method, dexWritableCode);
+      // Output the debug_info_items first, as they have no dependencies.
+      SizeAndCount sizeAndCountOfCodeItems = sizeAndCountOfCodeItems(codes);
+      dest.moveTo(layout.getCodesOffset() + sizeAndCountOfCodeItems.size);
+      if (mixedSectionOffsets.getDebugInfos().isEmpty()) {
+        layout.setDebugInfosOffset(0);
       } else {
-        DexWritableCacheKey cacheLookupKey =
-            dexWritableCode.getCacheLookupKey(method, appView.dexItemFactory());
-        Integer offsetOrNull = offsetCache.get(cacheLookupKey);
-        if (offsetOrNull != null) {
-          mixedSectionOffsets.setOffsetFor(method.getDefinition(), offsetOrNull);
-        } else {
-          offsetCache.put(cacheLookupKey, writeCodeItem(method, dexWritableCode));
+        // Ensure deterministic ordering of debug info by sorting consistent with the code objects.
+        layout.setDebugInfosOffset(dest.align(1));
+        Set<DexDebugInfoForWriting> seen =
+            new HashSet<>(mixedSectionOffsets.getDebugInfos().size());
+        for (ProgramMethod method : codes) {
+          DexWritableCode code = method.getDefinition().getCode().asDexWritableCode();
+          DexDebugInfoForWriting info = code.getDebugInfoForWriting();
+          if (info != null && seen.add(info)) {
+            writeDebugItem(code, info);
+          }
         }
       }
+
+      // Remember the typelist offset for later.
+      layout.setTypeListsOffset(dest.align(4)); // type_list are aligned.
+
+      // Now output the code.
+      dest.moveTo(layout.getCodesOffset());
+      assert dest.isAligned(4);
+      Map<DexWritableCacheKey, Integer> offsetCache = new HashMap<>();
+      for (ProgramMethod method : codes) {
+        DexWritableCode dexWritableCode = method.getDefinition().getCode().asDexWritableCode();
+        if (!options.canUseCanonicalizedCodeObjects()) {
+          writeCodeItem(method, dexWritableCode);
+        } else {
+          DexWritableCacheKey cacheLookupKey =
+              dexWritableCode.getCacheLookupKey(method, appView.dexItemFactory());
+          Integer offsetOrNull = offsetCache.get(cacheLookupKey);
+          if (offsetOrNull != null) {
+            mixedSectionOffsets.setOffsetFor(method.getDefinition(), offsetOrNull);
+          } else {
+            offsetCache.put(cacheLookupKey, writeCodeItem(method, dexWritableCode));
+          }
+        }
+      }
+      assert sizeAndCountOfCodeItems.getCount()
+          == ImmutableSet.copyOf(mixedSectionOffsets.codes.values()).size();
+      layout.setCodeCount(sizeAndCountOfCodeItems.getCount());
+      assert layout.getDebugInfosOffset() == 0 || dest.position() == layout.getDebugInfosOffset();
     }
-    assert sizeAndCountOfCodeItems.getCount()
-        == ImmutableSet.copyOf(mixedSectionOffsets.codes.values()).size();
-    layout.setCodeCount(sizeAndCountOfCodeItems.getCount());
-    assert layout.getDebugInfosOffset() == 0 || dest.position() == layout.getDebugInfosOffset();
 
     // Now the type lists and rest.
-    dest.moveTo(layout.getTypeListsOffset());
-    writeItems(
-        mixedSectionLayoutStrategy.getTypeListLayout(),
-        layout::alreadySetOffset,
-        this::writeTypeList);
-    if (includeStringData) {
+    try (Timing t0 = timing.begin("Write remaining mixed sections")) {
+      dest.moveTo(layout.getTypeListsOffset());
       writeItems(
-          mixedSectionLayoutStrategy.getStringDataLayout(),
-          layout::setStringDataOffsets,
-          this::writeStringData);
-    } else {
-      layout.stringDataOffsets = 0; // Empty string data section.
-    }
-    writeItems(
-        mixedSectionLayoutStrategy.getAnnotationLayout(),
-        layout::setAnnotationsOffset,
-        this::writeAnnotation);
-    writeItems(
-        mixedSectionLayoutStrategy.getClassDataLayout(),
-        layout::setClassDataOffset,
-        this::writeClassData);
-    writeItems(
-        mixedSectionLayoutStrategy.getEncodedArrayLayout(),
-        layout::setEncodedArraysOffset,
-        this::writeEncodedArray);
-    writeItems(
-        mixedSectionLayoutStrategy.getAnnotationSetLayout(),
-        layout::setAnnotationSetsOffset,
-        this::writeAnnotationSet,
-        4);
-    writeItems(
-        mixedSectionLayoutStrategy.getAnnotationSetRefListLayout(),
-        layout::setAnnotationSetRefListsOffset,
-        this::writeAnnotationSetRefList,
-        4);
-    writeItems(
-        mixedSectionLayoutStrategy.getAnnotationDirectoryLayout(),
-        layout::setAnnotationDirectoriesOffset,
-        this::writeAnnotationDirectory,
-        4);
+          mixedSectionLayoutStrategy.getTypeListLayout(),
+          layout::alreadySetOffset,
+          this::writeTypeList);
+      if (includeStringData) {
+        writeItems(
+            mixedSectionLayoutStrategy.getStringDataLayout(),
+            layout::setStringDataOffsets,
+            this::writeStringData);
+      } else {
+        layout.stringDataOffsets = 0; // Empty string data section.
+      }
+      writeItems(
+          mixedSectionLayoutStrategy.getAnnotationLayout(),
+          layout::setAnnotationsOffset,
+          this::writeAnnotation);
+      writeItems(
+          mixedSectionLayoutStrategy.getClassDataLayout(),
+          layout::setClassDataOffset,
+          this::writeClassData);
+      writeItems(
+          mixedSectionLayoutStrategy.getEncodedArrayLayout(),
+          layout::setEncodedArraysOffset,
+          this::writeEncodedArray);
+      writeItems(
+          mixedSectionLayoutStrategy.getAnnotationSetLayout(),
+          layout::setAnnotationSetsOffset,
+          this::writeAnnotationSet,
+          4);
+      writeItems(
+          mixedSectionLayoutStrategy.getAnnotationSetRefListLayout(),
+          layout::setAnnotationSetRefListsOffset,
+          this::writeAnnotationSetRefList,
+          4);
+      writeItems(
+          mixedSectionLayoutStrategy.getAnnotationDirectoryLayout(),
+          layout::setAnnotationDirectoriesOffset,
+          this::writeAnnotationDirectory,
+          4);
 
-    // Add the map at the end.
-    writeMap(layout);
-    layout.setEndOfFile(dest.position());
+      // Add the map at the end.
+      writeMap(layout);
+      layout.setEndOfFile(dest.position());
+    }
 
     // Now that we have all mixedSectionOffsets, lets write the indexed items.
-    dest.moveTo(layout.headerOffset + layout.getHeaderSize());
-    if (includeStringData) {
-      writeFixedSectionItems(mapping.getStrings(), layout.stringIdsOffset, this::writeStringItem);
-    } else {
-      assert layout.stringIdsOffset == layout.typeIdsOffset;
+    try (Timing t0 = timing.begin("Write indexed items")) {
+      dest.moveTo(layout.headerOffset + layout.getHeaderSize());
+      if (includeStringData) {
+        writeFixedSectionItems(mapping.getStrings(), layout.stringIdsOffset, this::writeStringItem);
+      } else {
+        assert layout.stringIdsOffset == layout.typeIdsOffset;
+      }
+      writeFixedSectionItems(mapping.getTypes(), layout.typeIdsOffset, this::writeTypeItem);
+      writeFixedSectionItems(mapping.getProtos(), layout.protoIdsOffset, this::writeProtoItem);
+      writeFixedSectionItems(mapping.getFields(), layout.fieldIdsOffset, this::writeFieldItem);
+      writeFixedSectionItems(mapping.getMethods(), layout.methodIdsOffset, this::writeMethodItem);
+      writeFixedSectionItems(mapping.getClasses(), layout.classDefsOffset, this::writeClassDefItem);
+      writeFixedSectionItems(mapping.getCallSites(), layout.callSiteIdsOffset, this::writeCallSite);
+      writeFixedSectionItems(
+          mapping.getMethodHandles(), layout.methodHandleIdsOffset, this::writeMethodHandle);
     }
-    writeFixedSectionItems(mapping.getTypes(), layout.typeIdsOffset, this::writeTypeItem);
-    writeFixedSectionItems(mapping.getProtos(), layout.protoIdsOffset, this::writeProtoItem);
-    writeFixedSectionItems(mapping.getFields(), layout.fieldIdsOffset, this::writeFieldItem);
-    writeFixedSectionItems(mapping.getMethods(), layout.methodIdsOffset, this::writeMethodItem);
-    writeFixedSectionItems(mapping.getClasses(), layout.classDefsOffset, this::writeClassDefItem);
-    writeFixedSectionItems(mapping.getCallSites(), layout.callSiteIdsOffset, this::writeCallSite);
-    writeFixedSectionItems(
-        mapping.getMethodHandles(), layout.methodHandleIdsOffset, this::writeMethodHandle);
 
     // Fill in the header information.
     writeHeader(layout, layoutType);

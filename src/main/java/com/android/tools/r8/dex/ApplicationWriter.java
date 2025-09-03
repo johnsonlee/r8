@@ -897,7 +897,7 @@ public class ApplicationWriter {
     // Collect the non-fixed sections.
     timing.time("collect", fileWriter::collect);
     // Generate and write the bytes.
-    return timing.time("generate", () -> fileWriter.generate());
+    return timing.time("generate", () -> fileWriter.generate(timing));
   }
 
   private static String mapMainDexListName(DexType type, NamingLens namingLens) {
