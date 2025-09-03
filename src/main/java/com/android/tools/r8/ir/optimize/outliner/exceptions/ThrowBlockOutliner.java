@@ -151,6 +151,9 @@ public class ThrowBlockOutliner {
     if (outlineStrategyForTesting != null) {
       return outlineStrategyForTesting.test(outline);
     }
+    if (outline.getNumberOfUsers() >= outlinerOptions.forceUsers) {
+      return true;
+    }
 
     int codeSizeInBytes = outline.getLirCode().estimatedDexCodeSizeUpperBoundInBytes();
     int estimatedCostInBytes;
@@ -188,11 +191,11 @@ public class ThrowBlockOutliner {
     int estimatedSavingsInBytes = 0;
     for (Multiset.Entry<DexMethod> entry : outline.getUsers().entrySet()) {
       // For each call we save the outlined instructions at the cost of an invoke + return.
-      int estimatedSavingsForUser = codeSizeInBytes - 2 * (DexInvokeStatic.SIZE + DexReturn.SIZE);
+      int estimatedSavingsForUser = codeSizeInBytes - (DexInvokeStatic.SIZE + DexReturn.SIZE);
       if (entry.getElement().getReturnType().isWideType()) {
-        estimatedSavingsForUser -= 2 * DexConstWide16.SIZE;
+        estimatedSavingsForUser -= DexConstWide16.SIZE;
       } else if (!entry.getElement().getReturnType().isVoidType()) {
-        estimatedSavingsForUser -= 2 * DexConst4.SIZE;
+        estimatedSavingsForUser -= DexConst4.SIZE;
       }
       estimatedSavingsInBytes += estimatedSavingsForUser * entry.getCount();
       if (estimatedSavingsInBytes > estimatedCostInBytes) {
