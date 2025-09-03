@@ -5,9 +5,12 @@ package com.android.tools.r8.ir.optimize.outliner.exceptions;
 
 import static com.android.tools.r8.ir.code.Opcodes.CONST_NUMBER;
 import static com.android.tools.r8.ir.code.Opcodes.CONST_STRING;
+import static com.android.tools.r8.ir.code.Opcodes.DEBUG_LOCAL_READ;
+import static com.android.tools.r8.ir.code.Opcodes.DEBUG_POSITION;
 import static com.android.tools.r8.ir.code.Opcodes.INVOKE_DIRECT;
 import static com.android.tools.r8.ir.code.Opcodes.INVOKE_STATIC;
 import static com.android.tools.r8.ir.code.Opcodes.INVOKE_VIRTUAL;
+import static com.android.tools.r8.ir.code.Opcodes.MOVE;
 import static com.android.tools.r8.ir.code.Opcodes.NEW_INSTANCE;
 import static java.util.Collections.emptyList;
 
@@ -26,6 +29,7 @@ import com.android.tools.r8.ir.code.Argument;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.BasicBlockInstructionListIterator;
 import com.android.tools.r8.ir.code.ConstInstruction;
+import com.android.tools.r8.ir.code.DebugLocalWrite;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.IRMetadata;
 import com.android.tools.r8.ir.code.Instruction;
@@ -191,6 +195,10 @@ public class ThrowBlockOutlinerScanner {
         case CONST_STRING:
           processConstInstruction(instruction.asConstInstruction(), continuation);
           return;
+        case DEBUG_LOCAL_READ:
+        case DEBUG_POSITION:
+          processNonMaterializingDebugInstruction(instruction, continuation);
+          return;
         case INVOKE_DIRECT:
           if (instruction.isInvokeConstructor(factory)) {
             processStringBuilderConstructorCall(instruction.asInvokeDirect(), continuation);
@@ -203,6 +211,13 @@ public class ThrowBlockOutlinerScanner {
         case INVOKE_VIRTUAL:
           processStringBuilderAppendOrToString(instruction.asInvokeVirtual(), continuation);
           return;
+        case MOVE:
+          if (instruction.isDebugLocalWrite()) {
+            processDebugLocalWrite(instruction.asDebugLocalWrite(), continuation);
+            return;
+          }
+          assert false;
+          break;
         case NEW_INSTANCE:
           processNewInstanceInstruction(instruction.asNewInstance(), continuation);
           return;
@@ -216,6 +231,24 @@ public class ThrowBlockOutlinerScanner {
     private void processConstInstruction(
         ConstInstruction instruction,
         Consumer<OutlineBuilder> continuation) {
+      processPredecessorInstructionOrStartOutline(instruction, continuation);
+    }
+
+    private void processDebugLocalWrite(
+        DebugLocalWrite instruction, Consumer<OutlineBuilder> continuation) {
+      processPredecessorInstructionOrStartOutline(
+          instruction,
+          outlineBuilder -> {
+            // Join the two values from the DebugLocalWrite instruction in the outline.
+            Value outlinedSrcValue =
+                outlineBuilder.getOutlinedValueOrCreateArgument(instruction.src());
+            outlineBuilder.map(instruction.outValue(), outlinedSrcValue);
+            continuation.accept(outlineBuilder);
+          });
+    }
+
+    private void processNonMaterializingDebugInstruction(
+        Instruction instruction, Consumer<OutlineBuilder> continuation) {
       processPredecessorInstructionOrStartOutline(instruction, continuation);
     }
 
