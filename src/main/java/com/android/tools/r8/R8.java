@@ -448,7 +448,7 @@ public class R8 {
           }
 
           TreePruner pruner = new TreePruner(appViewWithLiveness);
-          PrunedItems prunedItems = pruner.run(executorService, timing, prunedItemsBuilder);
+          pruner.run(executorService, timing, prunedItemsBuilder);
           appViewWithLiveness
               .appInfo()
               .notifyTreePrunerFinished(Enqueuer.Mode.INITIAL_TREE_SHAKING);
@@ -456,8 +456,7 @@ public class R8 {
           // Recompute the subtyping information.
           new AbstractMethodRemover(appViewWithLiveness).run();
 
-          AnnotationRemover annotationRemover =
-              annotationRemoverBuilder.build(appViewWithLiveness, prunedItems.getRemovedClasses());
+          AnnotationRemover annotationRemover = annotationRemoverBuilder.build(appViewWithLiveness);
           annotationRemover.ensureValid().run(executorService);
           new GenericSignatureRewriter(appView, genericContextBuilder)
               .run(appView.appInfo().classes(), executorService);
@@ -617,7 +616,7 @@ public class R8 {
                 GenericSignatureContextBuilder.create(appView);
 
             TreePruner pruner = new TreePruner(appViewWithLiveness, treePrunerConfiguration);
-            PrunedItems prunedItems =
+
                 pruner.run(
                     executorService, timing, PrunedItems.builder().addRemovedClasses(prunedTypes));
             appViewWithLiveness
@@ -652,7 +651,7 @@ public class R8 {
 
             // Remove annotations that refer to types that no longer exist.
             AnnotationRemover.builder(Mode.FINAL_TREE_SHAKING)
-                .build(appView.withLiveness(), prunedItems.getRemovedClasses())
+                .build(appView.withLiveness())
                 .run(executorService)
                 .runForExcludedClassesInR8Partial(executorService);
             new GenericSignatureRewriter(appView, genericContextBuilder)

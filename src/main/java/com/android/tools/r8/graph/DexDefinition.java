@@ -52,6 +52,10 @@ public abstract class DexDefinition extends DexItem {
     setAnnotations(annotations().removeIf(predicate));
   }
 
+  public void removeAllAnnotations(Predicate<DexAnnotation> predicate) {
+    removeAnnotations(predicate);
+  }
+
   public void rewriteAllAnnotations(
       BiFunction<DexAnnotation, AnnotatedKind, DexAnnotation> rewriter) {
     setAnnotations(

@@ -80,6 +80,7 @@ import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import org.objectweb.asm.Opcodes;
 
 public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMethod>
@@ -907,6 +908,16 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
   public void clearAllAnnotations() {
     clearAnnotations();
     clearParameterAnnotations();
+  }
+
+  @Override
+  public void removeAllAnnotations(Predicate<DexAnnotation> predicate) {
+    removeAnnotations(predicate);
+    removeParameterAnnotations(predicate);
+  }
+
+  public void removeParameterAnnotations(Predicate<DexAnnotation> predicate) {
+    setParameterAnnotations(getParameterAnnotations().removeIf(predicate));
   }
 
   @Override

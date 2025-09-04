@@ -53,6 +53,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -90,14 +91,13 @@ public class DexItemFactory {
   /** Set of types that may be synthesized during compilation. */
   private final Set<DexType> possibleCompilerSynthesizedTypes = Sets.newIdentityHashSet();
 
-  private final Map<DexString, DexString> markers = new ConcurrentHashMap<>();
-  private final Map<DexString, DexString> strings = new ConcurrentHashMap<>();
-  private final Map<DexString, DexType> types = new ConcurrentHashMap<>();
-  private final Map<DexField, DexField> fields = new ConcurrentHashMap<>();
-  private final Map<DexProto, DexProto> protos = new ConcurrentHashMap<>();
-  private final Map<DexMethod, DexMethod> methods = new ConcurrentHashMap<>();
-  private final Map<DexMethodHandle, DexMethodHandle> methodHandles =
-      new ConcurrentHashMap<>();
+  private Map<DexString, DexString> markers = new ConcurrentHashMap<>();
+  private Map<DexString, DexString> strings = new ConcurrentHashMap<>();
+  private Map<DexString, DexType> types = new ConcurrentHashMap<>();
+  private Map<DexField, DexField> fields = new ConcurrentHashMap<>();
+  private Map<DexProto, DexProto> protos = new ConcurrentHashMap<>();
+  private Map<DexMethod, DexMethod> methods = new ConcurrentHashMap<>();
+  private Map<DexMethodHandle, DexMethodHandle> methodHandles = new ConcurrentHashMap<>();
 
   // DexDebugEvent Canonicalization.
   private final Int2ReferenceMap<AdvanceLine> advanceLines = new Int2ReferenceOpenHashMap<>();
@@ -3630,5 +3630,24 @@ public class DexItemFactory {
   @Deprecated
   synchronized public void forAllTypes(Consumer<DexType> f) {
     new ArrayList<>(types.values()).forEach(f);
+  }
+
+  public void gc() {
+    markers = new WeakHashMap<>(markers);
+    strings = new WeakHashMap<>(strings);
+    types = new WeakHashMap<>(types);
+    fields = new WeakHashMap<>(fields);
+    protos = new WeakHashMap<>(protos);
+    methods = new WeakHashMap<>(methods);
+    methodHandles = new WeakHashMap<>(methodHandles);
+    System.gc();
+    System.gc();
+    markers = new ConcurrentHashMap<>(markers);
+    strings = new ConcurrentHashMap<>(strings);
+    types = new ConcurrentHashMap<>(types);
+    fields = new ConcurrentHashMap<>(fields);
+    protos = new ConcurrentHashMap<>(protos);
+    methods = new ConcurrentHashMap<>(methods);
+    methodHandles = new ConcurrentHashMap<>(methodHandles);
   }
 }

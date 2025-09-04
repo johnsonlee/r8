@@ -9,6 +9,7 @@ import static com.google.common.base.Predicates.alwaysFalse;
 import com.android.tools.r8.androidapi.ComputedApiLevel;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DefaultInstanceInitializerCode;
+import com.android.tools.r8.graph.DexAnnotation;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMember;
@@ -77,17 +78,17 @@ public class TreePruner {
             : UnusedItemsPrinter.DONT_PRINT;
   }
 
-  public PrunedItems run(
+  public void run(
       ExecutorService executorService, Timing timing, PrunedItems.Builder prunedItemsBuilder)
       throws ExecutionException {
     timing.begin("Pruning application");
     DirectMappedDexApplication application = appView.appInfo().app().asDirect();
-      DirectMappedDexApplication.Builder builder = removeUnused(application);
-      DirectMappedDexApplication newApplication =
-          prunedTypes.isEmpty() && !appView.options().configurationDebugging
-              ? application
-              : builder.build();
-      fixupOptimizationInfo(newApplication, executorService);
+    DirectMappedDexApplication.Builder builder = removeUnused(application);
+    DirectMappedDexApplication newApplication =
+        prunedTypes.isEmpty() && !appView.options().configurationDebugging
+            ? application
+            : builder.build();
+    fixupOptimizationInfo(newApplication, executorService);
     PrunedItems prunedItems =
         prunedItemsBuilder
             .setPrunedApp(newApplication)
@@ -99,7 +100,7 @@ public class TreePruner {
     appView.pruneItems(prunedItems, executorService, timing);
     appView.notifyOptimizationFinishedForTesting();
     timing.end();
-    return prunedItems;
+    appView.dexItemFactory().gc();
   }
 
   private DirectMappedDexApplication.Builder removeUnused(DirectMappedDexApplication application) {
@@ -235,6 +236,8 @@ public class TreePruner {
     if (reachableStaticFields != null) {
       clazz.setStaticFields(reachableStaticFields);
     }
+    clazz.removeAnnotations(this::isAnnotationReferencingPrunedType);
+    clazz.forEachMember(m -> m.removeAllAnnotations(this::isAnnotationReferencingPrunedType));
     clazz.removeInnerClasses(this::isAttributeReferencingMissingOrPrunedType);
     clazz.removeEnclosingMethodAttribute(this::isAttributeReferencingPrunedItem);
     rewriteNestAttributes(clazz, this::isTypeLive, appView::definitionFor);
@@ -322,6 +325,10 @@ public class TreePruner {
             .add(new NestMemberClassAttribute(attr.getNestMember()));
       }
     }
+  }
+
+  private boolean isAnnotationReferencingPrunedType(DexAnnotation annotation) {
+    return !isTypeLive(annotation.getAnnotationType());
   }
 
   private boolean isAttributeReferencingPrunedItem(EnclosingMethodAttribute attr) {
