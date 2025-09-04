@@ -43,12 +43,18 @@ public class SystemUIBenchmarks extends BenchmarkBase {
             .setName("SystemUIApp")
             .setDumpDependencyPath(dir)
             .setEnableResourceShrinking(true)
+            // TODO(b/373550435): Update dex2oat to enable checking absence of verification errors
+            //  on SystemUI.
+            .setEnableDex2OatVerification(false)
             .setFromRevision(16457)
             .buildR8(SystemUIBenchmarks::configure),
         AppDumpBenchmarkBuilder.builder()
             .setName("SystemUIAppPartial")
             .setDumpDependencyPath(dir)
             .setEnableResourceShrinking(true)
+            // TODO(b/373550435): Update dex2oat to enable checking absence of verification errors
+            //  on SystemUI.
+            .setEnableDex2OatVerification(false)
             .setFromRevision(16457)
             .buildR8WithPartialShrinking(SystemUIBenchmarks::configurePartialShrinking),
         AppDumpBenchmarkBuilder.builder()
@@ -57,7 +63,16 @@ public class SystemUIBenchmarks extends BenchmarkBase {
             .setEnableResourceShrinking(true)
             .setFromRevision(16457)
             .setRuntimeOnly()
-            .buildR8(SystemUIBenchmarks::configureTreeShaking));
+            .buildR8(SystemUIBenchmarks::configureTreeShaking),
+        AppDumpBenchmarkBuilder.builder()
+            .setName("SystemUIAppContainerDex")
+            .setDumpDependencyPath(dir)
+            .setEnableResourceShrinking(true)
+            .setEnableContainerDex(true)
+            // TODO(b/373550435): Update dex2oat to enable checking container DEX on SystemUI.
+            .setEnableDex2Oat(false)
+            .setFromRevision(16457)
+            .buildR8(SystemUIBenchmarks::configure));
   }
 
   private static void configure(R8FullTestBuilder testBuilder) {

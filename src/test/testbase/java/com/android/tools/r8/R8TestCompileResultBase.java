@@ -405,15 +405,21 @@ public abstract class R8TestCompileResultBase<CR extends R8TestCompileResultBase
   }
 
   @Override
-  public CR benchmarkDex2OatCodeSize(BenchmarkResults results, boolean enableDex2OatVerification)
+  public CR benchmarkDex2OatCodeSize(
+      BenchmarkResults results, boolean enableDex2Oat, boolean enableDex2OatVerification)
       throws IOException {
     if (results.isBenchmarkingCodeSize()) {
-      Dex2OatTestRunResult dex2OatTestRunResult =
-          runDex2Oat(new DexRuntime(DexVm.Version.LATEST_DEX2OAT)).assertNoLockVerificationErrors();
-      if (enableDex2OatVerification) {
-        dex2OatTestRunResult.assertNoVerificationErrors();
+      if (enableDex2Oat) {
+        Dex2OatTestRunResult dex2OatTestRunResult =
+            runDex2Oat(new DexRuntime(DexVm.Version.LATEST_DEX2OAT))
+                .assertNoLockVerificationErrors();
+        if (enableDex2OatVerification) {
+          dex2OatTestRunResult.assertNoVerificationErrors();
+        }
+        results.addDex2OatSizeResult(dex2OatTestRunResult.getOatSizeOrDefault(0));
+      } else {
+        results.addDex2OatSizeResult(-1);
       }
-      results.addDex2OatSizeResult(dex2OatTestRunResult.getOatSizeOrDefault(0));
     }
     return self();
   }

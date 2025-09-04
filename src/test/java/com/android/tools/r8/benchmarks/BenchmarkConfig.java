@@ -90,6 +90,7 @@ public class BenchmarkConfig {
     private int fromRevision = -1;
     private BenchmarkTimeout timeout = null;
     private boolean measureWarmup = false;
+    private boolean enableDex2Oat = true;
     private boolean enableDex2OatVerification = true;
 
     private Builder() {}
@@ -138,6 +139,7 @@ public class BenchmarkConfig {
           dependencies,
           timeout,
           measureWarmup,
+          enableDex2Oat,
           enableDex2OatVerification);
     }
 
@@ -196,6 +198,11 @@ public class BenchmarkConfig {
       return this;
     }
 
+    public Builder setEnableDex2Oat(boolean enableDex2Oat) {
+      this.enableDex2Oat = enableDex2Oat;
+      return this;
+    }
+
     public Builder setEnableDex2OatVerification(boolean enableDex2OatVerification) {
       this.enableDex2OatVerification = enableDex2OatVerification;
       return this;
@@ -243,6 +250,7 @@ public class BenchmarkConfig {
   private final int fromRevision;
   private final BenchmarkTimeout timeout;
   private final boolean measureWarmup;
+  private final boolean enableDex2Oat;
   private final boolean enableDex2OatVerification;
 
   private BenchmarkConfig(
@@ -255,6 +263,7 @@ public class BenchmarkConfig {
       Collection<BenchmarkDependency> dependencies,
       BenchmarkTimeout timeout,
       boolean measureWarmup,
+      boolean enableDex2Oat,
       boolean enableDex2OatVerification) {
     this.id = new BenchmarkIdentifier(name, target);
     this.method = benchmarkMethod;
@@ -264,6 +273,7 @@ public class BenchmarkConfig {
     this.dependencies = dependencies;
     this.timeout = timeout;
     this.measureWarmup = measureWarmup;
+    this.enableDex2Oat = enableDex2Oat;
     this.enableDex2OatVerification = enableDex2OatVerification;
   }
 
@@ -326,6 +336,10 @@ public class BenchmarkConfig {
 
   public BenchmarkTimeout getTimeout() {
     return timeout;
+  }
+
+  public boolean isDex2OatEnabled() {
+    return enableDex2Oat;
   }
 
   public boolean isDex2OatVerificationEnabled() {
