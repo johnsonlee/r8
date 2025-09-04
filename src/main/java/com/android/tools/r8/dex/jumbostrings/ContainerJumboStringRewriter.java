@@ -37,7 +37,7 @@ public class ContainerJumboStringRewriter extends JumboStringRewriter {
     }
     // Compute string layout and handle jumbo strings for the last DEX section.
     timing.begin("Process last virtual file");
-    processVirtualFile(lastFile, timing);
+    processVirtualFile(lastFile, timing, executorService);
     timing.end();
     // Handle jumbo strings for the remaining DEX sections using the string ids in the last DEX
     // section.
@@ -46,7 +46,7 @@ public class ContainerJumboStringRewriter extends JumboStringRewriter {
         alwaysTrue(),
         (virtualFile, threadTiming) ->
             rewriteJumboStringsAndComputeDebugRepresentationWithExternalStringIds(
-                virtualFile, lastFile.getObjectMapping(), threadTiming),
+                virtualFile, lastFile.getObjectMapping(), threadTiming, executorService),
         appView.options(),
         executorService,
         timing,
@@ -54,13 +54,22 @@ public class ContainerJumboStringRewriter extends JumboStringRewriter {
   }
 
   private void rewriteJumboStringsAndComputeDebugRepresentationWithExternalStringIds(
-      VirtualFile virtualFile, ObjectToOffsetMapping mapping, Timing timing) {
-    computeOffsetMappingAndRewriteJumboStringsWithExternalStringIds(virtualFile, timing, mapping);
+      VirtualFile virtualFile,
+      ObjectToOffsetMapping mapping,
+      Timing timing,
+      ExecutorService executorService)
+      throws ExecutionException {
+    computeOffsetMappingAndRewriteJumboStringsWithExternalStringIds(
+        virtualFile, timing, mapping, executorService);
     DebugRepresentation.computeForFile(appView, virtualFile);
   }
 
   private void computeOffsetMappingAndRewriteJumboStringsWithExternalStringIds(
-      VirtualFile virtualFile, Timing timing, ObjectToOffsetMapping mapping) {
+      VirtualFile virtualFile,
+      Timing timing,
+      ObjectToOffsetMapping mapping,
+      ExecutorService executorService)
+      throws ExecutionException {
     if (virtualFile.isEmpty()) {
       return;
     }
@@ -68,7 +77,8 @@ public class ContainerJumboStringRewriter extends JumboStringRewriter {
     virtualFile.computeMapping(appView, lazyDexStrings.size(), timing, mapping);
     timing.end();
     timing.begin("Rewrite jumbo strings");
-    rewriteCodeWithJumboStrings(virtualFile.getObjectMapping(), virtualFile.classes());
+    rewriteCodeWithJumboStrings(
+        virtualFile.getObjectMapping(), virtualFile.classes(), executorService);
     timing.end();
   }
 }

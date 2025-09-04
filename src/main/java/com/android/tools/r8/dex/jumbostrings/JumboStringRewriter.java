@@ -53,19 +53,23 @@ public class JumboStringRewriter {
     ThreadUtils.processItemsThatMatches(
         virtualFiles,
         alwaysTrue(),
-        this::processVirtualFile,
+        (virtualFile, ttiming) -> processVirtualFile(virtualFile, ttiming, executorService),
         options,
         executorService,
         timing,
         timing.beginMerger("Pre-write phase", executorService));
   }
 
-  protected final void processVirtualFile(VirtualFile virtualFile, Timing timing) {
-    computeOffsetMappingAndRewriteJumboStrings(virtualFile, timing);
+  protected final void processVirtualFile(
+      VirtualFile virtualFile, Timing timing, ExecutorService executorService)
+      throws ExecutionException {
+    computeOffsetMappingAndRewriteJumboStrings(virtualFile, timing, executorService);
     DebugRepresentation.computeForFile(appView, virtualFile);
   }
 
-  private void computeOffsetMappingAndRewriteJumboStrings(VirtualFile virtualFile, Timing timing) {
+  private void computeOffsetMappingAndRewriteJumboStrings(
+      VirtualFile virtualFile, Timing timing, ExecutorService executorService)
+      throws ExecutionException {
     if (virtualFile.isEmpty()) {
       return;
     }
@@ -73,7 +77,8 @@ public class JumboStringRewriter {
     virtualFile.computeMapping(appView, lazyDexStrings.size(), timing);
     timing.end();
     timing.begin("Rewrite jumbo strings");
-    rewriteCodeWithJumboStrings(virtualFile.getObjectMapping(), virtualFile.classes());
+    rewriteCodeWithJumboStrings(
+        virtualFile.getObjectMapping(), virtualFile.classes(), executorService);
     timing.end();
   }
 
@@ -85,7 +90,10 @@ public class JumboStringRewriter {
    * be used.
    */
   protected final void rewriteCodeWithJumboStrings(
-      ObjectToOffsetMapping mapping, Collection<DexProgramClass> classes) {
+      ObjectToOffsetMapping mapping,
+      Collection<DexProgramClass> classes,
+      ExecutorService executorService)
+      throws ExecutionException {
     // Do not bail out early if forcing jumbo string processing.
     if (!options.getTestingOptions().forceJumboStringProcessing) {
       // If there are no strings with jumbo indices at all this is a no-op.
@@ -93,19 +101,23 @@ public class JumboStringRewriter {
         return;
       }
     }
-    for (DexProgramClass clazz : classes) {
-      clazz.forEachProgramMethodMatching(
-          DexEncodedMethod::hasCode,
-          method -> {
-            DexWritableCode code = method.getDefinition().getCode().asDexWritableCode();
-            DexWritableCode rewrittenCode =
-                code.rewriteCodeWithJumboStrings(
-                    method,
-                    mapping,
-                    appView,
-                    options.getTestingOptions().forceJumboStringProcessing);
-            method.setCode(rewrittenCode.asCode(), appView);
-          });
-    }
+
+    ThreadUtils.processItems(
+        classes,
+        clazz ->
+            clazz.forEachProgramMethodMatching(
+                DexEncodedMethod::hasCode,
+                method -> {
+                  DexWritableCode code = method.getDefinition().getCode().asDexWritableCode();
+                  DexWritableCode rewrittenCode =
+                      code.rewriteCodeWithJumboStrings(
+                          method,
+                          mapping,
+                          appView,
+                          options.getTestingOptions().forceJumboStringProcessing);
+                  method.setCode(rewrittenCode.asCode(), appView);
+                }),
+        options.getThreadingModule(),
+        executorService);
   }
 }
