@@ -546,6 +546,7 @@ public class Enqueuer {
       }
       CfOpenClosedInterfacesAnalysis.register(appView, this, analysesBuilder);
       cfToLirConverter = CfToLirConverter.register(appView, this, analysesBuilder);
+      deferredTracing.register(analysesBuilder);
       taskCollection.register(analysesBuilder);
     } else {
       cfToLirConverter = null;
@@ -4887,13 +4888,6 @@ public class Enqueuer {
         // are passed to Java reflections are traced.
         reflectiveIdentification.processWorklist(timing);
         if (worklist.hasNext()) {
-          timing.end();
-          continue;
-        }
-
-        // Allow deferred tracing to enqueue worklist items.
-        if (deferredTracing.enqueueWorklistActions(worklist, timing)) {
-          assert worklist.hasNext();
           timing.end();
           continue;
         }

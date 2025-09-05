@@ -19,6 +19,8 @@ import com.android.tools.r8.graph.FieldAccessInfoImpl;
 import com.android.tools.r8.graph.FieldResolutionResult;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.graph.analysis.EnqueuerAnalysisCollection;
+import com.android.tools.r8.graph.analysis.FixpointEnqueuerAnalysis;
 import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.conversion.IRFinalizer;
@@ -46,7 +48,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
-public class EnqueuerDeferredTracingImpl extends EnqueuerDeferredTracing {
+public class EnqueuerDeferredTracingImpl extends EnqueuerDeferredTracing
+    implements FixpointEnqueuerAnalysis {
 
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
   private final Enqueuer enqueuer;
@@ -226,19 +229,24 @@ public class EnqueuerDeferredTracingImpl extends EnqueuerDeferredTracing {
   }
 
   @Override
-  public boolean enqueueWorklistActions(EnqueuerWorklist worklist, Timing timing) {
+  public void register(EnqueuerAnalysisCollection.Builder analysesBuilder) {
+    analysesBuilder.addFixpointAnalysis(this);
+  }
+
+  @Override
+  public void notifyFixpoint(
+      Enqueuer enqueuer, EnqueuerWorklist worklist, ExecutorService executorService, Timing timing)
+      throws ExecutionException {
     timing.begin("Process deferred tracing");
-    boolean changed =
-        deferredEnqueuerActions.removeIf(
-            (field, worklistActions) -> {
-              if (isEligibleForPruning(field)) {
-                return false;
-              }
-              worklist.enqueueAll(worklistActions);
-              return true;
-            });
+    deferredEnqueuerActions.removeIf(
+        (field, worklistActions) -> {
+          if (isEligibleForPruning(field)) {
+            return false;
+          }
+          worklist.enqueueAll(worklistActions);
+          return true;
+        });
     timing.end();
-    return changed;
   }
 
   @Override
