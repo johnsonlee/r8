@@ -69,7 +69,7 @@ function getTryCommitsByParentHash(loadedTryCommits) {
   for (var i = 0; i < loadedTryCommits.length; i++) {
     const commit = loadedTryCommits[i];
     const parentHash = commit["parent_hash"];
-    if (parentHash in loadedTryCommits) {
+    if (parentHash in result) {
       result[parentHash].push(commit);
     } else {
       result[parentHash] = [commit];
