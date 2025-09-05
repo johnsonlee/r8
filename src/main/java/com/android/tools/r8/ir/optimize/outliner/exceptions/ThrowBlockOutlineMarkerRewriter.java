@@ -140,7 +140,15 @@ public class ThrowBlockOutlineMarkerRewriter {
             for (Instruction instruction = instructionIterator.previous();
                 instruction != outlineMarker;
                 instruction = instructionIterator.previous()) {
-              if (instruction.hasUnusedOutValue()) {
+              Value outValue = instruction.outValue();
+              if (outValue == null || !outValue.hasNonDebugUsers()) {
+                // Remove all debug users of the out-value.
+                if (outValue != null && outValue.hasDebugUsers()) {
+                  for (Instruction debugUser : outValue.debugUsers()) {
+                    debugUser.getDebugValues().remove(outValue);
+                  }
+                  outValue.clearDebugUsers();
+                }
                 // We are not using `removeOrReplaceByDebugLocalRead` here due to the backwards
                 // iteration.
                 if (instruction.getDebugValues().isEmpty()) {
@@ -157,6 +165,12 @@ public class ThrowBlockOutlineMarkerRewriter {
 
           // Finally delete the outline marker.
           outlineMarker.removeOrReplaceByDebugLocalRead();
+
+          // Blocks cannot start with DebugLocalRead.
+          while (block.entry().isDebugLocalRead()) {
+            block.entry().moveDebugValues(block.entry().getNext());
+            block.entry().remove();
+          }
         }
       }
       assert block.streamInstructions().noneMatch(Instruction::isThrowBlockOutlineMarker);
