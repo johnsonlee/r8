@@ -62,7 +62,8 @@ public class IfRuleEvaluator {
       Map<Wrapper<ProguardIfRule>, Set<ProguardIfRule>> ifRules,
       ClassKind<?> classKind,
       Iterable<? extends DexClass> classesWithNewlyLiveMembers,
-      Predicate<DexProgramClass> isEffectivelyLive)
+      Predicate<DexProgramClass> isEffectivelyLive,
+      Timing timing)
       throws ExecutionException {
     MapUtils.removeIf(
         ifRules,
@@ -81,7 +82,7 @@ public class IfRuleEvaluator {
               clazz -> {
                 assert !clazz.isProgramClass() || isEffectivelyLive.test(clazz.asProgramClass());
                 processActiveIfRulesWithMembersAndSameClassPrecondition(
-                    ifRuleKey, ifRulesInEquivalence, clazz, toRemove);
+                    ifRuleKey, ifRulesInEquivalence, clazz, toRemove, timing);
               });
           if (ifRulesInEquivalence.size() == toRemove.size()) {
             return true;
@@ -115,7 +116,8 @@ public class IfRuleEvaluator {
       ProguardIfRule ifRuleKey,
       Set<ProguardIfRule> ifRulesInEquivalence,
       DexClass clazz,
-      List<ProguardIfRule> toRemove) {
+      List<ProguardIfRule> toRemove,
+      Timing timing) {
     // Check if the class matches the if-rule.
     if (!evaluateClassForIfRule(ifRuleKey, clazz)) {
       return;
@@ -139,7 +141,7 @@ public class IfRuleEvaluator {
             }
             return false;
           });
-      applyMaterializedSubsequentRules(ifRule, materializedSubsequentRules);
+      applyMaterializedSubsequentRules(ifRule, materializedSubsequentRules, timing);
     }
   }
 
@@ -159,12 +161,14 @@ public class IfRuleEvaluator {
           evaluateClassesForIfRule(ifRuleKey, newlyLiveClasses, classMatches, timing);
           if (!classMatches.isEmpty()) {
             ifRulesInEquivalence.removeIf(
-                ifRule -> processActiveIfRuleWithWithoutMembers(ifRule, classMatches));
+                ifRule -> processActiveIfRuleWithWithoutMembers(ifRule, classMatches, timing));
             classMatches.clear();
           }
           return ifRulesInEquivalence.isEmpty();
         });
+    timing.begin("Await");
     tasks.await();
+    timing.end();
   }
 
   /**
@@ -172,11 +176,12 @@ public class IfRuleEvaluator {
    * be safely ignored for the remainder of the current tree shaking.
    */
   private boolean processActiveIfRuleWithWithoutMembers(
-      ProguardIfRule ifRule, List<DexClass> classMatches) {
+      ProguardIfRule ifRule, List<DexClass> classMatches, Timing timing) {
     boolean isSubsequentRuleFullyEvaluated = false;
     boolean noBackReferences = canRemoveSubsequentKeepRule(ifRule);
     List<Pair<ProguardIfRulePreconditionMatch, ProguardKeepRule>> materializedSubsequentRules =
         new ArrayList<>();
+    timing.begin("Materialize if rule");
     for (DexClass clazz : classMatches) {
       registerClassCapture(ifRule, clazz, clazz);
       ProguardIfRulePreconditionMatch ifRulePreconditionMatch =
@@ -190,7 +195,8 @@ public class IfRuleEvaluator {
         break;
       }
     }
-    applyMaterializedSubsequentRules(ifRule, materializedSubsequentRules);
+    timing.end();
+    applyMaterializedSubsequentRules(ifRule, materializedSubsequentRules, timing);
     return isSubsequentRuleFullyEvaluated;
   }
 
@@ -402,22 +408,27 @@ public class IfRuleEvaluator {
 
   private void applyMaterializedSubsequentRules(
       ProguardIfRule ifRule,
-      List<Pair<ProguardIfRulePreconditionMatch, ProguardKeepRule>> materializedSubsequentRules) {
+      List<Pair<ProguardIfRulePreconditionMatch, ProguardKeepRule>> materializedSubsequentRules,
+      Timing timing) {
     materializedSubsequentRules =
-        MaterializedSubsequentRulesOptimizer.optimize(ifRule, materializedSubsequentRules);
-    for (Pair<ProguardIfRulePreconditionMatch, ProguardKeepRule> pair :
-        materializedSubsequentRules) {
-      ProguardIfRulePreconditionMatch ifRulePreconditionMatch = pair.getFirst();
-      ProguardKeepRule materializedSubsequentRule = pair.getSecond();
-      applyMaterializedSubsequentRule(materializedSubsequentRule, ifRulePreconditionMatch);
+        MaterializedSubsequentRulesOptimizer.optimize(ifRule, materializedSubsequentRules, timing);
+    try (Timing t0 = timing.begin("Apply materialized rules")) {
+      for (Pair<ProguardIfRulePreconditionMatch, ProguardKeepRule> pair :
+          materializedSubsequentRules) {
+        ProguardIfRulePreconditionMatch ifRulePreconditionMatch = pair.getFirst();
+        ProguardKeepRule materializedSubsequentRule = pair.getSecond();
+        applyMaterializedSubsequentRule(
+            materializedSubsequentRule, ifRulePreconditionMatch, timing);
+      }
     }
   }
 
   private void applyMaterializedSubsequentRule(
       ProguardKeepRule materializedSubsequentRule,
-      ProguardIfRulePreconditionMatch ifRulePreconditionMatch) {
+      ProguardIfRulePreconditionMatch ifRulePreconditionMatch,
+      Timing timing) {
     try {
-      rootSetBuilder.runPerRule(tasks, materializedSubsequentRule, ifRulePreconditionMatch);
+      rootSetBuilder.runPerRule(tasks, materializedSubsequentRule, ifRulePreconditionMatch, timing);
     } catch (ExecutionException e) {
       throw new UncheckedExecutionException(e);
     }
