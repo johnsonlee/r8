@@ -81,8 +81,8 @@ public class RunJdwpTests extends TestBase {
     };
   }
 
-  static boolean isAndroidMAndD8(DexVm dexVm, Tool tool) {
-    return dexVm.getVersion().isEqualTo(Version.V5_1_1) && tool.equals(Tool.D8);
+  static boolean isNotAndroidMAndD8(DexVm dexVm, Tool tool) {
+    return !(dexVm.getVersion().isEqualTo(Version.V5_1_1) && tool.equals(Tool.D8));
   }
 
   static boolean isAndroidKOrAbove(DexVm dexVm, Tool tool) {
@@ -143,7 +143,7 @@ public class RunJdwpTests extends TestBase {
           .put("VirtualMachine.InstanceCountsTest", RunJdwpTests::isAndroidMOrAbove)
           .put("ReferenceType.InstancesTest", RunJdwpTests::isAndroidMOrAbove)
           .put("EventModifiers.InstanceOnlyModifierTest", RunJdwpTests::isAndroidMOrAbove)
-          .put("Method.LineTableTest", RunJdwpTests::isAndroidMAndD8)
+          .put("Method.LineTableTest", RunJdwpTests::isNotAndroidMAndD8)
           .build();
 
   static final Map<String, TestPredicate> FAILING_TESTS =
