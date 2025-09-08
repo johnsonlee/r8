@@ -136,6 +136,11 @@ def ParseOptions():
                       help='Post result to GCS, implied by --continuous',
                       default=False,
                       action='store_true')
+    result.add_option('--try-run',
+                      '--try_run',
+                      help='Whether this is a try run',
+                      default=False,
+                      action='store_true')
     return result.parse_args()
 
 
@@ -158,10 +163,17 @@ def git_checkout(git_hash):
     ensure_git_clean()
     # Ensure that we are up to date to get the commit.
     git_pull()
-    exitcode = subprocess.call(['git', 'checkout', git_hash])
-    if exitcode != 0:
-        return None
-    return utils.get_HEAD_sha1()
+    try_run = False
+    exit_code = subprocess.call(['git', 'checkout', git_hash])
+    if exit_code != 0:
+        # Try commits are not present on main.
+        # Attempt to fetch the commit directly.
+        exit_code = subprocess.call(['git', 'fetch', 'origin', git_hash])
+        if exit_code != 0:
+            return (exit_code, False)
+        try_run = True
+    exit_code = subprocess.call(['git', 'checkout', git_hash])
+    return (exit_code, try_run)
 
 
 def get_test_result_dir():
@@ -285,13 +297,14 @@ def run_continuously():
         print_magic_file_state()
         if get_magic_file_exists(READY_FOR_TESTING):
             git_hash = get_magic_file_content(READY_FOR_TESTING)
-            checked_out = git_checkout(git_hash)
-            if not checked_out:
-                # Gerrit change, we don't run these on internal.
+            (git_checkout_exit_code, try_run) = git_checkout(git_hash)
+            if git_checkout_exit_code != 0:
+                # Unable to checkout hash.
                 archive_status(0)
                 put_magic_file(TESTING_COMPLETE, git_hash)
                 delete_magic_file(READY_FOR_TESTING)
                 continue
+            checked_out = utils.get_HEAD_sha1()
             # Sanity check, if this does not succeed stop.
             if checked_out != git_hash:
                 log('Inconsistent state: %s %s' % (git_hash, checked_out))
@@ -299,7 +312,7 @@ def run_continuously():
             put_magic_file(TESTING, git_hash)
             delete_magic_file(READY_FOR_TESTING)
             log('Running with hash: %s' % git_hash)
-            exitcode = run_external()
+            exitcode = run_external(try_run)
             log('Running finished with exit code %s' % exitcode)
             # If the bot timed out or something else triggered the bot to fail, don't
             # put up the result (it will not be displayed anywhere, and we can't
@@ -312,9 +325,11 @@ def run_continuously():
         time.sleep(PULL_DELAY)
 
 
-def run_external():
-    return subprocess.call(
-        [sys.executable, "tools/internal_test.py", "--archive"])
+def run_external(try_run):
+    cmd = [sys.executable, 'tools/internal_test.py', '--archive']
+    if try_run:
+        cmd.append('--try-run')
+    return subprocess.call(cmd)
 
 
 def handle_output(archive, stderr, stdout, exitcode, timed_out, cmd):
@@ -371,15 +386,15 @@ def execute(cmd, archive, env=None):
         return exitcode
 
 
-def run_once(archive):
+def run_once(archive, try_run):
     git_hash = utils.get_HEAD_sha1()
-    log('Running once with hash %s' % git_hash)
+    log('Running once with hash %s (try run: %s)' % (git_hash, try_run))
     env = os.environ.copy()
     # Bot does not have a lot of memory.
     env['R8_GRADLE_CORES_PER_FORK'] = '5'
     if archive:
         [execute(cmd, archive, env) for cmd in CLEAN_COMMANDS]
-    test_commands = get_test_commands()
+    test_commands = get_test_commands(try_run)
     failed = any([execute(cmd, archive, env) for cmd in test_commands])
     # Gradle daemon occasionally leaks memory, stop it.
     gradle.RunGradle(['--stop'])
@@ -409,7 +424,9 @@ def get_default_test_commands():
     ]
 
 
-def get_test_commands():
+def get_test_commands(try_run):
+    if try_run:
+        return []
     test_commands = get_default_test_commands()
     version = utils.get_HEAD_commit().version()
     if version and version.endswith('-dev'):
@@ -429,7 +446,7 @@ def Main():
     elif options.print_logs:
         return fetch_and_print_logs(options.print_logs)
     else:
-        return run_once(options.archive)
+        return run_once(options.archive, options.try_run)
 
 
 if __name__ == '__main__':
