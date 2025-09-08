@@ -5,6 +5,7 @@ package com.android.tools.r8.utils.timing;
 
 import androidx.tracing.driver.ThreadTrack;
 import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.utils.InternalOptions;
 
 class PerfettoThreadTiming extends TimingImplBase {
 
@@ -14,6 +15,14 @@ class PerfettoThreadTiming extends TimingImplBase {
 
   PerfettoThreadTiming(ThreadTrack threadTrack) {
     this.threadTrack = threadTrack;
+  }
+
+  @Override
+  public Timing createThreadTiming(String title, InternalOptions options) {
+    int threadId = (int) Thread.currentThread().getId();
+    ThreadTrack newThreadTrack =
+        threadTrack.getProcess().getOrCreateThreadTrack(threadId, "Worker");
+    return new PerfettoThreadTiming(newThreadTrack).begin(title);
   }
 
   @Override
@@ -39,7 +48,7 @@ class PerfettoThreadTiming extends TimingImplBase {
 
   @Override
   public TimingMerger beginMerger(String title, int numberOfThreads) {
-    throw new Unreachable();
+    return EmptyTimingMerger.get();
   }
 
   @Override
