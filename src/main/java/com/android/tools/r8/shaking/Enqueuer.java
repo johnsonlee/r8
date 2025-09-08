@@ -4659,13 +4659,15 @@ public class Enqueuer {
       }
     }
     DirectMappedDexApplication app =
-        appInfo
-            .app()
-            .asDirect()
-            .builder()
-            .replaceLibraryClasses(libraryClasses)
-            .replaceClasspathClasses(classpathClasses)
-            .build();
+        options.configurationDebugging
+            ? appInfo.app().asDirect()
+            : appInfo
+                .app()
+                .asDirect()
+                .builder()
+                .replaceLibraryClasses(libraryClasses)
+                .replaceClasspathClasses(classpathClasses)
+                .build();
     timing.end();
 
     // Verify the references on the pruned application after type synthesis.
