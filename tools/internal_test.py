@@ -184,8 +184,8 @@ def get_sha_destination(sha):
     return os.path.join(get_test_result_dir(), sha)
 
 
-def archive_status(failed):
-    gs_destination = 'gs://%s' % get_sha_destination(utils.get_HEAD_sha1())
+def archive_status(failed, git_hash):
+    gs_destination = 'gs://%s' % get_sha_destination(git_hash)
     utils.archive_value('status', gs_destination, failed)
 
 
@@ -300,7 +300,7 @@ def run_continuously():
             (git_checkout_exit_code, try_run) = git_checkout(git_hash)
             if git_checkout_exit_code != 0:
                 # Unable to checkout hash.
-                archive_status(0)
+                archive_status(0, git_hash)
                 put_magic_file(TESTING_COMPLETE, git_hash)
                 delete_magic_file(READY_FOR_TESTING)
                 continue
@@ -398,7 +398,7 @@ def run_once(archive, try_run):
     failed = any([execute(cmd, archive, env) for cmd in test_commands])
     # Gradle daemon occasionally leaks memory, stop it.
     gradle.RunGradle(['--stop'])
-    archive_status(1 if failed else 0)
+    archive_status(1 if failed else 0, git_hash)
     return failed
 
 
