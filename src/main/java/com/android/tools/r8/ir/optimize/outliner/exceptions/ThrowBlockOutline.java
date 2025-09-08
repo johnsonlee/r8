@@ -3,12 +3,15 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize.outliner.exceptions;
 
+import static com.android.tools.r8.graph.DexClassAndMethod.asProgramMethodOrNull;
+
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProto;
+import com.android.tools.r8.graph.InvalidCode;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.proto.ArgumentInfoCollection;
@@ -20,6 +23,7 @@ import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
 import com.android.tools.r8.ir.code.ConstNumber;
 import com.android.tools.r8.ir.code.ConstString;
 import com.android.tools.r8.ir.code.Value;
+import com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper;
 import com.android.tools.r8.lightir.LirCode;
 import com.android.tools.r8.lightir.LirConstant;
 import com.android.tools.r8.synthesis.SyntheticItems;
@@ -162,14 +166,18 @@ public class ThrowBlockOutline implements LirConstant {
     return users;
   }
 
-  public void updateUsers(Map<DexMethod, DexMethod> forcefullyMovedLambdaMethods) {
+  public void updateUsers(
+      AppView<?> appView, Map<DexMethod, DexMethod> forcefullyMovedLambdaMethods) {
     Iterator<Entry<DexMethod>> iterator = users.entrySet().iterator();
     Multiset<DexMethod> newUsers = null;
     while (iterator.hasNext()) {
       Entry<DexMethod> entry = iterator.next();
       DexMethod user = entry.getElement();
-      DexMethod newUser = forcefullyMovedLambdaMethods.get(user);
-      if (newUser != null) {
+      DexMethod newUser = forcefullyMovedLambdaMethods.getOrDefault(user, user);
+      if (newUser.isIdenticalTo(user)) {
+        newUser = getUserAfterInterfaceMethodDesugaring(user, appView);
+      }
+      if (newUser.isNotIdenticalTo(user)) {
         iterator.remove();
         if (newUsers == null) {
           newUsers = HashMultiset.create();
@@ -182,6 +190,35 @@ public class ThrowBlockOutline implements LirConstant {
         users.add(entry.getElement(), entry.getCount());
       }
     }
+  }
+
+  private DexMethod getUserAfterInterfaceMethodDesugaring(DexMethod user, AppView<?> appView) {
+    ProgramMethod userMethod = asProgramMethodOrNull(appView.definitionFor(user));
+    if (userMethod == null) {
+      throw new Unreachable("Unexpected missing method: " + user.toSourceString());
+    }
+    if (!InvalidCode.isInvalidCode(userMethod.getDefinition().getCode())) {
+      // Not moved by interface method desugaring.
+      return user;
+    }
+    DexMethod newUser;
+    if (userMethod.getAccessFlags().isStatic()) {
+      newUser =
+          InterfaceDesugaringSyntheticHelper.staticAsMethodOfCompanionClass(
+              userMethod.getReference(), appView.dexItemFactory());
+    } else if (userMethod.getAccessFlags().isPrivate()) {
+      newUser =
+          InterfaceDesugaringSyntheticHelper.privateAsMethodOfCompanionClass(
+              userMethod.getReference(), appView.dexItemFactory());
+    } else {
+      newUser =
+          InterfaceDesugaringSyntheticHelper.defaultAsMethodOfCompanionClass(
+              userMethod.getReference(), appView.dexItemFactory());
+    }
+    if (appView.definitionFor(newUser) == null) {
+      throw new Unreachable("Unexpected missing method: " + newUser.toSourceString());
+    }
+    return newUser;
   }
 
   public boolean hasConstantArgument() {

@@ -83,11 +83,8 @@ public class ThrowBlockOutliner {
   private void updateOutlineUsers(
       Collection<ThrowBlockOutline> outlines,
       Map<DexMethod, DexMethod> forcefullyMovedLambdaMethods) {
-    if (forcefullyMovedLambdaMethods.isEmpty()) {
-      return;
-    }
     for (ThrowBlockOutline outline : outlines) {
-      outline.updateUsers(forcefullyMovedLambdaMethods);
+      outline.updateUsers(appView, forcefullyMovedLambdaMethods);
     }
   }
 

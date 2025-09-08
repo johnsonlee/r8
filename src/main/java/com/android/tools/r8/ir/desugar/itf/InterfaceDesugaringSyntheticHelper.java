@@ -497,7 +497,8 @@ public class InterfaceDesugaringSyntheticHelper {
   }
 
   // Represent a private instance interface method as a method of companion class.
-  static DexMethod privateAsMethodOfCompanionClass(DexMethod method, DexItemFactory factory) {
+  public static DexMethod privateAsMethodOfCompanionClass(
+      DexMethod method, DexItemFactory factory) {
     // Add an implicit argument to represent the receiver.
     return instanceAsMethodOfCompanionClass(method, PRIVATE_METHOD_PREFIX, factory);
   }
