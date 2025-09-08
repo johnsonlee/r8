@@ -532,7 +532,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
             || isVivifiedType(type)
             || (subCompilationConfiguration != null
                 && subCompilationConfiguration.asR8().d8MissingClasses.contains(type))
-            || options().configurationDebugging
         : "Failed lookup of non-missing type: " + type;
     return definition;
   }

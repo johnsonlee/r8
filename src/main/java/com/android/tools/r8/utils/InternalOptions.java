@@ -320,7 +320,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
       assert !isOptimizing();
       keepDebugRelatedInformation();
     }
-    configurationDebugging = proguardConfiguration.isConfigurationDebugging();
     if (proguardConfiguration.isProtoShrinkingEnabled()) {
       enableProtoShrinking();
     }

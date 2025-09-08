@@ -6,7 +6,6 @@ package com.android.tools.r8.shaking;
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.google.common.base.Predicates.alwaysFalse;
 
-import com.android.tools.r8.androidapi.ComputedApiLevel;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DefaultInstanceInitializerCode;
 import com.android.tools.r8.graph.DexAnnotation;
@@ -25,7 +24,6 @@ import com.android.tools.r8.graph.EnclosingMethodAttribute;
 import com.android.tools.r8.graph.InnerClassAttribute;
 import com.android.tools.r8.graph.NestMemberClassAttribute;
 import com.android.tools.r8.graph.PermittedSubclassAttribute;
-import com.android.tools.r8.graph.ProgramMember;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.RecordComponentInfo;
@@ -85,9 +83,7 @@ public class TreePruner {
     DirectMappedDexApplication application = appView.appInfo().app().asDirect();
     DirectMappedDexApplication.Builder builder = removeUnused(application);
     DirectMappedDexApplication newApplication =
-        prunedTypes.isEmpty() && !appView.options().configurationDebugging
-            ? application
-            : builder.build();
+        prunedTypes.isEmpty() ? application : builder.build();
     fixupOptimizationInfo(newApplication, executorService);
     PrunedItems prunedItems =
         prunedItemsBuilder
@@ -115,15 +111,6 @@ public class TreePruner {
     List<DexProgramClass> newClasses = new ArrayList<>();
     for (DexProgramClass clazz : classes) {
       boolean isLiveClass = appInfo.isLiveProgramClass(clazz);
-      if (options.configurationDebugging) {
-        newClasses.add(clazz);
-        pruneMembersAndAttributes(clazz);
-        if (!isLiveClass) {
-          clazz.clearAllAnnotations();
-          clazz.forEachProgramMember(ProgramMember::clearAllAnnotations);
-        }
-        continue;
-      }
       if (isLiveClass) {
         newClasses.add(clazz);
         if (!appInfo.getObjectAllocationInfoCollection().isInstantiatedDirectly(clazz)
@@ -367,7 +354,6 @@ public class TreePruner {
   private DexEncodedMethod[] reachableMethods(
       List<DexEncodedMethod> methods, DexProgramClass clazz) {
     AppInfoWithLiveness appInfo = appView.appInfo();
-    InternalOptions options = appView.options();
     int firstUnreachable =
         firstUnreachableIndex(methods, method -> appInfo.isLiveMethod(method.getReference()));
     // Return the original array if all methods are used.
@@ -383,15 +369,6 @@ public class TreePruner {
       if (appInfo.isLiveMethod(method.getReference())) {
         canonicalizeCode(method.asProgramMethod(clazz));
         reachableMethods.add(method);
-      } else if (options.configurationDebugging) {
-        // Keep the method but rewrite its body, if it has one.
-        if (method.shouldNotHaveCode() && !method.hasCode()) {
-          method.setApiLevelForDefinition(ComputedApiLevel.unknown());
-          reachableMethods.add(method);
-        } else {
-          reachableMethods.add(method.toMethodThatLogsError(appView));
-        }
-        methodsToKeepForConfigurationDebugging.add(method.getReference());
       } else if (appInfo.isTargetedMethod(method.getReference())) {
         // If the method is already abstract, and doesn't have code, let it be.
         if (method.shouldNotHaveCode() && !method.hasCode()) {
