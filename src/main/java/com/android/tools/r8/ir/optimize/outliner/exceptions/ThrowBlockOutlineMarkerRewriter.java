@@ -150,6 +150,9 @@ public class ThrowBlockOutlineMarkerRewriter {
                 if (outValue != null && outValue.hasDebugUsers()) {
                   for (Instruction debugUser : outValue.debugUsers()) {
                     debugUser.getDebugValues().remove(outValue);
+                    if (debugUser.getDebugValues().isEmpty()) {
+                      debugUser.remove();
+                    }
                   }
                   outValue.clearDebugUsers();
                 }
