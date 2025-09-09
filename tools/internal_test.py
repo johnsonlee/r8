@@ -415,10 +415,7 @@ def get_default_test_commands():
             '--java_max_memory_size=8G'
         ],
         # Run internal benchmarks.
-        [
-            'tools/perf.py', '--internal', '--iterations-inner', '3',
-            '--no-upload-benchmark-data-to-google-storage'
-        ],
+        get_perf_test_command(False),
         # Ensure that all internal apps compile.
         ['tools/run_on_app.py', '--run-all', '--out=out', '--workers', '3'],
     ]
@@ -426,7 +423,11 @@ def get_default_test_commands():
 
 def get_test_commands(try_run):
     if try_run:
-        return []
+        # We currently use try runs to trigger an internal perf job.
+        # If we also want to support running a full internal test run,
+        # we could pass a property from trigger.py that specifies what
+        # the try run should do.
+        return [get_perf_test_command(try_run)]
     test_commands = get_default_test_commands()
     version = utils.get_HEAD_commit().version()
     if version and version.endswith('-dev'):
@@ -435,6 +436,20 @@ def get_test_commands(try_run):
             '--no-upload-benchmark-data-to-google-storage'
         ])
     return test_commands
+
+
+def get_perf_test_command(try_run):
+    cmd = [
+        'tools/perf.py', '--internal', '--iterations-inner', '3',
+        '--no-upload-benchmark-data-to-google-storage'
+    ]
+    if try_run:
+        # TODO(christofferqa): We don't currently pass the patch ref
+        # from the bot. This would require writing it to a file on the
+        # cloud bucket. We don't currently use the patch ref in perf.py
+        # other than to determine that this is a try run, however.
+        cmd.extend(['--patch-ref', 'N/A'])
+    return cmd
 
 
 def Main():
