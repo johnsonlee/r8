@@ -38,7 +38,8 @@ def ParseOptions():
                       metavar=('<url>'),
                       help='Run the specified cl on the bots. This should be '
                       'the full url, e.g., '
-                      'https://r8-review.googlesource.com/c/r8/+/37420/1')
+                      'https://r8-review.googlesource.com/c/r8/+/37420/1, '
+                      'or the CL and patch number, e.g., 37420/1')
     result.add_option('--desugar-jdk11',
                       help='Run the jdk11 library desugar and archiving bot.',
                       default=False,
@@ -55,13 +56,16 @@ def ParseOptions():
     result.add_option('--smali',
                       metavar=('<version>'),
                       help='Build smali version <version>.')
-
     result.add_option('--builder', help='Trigger specific builder')
-    return result.parse_args()
+    (options, args) = result.parse_args()
+    if not options.cl.startswith('http'):
+        [cl_number, patch_number] = [int(x) for x in options.cl.split('/')]
+        options.cl = 'https://r8-review.googlesource.com/c/r8/+/%s/%s' % (
+            cl_number, patch_number)
+    return (options, args)
 
 
 def get_builders():
-
     is_release = False
     main_builders = []
     release_builders = []
@@ -109,7 +113,9 @@ def trigger_smali_builder(version):
         version,
         'use semantic version of the smali version to built (pre-releases are not supported)',
         allowPrerelease=False)
-    print("Check that tag %s is created and pushed to the remote (e.g by running" % version)
+    print(
+        "Check that tag %s is created and pushed to the remote (e.g by running"
+        % version)
     print()
     print("  git ls-remote origin refs/tags/%s in a smali checkout)" % version)
     print()
