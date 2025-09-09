@@ -53,7 +53,7 @@ public class JumboStringRewriter {
     ThreadUtils.processItemsThatMatches(
         virtualFiles,
         alwaysTrue(),
-        (virtualFile, ttiming) -> processVirtualFile(virtualFile, ttiming, executorService),
+        (virtualFile, timing0) -> processVirtualFile(virtualFile, timing0, executorService),
         options,
         executorService,
         timing,

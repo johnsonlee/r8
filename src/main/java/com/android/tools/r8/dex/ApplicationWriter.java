@@ -291,7 +291,7 @@ public class ApplicationWriter {
             virtualFile -> {
               Timing fileTiming =
                   timing.createThreadTiming("VirtualFile " + virtualFile.getId(), options);
-              writeVirtualFile(virtualFile, fileTiming, forcedStrings);
+              writeVirtualFile(virtualFile, fileTiming, forcedStrings, executorService);
               fileTiming.end();
               return fileTiming;
             },
@@ -530,7 +530,11 @@ public class ApplicationWriter {
   }
 
   protected void writeVirtualFile(
-      VirtualFile virtualFile, Timing timing, List<DexString> forcedStrings) {
+      VirtualFile virtualFile,
+      Timing timing,
+      List<DexString> forcedStrings,
+      ExecutorService executorService)
+      throws ExecutionException {
     if (virtualFile.isEmpty()) {
       return;
     }
@@ -567,7 +571,8 @@ public class ApplicationWriter {
     timing.end();
 
     timing.begin("Write bytes");
-    ByteBufferResult result = writeDexFile(objectMapping, byteBufferProvider, virtualFile, timing);
+    ByteBufferResult result =
+        writeDexFile(objectMapping, byteBufferProvider, virtualFile, timing, executorService);
     ByteDataView data =
         new ByteDataView(result.buffer.array(), result.buffer.arrayOffset(), result.length);
     timing.end();
@@ -892,12 +897,14 @@ public class ApplicationWriter {
       ObjectToOffsetMapping objectMapping,
       ByteBufferProvider provider,
       VirtualFile virtualFile,
-      Timing timing) {
+      Timing timing,
+      ExecutorService executorService)
+      throws ExecutionException {
     FileWriter fileWriter = new FileWriter(appView, provider, objectMapping, virtualFile);
     // Collect the non-fixed sections.
     timing.time("collect", fileWriter::collect);
     // Generate and write the bytes.
-    return timing.time("generate", () -> fileWriter.generate(timing));
+    return timing.time("generate", () -> fileWriter.generate(timing, executorService));
   }
 
   private static String mapMainDexListName(DexType type, NamingLens namingLens) {
