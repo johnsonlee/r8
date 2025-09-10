@@ -92,24 +92,12 @@ public class DexItemFactory {
   private final Set<DexType> possibleCompilerSynthesizedTypes = Sets.newIdentityHashSet();
 
   private Map<DexString, DexString> markers = new ConcurrentHashMap<>();
-
-  private Map<DexMethodHandle, DexMethodHandle> methodHandles = new ConcurrentHashMap<>();
-  private Map<DexMethodHandle, DexMethodHandle> committedMethodHandles = new HashMap<>();
-
   private Map<DexString, DexString> strings = new ConcurrentHashMap<>();
-  private Map<DexString, DexString> committedStrings = new HashMap<>();
-
   private Map<DexString, DexType> types = new ConcurrentHashMap<>();
-  private Map<DexString, DexType> committedTypes = new HashMap<>();
-
   private Map<DexField, DexField> fields = new ConcurrentHashMap<>();
-  private Map<DexField, DexField> committedFields = new HashMap<>();
-
   private Map<DexProto, DexProto> protos = new ConcurrentHashMap<>();
-  private Map<DexProto, DexProto> committedProtos = new HashMap<>();
-
   private Map<DexMethod, DexMethod> methods = new ConcurrentHashMap<>();
-  private Map<DexMethod, DexMethod> committedMethods = new HashMap<>();
+  private Map<DexMethodHandle, DexMethodHandle> methodHandles = new ConcurrentHashMap<>();
 
   // DexDebugEvent Canonicalization.
   private final Int2ReferenceMap<AdvanceLine> advanceLines = new Int2ReferenceOpenHashMap<>();
@@ -2458,7 +2446,6 @@ public class DexItemFactory {
           && accessFlags.isFinal();
     }
   }
-
   public class NullPointerExceptionMethods {
 
     public final DexMethod init =
@@ -2992,20 +2979,11 @@ public class DexItemFactory {
         createMethod(javaUtilIteratorType, createProto(objectType), nextName);
   }
 
-  private static <T extends DexItem> T canonicalize(
-      Map<T, T> committedMap, Map<T, T> pendingMap, T item) {
+  private static <T extends DexItem> T canonicalize(Map<T, T> map, T item) {
     assert item != null;
     assert !DexItemFactory.isInternalSentinel(item);
-    // Avoid synchronization for committed items.
-    T committed = committedMap.get(item);
-    if (committed != null) {
-      return committed;
-    }
-    T previous = pendingMap.putIfAbsent(item, item);
-    if (previous != null) {
-      return previous;
-    }
-    return item;
+    T previous = map.putIfAbsent(item, item);
+    return previous == null ? item : previous;
   }
 
   public DexString createMarkerString(int size, byte[] content) {
@@ -3025,11 +3003,11 @@ public class DexItemFactory {
   }
 
   public DexString createString(int size, byte[] content) {
-    return canonicalize(committedStrings, strings, new DexString(size, content));
+    return canonicalize(strings, new DexString(size, content));
   }
 
   public DexString createString(String source) {
-    return canonicalize(committedStrings, strings, new DexString(source));
+    return canonicalize(strings, new DexString(source));
   }
 
   public static String escapeMemberString(String str) {
@@ -3333,13 +3311,12 @@ public class DexItemFactory {
     }
   }
 
+  public DexString lookupString(int size, byte[] content) {
+    return strings.get(new DexString(size, content));
+  }
+
   public DexString lookupString(String source) {
-    DexString key = new DexString(source);
-    DexString committed = committedStrings.get(key);
-    if (committed != null) {
-      return committed;
-    }
-    return strings.get(key);
+    return strings.get(new DexString(source));
   }
 
   // Debugging support to extract marking string.
@@ -3355,6 +3332,23 @@ public class DexItemFactory {
     return markers;
   }
 
+  // Non-synchronized internal create.
+  private DexType internalCreateType(DexString descriptor) {
+    assert descriptor != null;
+    DexType result = types.get(descriptor);
+    if (result == null) {
+      result = new DexType(descriptor);
+      assert result.isArrayType()
+              || result.isClassType()
+              || result.isPrimitiveType()
+              || result.isVoidType()
+          : descriptor.toString();
+      assert !isInternalSentinel(result);
+      types.put(descriptor, result);
+    }
+    return result;
+  }
+
   private DexType createStaticallyKnownType(String descriptor) {
     return createStaticallyKnownType(createString(descriptor));
   }
@@ -3367,7 +3361,7 @@ public class DexItemFactory {
   }
 
   private DexType createStaticallyKnownType(DexString descriptor) {
-    DexType type = createType(descriptor);
+    DexType type = internalCreateType(descriptor);
     // Conservatively add all statically known types to "compiler synthesized types set".
     addPossiblySynthesizedType(type);
     return type;
@@ -3375,8 +3369,8 @@ public class DexItemFactory {
 
   // Safe synchronized external create. May be used for statically known types in synthetic code.
   // See the generated BackportedMethods.java for reference.
-  public DexType createSynthesizedType(String descriptor) {
-    DexType type = createType(createString(descriptor));
+  public synchronized DexType createSynthesizedType(String descriptor) {
+    DexType type = internalCreateType(createString(descriptor));
     addPossiblySynthesizedType(type);
     return type;
   }
@@ -3404,13 +3398,9 @@ public class DexItemFactory {
     possibleCompilerSynthesizedTypes.forEach(fn);
   }
 
-  public DexType createType(DexString descriptor) {
-    assert descriptor != null;
-    DexType committed = committedTypes.get(descriptor);
-    if (committed != null) {
-      return committed;
-    }
-    return types.computeIfAbsent(descriptor, DexType::new);
+  // Safe synchronized external create. Should never be used to create a statically known type!
+  public synchronized DexType createType(DexString descriptor) {
+    return internalCreateType(descriptor);
   }
 
   public DexType createType(String descriptor) {
@@ -3422,10 +3412,6 @@ public class DexItemFactory {
   }
 
   public DexType lookupType(DexString descriptor) {
-    DexType committed = committedTypes.get(descriptor);
-    if (committed != null) {
-      return committed;
-    }
     return types.get(descriptor);
   }
 
@@ -3436,7 +3422,7 @@ public class DexItemFactory {
 
   public DexField createField(DexType clazz, DexType type, DexString name) {
     DexField field = new DexField(clazz, type, name, skipNameValidationForTesting);
-    return canonicalize(committedFields, fields, field);
+    return canonicalize(fields, field);
   }
 
   public DexField createField(DexType clazz, DexType type, String name) {
@@ -3452,7 +3438,7 @@ public class DexItemFactory {
 
   public DexProto createProto(DexType returnType, DexTypeList parameters) {
     DexProto proto = new DexProto(returnType, parameters);
-    return canonicalize(committedProtos, protos, proto);
+    return canonicalize(protos, proto);
   }
 
   public DexProto createProto(DexType returnType, DexType... parameters) {
@@ -3524,7 +3510,7 @@ public class DexItemFactory {
 
   public DexMethod createMethod(DexType holder, DexProto proto, DexString name) {
     DexMethod method = new DexMethod(holder, proto, name, skipNameValidationForTesting);
-    return canonicalize(committedMethods, methods, method);
+    return canonicalize(methods, method);
   }
 
   public DexMethod createMethod(DexType holder, DexProto proto, String name) {
@@ -3561,7 +3547,7 @@ public class DexItemFactory {
       DexMethod rewrittenTarget) {
     DexMethodHandle methodHandle =
         new DexMethodHandle(type, fieldOrMethod, isInterface, rewrittenTarget);
-    return canonicalize(committedMethodHandles, methodHandles, methodHandle);
+    return canonicalize(methodHandles, methodHandle);
   }
 
   public DexCallSite createCallSite(
@@ -3660,53 +3646,25 @@ public class DexItemFactory {
 
   @Deprecated
   synchronized public void forAllTypes(Consumer<DexType> f) {
-    List<DexType> allTypes = new ArrayList<>(committedTypes.values());
-    allTypes.addAll(types.values());
-    allTypes.forEach(f);
+    new ArrayList<>(types.values()).forEach(f);
   }
 
   public void gc() {
     markers = new WeakHashMap<>(markers);
-    methodHandles = new WeakHashMap<>(methodHandles);
     strings = new WeakHashMap<>(strings);
     types = new WeakHashMap<>(types);
     fields = new WeakHashMap<>(fields);
     protos = new WeakHashMap<>(protos);
     methods = new WeakHashMap<>(methods);
-    committedMethodHandles = new WeakHashMap<>(committedMethodHandles);
-    committedStrings = new WeakHashMap<>(committedStrings);
-    committedTypes = new WeakHashMap<>(committedTypes);
-    committedFields = new WeakHashMap<>(committedFields);
-    committedProtos = new WeakHashMap<>(committedProtos);
-    committedMethods = new WeakHashMap<>(committedMethods);
+    methodHandles = new WeakHashMap<>(methodHandles);
     System.gc();
     System.gc();
     markers = new ConcurrentHashMap<>(markers);
-    methodHandles = new ConcurrentHashMap<>(methodHandles);
     strings = new ConcurrentHashMap<>(strings);
     types = new ConcurrentHashMap<>(types);
     fields = new ConcurrentHashMap<>(fields);
     protos = new ConcurrentHashMap<>(protos);
     methods = new ConcurrentHashMap<>(methods);
-    committedMethodHandles = new HashMap<>(committedMethodHandles);
-    committedStrings = new HashMap<>(committedStrings);
-    committedTypes = new HashMap<>(committedTypes);
-    committedFields = new HashMap<>(committedFields);
-    committedProtos = new HashMap<>(committedProtos);
-    committedMethods = new HashMap<>(committedMethods);
-  }
-
-  public void commitPendingItems() {
-    commitPendingItems(committedMethodHandles, methodHandles);
-    commitPendingItems(committedStrings, strings);
-    commitPendingItems(committedTypes, types);
-    commitPendingItems(committedFields, fields);
-    commitPendingItems(committedProtos, protos);
-    commitPendingItems(committedMethods, methods);
-  }
-
-  private static <K, V> void commitPendingItems(Map<K, V> committed, Map<K, V> pending) {
-    committed.putAll(pending);
-    pending.clear();
+    methodHandles = new ConcurrentHashMap<>(methodHandles);
   }
 }
