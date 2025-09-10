@@ -92,7 +92,7 @@ public class RetargetAndBackportTest extends DesugaredLibraryTestBase implements
               MethodSubject firstBackportMethod =
                   inspector
                       .clazz(
-                          SyntheticItemsTestUtils.syntheticBackportClass(
+                          SyntheticItemsTestUtils.syntheticClassWithMinimalName(
                               toMillisMethod.getFinalReference().getHolderClass(), 1))
                       .uniqueMethod();
               assertThat(firstBackportMethod, isPresent());
@@ -100,7 +100,7 @@ public class RetargetAndBackportTest extends DesugaredLibraryTestBase implements
               MethodSubject secondBackportMethod =
                   inspector
                       .clazz(
-                          SyntheticItemsTestUtils.syntheticBackportClass(
+                          SyntheticItemsTestUtils.syntheticClassWithMinimalName(
                               toMillisMethod.getFinalReference().getHolderClass(), 2))
                       .uniqueMethod();
               assertThat(secondBackportMethod, isPresent());

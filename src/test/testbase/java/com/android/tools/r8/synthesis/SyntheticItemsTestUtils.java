@@ -53,8 +53,11 @@ public class SyntheticItemsTestUtils {
   }
 
   public static ClassReference syntheticClassWithMinimalName(Class<?> clazz, int id) {
-    return SyntheticNaming.makeMinimalSyntheticReferenceForTest(
-        Reference.classFromClass(clazz), Integer.toString(id));
+    return syntheticClassWithMinimalName(Reference.classFromClass(clazz), id);
+  }
+
+  public static ClassReference syntheticClassWithMinimalName(ClassReference clazz, int id) {
+    return SyntheticNaming.makeMinimalSyntheticReferenceForTest(clazz, Integer.toString(id));
   }
 
   private static ClassReference syntheticClass(Class<?> clazz, SyntheticKind kind, int id) {
