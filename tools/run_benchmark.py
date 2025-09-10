@@ -81,11 +81,6 @@ def parse_options(argv):
                         type=int)
     result.add_argument('--output',
                         help='Output path where to write the result')
-    result.add_argument('--perfetto-memory',
-                        '--perfetto_memory',
-                        help='Include memory usage in perfetto trace',
-                        default=False,
-                        action='store_true')
     result.add_argument('--print-times',
                         help='Print timing information from r8',
                         default=False,
@@ -200,8 +195,6 @@ def run(options, r8jar, testjars):
     if options.dump_trace_to_directory is not None:
         cmd.append('-Dcom.android.tools.r8.dumptracetodirectory=' +
                    options.dump_trace_to_directory)
-        if options.perfetto_memory:
-            cmd.append('-Dcom.android.tools.r8.perfetto.memory=1')
     if options.print_times:
         cmd.append('-Dcom.android.tools.r8.printtimes=1')
     if not options.golem:

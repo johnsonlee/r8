@@ -40,10 +40,8 @@ public class PerfettoTiming extends TimingImplBase {
     int mainThreadId = (int) Thread.currentThread().getId();
     threadTrack = processTrack.getOrCreateThreadTrack(mainThreadId, "Main thread");
     begin(title);
-    if (options.enablePerfettoTraceMemoryTrack) {
-      if (executorService == null) {
-        throw new IllegalArgumentException("Memory tracking requires an executor service.");
-      }
+    // Memory tracking requires an executor service.
+    if (executorService != null) {
       memoryTrack = processTrack.getOrCreateCounterTrack("Memory");
       memoryTracker =
           executorService.submit(
