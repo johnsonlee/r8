@@ -351,8 +351,9 @@ public class NonStartupInStartupOutliner {
                                         factory);
                           }
                           if (!method.getAccessFlags().isStatic()) {
-                            DexEncodedMethod.setDebugInfoWithFakeThisParameter(
-                                code, syntheticMethod.getArity(), appView);
+                            code =
+                                DexEncodedMethod.mutateOrCreateCodeWithFakeThisParameter(
+                                    code, syntheticMethod.getArity(), appView);
                           }
                           return code;
                         }));

@@ -14,6 +14,7 @@ import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.ObjectUtils;
 import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.SetUtils;
+import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.util.ArrayList;
@@ -24,16 +25,19 @@ public class MaterializedSubsequentRulesOptimizer {
 
   public static List<Pair<ProguardIfRulePreconditionMatch, ProguardKeepRule>> optimize(
       ProguardIfRule ifRule,
-      List<Pair<ProguardIfRulePreconditionMatch, ProguardKeepRule>> materializedSubsequentRules) {
+      List<Pair<ProguardIfRulePreconditionMatch, ProguardKeepRule>> materializedSubsequentRules,
+      Timing timing) {
     if (materializedSubsequentRules.size() <= 1) {
       // Nothing to optimize.
       return materializedSubsequentRules;
     }
-    if (IterableUtils.hasSize(ifRule.getSubsequentRule().getBackReferences(), 1)) {
-      return optimizeMaterializedSubsequentRulesWithSingleBackReference(
-          ifRule, materializedSubsequentRules);
+    try (Timing t0 = timing.begin("Optimize materialized rules")) {
+      if (IterableUtils.hasSize(ifRule.getSubsequentRule().getBackReferences(), 1)) {
+        return optimizeMaterializedSubsequentRulesWithSingleBackReference(
+            ifRule, materializedSubsequentRules);
+      }
+      return materializedSubsequentRules;
     }
-    return materializedSubsequentRules;
   }
 
   private static List<Pair<ProguardIfRulePreconditionMatch, ProguardKeepRule>>

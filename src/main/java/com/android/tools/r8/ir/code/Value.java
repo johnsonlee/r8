@@ -518,6 +518,10 @@ public class Value implements Comparable<Value>, InstructionOrValue {
     users.clear();
     uniqueUsers = null;
     clearPhiUsers();
+    clearDebugUsers();
+  }
+
+  public void clearDebugUsers() {
     if (debugData != null) {
       debugData.users.clear();
     }

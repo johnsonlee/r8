@@ -124,23 +124,38 @@ public class ThrowBlockOutlineMarkerRewriter {
                     .setPosition(throwInstruction)
                     .build();
             instructionIterator.add(invoke);
-            Value returnValue = addReturnValue(code, instructionIterator);
+            Value returnValue = addReturnOrThrowValue(code, instructionIterator);
 
-            // Replace the throw instruction by a normal return.
-            Return returnInstruction =
-                Return.builder()
-                    .setPositionForNonThrowingInstruction(
-                        throwInstruction.getPosition(), appView.options())
-                    .setReturnValue(returnValue)
-                    .build();
-            block.replaceLastInstruction(returnInstruction);
+            // Replace the throw instruction by a normal return, but throw null in initializers.
+            if (code.context().getDefinition().isInstanceInitializer()) {
+              throwInstruction.replaceValue(0, returnValue);
+            } else {
+              Return returnInstruction =
+                  Return.builder()
+                      .setPositionForNonThrowingInstruction(
+                          throwInstruction.getPosition(), appView.options())
+                      .setReturnValue(returnValue)
+                      .build();
+              block.replaceLastInstruction(returnInstruction);
+            }
 
             // Remove all outlined instructions bottom up.
             instructionIterator = block.listIterator(invoke);
             for (Instruction instruction = instructionIterator.previous();
                 instruction != outlineMarker;
                 instruction = instructionIterator.previous()) {
-              if (instruction.hasUnusedOutValue()) {
+              Value outValue = instruction.outValue();
+              if (outValue == null || !outValue.hasNonDebugUsers()) {
+                // Remove all debug users of the out-value.
+                if (outValue != null && outValue.hasDebugUsers()) {
+                  for (Instruction debugUser : outValue.debugUsers()) {
+                    debugUser.getDebugValues().remove(outValue);
+                    if (debugUser.isDebugLocalRead() && debugUser.getDebugValues().isEmpty()) {
+                      debugUser.remove();
+                    }
+                  }
+                  outValue.clearDebugUsers();
+                }
                 // We are not using `removeOrReplaceByDebugLocalRead` here due to the backwards
                 // iteration.
                 if (instruction.getDebugValues().isEmpty()) {
@@ -157,9 +172,23 @@ public class ThrowBlockOutlineMarkerRewriter {
 
           // Finally delete the outline marker.
           outlineMarker.removeOrReplaceByDebugLocalRead();
+
+          // Blocks cannot start with DebugLocalRead.
+          while (block.entry().isDebugLocalRead()) {
+            block.entry().moveDebugValues(block.entry().getNext());
+            block.entry().remove();
+          }
         }
       }
       assert block.streamInstructions().noneMatch(Instruction::isThrowBlockOutlineMarker);
+    }
+
+    // TODO(b/443663978): Workaround the fact that we do not correctly patch up the debug info for
+    //  LIR code in interface method desugaring. Remove when resolved.
+    for (DebugLocalRead dlr : code.<DebugLocalRead>instructions(Instruction::isDebugLocalRead)) {
+      if (dlr.getDebugValues().isEmpty()) {
+        dlr.remove();
+      }
     }
 
     // Run the dead code remover to ensure code that has been moved into the outline is removed
@@ -167,17 +196,20 @@ public class ThrowBlockOutlineMarkerRewriter {
     deadCodeRemover.run(code, Timing.empty());
   }
 
-  private Value addReturnValue(IRCode code, BasicBlockInstructionListIterator instructionIterator) {
+  private Value addReturnOrThrowValue(
+      IRCode code, BasicBlockInstructionListIterator instructionIterator) {
     InternalOptions options = appView.options();
     DexType returnType = code.context().getReturnType();
-    if (returnType.isVoidType()) {
-      return null;
+    // We cannot replace a throw in an instance initializer by a return, since it is a verification
+    // error for instance initializers not to call a parent constructor.
+    if (returnType.isReferenceType() || code.context().getDefinition().isInstanceInitializer()) {
+      return instructionIterator.insertConstNullInstruction(code, options);
     } else if (returnType.isPrimitiveType()) {
       return instructionIterator.insertConstNumberInstruction(
           code, options, 0, returnType.toTypeElement(appView));
     } else {
-      assert returnType.isReferenceType();
-      return instructionIterator.insertConstNullInstruction(code, options);
+      assert returnType.isVoidType();
+      return null;
     }
   }
 }

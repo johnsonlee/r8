@@ -518,11 +518,13 @@ public class RootSetUtils {
     void runPerRule(
         TaskCollection<?> tasks,
         ProguardConfigurationRule rule,
-        ProguardIfRulePreconditionMatch ifRulePreconditionMatch)
+        ProguardIfRulePreconditionMatch ifRulePreconditionMatch,
+        Timing timing)
         throws ExecutionException {
       if (rule.getClassNames().hasSpecificTypes()) {
         // This keep rule only lists specific type matches.
         // This means there is no need to iterate over all classes.
+        timing.begin("Process rule");
         for (DexType type : rule.getClassNames().getSpecificTypes()) {
           DexClass clazz = application.definitionFor(type);
           // Ignore keep rule iff it does not reference a class in the app.
@@ -530,11 +532,13 @@ public class RootSetUtils {
             process(clazz, rule, ifRulePreconditionMatch);
           }
         }
+        timing.end();
         return;
       }
 
       tasks.submit(
           () -> {
+            Timing threadTiming = timing.createThreadTiming("Process rule", options);
             rule.forEachRelevantCandidate(
                 appView,
                 subtypingInfo,
@@ -551,6 +555,7 @@ public class RootSetUtils {
                 process(clazz, rule, ifRulePreconditionMatch);
               }
             }
+            threadTiming.end().notifyThreadTimingFinished();
           });
     }
 
@@ -565,7 +570,7 @@ public class RootSetUtils {
               ProguardIfRule ifRule = (ProguardIfRule) rule;
               ifRules.add(ifRule);
             } else {
-              runPerRule(tasks, rule, null);
+              runPerRule(tasks, rule, null, application.timing);
             }
           }
           tasks.await();

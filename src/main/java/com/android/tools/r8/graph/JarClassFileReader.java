@@ -1230,7 +1230,6 @@ public class JarClassFileReader<T extends DexClass> {
 
     @Override
     public void visitEnd() {
-      assert annotations == null || !annotations.isEmpty();
       parent.recordComponents.add(
           new RecordComponentInfo(
               field,

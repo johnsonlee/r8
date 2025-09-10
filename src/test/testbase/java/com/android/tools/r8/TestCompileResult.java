@@ -762,7 +762,8 @@ public abstract class TestCompileResult<
     throw new Unimplemented();
   }
 
-  public CR benchmarkDex2OatCodeSize(BenchmarkResults results, boolean enableDex2OatVerification)
+  public CR benchmarkDex2OatCodeSize(
+      BenchmarkResults results, boolean enableDex2Oat, boolean enableDex2OatVerification)
       throws IOException {
     throw new Unimplemented();
   }

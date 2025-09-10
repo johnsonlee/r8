@@ -20,7 +20,6 @@ import com.android.tools.r8.position.Position;
 import com.android.tools.r8.position.TextPosition;
 import com.android.tools.r8.position.TextRange;
 import com.android.tools.r8.shaking.InlineRule.InlineRuleType;
-import com.android.tools.r8.shaking.ProguardConfiguration.Builder;
 import com.android.tools.r8.shaking.ProguardTypeMatcher.ClassOrType;
 import com.android.tools.r8.shaking.ProguardWildcard.BackReference;
 import com.android.tools.r8.shaking.ProguardWildcard.Pattern;
@@ -50,8 +49,7 @@ import java.util.function.Predicate;
 
 public class ProguardConfigurationParser {
 
-  @SuppressWarnings("BadImport")
-  private final Builder configurationBuilder;
+  private final ProguardConfiguration.Builder configurationBuilder;
 
   private final DexItemFactory dexItemFactory;
   private final ProguardConfigurationParserOptions options;
@@ -100,7 +98,7 @@ public class ProguardConfigurationParser {
       "dump");
 
   private static final List<String> WARNED_FLAG_OPTIONS =
-      ImmutableList.of("useuniqueclassmembernames");
+      ImmutableList.of("addconfigurationdebugging", "useuniqueclassmembernames");
 
   private static final List<String> WARNED_CLASS_DESCRIPTOR_OPTIONS = ImmutableList.of(
       // TODO(b/73708157): add support -assumenoexternalsideeffects <class_spec>
@@ -187,20 +185,6 @@ public class ProguardConfigurationParser {
           "-keepparameternames is not supported",
           configurationBuilder.getKeepParameterNamesOptionOrigin(),
           configurationBuilder.getKeepParameterNamesOptionPosition()));
-    }
-    if (configurationBuilder.isConfigurationDebugging()) {
-      String suffix = "due to the use of -addconfigurationdebugging";
-      if (configurationBuilder.isObfuscating()) {
-        reporter.info(
-            new StringDiagnostic("Build is not being obfuscated " + suffix));
-        configurationBuilder.disableObfuscation();
-      }
-      if (configurationBuilder.hasApplyMappingFile()) {
-        reporter.info(
-            new StringDiagnostic(
-                "Applying the obfuscation map (-applymapping) is disabled " + suffix));
-        configurationBuilder.setApplyMappingFile(null);
-      }
     }
   }
 
@@ -482,8 +466,6 @@ public class ProguardConfigurationParser {
             parseRuleWithClassSpec(optionStart, ProguardIdentifierNameStringRule.builder()));
       } else if (acceptString("if")) {
         configurationBuilder.addRule(parseIfRule(optionStart));
-      } else if (acceptString("addconfigurationdebugging")) {
-        configurationBuilder.setConfigurationDebugging(true);
       } else if (parseMaximumRemovedAndroidLogLevelRule(optionStart)) {
         return true;
       } else {
@@ -684,12 +666,13 @@ public class ProguardConfigurationParser {
       throw unknownOption(unknownOption, optionStart, "");
     }
 
-    @SuppressWarnings("UnnecessaryParentheses")
     private RuntimeException unknownOption(
         String unknownOption, TextPosition optionStart, String additionalMessage) {
-      throw reporter.fatalError((new StringDiagnostic(
-          "Unknown option \"-" + unknownOption + "\"" + additionalMessage,
-          origin, getPosition(optionStart))));
+      throw reporter.fatalError(
+          new StringDiagnostic(
+              "Unknown option \"-" + unknownOption + "\"" + additionalMessage,
+              origin,
+              getPosition(optionStart)));
     }
 
     private boolean parseUnsupportedOptionAndErr(TextPosition optionStart) {

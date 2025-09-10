@@ -46,6 +46,7 @@ import com.android.tools.r8.metadata.impl.R8StatsMetadataImpl;
 import com.android.tools.r8.naming.KotlinModuleSynthesizer;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.naming.ProguardMapSupplier.ProguardMapId;
+import com.android.tools.r8.naming.ProguardMapSupplier.ProguardMapSupplierResult;
 import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration.R8PartialR8SubCompilationConfiguration;
 import com.android.tools.r8.partial.R8PartialUtils;
 import com.android.tools.r8.profile.startup.StartupCompleteness;
@@ -290,7 +291,7 @@ public class ApplicationWriter {
             virtualFile -> {
               Timing fileTiming =
                   timing.createThreadTiming("VirtualFile " + virtualFile.getId(), options);
-              writeVirtualFile(virtualFile, fileTiming, forcedStrings);
+              writeVirtualFile(virtualFile, fileTiming, forcedStrings, executorService);
               fileTiming.end();
               return fileTiming;
             },
@@ -309,13 +310,13 @@ public class ApplicationWriter {
   public void write(ExecutorService executorService, AndroidApp inputApp)
       throws IOException, ExecutionException {
     Timing timing = appView.appInfo().app().timing;
-
     timing.begin("DexApplication.write");
 
     List<LazyDexString> lazyDexStrings = new ArrayList<>();
     computeMarkerStrings(lazyDexStrings);
     OriginalSourceFiles originalSourceFiles = computeSourceFileString(lazyDexStrings);
 
+    ProguardMapSupplierResult mapSupplierResult = ProguardMapSupplierResult.createEmpty();
     try {
       timing.begin("Insert Attribute Annotations");
       // TODO(b/151313715): Move this to the writer threads.
@@ -353,12 +354,11 @@ public class ApplicationWriter {
 
       // Now that the instruction offsets in each code object are fixed, compute the mapping file
       // content.
-      ProguardMapId proguardMapId = null;
       if (willComputeProguardMap()) {
         // TODO(b/220999985): Refactor line number optimization to be per file and thread it above.
         DebugRepresentationPredicate representation =
             DebugRepresentation.fromFiles(virtualFiles, options);
-        proguardMapId =
+        mapSupplierResult =
             runAndWriteMap(
                 inputApp, appView, executorService, timing, originalSourceFiles, representation);
       }
@@ -367,7 +367,7 @@ public class ApplicationWriter {
       timing.begin("Compute lazy strings");
       List<DexString> forcedStrings = new ArrayList<>();
       for (LazyDexString lazyDexString : lazyDexStrings) {
-        forcedStrings.add(lazyDexString.compute(proguardMapId));
+        forcedStrings.add(lazyDexString.compute(mapSupplierResult.awaitProguardMapId()));
       }
       timing.end();
 
@@ -393,6 +393,7 @@ public class ApplicationWriter {
         supplyAdditionalConsumers(appView, virtualFiles);
       }
     } finally {
+      mapSupplierResult.await();
       timing.end();
     }
   }
@@ -529,7 +530,11 @@ public class ApplicationWriter {
   }
 
   protected void writeVirtualFile(
-      VirtualFile virtualFile, Timing timing, List<DexString> forcedStrings) {
+      VirtualFile virtualFile,
+      Timing timing,
+      List<DexString> forcedStrings,
+      ExecutorService executorService)
+      throws ExecutionException {
     if (virtualFile.isEmpty()) {
       return;
     }
@@ -566,7 +571,8 @@ public class ApplicationWriter {
     timing.end();
 
     timing.begin("Write bytes");
-    ByteBufferResult result = writeDexFile(objectMapping, byteBufferProvider, virtualFile, timing);
+    ByteBufferResult result =
+        writeDexFile(objectMapping, byteBufferProvider, virtualFile, timing, executorService);
     ByteDataView data =
         new ByteDataView(result.buffer.array(), result.buffer.arrayOffset(), result.length);
     timing.end();
@@ -891,12 +897,14 @@ public class ApplicationWriter {
       ObjectToOffsetMapping objectMapping,
       ByteBufferProvider provider,
       VirtualFile virtualFile,
-      Timing timing) {
+      Timing timing,
+      ExecutorService executorService)
+      throws ExecutionException {
     FileWriter fileWriter = new FileWriter(appView, provider, objectMapping, virtualFile);
     // Collect the non-fixed sections.
     timing.time("collect", fileWriter::collect);
     // Generate and write the bytes.
-    return timing.time("generate", () -> fileWriter.generate());
+    return timing.time("generate", () -> fileWriter.generate(timing, executorService));
   }
 
   private static String mapMainDexListName(DexType type, NamingLens namingLens) {

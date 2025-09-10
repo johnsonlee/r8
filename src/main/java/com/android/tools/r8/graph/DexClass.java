@@ -345,7 +345,12 @@ public abstract class DexClass extends DexDefinition
     return true;
   }
 
-  public void forEachMethod(Consumer<DexEncodedMethod> consumer) {
+  public void forEachMember(Consumer<DexEncodedMember<?, ?>> consumer) {
+    forEachField(consumer);
+    forEachMethod(consumer);
+  }
+
+  public void forEachMethod(Consumer<? super DexEncodedMethod> consumer) {
     methodCollection.forEachMethod(consumer);
   }
 
@@ -377,7 +382,7 @@ public abstract class DexClass extends DexDefinition
     }
   }
 
-  public void forEachField(Consumer<DexEncodedField> consumer) {
+  public void forEachField(Consumer<? super DexEncodedField> consumer) {
     forEachFieldMatching(alwaysTrue(), consumer);
   }
 

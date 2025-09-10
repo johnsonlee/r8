@@ -69,7 +69,6 @@ public class ProguardConfiguration {
     private final ProguardPathFilter.Builder keepDirectories =
         ProguardPathFilter.builder().disable();
     private boolean forceProguardCompatibility = false;
-    private boolean configurationDebugging = false;
     private boolean protoShrinking = false;
     private int maxRemovedAndroidLogLevel = MaximumRemovedAndroidLogLevelRule.NOT_SET;
 
@@ -276,14 +275,6 @@ public class ProguardConfiguration {
       return this;
     }
 
-    public void setConfigurationDebugging(boolean configurationDebugging) {
-      this.configurationDebugging = configurationDebugging;
-    }
-
-    boolean isConfigurationDebugging() {
-      return configurationDebugging;
-    }
-
     public void enableProtoShrinking() {
       protoShrinking = true;
     }
@@ -347,7 +338,6 @@ public class ProguardConfiguration {
               adaptResourceFilenames.build(),
               adaptResourceFileContents.build(),
               keepDirectories.build(),
-              configurationDebugging,
               protoShrinking,
               getMaxRemovedAndroidLogLevel());
 
@@ -400,7 +390,6 @@ public class ProguardConfiguration {
   private final ProguardPathFilter adaptResourceFilenames;
   private final ProguardPathFilter adaptResourceFileContents;
   private final ProguardPathFilter keepDirectories;
-  private final boolean configurationDebugging;
   private final boolean protoShrinking;
   private final int maxRemovedAndroidLogLevel;
 
@@ -439,7 +428,6 @@ public class ProguardConfiguration {
       ProguardPathFilter adaptResourceFilenames,
       ProguardPathFilter adaptResourceFileContents,
       ProguardPathFilter keepDirectories,
-      boolean configurationDebugging,
       boolean protoShrinking,
       int maxRemovedAndroidLogLevel) {
     this.parsedConfiguration = parsedConfiguration;
@@ -476,7 +464,6 @@ public class ProguardConfiguration {
     this.adaptResourceFilenames = adaptResourceFilenames;
     this.adaptResourceFileContents = adaptResourceFileContents;
     this.keepDirectories = keepDirectories;
-    this.configurationDebugging = configurationDebugging;
     this.protoShrinking = protoShrinking;
     this.maxRemovedAndroidLogLevel = maxRemovedAndroidLogLevel;
   }
@@ -636,10 +623,6 @@ public class ProguardConfiguration {
 
   public Path getSeedFile() {
     return seedFile;
-  }
-
-  public boolean isConfigurationDebugging() {
-    return configurationDebugging;
   }
 
   public boolean isProtoShrinkingEnabled() {

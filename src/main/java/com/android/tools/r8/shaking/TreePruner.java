@@ -6,9 +6,9 @@ package com.android.tools.r8.shaking;
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.google.common.base.Predicates.alwaysFalse;
 
-import com.android.tools.r8.androidapi.ComputedApiLevel;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DefaultInstanceInitializerCode;
+import com.android.tools.r8.graph.DexAnnotation;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMember;
@@ -24,7 +24,6 @@ import com.android.tools.r8.graph.EnclosingMethodAttribute;
 import com.android.tools.r8.graph.InnerClassAttribute;
 import com.android.tools.r8.graph.NestMemberClassAttribute;
 import com.android.tools.r8.graph.PermittedSubclassAttribute;
-import com.android.tools.r8.graph.ProgramMember;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.RecordComponentInfo;
@@ -77,17 +76,15 @@ public class TreePruner {
             : UnusedItemsPrinter.DONT_PRINT;
   }
 
-  public PrunedItems run(
+  public void run(
       ExecutorService executorService, Timing timing, PrunedItems.Builder prunedItemsBuilder)
       throws ExecutionException {
     timing.begin("Pruning application");
     DirectMappedDexApplication application = appView.appInfo().app().asDirect();
-      DirectMappedDexApplication.Builder builder = removeUnused(application);
-      DirectMappedDexApplication newApplication =
-          prunedTypes.isEmpty() && !appView.options().configurationDebugging
-              ? application
-              : builder.build();
-      fixupOptimizationInfo(newApplication, executorService);
+    DirectMappedDexApplication.Builder builder = removeUnused(application);
+    DirectMappedDexApplication newApplication =
+        prunedTypes.isEmpty() ? application : builder.build();
+    fixupOptimizationInfo(newApplication, executorService);
     PrunedItems prunedItems =
         prunedItemsBuilder
             .setPrunedApp(newApplication)
@@ -99,7 +96,7 @@ public class TreePruner {
     appView.pruneItems(prunedItems, executorService, timing);
     appView.notifyOptimizationFinishedForTesting();
     timing.end();
-    return prunedItems;
+    appView.dexItemFactory().gc();
   }
 
   private DirectMappedDexApplication.Builder removeUnused(DirectMappedDexApplication application) {
@@ -114,15 +111,6 @@ public class TreePruner {
     List<DexProgramClass> newClasses = new ArrayList<>();
     for (DexProgramClass clazz : classes) {
       boolean isLiveClass = appInfo.isLiveProgramClass(clazz);
-      if (options.configurationDebugging) {
-        newClasses.add(clazz);
-        pruneMembersAndAttributes(clazz);
-        if (!isLiveClass) {
-          clazz.clearAllAnnotations();
-          clazz.forEachProgramMember(ProgramMember::clearAllAnnotations);
-        }
-        continue;
-      }
       if (isLiveClass) {
         newClasses.add(clazz);
         if (!appInfo.getObjectAllocationInfoCollection().isInstantiatedDirectly(clazz)
@@ -235,6 +223,8 @@ public class TreePruner {
     if (reachableStaticFields != null) {
       clazz.setStaticFields(reachableStaticFields);
     }
+    clazz.removeAnnotations(this::isAnnotationReferencingPrunedType);
+    clazz.forEachMember(m -> m.removeAllAnnotations(this::isAnnotationReferencingPrunedType));
     clazz.removeInnerClasses(this::isAttributeReferencingMissingOrPrunedType);
     clazz.removeEnclosingMethodAttribute(this::isAttributeReferencingPrunedItem);
     rewriteNestAttributes(clazz, this::isTypeLive, appView::definitionFor);
@@ -324,6 +314,10 @@ public class TreePruner {
     }
   }
 
+  private boolean isAnnotationReferencingPrunedType(DexAnnotation annotation) {
+    return !isTypeLive(annotation.getAnnotationType());
+  }
+
   private boolean isAttributeReferencingPrunedItem(EnclosingMethodAttribute attr) {
     AppInfoWithLiveness appInfo = appView.appInfo();
     return (attr.getEnclosingClass() != null && !isTypeLive(attr.getEnclosingClass()))
@@ -360,7 +354,6 @@ public class TreePruner {
   private DexEncodedMethod[] reachableMethods(
       List<DexEncodedMethod> methods, DexProgramClass clazz) {
     AppInfoWithLiveness appInfo = appView.appInfo();
-    InternalOptions options = appView.options();
     int firstUnreachable =
         firstUnreachableIndex(methods, method -> appInfo.isLiveMethod(method.getReference()));
     // Return the original array if all methods are used.
@@ -376,15 +369,6 @@ public class TreePruner {
       if (appInfo.isLiveMethod(method.getReference())) {
         canonicalizeCode(method.asProgramMethod(clazz));
         reachableMethods.add(method);
-      } else if (options.configurationDebugging) {
-        // Keep the method but rewrite its body, if it has one.
-        if (method.shouldNotHaveCode() && !method.hasCode()) {
-          method.setApiLevelForDefinition(ComputedApiLevel.unknown());
-          reachableMethods.add(method);
-        } else {
-          reachableMethods.add(method.toMethodThatLogsError(appView));
-        }
-        methodsToKeepForConfigurationDebugging.add(method.getReference());
       } else if (appInfo.isTargetedMethod(method.getReference())) {
         // If the method is already abstract, and doesn't have code, let it be.
         if (method.shouldNotHaveCode() && !method.hasCode()) {

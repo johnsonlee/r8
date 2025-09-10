@@ -40,19 +40,14 @@ public class AnnotationRemover {
   private final InternalOptions options;
   private final Set<DexAnnotation> annotationsToRetain;
   private final ProguardKeepAttributes keep;
-  private final Set<DexType> removedClasses;
 
   private AnnotationRemover(
-      AppView<AppInfoWithLiveness> appView,
-      Set<DexAnnotation> annotationsToRetain,
-      Mode mode,
-      Set<DexType> removedClasses) {
+      AppView<AppInfoWithLiveness> appView, Set<DexAnnotation> annotationsToRetain, Mode mode) {
     this.appView = appView;
     this.mode = mode;
     this.options = appView.options();
     this.annotationsToRetain = annotationsToRetain;
     this.keep = appView.options().getProguardConfiguration().getKeepAttributes();
-    this.removedClasses = removedClasses;
   }
 
   public static Builder builder(Mode mode) {
@@ -287,9 +282,6 @@ public class AnnotationRemover {
   private DexEncodedAnnotation rewriteEncodedAnnotation(DexEncodedAnnotation original) {
     GraphLens graphLens = appView.graphLens();
     DexType annotationType = original.type.toBaseType(appView.dexItemFactory());
-    if (removedClasses.contains(annotationType)) {
-      return null;
-    }
     DexType rewrittenType = graphLens.lookupType(annotationType);
     DexEncodedAnnotation rewrite =
         original.rewrite(
@@ -460,9 +452,8 @@ public class AnnotationRemover {
       annotationsToRetain.add(annotation);
     }
 
-    public AnnotationRemover build(
-        AppView<AppInfoWithLiveness> appView, Set<DexType> removedClasses) {
-      return new AnnotationRemover(appView, annotationsToRetain, mode, removedClasses);
+    public AnnotationRemover build(AppView<AppInfoWithLiveness> appView) {
+      return new AnnotationRemover(appView, annotationsToRetain, mode);
     }
   }
 }

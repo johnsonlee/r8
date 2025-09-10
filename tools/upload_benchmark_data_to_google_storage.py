@@ -110,12 +110,16 @@ def GetReleaseCommits():
 
 def GetTryCommits(local_bucket_try_dict):
     try_commits = []
+    seen_try_hashes = set()
     for key, value in local_bucket_try_dict.items():
         # The hash is the 4th component in the path:
         # try/{benchmark}/{target}/{commit.hash()}/{filename}.
         try_hash = key.split('/')[3]
-        try_commit = historic_run.git_commit_from_hash(try_hash)
-        try_commits.append(try_commit)
+        if try_hash not in seen_try_hashes:
+            try_commit = historic_run.git_commit_from_hash(try_hash)
+            if try_commit is not None:
+                try_commits.append(try_commit)
+            seen_try_hashes.add(try_hash)
     return try_commits
 
 

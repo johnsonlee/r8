@@ -10,11 +10,11 @@ import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.FieldResolutionResult;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.graph.analysis.EnqueuerAnalysisCollection;
 import com.android.tools.r8.shaking.Enqueuer.FieldAccessKind;
 import com.android.tools.r8.shaking.Enqueuer.FieldAccessMetadata;
 import com.android.tools.r8.shaking.Enqueuer.Mode;
 import com.android.tools.r8.utils.InternalOptions;
-import com.android.tools.r8.utils.timing.Timing;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
@@ -51,13 +51,7 @@ public abstract class EnqueuerDeferredTracing {
       FieldAccessKind accessKind,
       FieldAccessMetadata metadata);
 
-  /**
-   * Called when the {@link EnqueuerWorklist} is empty, to allow additional tracing before ending
-   * tree shaking.
-   *
-   * @return true if any worklist items were enqueued.
-   */
-  public abstract boolean enqueueWorklistActions(EnqueuerWorklist worklist, Timing timing);
+  public abstract void register(EnqueuerAnalysisCollection.Builder analysesBuilder);
 
   /**
    * Called when tree shaking has ended, to allow rewriting the application according to the tracing

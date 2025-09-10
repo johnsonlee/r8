@@ -339,6 +339,10 @@ public class ClassNamingForNameMapper implements ClassNaming {
 
   private final List<MappingInformation> additionalMappingInfo;
 
+  // Populated by prepareWrite to avoid calculating multiple times.
+  private Collection<MemberNaming> fieldsSorted = null;
+  private List<MappedRange> mappedRangesSorted = null;
+
   private ClassNamingForNameMapper(
       String renamedName,
       String originalName,
@@ -460,14 +464,6 @@ public class ClassNamingForNameMapper implements ClassNaming {
     }
   }
 
-  @Override
-  public <T extends Throwable> void forAllFieldNamingSorted(
-      ThrowingConsumer<MemberNaming, T> consumer) throws T {
-    for (MemberNaming naming : CollectionUtils.sort(fieldMembers.values())) {
-      consumer.accept(naming);
-    }
-  }
-
   public Collection<MemberNaming> allFieldNamings() {
     return fieldMembers.values();
   }
@@ -504,19 +500,29 @@ public class ClassNamingForNameMapper implements ClassNaming {
     }
   }
 
-  @Override
-  public <T extends Throwable> void forAllMethodNamingSorted(
-      ThrowingConsumer<MemberNaming, T> consumer) throws T {
-    for (MemberNaming naming : CollectionUtils.sort(methodMembers.values())) {
-      consumer.accept(naming);
-    }
-  }
-
   public Collection<MemberNaming> allMethodNamings() {
     return methodMembers.values();
   }
 
+  void prepareWrite() {
+    fieldsSorted = CollectionUtils.sort(fieldMembers.values());
+
+    // Sort MappedRanges by sequence number to restore construction order (original Proguard-map
+    // input).
+    mappedRangesSorted = new ArrayList<>();
+    for (MappedRangesOfName ranges : mappedRangesByRenamedName.values()) {
+      mappedRangesSorted.addAll(ranges.mappedRanges);
+    }
+    mappedRangesSorted.sort(Comparator.comparingInt(range -> range.sequenceNumber));
+  }
+
   void write(ChainableStringConsumer consumer) {
+    if (fieldsSorted == null) {
+      prepareWrite();
+    }
+    assert fieldsSorted != null;
+    assert mappedRangesSorted != null;
+
     consumer.accept(originalName).accept(" -> ").accept(renamedName).accept(":\n");
 
     String spacing = "    ";
@@ -525,21 +531,13 @@ public class ClassNamingForNameMapper implements ClassNaming {
     additionalMappingInfo.forEach(info -> consumer.accept("# " + info.serialize()).accept("\n"));
 
     // Print field member namings.
-    forAllFieldNamingSorted(
-        fieldMember -> {
-          consumer.accept(spacing).accept(fieldMember.toString()).accept("\n");
-          for (MappingInformation info : fieldMember.getAdditionalMappingInformation()) {
-            consumer.accept(spacing + "  # ").accept(info.serialize()).accept("\n");
-          }
-        });
-
-    // Sort MappedRanges by sequence number to restore construction order (original Proguard-map
-    // input).
-    List<MappedRange> mappedRangesSorted = new ArrayList<>();
-    for (MappedRangesOfName ranges : mappedRangesByRenamedName.values()) {
-      mappedRangesSorted.addAll(ranges.mappedRanges);
+    for (MemberNaming fieldMember : fieldsSorted) {
+      consumer.accept(spacing).accept(fieldMember.toString()).accept("\n");
+      for (MappingInformation info : fieldMember.getAdditionalMappingInformation()) {
+        consumer.accept(spacing + "  # ").accept(info.serialize()).accept("\n");
+      }
     }
-    mappedRangesSorted.sort(Comparator.comparingInt(range -> range.sequenceNumber));
+
     for (MappedRange range : mappedRangesSorted) {
       consumer.accept(spacing).accept(range.toString()).accept("\n");
       for (MappingInformation info : range.getAdditionalMappingInformation()) {

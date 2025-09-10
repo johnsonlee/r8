@@ -184,7 +184,7 @@ public class IfRuleEvaluatorFactory
     IfRuleEvaluator evaluator =
         new IfRuleEvaluator(appView, enqueuer, consequentRootSetBuilder, tasks);
     evaluator.processActiveIfRulesWithMembers(
-        activeIfRulesWithMembers, classKind, classes, alwaysTrue());
+        activeIfRulesWithMembers, classKind, classes, alwaysTrue(), timing);
     evaluator.processActiveIfRulesWithoutMembers(
         activeIfRulesWithoutMembers,
         newIdentityHashMapFromCollection(classes, DexClass::getType, Function.identity()),
@@ -234,7 +234,7 @@ public class IfRuleEvaluatorFactory
         new IfRuleEvaluator(appView, enqueuer, consequentRootSetBuilder, tasks);
     timing.begin("If rules with members");
     if (shouldProcessActiveIfRulesWithMembers(isFirstFixpoint)) {
-      processActiveIfRulesWithMembers(evaluator, isFirstFixpoint);
+      processActiveIfRulesWithMembers(evaluator, isFirstFixpoint, timing);
     }
     timing.end();
     timing.begin("If rules without members");
@@ -245,8 +245,8 @@ public class IfRuleEvaluatorFactory
     return consequentRootSetBuilder.buildConsequentRootSet();
   }
 
-  private void processActiveIfRulesWithMembers(IfRuleEvaluator evaluator, boolean isFirstFixpoint)
-      throws ExecutionException {
+  private void processActiveIfRulesWithMembers(
+      IfRuleEvaluator evaluator, boolean isFirstFixpoint, Timing timing) throws ExecutionException {
     if (isFirstFixpoint && !effectivelyFakeLiveClasses.isEmpty()) {
       evaluator.processActiveIfRulesWithMembers(
           activeIfRulesWithMembers,
@@ -254,13 +254,15 @@ public class IfRuleEvaluatorFactory
           Iterables.concat(effectivelyFakeLiveClasses, classesWithNewlyLiveMembers),
           clazz ->
               effectivelyFakeLiveClasses.contains(clazz)
-                  || classesWithNewlyLiveMembers.contains(clazz));
+                  || classesWithNewlyLiveMembers.contains(clazz),
+          timing);
     } else {
       evaluator.processActiveIfRulesWithMembers(
           activeIfRulesWithMembers,
           ClassKind.PROGRAM,
           classesWithNewlyLiveMembers,
-          classesWithNewlyLiveMembers::contains);
+          classesWithNewlyLiveMembers::contains,
+          timing);
     }
     classesWithNewlyLiveMembers.clear();
   }

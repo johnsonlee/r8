@@ -7,6 +7,7 @@ import static com.android.tools.r8.naming.ClassNameMapper.MissingFileAction.MISS
 import static com.android.tools.r8.utils.DescriptorUtils.descriptorToJavaType;
 
 import com.android.tools.r8.DiagnosticsHandler;
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
@@ -20,6 +21,7 @@ import com.android.tools.r8.utils.BiMapContainer;
 import com.android.tools.r8.utils.ChainableStringConsumer;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.Reporter;
+import com.android.tools.r8.utils.ThreadUtils;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableMap;
@@ -41,6 +43,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 
 public class ClassNameMapper implements ProguardMap {
@@ -391,6 +395,15 @@ public class ClassNameMapper implements ProguardMap {
       assert entry.getValue() == otherEntry.getValue();
     }
     return true;
+  }
+
+  public void prepareWrite(AppView<?> appView, ExecutorService executorService)
+      throws ExecutionException {
+    ThreadUtils.processItems(
+        getClassNameMappings().values(),
+        ClassNamingForNameMapper::prepareWrite,
+        appView.options().getThreadingModule(),
+        executorService);
   }
 
   public void write(ChainableStringConsumer consumer) {

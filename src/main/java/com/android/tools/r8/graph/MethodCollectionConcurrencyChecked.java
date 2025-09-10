@@ -94,7 +94,7 @@ public class MethodCollectionConcurrencyChecked extends MethodCollection {
 
   @Override
   public void forEachMethodMatching(
-      Predicate<DexEncodedMethod> predicate, Consumer<DexEncodedMethod> consumer) {
+      Predicate<DexEncodedMethod> predicate, Consumer<? super DexEncodedMethod> consumer) {
     assert assertReadEntry();
     super.forEachMethodMatching(predicate, consumer);
     assert assertReadExit();

@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
 class ApplicationWriterContainer extends ApplicationWriter {
@@ -40,7 +41,8 @@ class ApplicationWriterContainer extends ApplicationWriter {
       ExecutorService executorService,
       List<VirtualFile> virtualFiles,
       List<DexString> forcedStrings,
-      Timing timing) {
+      Timing timing)
+      throws ExecutionException {
     Map<FeatureSplit, List<VirtualFile>> virtualFilesForContainers = new HashMap<>();
     List<VirtualFile> virtualFilesOutsideContainer = new ArrayList<>();
     virtualFiles.forEach(
@@ -60,7 +62,7 @@ class ApplicationWriterContainer extends ApplicationWriter {
     timing.begin("Write non container virtual files");
     for (VirtualFile virtualFile : virtualFilesOutsideContainer) {
       timing.begin("VirtualFile " + virtualFile.getId());
-      writeVirtualFile(virtualFile, timing, forcedStrings);
+      writeVirtualFile(virtualFile, timing, forcedStrings, executorService);
       timing.end();
     }
     timing.end();
@@ -68,13 +70,17 @@ class ApplicationWriterContainer extends ApplicationWriter {
     // Write container virtual files.
     timing.begin("Write container virtual files");
     for (List<VirtualFile> virtualFilesForContainer : virtualFilesForContainers.values()) {
-      writeContainer(forcedStrings, timing, virtualFilesForContainer);
+      writeContainer(forcedStrings, timing, virtualFilesForContainer, executorService);
     }
     timing.end();
   }
 
   private void writeContainer(
-      List<DexString> forcedStrings, Timing timing, List<VirtualFile> virtualFiles) {
+      List<DexString> forcedStrings,
+      Timing timing,
+      List<VirtualFile> virtualFiles,
+      ExecutorService executorService)
+      throws ExecutionException {
     ProgramConsumer consumer;
     ByteBufferProvider byteBufferProvider;
     if (programConsumer != null) {
@@ -109,7 +115,8 @@ class ApplicationWriterContainer extends ApplicationWriter {
                 forcedStrings,
                 offset,
                 dexOutputBuffer,
-                i == virtualFiles.size() - 1);
+                i == virtualFiles.size() - 1,
+                executorService);
 
         if (InternalOptions.assertionsEnabled()) {
           // Check that writing did not modify already written sections.
@@ -225,7 +232,9 @@ class ApplicationWriterContainer extends ApplicationWriter {
       List<DexString> forcedStrings,
       int offset,
       DexOutputBuffer outputBuffer,
-      boolean last) {
+      boolean last,
+      ExecutorService executorService)
+      throws ExecutionException {
     assert !virtualFile.isEmpty();
     assert BitUtils.isAligned(4, offset);
     printItemUseInfo(virtualFile);
@@ -237,7 +246,8 @@ class ApplicationWriterContainer extends ApplicationWriter {
 
     timing.begin("Write bytes");
     DexContainerSection section =
-        writeDexFile(objectMapping, outputBuffer, virtualFile, timing, offset, last);
+        writeDexFile(
+            objectMapping, outputBuffer, virtualFile, timing, offset, last, executorService);
     timing.end();
     return section;
   }
@@ -248,7 +258,9 @@ class ApplicationWriterContainer extends ApplicationWriter {
       VirtualFile virtualFile,
       Timing timing,
       int offset,
-      boolean includeStringData) {
+      boolean includeStringData,
+      ExecutorService executorService)
+      throws ExecutionException {
     FileWriter fileWriter =
         new FileWriter(
             appView,
@@ -259,6 +271,7 @@ class ApplicationWriterContainer extends ApplicationWriter {
     // Collect the non-fixed sections.
     timing.time("collect", fileWriter::collect);
     // Generate and write the bytes.
-    return timing.time("generate", () -> fileWriter.generate(offset, CONTAINER_DEX));
+    return timing.time(
+        "generate", () -> fileWriter.generate(timing, executorService, offset, CONTAINER_DEX));
   }
 }

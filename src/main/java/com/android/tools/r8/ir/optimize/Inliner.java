@@ -1481,15 +1481,6 @@ public class Inliner {
                   //  to work we need to pass in a seed to GenericSignatureContextBuilder.create in
                   //  R8.
                   convertToAbstractOrThrowNullMethod = true;
-                } else if (appView.options().configurationDebugging
-                    && appView.getSyntheticItems().isSynthetic(callee.getHolder())) {
-                  // If static synthetic methods are removed after being single caller inlined, we
-                  // need to unregister them as synthetic methods in the synthetic items collection.
-                  // This means that they will not be renamed to ExternalSynthetic leading to
-                  // assertion errors. This should only be a problem when configuration debugging is
-                  // enabled, since configuration debugging disables shrinking of the synthetic
-                  // method's holder.
-                  convertToAbstractOrThrowNullMethod = true;
                 }
                 if (convertToAbstractOrThrowNullMethod) {
                   callee.convertToAbstractOrThrowNullMethod(appView);

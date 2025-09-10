@@ -232,8 +232,9 @@ public final class InterfaceProcessor {
                 method.getDefinition().isD8R8Synthesized(),
                 appView.dexItemFactory());
     if (!definition.isStatic()) {
-      DexEncodedMethod.setDebugInfoWithFakeThisParameter(
-          code, companion.getReference().getArity(), appView);
+      code =
+          DexEncodedMethod.mutateOrCreateCodeWithFakeThisParameter(
+              code, companion.getReference().getArity(), appView);
     }
     companion.setCode(code, appView);
     method.setCode(InvalidCode.getInstance(), appView);

@@ -128,12 +128,12 @@ public class MethodCollection {
     return backing.traverse(fn);
   }
 
-  public void forEachMethod(Consumer<DexEncodedMethod> consumer) {
+  public void forEachMethod(Consumer<? super DexEncodedMethod> consumer) {
     forEachMethodMatching(alwaysTrue(), consumer);
   }
 
   public void forEachMethodMatching(
-      Predicate<DexEncodedMethod> predicate, Consumer<DexEncodedMethod> consumer) {
+      Predicate<DexEncodedMethod> predicate, Consumer<? super DexEncodedMethod> consumer) {
     backing.forEachMethod(
         method -> {
           if (predicate.test(method)) {

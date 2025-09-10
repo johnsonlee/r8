@@ -130,8 +130,11 @@ def git_commit_from_hash(hash):
     try:
         commit_timestamp_raw = subprocess.check_output(commit_timestamp_cmd)
     except subprocess.CalledProcessError as e:
-        # Try to fetch the hash. This may be needed for try commits.
-        subprocess.check_output(['git', 'fetch', 'origin', hash])
+        try:
+            # Try to fetch the hash. This may be needed for try commits.
+            subprocess.check_output(['git', 'fetch', 'origin', hash])
+        except subprocess.CalledProcessError as e:
+            return None
         commit_timestamp_raw = subprocess.check_output(commit_timestamp_cmd)
     commit_timestamp_str = commit_timestamp_raw.decode('utf-8').strip().splitlines()[-1]
     commit_timestamp = int(commit_timestamp_str)

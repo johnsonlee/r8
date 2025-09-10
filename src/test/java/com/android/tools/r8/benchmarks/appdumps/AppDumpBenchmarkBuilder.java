@@ -68,6 +68,9 @@ public class AppDumpBenchmarkBuilder {
   private CompilationMode compilationMode;
   private boolean enableLibraryDesugaring = true;
   private boolean enableResourceShrinking = false;
+  private boolean enableContainerDex = false;
+  private boolean enableDex2Oat = true;
+  private boolean enableDex2OatVerification = true;
   private boolean runtimeOnly = false;
   private int warmupIterations = 1;
   private final List<String> programPackages = new ArrayList<>();
@@ -93,6 +96,24 @@ public class AppDumpBenchmarkBuilder {
 
   public AppDumpBenchmarkBuilder setEnableResourceShrinking(boolean enableResourceShrinking) {
     this.enableResourceShrinking = enableResourceShrinking;
+    return this;
+  }
+
+  public AppDumpBenchmarkBuilder setEnableContainerDex(boolean enableContainerDex) {
+    this.enableContainerDex = enableContainerDex;
+    return this;
+  }
+
+  public AppDumpBenchmarkBuilder setEnableDex2Oat(boolean enableDex2Oat) {
+    this.enableDex2Oat = enableDex2Oat;
+    if (!enableDex2Oat) {
+      this.enableDex2OatVerification = enableDex2Oat;
+    }
+    return this;
+  }
+
+  public AppDumpBenchmarkBuilder setEnableDex2OatVerification(boolean enableDex2OatVerification) {
+    this.enableDex2OatVerification = enableDex2OatVerification;
     return this;
   }
 
@@ -153,9 +174,8 @@ public class AppDumpBenchmarkBuilder {
             .setFromRevision(fromRevision)
             .addDependency(dumpDependency)
             .measureRunTime()
-            // TODO(b/373550435): Update dex2oat to enable checking absence of verification errors
-            //  on SystemUI.
-            .setEnableDex2OatVerification(!name.equals("SystemUIApp"))
+            .setEnableDex2Oat(enableDex2Oat)
+            .setEnableDex2OatVerification(enableDex2OatVerification)
             .setTimeout(10, TimeUnit.MINUTES);
     if (!runtimeOnly) {
       builder
@@ -198,9 +218,8 @@ public class AppDumpBenchmarkBuilder {
             .measureComposableInstructionCodeSize()
             .measureDexSegmentsCodeSize()
             .measureDex2OatCodeSize()
-            // TODO(b/373550435): Update dex2oat to enable checking absence of verification errors
-            //  on SystemUI.
-            .setEnableDex2OatVerification(!name.equals("SystemUIAppPartialShrinking"))
+            .setEnableDex2Oat(enableDex2Oat)
+            .setEnableDex2OatVerification(enableDex2OatVerification)
             .setTimeout(10, TimeUnit.MINUTES);
     if (enableResourceShrinking) {
       builder.measureResourceSize();
@@ -362,6 +381,12 @@ public class AppDumpBenchmarkBuilder {
                           b ->
                               b.enableOptimizedShrinking()
                                   .setAndroidResourcesFromPath(dump.getAndroidResources()))
+                      .applyIf(
+                          builder.enableContainerDex,
+                          b ->
+                              b.addOptionsModification(
+                                  options ->
+                                      options.getTestingOptions().forceDexContainerFormat = true))
                       .apply(
                           r -> {
                             try {
@@ -371,6 +396,7 @@ public class AppDumpBenchmarkBuilder {
                                   .benchmarkDexSegmentsCodeSize(results)
                                   .benchmarkDex2OatCodeSize(
                                       results,
+                                      environment.getConfig().isDex2OatEnabled(),
                                       environment.getConfig().isDex2OatVerificationEnabled())
                                   .applyIf(
                                       environment
@@ -442,6 +468,12 @@ public class AppDumpBenchmarkBuilder {
                           b ->
                               b.enableOptimizedShrinking()
                                   .setAndroidResourcesFromPath(dump.getAndroidResources()))
+                      .applyIf(
+                          builder.enableContainerDex,
+                          b ->
+                              b.addOptionsModification(
+                                  options ->
+                                      options.getTestingOptions().forceDexContainerFormat = true))
                       .apply(
                           r ->
                               r.benchmarkCompile(results)
@@ -450,6 +482,7 @@ public class AppDumpBenchmarkBuilder {
                                   .benchmarkDexSegmentsCodeSize(results)
                                   .benchmarkDex2OatCodeSize(
                                       results,
+                                      environment.getConfig().isDex2OatEnabled(),
                                       environment.getConfig().isDex2OatVerificationEnabled())
                                   .applyIf(
                                       environment
@@ -475,6 +508,12 @@ public class AppDumpBenchmarkBuilder {
                       .setMinApi(dumpProperties.getMinApi())
                       .setMode(builder.compilationMode)
                       .applyIf(builder.enableLibraryDesugaring, b -> addDesugaredLibrary(b, dump))
+                      .applyIf(
+                          builder.enableContainerDex,
+                          b ->
+                              b.addOptionsModification(
+                                  options ->
+                                      options.getTestingOptions().forceDexContainerFormat = true))
                       .benchmarkCompile(results)
                       .benchmarkCodeSize(results);
                 });
@@ -482,6 +521,7 @@ public class AppDumpBenchmarkBuilder {
 
   private static BenchmarkMethod runIncrementalD8(AppDumpBenchmarkBuilder builder) {
     assert builder.compilationMode.isDebug();
+    assert !builder.enableContainerDex;
     return environment ->
         BenchmarkBase.runner(environment)
             .setWarmupIterations(builder.warmupIterations)

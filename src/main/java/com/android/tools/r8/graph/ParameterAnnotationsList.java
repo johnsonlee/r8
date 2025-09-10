@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.graph;
 
+import static com.android.tools.r8.utils.PredicateUtils.not;
+
 import com.android.tools.r8.dex.IndexedItemCollection;
 import com.android.tools.r8.dex.MixedSectionCollection;
 import com.android.tools.r8.utils.ArrayUtils;
@@ -233,6 +235,9 @@ public class ParameterAnnotationsList extends DexItem
    */
   @SuppressWarnings("ReferenceEquality")
   public ParameterAnnotationsList keepIf(Predicate<DexAnnotation> filter) {
+    if (isEmpty()) {
+      return this;
+    }
     DexAnnotationSet[] filtered = null;
     boolean allEmpty = true;
     for (int i = 0; i < values.length; i++) {
@@ -254,6 +259,10 @@ public class ParameterAnnotationsList extends DexItem
       return ParameterAnnotationsList.empty();
     }
     return new ParameterAnnotationsList(filtered, missingParameterAnnotations);
+  }
+
+  public ParameterAnnotationsList removeIf(Predicate<DexAnnotation> predicate) {
+    return keepIf(not(predicate));
   }
 
   public ParameterAnnotationsList rewrite(Function<DexAnnotation, DexAnnotation> mapper) {
