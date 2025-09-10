@@ -4,6 +4,10 @@
 
 package com.android.tools.r8.desugar.desugaredlibrary;
 
+import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethod;
+import static com.android.tools.r8.utils.codeinspector.CodeMatchers.isInvokeWithTarget;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.TestParameters;
@@ -14,9 +18,12 @@ import com.android.tools.r8.ir.desugar.desugaredlibrary.legacyspecification.Lega
 import com.android.tools.r8.ir.desugar.desugaredlibrary.legacyspecification.LegacyRewritingFlags;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.legacyspecification.LegacyTopLevelFlags;
 import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.PredicateUtils;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
+import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -78,14 +85,36 @@ public class RetargetAndBackportTest extends DesugaredLibraryTestBase implements
         .compile()
         .inspect(
             inspector -> {
-              assertTrue(
+              MethodSubject toMillisMethod =
+                  inspector.clazz("j$.time.Duration").uniqueMethodWithOriginalName("toMillis");
+              assertThat(toMillisMethod, isPresent());
+
+              MethodSubject firstBackportMethod =
                   inspector
-                      .clazz("j$.time.Duration")
-                      .uniqueMethodWithOriginalName("toMillis")
+                      .clazz(
+                          SyntheticItemsTestUtils.syntheticBackportClass(
+                              toMillisMethod.getFinalReference().getHolderClass(), 1))
+                      .uniqueMethod();
+              assertThat(firstBackportMethod, isPresent());
+
+              MethodSubject secondBackportMethod =
+                  inspector
+                      .clazz(
+                          SyntheticItemsTestUtils.syntheticBackportClass(
+                              toMillisMethod.getFinalReference().getHolderClass(), 2))
+                      .uniqueMethod();
+              assertThat(secondBackportMethod, isPresent());
+
+              assertThat(toMillisMethod, invokesMethod(firstBackportMethod));
+              assertThat(toMillisMethod, invokesMethod(secondBackportMethod));
+              assertTrue(
+                  toMillisMethod
                       .streamInstructions()
                       .filter(InstructionSubject::isInvokeStatic)
-                      .map(InstructionSubject::toString)
-                      .allMatch(s -> s.contains("Backport")));
+                      .allMatch(
+                          PredicateUtils.or(
+                              isInvokeWithTarget(firstBackportMethod),
+                              isInvokeWithTarget(secondBackportMethod))));
             });
   }
 
