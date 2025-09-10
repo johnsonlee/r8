@@ -766,8 +766,10 @@ public final class LambdaClass {
                     forcefullyMovedLambdaMethodConsumer.acceptForcefullyMovedLambdaMethod(
                         encodedMethod.getReference(), callTarget);
 
-                    DexEncodedMethod.setDebugInfoWithFakeThisParameter(
-                        newMethod.getCode(), callTarget.getArity(), appView);
+                    Code codeWithPatchedDebugInfo =
+                        DexEncodedMethod.mutateOrCreateCodeWithFakeThisParameter(
+                            newMethod.getCode(), callTarget.getArity(), appView);
+                    newMethod.setCode(codeWithPatchedDebugInfo, newMethod.getParameterInfo());
                     return newMethod;
                   });
       if (replacement != null) {
@@ -876,6 +878,7 @@ public final class LambdaClass {
         assert !appView.options().isGeneratingClassFiles() || replacement.getCode().isCfCode();
         assert !appView.options().isGeneratingDex()
             || replacement.getCode().isDexCode()
+            || replacement.getCode().isLirCode()
             || appView.options().partialSubCompilationConfiguration != null;
         return new ProgramMethod(implMethodHolder, replacement);
       }

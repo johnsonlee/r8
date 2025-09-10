@@ -810,6 +810,23 @@ public class LirCode<EV> extends Code
     }
   }
 
+  public LirCode<EV> newCodeWithoutDebugLocalInfoTable() {
+    if (debugLocalInfoTable == null) {
+      return this;
+    }
+    return new LirCode<>(
+        constants,
+        positionTable,
+        argumentCount,
+        instructions,
+        instructionCount,
+        tryCatchTable,
+        null,
+        strategyInfo,
+        useDexEstimationStrategy,
+        metadataMap);
+  }
+
   public LirCode<EV> newCodeWithRewrittenConstantPool(Function<LirConstant, LirConstant> rewriter) {
     LirConstant[] rewrittenConstants = ArrayUtils.map(constants, rewriter, new LirConstant[0]);
     if (constants == rewrittenConstants) {

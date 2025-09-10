@@ -1011,19 +1011,28 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     return builder.build();
   }
 
-  public static void setDebugInfoWithFakeThisParameter(Code code, int arity, AppView<?> appView) {
+  public static Code mutateOrCreateCodeWithFakeThisParameter(
+      Code code, int arity, AppView<?> appView) {
     if (code.isDexCode()) {
       DexCode dexCode = code.asDexCode();
       DexDebugInfo newDebugInfo = dexCode.debugInfoWithFakeThisParameter(appView.dexItemFactory());
       assert (newDebugInfo == null) || (arity == newDebugInfo.getParameterCount());
       dexCode.setDebugInfo(newDebugInfo);
+      return dexCode;
     } else if (code.isCfCode()) {
       CfCode cfCode = code.asCfCode();
       cfCode.addFakeThisParameter(appView.dexItemFactory());
+      return cfCode;
     } else if (code.isLirCode()) {
-      assert appView.options().isRelease();
-      assert code.asLirCode().getDebugLocalInfoTable() == null;
+      // TODO(b/443663978): Add support for patching up LIR debug info.
+      assert appView.options().isRelease()
+          || appView.options().getThrowBlockOutlinerOptions().forceDebug;
+      assert code.asLirCode().getDebugLocalInfoTable() == null
+          || appView.options().getThrowBlockOutlinerOptions().forceDebug;
+      return code.asLirCode().newCodeWithoutDebugLocalInfoTable();
     }
+    assert false;
+    return code;
   }
 
   private LirCode<?> toLirCodeThatLogsError(AppView<? extends AppInfoWithClassHierarchy> appView) {

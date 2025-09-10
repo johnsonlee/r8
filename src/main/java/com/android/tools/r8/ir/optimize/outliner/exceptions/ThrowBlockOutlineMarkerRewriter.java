@@ -183,6 +183,14 @@ public class ThrowBlockOutlineMarkerRewriter {
       assert block.streamInstructions().noneMatch(Instruction::isThrowBlockOutlineMarker);
     }
 
+    // TODO(b/443663978): Workaround the fact that we do not correctly patch up the debug info for
+    //  LIR code in interface method desugaring. Remove when resolved.
+    for (DebugLocalRead dlr : code.<DebugLocalRead>instructions(Instruction::isDebugLocalRead)) {
+      if (dlr.getDebugValues().isEmpty()) {
+        dlr.remove();
+      }
+    }
+
     // Run the dead code remover to ensure code that has been moved into the outline is removed
     // (e.g., constants, the allocation of the exception).
     deadCodeRemover.run(code, Timing.empty());
