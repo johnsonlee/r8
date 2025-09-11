@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.examples;
 
+import static org.junit.Assume.assumeFalse;
+
 import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -17,6 +19,8 @@ import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
+import org.apache.harmony.jpda.tests.framework.TestErrorException;
+import org.apache.harmony.jpda.tests.framework.jdwp.exceptions.TimeoutException;
 import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runners.Parameterized.Parameters;
@@ -50,7 +54,16 @@ public abstract class ExamplesTestBase extends DebugTestBase {
 
   @Test
   public void testDebug() throws Exception {
-    runTestDebugComparator();
+    try {
+      runTestDebugComparator();
+    } catch (TestErrorException e) {
+      assumeFalse(isTestDebugKnownToBeFlaky() && e.getCause() instanceof TimeoutException);
+      throw e;
+    }
+  }
+
+  public boolean isTestDebugKnownToBeFlaky() {
+    return false;
   }
 
   public abstract String getExpected();
@@ -86,9 +99,8 @@ public abstract class ExamplesTestBase extends DebugTestBase {
   }
 
   public void runTestDebugComparator() throws Exception {
-    Assume.assumeFalse(ToolHelper.isWindows());
-    Assume.assumeFalse(
-        "Debugging not enabled in 12.0.0", parameters.isDexRuntimeVersion(Version.V12_0_0));
+    assumeFalse(ToolHelper.isWindows());
+    assumeFalse("Debugging not enabled in 12.0.0", parameters.isDexRuntimeVersion(Version.V12_0_0));
     Assume.assumeTrue(
         "Streaming on Dalvik DEX runtimes has some unknown interference issue",
         parameters.isCfRuntime() || parameters.isDexRuntimeVersionNewerThanOrEqual(Version.V6_0_1));

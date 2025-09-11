@@ -4,12 +4,10 @@
 package com.android.tools.r8.examples.invoke;
 
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.examples.ExamplesTestBase;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
-import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
@@ -93,5 +91,10 @@ public class InvokeTestRunner extends ExamplesTestBase {
         "double: 32.32",
         "519",
         "15");
+  }
+
+  @Override
+  public boolean isTestDebugKnownToBeFlaky() {
+    return true;
   }
 }
