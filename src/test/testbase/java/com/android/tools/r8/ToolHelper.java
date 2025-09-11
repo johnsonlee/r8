@@ -2700,7 +2700,7 @@ public class ToolHelper {
 
   public static void writeApplication(AppView<?> appView) throws ExecutionException {
     appView.options().tool = Tool.R8;
-    R8.writeApplication(appView, null, Executors.newFixedThreadPool(2));
+    R8.writeApplication(appView, null, Executors.newSingleThreadExecutor());
   }
 
   public static void disassemble(AndroidApp app, PrintStream ps) throws IOException {
