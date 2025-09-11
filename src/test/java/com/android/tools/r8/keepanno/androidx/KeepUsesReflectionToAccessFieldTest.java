@@ -4,6 +4,7 @@
 package com.android.tools.r8.keepanno.androidx;
 
 import static com.android.tools.r8.ToolHelper.getFilesInTestFolderRelativeToClass;
+import static org.hamcrest.CoreMatchers.containsString;
 
 import androidx.annotation.keep.UsesReflectionToAccessField;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
@@ -18,6 +19,8 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -43,8 +46,14 @@ public class KeepUsesReflectionToAccessFieldTest extends KeepAnnoTestExtractedRu
 
   private static Collection<Path> getKotlinSources() {
     try {
-      return getFilesInTestFolderRelativeToClass(
-          KeepUsesReflectionToAccessFieldTest.class, "kt", "Fields.kt", "FieldsKeptClass.kt");
+      return Stream.concat(
+              getFilesInTestFolderRelativeToClass(
+                  KeepUsesReflectionToAccessFieldTest.class, "kt", "Fields.kt")
+                  .stream(),
+              getFilesInTestFolderRelativeToClass(
+                  KeepUsesReflectionToAccessFieldTest.class, "kt", "FieldsPropertyAccess.kt")
+                  .stream())
+          .collect(Collectors.toList());
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -267,6 +276,42 @@ public class KeepUsesReflectionToAccessFieldTest extends KeepAnnoTestExtractedRu
             "{ long y; }",
             "{ java.lang.String s; }"),
         StringUtils.lines("3"));
+  }
+
+  @Test
+  public void testPropertyAccessKotlin() throws Exception {
+    testExtractedRulesAndRunKotlin(
+        compilationResults,
+        (classReference, classFileBytes) ->
+            setAnnotationOnMethod(
+                classReference,
+                classFileBytes,
+                Reference.classFromTypeName(
+                    "com.android.tools.r8.keepanno.androidx.kt.FieldsPropertyAccess"),
+                MethodPredicate.onName("foo"),
+                builder ->
+                    buildUsesReflectionToAccessField(
+                        builder,
+                        Type.getType(
+                            DescriptorUtils.javaTypeToDescriptor(
+                                "com.android.tools.r8.keepanno.androidx.kt.FieldsPropertyAccessKeptClass")),
+                        "x",
+                        int.class)),
+        "com.android.tools.r8.keepanno.androidx.kt.FieldsPropertyAccessKt",
+        getExpectedRulesKotlin(
+            "com.android.tools.r8.keepanno.androidx.kt.FieldsPropertyAccess",
+            "{ void foo(); }",
+            "com.android.tools.r8.keepanno.androidx.kt.FieldsPropertyAccessKeptClass",
+            "{ int x; }"),
+        // TODO(b/392865072): Not sure why this succeeds on DEX even though the getter getX has
+        //  been removed.
+        parameters.getBackend().isDex()
+            ? r -> r.assertSuccessWithOutput(StringUtils.lines("1"))
+            : r ->
+                r.assertFailureWithErrorThatMatches(
+                    containsString(
+                        "Property 'x' (JVM signature: getX()I) not resolved in class"
+                            + " com.android.tools.r8.keepanno.androidx.kt")));
   }
 
   // Test class without annotation to be used by multiple tests inserting annotations using a
