@@ -12,7 +12,6 @@ import com.android.tools.r8.utils.timing.Timing;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class EnqueuerTaskCollection implements FixpointEnqueuerAnalysis, FinishedEnqueuerAnalysis {
 
@@ -46,13 +45,7 @@ public class EnqueuerTaskCollection implements FixpointEnqueuerAnalysis, Finishe
         () -> {
           // Conservatively acquire the app read lock. This ensures that the execution of Enqueuer
           // independent tasks is mutually exclusive with desugaring.
-          ReentrantReadWriteLock.ReadLock appReadLock = enqueuer.getAppReadLock();
-          appReadLock.lock();
-          try {
-            runnable.run();
-          } finally {
-            appReadLock.unlock();
-          }
+          enqueuer.withAppReadLock(runnable);
           return null;
         });
   }

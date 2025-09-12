@@ -588,6 +588,16 @@ public class Enqueuer {
     return appReadWriteLock.readLock();
   }
 
+  public void withAppReadLock(Runnable runnable) {
+    ReentrantReadWriteLock.ReadLock appReadLock = getAppReadLock();
+    appReadLock.lock();
+    try {
+      runnable.run();
+    } finally {
+      appReadLock.unlock();
+    }
+  }
+
   public ProfileCollectionAdditions getProfileCollectionAdditions() {
     return profileCollectionAdditions;
   }
@@ -4890,6 +4900,14 @@ public class Enqueuer {
       while (true) {
         timing.begin("Compute fixpoint #" + round++);
         long numberOfLiveItems = getNumberOfLiveItems();
+
+        // During the initial round of tree shaking we concurrently parse the code objects. Commit
+        // dex items before every wave to minimize synchronization overhead.
+        if (mode.isInitialTreeShaking()) {
+          timing.begin("Commit pending dex items");
+          withAppReadLock(appView.dexItemFactory()::commitPendingItems);
+          timing.end();
+        }
 
         timing.begin("Process worklist");
         worklist.process(timing);
