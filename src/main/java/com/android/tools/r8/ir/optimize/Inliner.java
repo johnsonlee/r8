@@ -385,7 +385,7 @@ public class Inliner {
     public static ConstraintWithTarget classIsVisible(
         ProgramMethod context, DexType clazz, AppView<?> appView) {
       if (clazz.isArrayType()) {
-        return classIsVisible(context, clazz.toArrayElementType(appView.dexItemFactory()), appView);
+        return classIsVisible(context, clazz.getArrayElementType(), appView);
       }
 
       if (clazz.isPrimitiveType()) {

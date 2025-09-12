@@ -233,7 +233,7 @@ public class EnumUnboxerImpl extends EnumUnboxer {
 
   private DexProgramClass getEnumUnboxingCandidateOrNull(DexType type) {
     if (type.isArrayType()) {
-      return getEnumUnboxingCandidateOrNull(type.toBaseType(appView.dexItemFactory()));
+      return getEnumUnboxingCandidateOrNull(type.getBaseType());
     }
     if (type.isPrimitiveType() || type.isVoidType()) {
       return null;
@@ -428,8 +428,7 @@ public class EnumUnboxerImpl extends EnumUnboxer {
     // type and cannot be dealt with.
     // If the cast is on a dynamically typed object, the checkCast can be simply removed.
     // This allows enum array clone and valueOf to work correctly.
-    DexProgramClass enumClass =
-        getEnumUnboxingCandidateOrNull(checkCast.getType().toBaseType(factory));
+    DexProgramClass enumClass = getEnumUnboxingCandidateOrNull(checkCast.getType().getBaseType());
     if (enumClass == null) {
       return;
     }
@@ -441,7 +440,7 @@ public class EnumUnboxerImpl extends EnumUnboxer {
   }
 
   private void analyzeInstanceOf(InstanceOf instanceOf) {
-    DexType baseType = instanceOf.type().toBaseType(factory);
+    DexType baseType = instanceOf.type().getBaseType();
     DexProgramClass enumClass = getEnumUnboxingCandidateOrNull(baseType);
     if (enumClass != null) {
       markEnumAsUnboxable(Reason.INSTANCE_OF, enumClass);
@@ -595,8 +594,7 @@ public class EnumUnboxerImpl extends EnumUnboxer {
         }
       } else if (use.isNewArrayFilled()) {
         DexProgramClass enumClass =
-            getEnumUnboxingCandidateOrNull(
-                use.asNewArrayFilled().getArrayType().toBaseType(factory));
+            getEnumUnboxingCandidateOrNull(use.asNewArrayFilled().getArrayType().getBaseType());
         if (enumClass != null) {
           eligibleEnums.add(enumClass.getType());
         }
@@ -1300,7 +1298,7 @@ public class EnumUnboxerImpl extends EnumUnboxer {
     }
     // The put value has to be of the field type.
     if (!enumUnboxingCandidatesInfo.isAssignableTo(
-        field.getReference().type.toBaseType(factory), enumClass.type)) {
+        field.getReference().type.getBaseType(), enumClass.type)) {
       return Reason.TYPE_MISMATCH_FIELD_PUT;
     }
     return Reason.ELIGIBLE;
@@ -1431,7 +1429,7 @@ public class EnumUnboxerImpl extends EnumUnboxer {
       for (int i = 0; i < mostAccurateTarget.getParameters().size(); i++) {
         if (invoke.getArgumentForParameter(i) == enumValue
             && !enumUnboxingCandidatesInfo.isAssignableTo(
-                mostAccurateTarget.getParameter(i).toBaseType(factory), enumClass.getType())) {
+                mostAccurateTarget.getParameter(i).getBaseType(), enumClass.getType())) {
           return new IllegalInvokeWithImpreciseParameterTypeReason(
               mostAccurateTarget.getReference());
         }
@@ -1619,7 +1617,7 @@ public class EnumUnboxerImpl extends EnumUnboxer {
   private Reason analyzeReturnUser(ProgramMethod context, DexProgramClass enumClass) {
     DexType returnType = context.getReturnType();
     if (returnType.isNotIdenticalTo(enumClass.type)
-        && returnType.toBaseType(factory).isNotIdenticalTo(enumClass.type)) {
+        && returnType.getBaseType().isNotIdenticalTo(enumClass.type)) {
       return Reason.IMPLICIT_UP_CAST_IN_RETURN;
     }
     return Reason.ELIGIBLE;

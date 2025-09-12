@@ -12,6 +12,7 @@ import com.android.tools.r8.cf.CfVersion;
 import com.android.tools.r8.contexts.CompilationContext.ProcessorContext;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCodeWithLens;
+import com.android.tools.r8.graph.DexArrayType;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedField.Builder;
@@ -1083,15 +1084,12 @@ class EnumUnboxingTreeFixer implements ProgramClassFixer {
     return factory.createProto(returnType, arguments);
   }
 
-  @SuppressWarnings("ReferenceEquality")
   private DexType fixupType(DexType type) {
     if (type.isArrayType()) {
-      DexType base = type.toBaseType(factory);
+      DexArrayType arrayType = type.asArrayType();
+      DexType base = arrayType.getBaseType();
       DexType fixed = fixupType(base);
-      if (base == fixed) {
-        return type;
-      }
-      return type.replaceBaseType(fixed, factory);
+      return arrayType.replaceBaseType(fixed, factory);
     }
     return type.isClassType() && enumDataMap.isUnboxedEnum(type) ? factory.intType : type;
   }

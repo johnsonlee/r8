@@ -106,8 +106,7 @@ public class CfAssignability {
     }
     if (target.isArrayType()) {
       return source.isArrayType()
-          && isAssignable(
-              source.toArrayElementType(dexItemFactory), target.toArrayElementType(dexItemFactory));
+          && isAssignable(source.getArrayElementType(), target.getArrayElementType());
     }
     assert target.isClassType();
     if (source.isArrayType()) {

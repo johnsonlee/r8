@@ -9,7 +9,6 @@ import com.android.tools.r8.androidapi.ComputedApiLevel;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexField;
-import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.FieldResolutionResult;
 import com.android.tools.r8.graph.FieldResolutionResult.SingleFieldResolutionResult;
@@ -37,13 +36,11 @@ import com.android.tools.r8.utils.InternalOptions;
 public class GetArrayOfMissingTypeVerifyErrorWorkaround
     implements TraceFieldAccessEnqueuerAnalysis {
 
-  private final DexItemFactory dexItemFactory;
   private final Enqueuer enqueuer;
   private final AndroidApiLevelCompute apiLevelCompute;
 
   public GetArrayOfMissingTypeVerifyErrorWorkaround(
       AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer) {
-    this.dexItemFactory = appView.dexItemFactory();
     this.enqueuer = enqueuer;
     this.apiLevelCompute = appView.apiLevelCompute();
   }
@@ -91,7 +88,7 @@ public class GetArrayOfMissingTypeVerifyErrorWorkaround
     if (!fieldType.isArrayType()) {
       return false;
     }
-    DexType baseType = fieldType.toBaseType(dexItemFactory);
+    DexType baseType = fieldType.getBaseType();
     if (!baseType.isClassType()) {
       return false;
     }

@@ -179,7 +179,7 @@ public class RepackagingUseRegistry extends UseRegistry<ProgramDefinition> {
 
   private void registerTypeAccess(DexType type, Consumer<DexClass> consumer) {
     if (type.isArrayType()) {
-      registerTypeAccess(type.toBaseType(appInfo.dexItemFactory()), consumer);
+      registerTypeAccess(type.getBaseType(), consumer);
       return;
     }
     if (type.isPrimitiveType() || type.isVoidType()) {

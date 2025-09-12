@@ -72,7 +72,7 @@ public class DesugaredLibraryConverter {
         getAppForConversion(options, libraryFiles, desugaredLibraryFiles);
     MultiAPILevelHumanDesugaredLibrarySpecification humanSpec =
         getInputAsHumanSpecification(options, jsonResource, jsonConfig, appForConversion);
-    String outputString = convertToMachineSpecification(options, appForConversion, humanSpec);
+    String outputString = convertToMachineSpecification(appForConversion, humanSpec);
 
     Files.write(output, Collections.singleton(outputString));
 
@@ -80,17 +80,14 @@ public class DesugaredLibraryConverter {
   }
 
   private static String convertToMachineSpecification(
-      InternalOptions options,
-      DexApplication appForConversion,
-      MultiAPILevelHumanDesugaredLibrarySpecification humanSpec)
-      throws IOException {
+      DexApplication appForConversion, MultiAPILevelHumanDesugaredLibrarySpecification humanSpec) {
     HumanToMachineSpecificationConverter converter =
         new HumanToMachineSpecificationConverter(Timing.empty());
     MultiAPILevelMachineDesugaredLibrarySpecification machineSpec =
         converter.convertAllAPILevels(humanSpec, appForConversion);
     Box<String> machineJson = new Box<>();
     MultiAPILevelMachineDesugaredLibrarySpecificationJsonExporter.export(
-        machineSpec, (string, handler) -> machineJson.set(string), options.dexItemFactory());
+        machineSpec, (string, handler) -> machineJson.set(string));
     return machineJson.get();
   }
 

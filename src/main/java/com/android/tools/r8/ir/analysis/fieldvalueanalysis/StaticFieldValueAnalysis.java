@@ -250,7 +250,7 @@ public class StaticFieldValueAnalysis extends FieldValueAnalysis {
     assert newArrayEmpty != null || newArrayFilled != null;
 
     DexType arrayType = newArrayEmpty != null ? newArrayEmpty.type : newArrayFilled.getArrayType();
-    if (arrayType.toBaseType(appView.dexItemFactory()) != context.getHolder().type) {
+    if (arrayType.getBaseType() != context.getHolder().type) {
       return null;
     }
     if (value.hasDebugUsers() || value.hasPhiUsers()) {

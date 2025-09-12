@@ -91,7 +91,7 @@ public class AndroidApiLevelUtils {
     LibraryDefinition singleValueDefinition;
     if (singleValue.isSingleConstClassValue()) {
       SingleConstClassValue singleConstClassValue = singleValue.asSingleConstClassValue();
-      DexType baseType = singleConstClassValue.getType().toBaseType(appView.dexItemFactory());
+      DexType baseType = singleConstClassValue.getType().getBaseType();
       if (baseType.isPrimitiveType()) {
         return true;
       }
@@ -170,8 +170,7 @@ public class AndroidApiLevelUtils {
   }
 
   public static boolean isApiSafeForReference(DexType type, AppView<?> appView) {
-    DexItemFactory dexItemFactory = appView.dexItemFactory();
-    DexType baseType = type.toBaseType(dexItemFactory);
+    DexType baseType = type.getBaseType();
     if (baseType.isPrimitiveType()) {
       return true;
     }
@@ -233,8 +232,7 @@ public class AndroidApiLevelUtils {
     assert newType.isReferenceType();
     assert oldType.isReferenceType();
     assert newType != oldType;
-    DexItemFactory dexItemFactory = appView.dexItemFactory();
-    DexType newBaseType = newType.toBaseType(dexItemFactory);
+    DexType newBaseType = newType.getBaseType();
     if (newBaseType.isPrimitiveType()) {
       // Array of primitives is available on all api levels.
       return true;
@@ -259,7 +257,7 @@ public class AndroidApiLevelUtils {
       return true;
     }
     // Check if the new library class is present since the api level of the old type.
-    DexType oldBaseType = oldType.toBaseType(dexItemFactory);
+    DexType oldBaseType = oldType.getBaseType();
     assert oldBaseType.isClassType();
     LibraryClass oldBaseLibraryClass = asLibraryClassOrNull(appView.definitionFor(oldBaseType));
     return oldBaseLibraryClass != null

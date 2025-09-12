@@ -7,6 +7,7 @@ import com.android.tools.r8.cf.CfPrinter;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCompareHelper;
+import com.android.tools.r8.graph.DexArrayType;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexType;
@@ -31,11 +32,11 @@ import org.objectweb.asm.Opcodes;
 
 public class CfNewArray extends CfInstruction implements CfTypeInstruction {
 
-  private final DexType type;
+  private final DexArrayType type;
 
   public CfNewArray(DexType type) {
     assert type.isArrayType();
-    this.type = type;
+    this.type = type.asArrayType();
   }
 
   @Override
@@ -49,7 +50,7 @@ public class CfNewArray extends CfInstruction implements CfTypeInstruction {
   }
 
   @Override
-  public DexType getType() {
+  public DexArrayType getType() {
     return type;
   }
 
@@ -98,19 +99,13 @@ public class CfNewArray extends CfInstruction implements CfTypeInstruction {
   }
 
   private String getElementInternalName(
-      DexItemFactory dexItemFactory,
       GraphLens graphLens,
       GraphLens codeLens,
       NamingLens namingLens) {
     assert !type.isPrimitiveArrayType();
-    StringBuilder renamedElementDescriptor = new StringBuilder();
-    // Intentionally starting from 1 to get the element descriptor.
-    int numberOfLeadingSquareBrackets = getType().getNumberOfLeadingSquareBrackets();
-    for (int i = 1; i < numberOfLeadingSquareBrackets; i++) {
-      renamedElementDescriptor.append("[");
-    }
-    DexType baseType = getType().toBaseType(dexItemFactory);
-    DexType rewrittenBaseType = graphLens.lookupType(baseType, codeLens);
+    StringBuilder renamedElementDescriptor =
+        new StringBuilder("[".repeat(type.getArrayElementType().getArrayTypeDimensions()));
+    DexType rewrittenBaseType = graphLens.lookupType(type.getBaseType(), codeLens);
     renamedElementDescriptor.append(
         namingLens.lookupDescriptor(rewrittenBaseType).toSourceString());
     return DescriptorUtils.descriptorToInternalName(renamedElementDescriptor.toString());
@@ -131,8 +126,7 @@ public class CfNewArray extends CfInstruction implements CfTypeInstruction {
       visitor.visitIntInsn(Opcodes.NEWARRAY, getPrimitiveTypeCode());
     } else {
       visitor.visitTypeInsn(
-          Opcodes.ANEWARRAY,
-          getElementInternalName(dexItemFactory, graphLens, codeLens, namingLens));
+          Opcodes.ANEWARRAY, getElementInternalName(graphLens, codeLens, namingLens));
     }
   }
 

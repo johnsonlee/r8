@@ -5,6 +5,7 @@
 package com.android.tools.r8.graph.lens;
 
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexArrayType;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
@@ -111,9 +112,10 @@ public abstract class NonIdentityGraphLens extends GraphLens {
       return lookupClassType(type, appliedLens);
     }
     if (type.isArrayType()) {
-      DexType baseType = type.toBaseType(dexItemFactory);
+      DexArrayType arrayType = type.asArrayType();
+      DexType baseType = type.getBaseType();
       DexType newType = lookupType(baseType, appliedLens);
-      return baseType.isIdenticalTo(newType) ? type : type.replaceBaseType(newType, dexItemFactory);
+      return arrayType.replaceBaseType(newType, dexItemFactory);
     }
     assert type.isNullValueType() || type.isPrimitiveType() || type.isVoidType();
     return type;
@@ -165,11 +167,10 @@ public abstract class NonIdentityGraphLens extends GraphLens {
 
   public final DexType getNextType(DexType type) {
     if (type.isArrayType()) {
-      DexType baseType = type.toBaseType(dexItemFactory());
+      DexArrayType arrayType = type.asArrayType();
+      DexType baseType = arrayType.getBaseType();
       DexType newBaseType = getNextClassType(baseType);
-      if (newBaseType.isNotIdenticalTo(baseType)) {
-        return type.replaceBaseType(newBaseType, dexItemFactory());
-      }
+      return arrayType.replaceBaseType(newBaseType, dexItemFactory());
     } else if (type.isClassType()) {
       return getNextClassType(type);
     }

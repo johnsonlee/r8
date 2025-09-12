@@ -94,7 +94,7 @@ public class RelocatorMapping {
       return;
     }
     if (type.isArrayType()) {
-      computeTypeMapping(type.toBaseType(factory), factory, typeMappings, rewritePackageMappings);
+      computeTypeMapping(type.getBaseType(), factory, typeMappings, rewritePackageMappings);
       return;
     }
     assert type.isClassType();

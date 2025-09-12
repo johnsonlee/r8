@@ -7,6 +7,7 @@ package com.android.tools.r8.kotlin;
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.getKotlinLocalOrAnonymousNameFromDescriptor;
 
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexArrayType;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.lens.GraphLens;
@@ -152,10 +153,10 @@ class KotlinTypeReference implements EnqueuerMetadataTraceable {
 
   private static DexType toRewrittenTypeOrNull(AppView<?> appView, DexType type) {
     if (type.isArrayType()) {
-      DexType rewrittenBaseType =
-          toRewrittenTypeOrNull(appView, type.toBaseType(appView.dexItemFactory()));
+      DexArrayType arrayType = type.asArrayType();
+      DexType rewrittenBaseType = toRewrittenTypeOrNull(appView, arrayType.getBaseType());
       return rewrittenBaseType != null
-          ? type.replaceBaseType(rewrittenBaseType, appView.dexItemFactory())
+          ? arrayType.replaceBaseType(rewrittenBaseType, appView.dexItemFactory())
           : null;
     }
     if (!type.isClassType()) {

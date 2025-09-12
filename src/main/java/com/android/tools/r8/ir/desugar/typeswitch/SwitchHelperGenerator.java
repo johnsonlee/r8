@@ -115,9 +115,7 @@ public class SwitchHelperGenerator {
               builder.getType(), factory.booleanArrayType, factory.createString("enumCacheSet"));
       enumCacheField =
           factory.createField(
-              builder.getType(),
-              factory.createArrayType(1, enumType),
-              factory.createString("enumCache"));
+              builder.getType(), enumType.toArrayType(factory), factory.createString("enumCache"));
       enumEqMethods.put(
           enumType,
           generateEnumEqMethod(

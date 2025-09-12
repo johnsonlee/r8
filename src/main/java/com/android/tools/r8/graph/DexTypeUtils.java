@@ -42,7 +42,7 @@ public class DexTypeUtils {
     if (type.isArrayType()) {
       ArrayTypeElement arrayType = type.asArrayType();
       DexType baseType = toDexType(factory, arrayType.getBaseType());
-      return baseType.toArrayType(arrayType.getNesting(), factory);
+      return baseType.toArrayType(factory, arrayType.getNesting());
     }
     assert type.isClassType();
     return type.asClassType().toDexType(factory);
@@ -50,8 +50,7 @@ public class DexTypeUtils {
 
   public static DexType findApiSafeUpperBound(
       AppView<? extends AppInfoWithClassHierarchy> appView, DexType type) {
-    DexItemFactory factory = appView.dexItemFactory();
-    DexType baseType = type.toBaseType(factory);
+    DexType baseType = type.getBaseType();
     if (baseType.isPrimitiveType()) {
       return type;
     }

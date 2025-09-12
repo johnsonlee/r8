@@ -78,8 +78,7 @@ public class IllegalAccessDetector extends UseRegistryWithResult<Boolean, Progra
 
   private boolean checkRewrittenMethodReference(
       DexMethod rewrittenMethod, OptionalBool isInterface) {
-    DexType baseType =
-        rewrittenMethod.getHolderType().toBaseType(appViewWithClassHierarchy.dexItemFactory());
+    DexType baseType = rewrittenMethod.getHolderType().getBaseType();
     if (baseType.isClassType() && baseType.isSamePackage(getContext().getHolderType())) {
       if (checkRewrittenTypeReference(rewrittenMethod.getHolderType())) {
         return checkFoundPackagePrivateAccess();
@@ -115,8 +114,7 @@ public class IllegalAccessDetector extends UseRegistryWithResult<Boolean, Progra
 
   private boolean internalCheckTypeReference(
       DexType type, GraphLens graphLens, GraphLens codeLens) {
-    DexType baseType =
-        graphLens.lookupType(type.toBaseType(appViewWithClassHierarchy.dexItemFactory()), codeLens);
+    DexType baseType = graphLens.lookupType(type.getBaseType(), codeLens);
     if (baseType.isClassType() && baseType.isSamePackage(getContext().getHolderType())) {
       DexClass clazz = appViewWithClassHierarchy.definitionFor(baseType);
       if (clazz == null || !clazz.isPublic()) {

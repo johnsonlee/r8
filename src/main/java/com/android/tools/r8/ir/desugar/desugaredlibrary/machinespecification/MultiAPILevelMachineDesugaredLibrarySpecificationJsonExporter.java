@@ -40,7 +40,6 @@ import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AccessFlags;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItem;
-import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.ApiLevelRange;
@@ -58,21 +57,16 @@ public class MultiAPILevelMachineDesugaredLibrarySpecificationJsonExporter {
 
   static final int MACHINE_VERSION_NUMBER = 200;
 
-  private final DexItemFactory factory;
   private final Map<String, String> packageMap = new TreeMap<>();
   private static final String chars =
       "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789æÆøØ";
   private int next = 0;
 
-  public MultiAPILevelMachineDesugaredLibrarySpecificationJsonExporter(DexItemFactory factory) {
-    this.factory = factory;
-  }
+  public MultiAPILevelMachineDesugaredLibrarySpecificationJsonExporter() {}
 
   public static void export(
-      MultiAPILevelMachineDesugaredLibrarySpecification specification,
-      StringConsumer output,
-      DexItemFactory factory) {
-    new MultiAPILevelMachineDesugaredLibrarySpecificationJsonExporter(factory)
+      MultiAPILevelMachineDesugaredLibrarySpecification specification, StringConsumer output) {
+    new MultiAPILevelMachineDesugaredLibrarySpecificationJsonExporter()
         .internalExport(specification, output);
   }
 
@@ -280,12 +274,8 @@ public class MultiAPILevelMachineDesugaredLibrarySpecificationJsonExporter {
       return type.toString();
     }
     if (type.isArrayType()) {
-      StringBuilder sb = new StringBuilder();
-      sb.append(typeToString(type.toBaseType(factory)));
-      for (int i = 0; i < type.getNumberOfLeadingSquareBrackets(); i++) {
-        sb.append("[]");
-      }
-      return sb.toString();
+      return typeToString(type.getBaseType())
+          + "[]".repeat(Math.max(0, type.getArrayTypeDimensions()));
     }
     String pack =
         packageMap.computeIfAbsent(type.getPackageName(), k -> nextMinifiedPackagePrefix());

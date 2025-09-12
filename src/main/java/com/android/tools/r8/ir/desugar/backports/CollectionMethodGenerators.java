@@ -65,7 +65,7 @@ public final class CollectionMethodGenerators {
 
   @SuppressWarnings("BadImport")
   public static CfCode generateMapOf(DexItemFactory factory, DexMethod method, int formalCount) {
-    DexType mapEntryArray = factory.createArrayType(1, factory.mapEntryType);
+    DexType mapEntryArray = factory.mapEntryType.toArrayType(factory);
     DexType simpleEntry = factory.abstractMapSimpleEntryType;
     DexMethod simpleEntryConstructor =
         factory.createMethod(

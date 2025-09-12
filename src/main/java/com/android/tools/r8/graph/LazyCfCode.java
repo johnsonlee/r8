@@ -815,8 +815,7 @@ public class LazyCfCode extends Code {
           addInstruction(new CfConstNumber(operand, ValueType.INT));
           break;
         case Opcodes.NEWARRAY:
-          addInstruction(
-              new CfNewArray(factory.createArrayType(1, arrayTypeDesc(operand, factory))));
+          addInstruction(new CfNewArray(arrayTypeDesc(operand, factory).toArrayType(factory)));
           break;
         default:
           throw new Unreachable("Unexpected int opcode " + opcode);
@@ -898,7 +897,7 @@ public class LazyCfCode extends Code {
           addInstruction(cfNew);
           break;
         case Opcodes.ANEWARRAY:
-          addInstruction(new CfNewArray(factory.createArrayType(1, type)));
+          addInstruction(new CfNewArray(type.toArrayType(factory)));
           break;
         case Opcodes.CHECKCAST:
           addInstruction(new CfCheckCast(type));

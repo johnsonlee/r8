@@ -152,8 +152,7 @@ public class DesugaredLibraryWrapperSynthesizer implements CfClassSynthesizerDes
       DexType type, DexMethod apiGenericTypesConversion, DexMethod method, ProgramMethod context) {
     if (type.isArrayType()) {
       assert apiGenericTypesConversion == null;
-      return shouldConvert(
-          type.toBaseType(appView.dexItemFactory()), apiGenericTypesConversion, method, context);
+      return shouldConvert(type.getBaseType(), apiGenericTypesConversion, method, context);
     }
     if (apiGenericTypesConversion != null) {
       return true;
@@ -240,7 +239,7 @@ public class DesugaredLibraryWrapperSynthesizer implements CfClassSynthesizerDes
       Supplier<UniqueContext> contextSupplier) {
     DexMethod conversion =
         ensureConversionMethod(
-            type.toArrayElementType(factory),
+            type.getArrayElementType(),
             srcType == type,
             null,
             eventConsumer,
@@ -260,7 +259,7 @@ public class DesugaredLibraryWrapperSynthesizer implements CfClassSynthesizerDes
       Supplier<UniqueContext> contextSupplier) {
     DexMethod conversion =
         getExistingProgramConversionMethod(
-            type.toArrayElementType(factory),
+            type.getArrayElementType(),
             srcType == type,
             null,
             eventConsumer,

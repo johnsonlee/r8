@@ -173,7 +173,7 @@ public class TrivialCheckCastAndInstanceOfRemover extends CodeRewriterPass<AppIn
     Value inValue = checkCast.object();
     Value outValue = checkCast.outValue();
     DexType castType = checkCast.getType();
-    DexType baseCastType = castType.toBaseType(dexItemFactory);
+    DexType baseCastType = castType.getBaseType();
 
     // If the cast type is not accessible in the current context, we should not remove the cast
     // in order to preserve runtime errors. Note that JVM and ART behave differently: see
@@ -198,7 +198,7 @@ public class TrivialCheckCastAndInstanceOfRemover extends CodeRewriterPass<AppIn
     if (options.canHaveArtCheckCastVerifierBug()) {
       if (inValue.getType().isNullType()
           && castType.isArrayType()
-          && castType.toBaseType(dexItemFactory).isFloatType()) {
+          && castType.getBaseType().isFloatType()) {
         return RemoveCheckCastInstructionIfTrivialResult.NO_REMOVALS;
       }
     }
@@ -207,7 +207,7 @@ public class TrivialCheckCastAndInstanceOfRemover extends CodeRewriterPass<AppIn
     // See b/132420510 and b/223424356.
     if (options.canHaveIncorrectJoinForArrayOfInterfacesBug()) {
       if (castType.isArrayType()) {
-        DexType baseType = castType.toBaseType(dexItemFactory);
+        DexType baseType = castType.getBaseType();
         if (baseType.isClassType() && baseType.isInterface(appViewWithLiveness)) {
           return RemoveCheckCastInstructionIfTrivialResult.NO_REMOVALS;
         }
@@ -326,7 +326,7 @@ public class TrivialCheckCastAndInstanceOfRemover extends CodeRewriterPass<AppIn
 
     // If the instance-of type is not accessible in the current context, we should not remove the
     // instance-of instruction in order to preserve IllegalAccessError.
-    DexType instanceOfBaseType = instanceOf.type().toBaseType(dexItemFactory);
+    DexType instanceOfBaseType = instanceOf.type().getBaseType();
     if (instanceOfBaseType.isClassType()) {
       DexClass instanceOfClass = appView.definitionFor(instanceOfBaseType);
       if (instanceOfClass == null

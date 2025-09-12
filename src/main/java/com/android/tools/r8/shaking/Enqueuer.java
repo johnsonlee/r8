@@ -736,7 +736,7 @@ public class Enqueuer {
       return;
     }
     if (type.isArrayType()) {
-      type = type.toBaseType(appView.dexItemFactory());
+      type = type.getBaseType();
     }
     if (!type.isClassType()) {
       return;
@@ -946,7 +946,7 @@ public class Enqueuer {
       Consumer<ClasspathOrLibraryClass> classAdder,
       BiConsumer<DexType, ClasspathOrLibraryDefinition> missingClassConsumer) {
     if (type.isArrayType()) {
-      type = type.toBaseType(appView.dexItemFactory());
+      type = type.getBaseType();
     }
     if (!type.isClassType()) {
       return;
@@ -1382,7 +1382,7 @@ public class Enqueuer {
       ListIterator<? extends CfOrDexInstruction> iterator) {
     // We conservatively group T.class and T[].class to ensure that we do not merge T with S if
     // potential locks on T[].class and S[].class exists.
-    DexType baseType = type.toBaseType(appView.dexItemFactory());
+    DexType baseType = type.getBaseType();
     if (baseType.isClassType()) {
       DexProgramClass baseClass = getProgramClassOrNull(baseType, currentMethod);
       if (baseClass != null && isConstClassMaybeUsedAsLock(currentMethod, iterator)) {
@@ -2146,7 +2146,7 @@ public class Enqueuer {
 
   private void markTypeAsLive(DexType type, ProgramDefinition context) {
     if (type.isArrayType()) {
-      markTypeAsLive(type.toBaseType(appView.dexItemFactory()), context);
+      markTypeAsLive(type.getBaseType(), context);
       return;
     }
     if (!type.isClassType()) {
@@ -2162,7 +2162,7 @@ public class Enqueuer {
 
   private void markTypeAsLive(DexType type, ProgramDefinition context, KeepReason reason) {
     if (type.isArrayType()) {
-      markTypeAsLive(type.toBaseType(appView.dexItemFactory()), context, reason);
+      markTypeAsLive(type.getBaseType(), context, reason);
       return;
     }
     if (!type.isClassType()) {
@@ -2547,7 +2547,7 @@ public class Enqueuer {
 
   private DexClass resolveBaseType(DexType type, ProgramDefinition context) {
     if (type.isArrayType()) {
-      return resolveBaseType(type.toBaseType(appView.dexItemFactory()), context);
+      return resolveBaseType(type.getBaseType(), context);
     }
     if (type.isClassType()) {
       DexClass clazz = appView.definitionFor(type, context.getContextClass());
@@ -3434,7 +3434,7 @@ public class Enqueuer {
   private void handleFieldAccessWithInaccessibleFieldType(
       ProgramField field, ProgramDefinition context) {
     if (mode.isFinalTreeShaking() && options.isOptimizing() && !field.getAccessFlags().isStatic()) {
-      DexType fieldBaseType = field.getType().toBaseType(appView.dexItemFactory());
+      DexType fieldBaseType = field.getType().getBaseType();
       if (fieldBaseType.isClassType()) {
         DexClass clazz = definitionFor(fieldBaseType, context);
         if (clazz != null
@@ -4833,7 +4833,7 @@ public class Enqueuer {
   private boolean verifyReferencedType(
       DexType type, WorkList<DexClass> worklist, DexApplication app) {
     if (type.isArrayType()) {
-      type = type.toBaseType(appView.dexItemFactory());
+      type = type.getBaseType();
     }
     if (!type.isClassType()) {
       return true;
@@ -5530,7 +5530,7 @@ public class Enqueuer {
 
     @Override
     public boolean addType(DexType type) {
-      DexType baseType = type.toBaseType(appView.dexItemFactory());
+      DexType baseType = type.getBaseType();
       if (!baseType.isClassType()) {
         return false;
       }

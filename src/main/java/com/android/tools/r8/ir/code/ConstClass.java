@@ -119,7 +119,7 @@ public class ConstClass extends ConstInstruction {
       ProgramMethod context,
       AbstractValueSupplier abstractValueSupplier,
       SideEffectAssumption assumption) {
-    DexType baseType = getType().toBaseType(appView.dexItemFactory());
+    DexType baseType = getType().getBaseType();
     if (baseType.isPrimitiveType()) {
       return false;
     }

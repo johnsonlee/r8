@@ -172,7 +172,7 @@ public class ReflectionOptimizer {
         inType.isClassType()
             ? inType.asClassType().getClassType()
             : inType.asArrayType().toDexType(dexItemFactory);
-    DexType baseType = type.toBaseType(dexItemFactory);
+    DexType baseType = type.getBaseType();
     // Make sure base type is a class type.
     if (!baseType.isClassType()) {
       return;
@@ -253,7 +253,7 @@ public class ReflectionOptimizer {
       return;
     }
     // Make sure the (base) type is resolvable.
-    DexType baseType = type.toBaseType(dexItemFactory);
+    DexType baseType = type.getBaseType();
     DexClass baseClass = appView.appInfo().definitionForWithoutExistenceAssert(baseType);
     if (baseClass == null || !baseClass.isResolvable(appView)) {
       return;

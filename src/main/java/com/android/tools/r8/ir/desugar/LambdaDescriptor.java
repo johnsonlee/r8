@@ -513,8 +513,8 @@ public final class LambdaDescriptor {
     if (subType.isArrayType()) {
       if (superType.isArrayType()) {
         // X[] -> Y[].
-        return isSameOrDerived(factory,
-            subType.toArrayElementType(factory), superType.toArrayElementType(factory));
+        return isSameOrDerived(
+            factory, subType.getArrayElementType(), superType.getArrayElementType());
       }
       return superType.isIdenticalTo(factory.objectType); // T[] -> Object.
     }

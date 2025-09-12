@@ -1342,7 +1342,7 @@ public class RootSetUtils {
         return;
       }
       if (type.isArrayType()) {
-        type = type.toBaseType(appView.dexItemFactory());
+        type = type.getBaseType();
       }
       if (type.isPrimitiveType()) {
         return;

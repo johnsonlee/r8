@@ -6,7 +6,6 @@ package com.android.tools.r8.shaking;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
-import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -74,7 +73,6 @@ public class RuntimeTypeCheckInfo {
           TraceExceptionGuardEnqueuerAnalysis {
 
     private final GraphLens appliedGraphLens;
-    private final DexItemFactory factory;
 
     private final Set<DexType> instanceOfTypes = Sets.newIdentityHashSet();
     private final Set<DexType> checkCastTypes = Sets.newIdentityHashSet();
@@ -82,7 +80,6 @@ public class RuntimeTypeCheckInfo {
 
     public Builder(AppView<?> appView) {
       this.appliedGraphLens = appView.graphLens();
-      this.factory = appView.dexItemFactory();
     }
 
     public RuntimeTypeCheckInfo build(GraphLens graphLens) {
@@ -114,7 +111,7 @@ public class RuntimeTypeCheckInfo {
     }
 
     private void add(DexType type, Set<DexType> set) {
-      DexType baseType = type.toBaseType(factory);
+      DexType baseType = type.getBaseType();
       if (baseType.isClassType()) {
         set.add(baseType);
       }

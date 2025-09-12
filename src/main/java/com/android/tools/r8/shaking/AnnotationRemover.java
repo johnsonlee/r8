@@ -174,7 +174,7 @@ public class AnnotationRemover {
 
   private static boolean isAnnotationTypeLive(
       DexAnnotation annotation, AppView<AppInfoWithLiveness> appView) {
-    DexType annotationType = annotation.annotation.type.toBaseType(appView.dexItemFactory());
+    DexType annotationType = annotation.annotation.type.getBaseType();
     return appView.appInfo().isNonProgramTypeOrLiveProgramType(annotationType);
   }
 
@@ -281,7 +281,7 @@ public class AnnotationRemover {
 
   private DexEncodedAnnotation rewriteEncodedAnnotation(DexEncodedAnnotation original) {
     GraphLens graphLens = appView.graphLens();
-    DexType annotationType = original.type.toBaseType(appView.dexItemFactory());
+    DexType annotationType = original.type.getBaseType();
     DexType rewrittenType = graphLens.lookupType(annotationType);
     DexEncodedAnnotation rewrite =
         original.rewrite(

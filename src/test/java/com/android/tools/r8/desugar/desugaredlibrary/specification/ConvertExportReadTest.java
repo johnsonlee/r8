@@ -98,7 +98,7 @@ public class ConvertExportReadTest extends DesugaredLibraryTestBase {
     MultiAPILevelMachineDesugaredLibrarySpecification machineSpec1 =
         converter2.convertAllAPILevels(humanSpec2, app);
     MultiAPILevelMachineDesugaredLibrarySpecificationJsonExporter.export(
-        machineSpec1, (string, handler) -> json2.set(string), options.dexItemFactory());
+        machineSpec1, (string, handler) -> json2.set(string));
 
     MachineDesugaredLibrarySpecification machineSpecParsed =
         new MachineDesugaredLibrarySpecificationParser(
@@ -194,7 +194,7 @@ public class ConvertExportReadTest extends DesugaredLibraryTestBase {
     MultiAPILevelMachineDesugaredLibrarySpecification machineSpec1 =
         converter2.convertAllAPILevels(humanSpec2, app);
     MultiAPILevelMachineDesugaredLibrarySpecificationJsonExporter.export(
-        machineSpec1, (string, handler) -> json2.set(string), options.dexItemFactory());
+        machineSpec1, (string, handler) -> json2.set(string));
 
     for (AndroidApiLevel api :
         new AndroidApiLevel[] {AndroidApiLevel.B, AndroidApiLevel.N, AndroidApiLevel.O}) {

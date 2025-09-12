@@ -82,7 +82,7 @@ public class B141942381 extends TestBase {
 
     assertEquals(
         set.getMethod().getReference().proto.parameters.values[0],
-        storage.getField().getReference().type.toBaseType(inspector.getFactory()));
+        storage.getField().getReference().type.getBaseType());
   }
 
   static class TestClass {

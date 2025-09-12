@@ -597,7 +597,7 @@ public class Matchers {
       @Override
       protected boolean matchesSafely(FieldSubject fieldSubject) {
         return fieldSubject.getDexField().type.isArrayType()
-            && fieldSubject.getDexField().type.toBaseType(codeInspector.getFactory()) == type;
+            && fieldSubject.getDexField().type.getBaseType() == type;
       }
 
       @Override

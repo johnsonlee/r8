@@ -129,7 +129,7 @@ public class NoKeptClassesPolicy extends VerticalClassMergerPolicy {
   }
 
   private void markTypeAsPinned(DexType type, Set<DexProgramClass> pinnedClasses) {
-    DexType baseType = type.toBaseType(appView.dexItemFactory());
+    DexType baseType = type.getBaseType();
     if (!baseType.isClassType()) {
       return;
     }

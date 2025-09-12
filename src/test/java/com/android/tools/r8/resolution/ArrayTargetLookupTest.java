@@ -61,7 +61,7 @@ public class ArrayTargetLookupTest extends TestBase {
           factory.intArrayType,
           factory.stringArrayType,
           factory.objectArrayType,
-          factory.createArrayType(2, fooType)
+          fooType.toArrayType(factory, 2)
         };
     DexEncodedMethod langObjectNotifyMethod =
         appInfo

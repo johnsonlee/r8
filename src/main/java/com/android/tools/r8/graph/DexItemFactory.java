@@ -653,7 +653,7 @@ public class DexItemFactory {
   public final DexType kotlinEnumEntriesList =
       createStaticallyKnownType("Lkotlin/enums/EnumEntriesList;");
   public final DexMethod kotlinEnumEntriesListInit =
-      createInstanceInitializer(kotlinEnumEntriesList, createArrayType(1, enumType));
+      createInstanceInitializer(kotlinEnumEntriesList, enumType.toArrayType(this));
 
   public final DexType javaIoFileType = createStaticallyKnownType("Ljava/io/File;");
   public final DexType javaMathBigIntegerType = createStaticallyKnownType("Ljava/math/BigInteger;");
@@ -1949,7 +1949,7 @@ public class DexItemFactory {
                 typeDescriptorType,
                 classType,
                 stringType,
-                createArrayType(1, methodHandleType)),
+                methodHandleType.toArrayType(DexItemFactory.this)),
             "bootstrap");
   }
 
@@ -2453,7 +2453,7 @@ public class DexItemFactory {
       FieldAccessFlags accessFlags = staticField.getAccessFlags();
       assert accessFlags.isStatic();
       return staticField.getType().isArrayType()
-          && staticField.getType().toArrayElementType(DexItemFactory.this) == enumType
+          && staticField.getType().getArrayElementType() == enumType
           && accessFlags.isSynthetic()
           && accessFlags.isFinal();
     }
@@ -3389,7 +3389,7 @@ public class DexItemFactory {
 
   private void addPossiblySynthesizedType(DexType type) {
     if (type.isArrayType()) {
-      type = type.toBaseType(this);
+      type = type.getBaseType();
     }
     if (type.isClassType()) {
       possibleCompilerSynthesizedTypes.add(type);
@@ -3410,7 +3410,15 @@ public class DexItemFactory {
     if (committed != null) {
       return committed;
     }
-    return types.computeIfAbsent(descriptor, DexType::new);
+    if (descriptor.getFirstByteAsChar() != '[') {
+      return types.computeIfAbsent(descriptor, DexType::new);
+    }
+    DexType pending = types.get(descriptor);
+    if (pending != null) {
+      return pending;
+    }
+    DexType elementType = createType(descriptor.toArrayElementDescriptor(this));
+    return types.computeIfAbsent(descriptor, d -> new DexArrayType(d, elementType));
   }
 
   public DexType createType(String descriptor) {
@@ -3427,11 +3435,6 @@ public class DexItemFactory {
       return committed;
     }
     return types.get(descriptor);
-  }
-
-  public DexType createArrayType(int nesting, DexType baseType) {
-    assert nesting > 0;
-    return createType("[".repeat(nesting) + baseType.toDescriptorString());
   }
 
   public DexField createField(DexType clazz, DexType type, DexString name) {

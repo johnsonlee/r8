@@ -12,6 +12,7 @@ import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AccessControl;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexArrayType;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexType;
@@ -32,11 +33,11 @@ import java.util.List;
 
 public class NewArrayFilled extends Invoke {
 
-  private final DexType type;
+  private final DexArrayType type;
 
   public NewArrayFilled(DexType type, Value result, List<Value> arguments) {
     super(result, arguments);
-    this.type = type;
+    this.type = type.asArrayType();
   }
 
   public static Builder builder() {
@@ -58,7 +59,7 @@ public class NewArrayFilled extends Invoke {
     return getArrayType();
   }
 
-  public DexType getArrayType() {
+  public DexArrayType getArrayType() {
     return type;
   }
 
@@ -184,7 +185,7 @@ public class NewArrayFilled extends Invoke {
       ProgramMethod context,
       AbstractValueSupplier abstractValueSupplier,
       SideEffectAssumption assumption) {
-    DexType baseType = type.isArrayType() ? type.toBaseType(appView.dexItemFactory()) : type;
+    DexType baseType = type.isArrayType() ? type.getBaseType() : type;
     if (baseType.isPrimitiveType()) {
       // Primitives types are known to be present and accessible.
       assert !type.isWideType() : "The array's contents must be single-word";
