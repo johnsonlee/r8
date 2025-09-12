@@ -390,6 +390,8 @@ public abstract class RulePrintingUtils {
         return "byte";
       case 'S':
         return "short";
+      case 'C':
+        return "char";
       case 'I':
         return "int";
       case 'J':

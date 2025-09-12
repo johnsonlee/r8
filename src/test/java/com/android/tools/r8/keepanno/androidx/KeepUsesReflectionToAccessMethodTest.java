@@ -239,6 +239,45 @@ public class KeepUsesReflectionToAccessMethodTest extends KeepAnnoTestExtractedR
   }
 
   @Test
+  public void testPrimitiveTypesAsTypeName() throws Exception {
+    testExtractedRules(
+        ImmutableList.of(
+            setAnnotationOnMethod(
+                ClassWithAnnotation.class,
+                MethodPredicate.onName("foo"),
+                builder ->
+                    builder
+                        .setAnnotationClass(
+                            Reference.classFromClass(UsesReflectionToAccessMethod.class))
+                        .setField("classConstant", KeptClass.class)
+                        .setField("methodName", "m")
+                        .setArray(
+                            "parameterTypeNames",
+                            "boolean",
+                            "byte",
+                            "short",
+                            "int",
+                            "long",
+                            "float",
+                            "double",
+                            "char",
+                            "Boolean",
+                            "Byte",
+                            "Short",
+                            "Int",
+                            "Long",
+                            "Float",
+                            "Double",
+                            "Char")
+                        .setField("returnTypeName", "Unit"))),
+        getExpectedRulesJava(
+            ClassWithAnnotation.class,
+            "{ void m(boolean, byte, short, int, long, float, double, char, boolean, byte, short,"
+                + " int, long, float, double, char); }",
+            "{ void m$default(...); }"));
+  }
+
+  @Test
   public void testAnyReturnTypeAndAnyParametersKotlin() throws Exception {
     testExtractedRulesAndRunKotlin(
         compilationResults,

@@ -69,6 +69,7 @@ import com.android.tools.r8.keepanno.ast.ParsingContext.ClassParsingContext;
 import com.android.tools.r8.keepanno.ast.ParsingContext.FieldParsingContext;
 import com.android.tools.r8.keepanno.ast.ParsingContext.MethodParsingContext;
 import com.android.tools.r8.keepanno.ast.ParsingContext.PropertyParsingContext;
+import com.android.tools.r8.keepanno.utils.DescriptorUtils;
 import com.google.common.collect.ImmutableList;
 import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
@@ -125,6 +126,29 @@ public class KeepEdgeReader implements Opcodes {
       return true;
     }
     return false;
+  }
+
+  private static String kotlinTypeToJavaType(String kotlinType) {
+    switch (kotlinType) {
+      case "Boolean":
+        return "boolean";
+      case "Byte":
+        return "byte";
+      case "Short":
+        return "short";
+      case "Char":
+        return "char";
+      case "Int":
+        return "int";
+      case "Long":
+        return "long";
+      case "Float":
+        return "float";
+      case "Double":
+        return "double";
+      default:
+        return kotlinType;
+    }
   }
 
   public static List<KeepDeclaration> readKeepEdges(byte[] classFileBytes) {
@@ -1489,7 +1513,9 @@ public class KeepEdgeReader implements Opcodes {
     public void visit(String name, Object value) {
       assert name == null;
       if (value instanceof String) {
-        builder.addParameterTypePattern(KeepTypePattern.fromDescriptor("L" + value + ";"));
+        builder.addParameterTypePattern(
+            KeepTypePattern.fromDescriptor(
+                DescriptorUtils.javaTypeToDescriptor(kotlinTypeToJavaType((String) value))));
       } else {
         super.visit(name, value);
       }
@@ -1868,11 +1894,17 @@ public class KeepEdgeReader implements Opcodes {
         return;
       }
       if (name.equals(UsesReflectionToAccessMethod.returnTypeName) && value instanceof String) {
-        returnType =
-            KeepMethodReturnTypePattern.fromType(
-                KeepTypePattern.fromClass(
-                    KeepClassPattern.fromName(
-                        KeepQualifiedClassNamePattern.exact((String) value))));
+        if (value.equals("void") || value.equals("Unit")) {
+          returnType = KeepMethodReturnTypePattern.voidType();
+        } else {
+          returnType =
+              KeepMethodReturnTypePattern.fromType(
+                  KeepTypePattern.fromClass(
+                      KeepClassPattern.fromName(
+                          KeepQualifiedClassNamePattern.exactFromDescriptor(
+                              DescriptorUtils.javaTypeToDescriptor(
+                                  kotlinTypeToJavaType((String) value))))));
+        }
         return;
       }
       super.visit(name, value);
