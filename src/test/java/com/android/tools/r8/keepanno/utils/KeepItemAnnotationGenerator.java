@@ -1878,6 +1878,13 @@ public class KeepItemAnnotationGenerator {
           .addMember(className);
     }
 
+    private Group createAndroidXSubclassSelection(Consumer<GroupMember> includeSubclassesConsumer) {
+      GroupMember includeSubclasses =
+          new GroupMember("includeSubclasses").defaultBooleanValue(false);
+      includeSubclassesConsumer.accept(includeSubclasses);
+      return new Group("subclass-selection").forAndroidX().addMember(includeSubclasses);
+    }
+
     private Group createAndroidXParameterSelection(
         Consumer<GroupMember> paramsConsumer, Consumer<GroupMember> paramTypeNamesConsumer) {
       GroupMember params = new GroupMember("parameterTypes").defaultUnspecifiedArray();
@@ -1969,6 +1976,12 @@ public class KeepItemAnnotationGenerator {
                     g -> g.setDocTitle("Class to be instantiated."))
                 .generate(this);
             println();
+            createAndroidXSubclassSelection(
+                    g ->
+                        g.setSuppressKotlinDefaultParameterOrder()
+                            .setDocTitle("Also instantiate subclasses."))
+                .generate(this);
+            println();
             createAndroidXParameterSelection(
                     g ->
                         g.setDocTitle(
@@ -2020,6 +2033,12 @@ public class KeepItemAnnotationGenerator {
                             .setDocTitle(
                                 "Class name (or class name pattern) containing the method accessed"
                                     + " by reflection."))
+                .generate(this);
+            println();
+            createAndroidXSubclassSelection(
+                    g ->
+                        g.setSuppressKotlinDefaultParameterOrder()
+                            .setDocTitle("Also access methods on subclasses."))
                 .generate(this);
             println();
             createMethodNameSelection().generate(this);
@@ -2075,6 +2094,12 @@ public class KeepItemAnnotationGenerator {
                             .setDocTitle(
                                 "Class name (or class name pattern) containing the field accessed"
                                     + " by reflection."))
+                .generate(this);
+            println();
+            createAndroidXSubclassSelection(
+                    g ->
+                        g.setSuppressKotlinDefaultParameterOrder()
+                            .setDocTitle("Also access field on subclasses."))
                 .generate(this);
             println();
             createAndroidXFieldNameSelection().generate(this);
@@ -2400,11 +2425,13 @@ public class KeepItemAnnotationGenerator {
 
     private void forEachUsesReflectionToConstructGroup(Consumer<Group> fn) {
       fn.accept(createAndroidXClassSelection(g -> {}, g -> {}));
+      fn.accept(createAndroidXSubclassSelection(g -> {}));
       fn.accept(createAndroidXParameterSelection(g -> {}, g -> {}));
     }
 
     private void forEachUsesReflectionToAccessMethodGroup(Consumer<Group> fn) {
       fn.accept(createAndroidXClassSelection(g -> {}, g -> {}));
+      fn.accept(createAndroidXSubclassSelection(g -> {}));
       fn.accept(createMethodNameSelection());
       fn.accept(createAndroidXParameterSelection(g -> {}, g -> {}));
       fn.accept(createAndroidXReturnTypeSelection());
@@ -2412,6 +2439,7 @@ public class KeepItemAnnotationGenerator {
 
     private void forEachUsesReflectionToAccessFieldGroup(Consumer<Group> fn) {
       fn.accept(createAndroidXClassSelection(g -> {}, g -> {}));
+      fn.accept(createAndroidXSubclassSelection(g -> {}));
       fn.accept(createAndroidXFieldNameSelection());
       fn.accept(createAndroidXFieldTypeSelection());
     }

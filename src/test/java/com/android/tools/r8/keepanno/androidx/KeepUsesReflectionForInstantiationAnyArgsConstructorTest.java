@@ -75,7 +75,7 @@ public class KeepUsesReflectionForInstantiationAnyArgsConstructorTest
   }
 
   private static ExpectedRules getExpectedRulesJava(
-      Class<?> conditionClass, String conditionMembers) {
+      Class<?> conditionClass, boolean includeSubclasses, String conditionMembers) {
     Consumer<ExpectedKeepRule.Builder> setCondition =
         b -> b.setConditionClass(conditionClass).setConditionMembers(conditionMembers);
     ExpectedRules.Builder builder =
@@ -86,10 +86,27 @@ public class KeepUsesReflectionForInstantiationAnyArgsConstructorTest
                     .setConsequentClass(KeptClass.class)
                     .setConsequentMembers("{ void <init>(...); }")
                     .build());
+    if (includeSubclasses) {
+      builder.add(
+          ExpectedKeepRule.builder()
+              .apply(setCondition)
+              .setConsequentExtendsClass(KeptClass.class)
+              .setConsequentMembers("{ void <init>(...); }")
+              .build());
+    }
     addConsequentKotlinMetadata(builder, b -> b.apply(setCondition));
     addDefaultInitWorkaround(
         builder, b -> b.apply(setCondition).setConsequentClass(KeptClass.class));
+    if (includeSubclasses) {
+      addDefaultInitWorkaround(
+          builder, b -> b.apply(setCondition).setConsequentExtendsClass(KeptClass.class));
+    }
     return builder.build();
+  }
+
+  private static ExpectedRules getExpectedRulesJava(
+      Class<?> conditionClass, String conditionMembers) {
+    return getExpectedRulesJava(conditionClass, false, conditionMembers);
   }
 
   private static ExpectedRules getExpectedRulesKotlin(String conditionClass) {
@@ -154,6 +171,22 @@ public class KeepUsesReflectionForInstantiationAnyArgsConstructorTest
                 AnyConstructor.class,
                 builder -> buildAnyConstructor(builder, KeptClass.class))),
         getExpectedRulesJava(AnyConstructor.class));
+  }
+
+  @Test
+  public void testIncludeSubclasses() throws Exception {
+    testExtractedRules(
+        ImmutableList.of(
+            setAnnotationOnMethod(
+                AnyConstructor.class,
+                MethodPredicate.onName("foo"),
+                builder ->
+                    builder
+                        .setAnnotationClass(
+                            Reference.classFromClass(UsesReflectionToConstruct.class))
+                        .setField("classConstant", KeptClass.class)
+                        .setField("includeSubclasses", true))),
+        getExpectedRulesJava(AnyConstructor.class, true, "{ void foo(java.lang.Class); }"));
   }
 
   @Test

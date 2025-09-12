@@ -114,7 +114,7 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
   }
 
   private static ExpectedRules getExpectedRulesJava(
-      Class<?> conditionClass, String contitionMembers) {
+      Class<?> conditionClass, boolean includeSubclasses, String contitionMembers) {
     Consumer<ExpectedKeepRule.Builder> setCondition =
         b -> b.setConditionClass(conditionClass).setConditionMembers(contitionMembers);
 
@@ -126,10 +126,27 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
                     .setConsequentClass(KeptClass.class)
                     .setConsequentMembers("{ void <init>(); }")
                     .build());
+    if (includeSubclasses) {
+      builder.add(
+          ExpectedKeepRule.builder()
+              .apply(setCondition)
+              .setConsequentExtendsClass(KeptClass.class)
+              .setConsequentMembers("{ void <init>(); }")
+              .build());
+    }
     addConsequentKotlinMetadata(builder, b -> b.apply(setCondition));
     addDefaultInitWorkaround(
         builder, b -> b.apply(setCondition).setConsequentClass(KeptClass.class));
+    if (includeSubclasses) {
+      addDefaultInitWorkaround(
+          builder, b -> b.apply(setCondition).setConsequentExtendsClass(KeptClass.class));
+    }
     return builder.build();
+  }
+
+  private static ExpectedRules getExpectedRulesJava(
+      Class<?> conditionClass, String contitionMembers) {
+    return getExpectedRulesJava(conditionClass, false, contitionMembers);
   }
 
   private static ExpectedRules getExpectedRulesKotlin(String conditionClass) {
@@ -289,6 +306,24 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
                 OnlyNoArgsConstructorWithoutAnnotation.class,
                 builder -> buildNoArgsConstructor(builder, classNameOfKeptClass))),
         getExpectedRulesJava(OnlyNoArgsConstructorWithoutAnnotation.class));
+  }
+
+  @Test
+  public void testIncludeSubclasses() throws Exception {
+    testExtractedRules(
+        ImmutableList.of(
+            setAnnotationOnMethod(
+                OnlyNoArgsConstructorWithoutAnnotation.class,
+                MethodPredicate.onName("foo"),
+                builder ->
+                    builder
+                        .setAnnotationClass(
+                            Reference.classFromClass(UsesReflectionToConstruct.class))
+                        .setField("classConstant", KeptClass.class)
+                        .setArray("parameterTypes")
+                        .setField("includeSubclasses", true))),
+        getExpectedRulesJava(
+            OnlyNoArgsConstructorWithoutAnnotation.class, true, "{ void foo(java.lang.Class); }"));
   }
 
   @Test

@@ -60,6 +60,9 @@ public annotation class UsesReflectionToAccessField(
      */
     @Suppress("KotlinDefaultParameterOrder") val className: String = "",
 
+    /** Also access field on subclasses. */
+    @Suppress("KotlinDefaultParameterOrder") val includeSubclasses: Boolean = false,
+
     /** Name (or name pattern) of field accessed by reflection. */
     val fieldName: String,
 
