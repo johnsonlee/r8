@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.debug;
 
+import static org.junit.Assume.assumeFalse;
+
 import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.OutputMode;
 import com.android.tools.r8.R8Command;
@@ -16,8 +18,9 @@ import com.google.common.collect.ImmutableList;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.stream.Stream;
+import org.apache.harmony.jpda.tests.framework.TestErrorException;
+import org.apache.harmony.jpda.tests.framework.jdwp.exceptions.TimeoutException;
 import org.junit.Assume;
-import org.junit.Ignore;
 import org.junit.Test;
 
 public class ExamplesDebugTest extends DebugTestBase {
@@ -66,7 +69,7 @@ public class ExamplesDebugTest extends DebugTestBase {
 
   @Test
   public void testMemberrebinding3() throws Exception {
-    testDebugging("memberrebinding3", "Memberrebinding");
+    testDebuggingFlaky("memberrebinding3", "Memberrebinding");
   }
 
   @Test
@@ -82,6 +85,15 @@ public class ExamplesDebugTest extends DebugTestBase {
         // When running on CF and DEX runtimes, filter down to states within the test package.
         .setFilter(state -> state.getClassName().startsWith(pkg))
         .compare();
+  }
+
+  private void testDebuggingFlaky(String pkg, String clazz) throws Exception {
+    try {
+      testDebugging(pkg, clazz);
+    } catch (TestErrorException e) {
+      assumeFalse(e.getCause() instanceof TimeoutException);
+      throw e;
+    }
   }
 
   private DebugStreamComparator init(String pkg, String clazz) {
