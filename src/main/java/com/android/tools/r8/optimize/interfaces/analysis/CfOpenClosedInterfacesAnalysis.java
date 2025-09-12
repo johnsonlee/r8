@@ -99,11 +99,7 @@ public class CfOpenClosedInterfacesAnalysis
       List<Pair<ProgramMethod, CfCode>> methods = pendingMethods;
       enqueuer
           .getTaskCollection()
-          .submitEnqueuerIndependentTask(
-              () -> {
-                methods.forEach(this::processMethod);
-                return null;
-              });
+          .submitEnqueuerIndependentTask(() -> methods.forEach(this::processMethod));
       pendingMethods = new ArrayList<>(BATCH_SIZE);
     }
   }

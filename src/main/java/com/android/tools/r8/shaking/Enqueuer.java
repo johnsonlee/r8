@@ -184,6 +184,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -252,6 +253,10 @@ public class Enqueuer {
 
   // Don't hold a direct pointer to app info (use appView).
   private AppInfoWithClassHierarchy appInfo;
+  // Create a fair read/write lock for appInfo: "A thread that tries to acquire a fair read lock
+  // (non-reentrantly) will block if either the write lock is held, or there is a waiting writer
+  // thread."
+  private ReentrantReadWriteLock appReadWriteLock = new ReentrantReadWriteLock(true);
   private final AppView<AppInfoWithClassHierarchy> appView;
   private final EnqueuerDeferredTracing deferredTracing;
   private final EnqueuerDeferredAnnotationTracing deferredAnnotationTracing;
@@ -499,7 +504,8 @@ public class Enqueuer {
     this.graphReporter = new GraphReporter(appView, keptGraphConsumer);
     this.missingClassesBuilder = appView.appInfo().getMissingClasses().builder();
     this.options = options;
-    this.taskCollection = new EnqueuerTaskCollection(options.getThreadingModule(), executorService);
+    this.taskCollection =
+        new EnqueuerTaskCollection(this, options.getThreadingModule(), executorService);
     this.keepInfo = new MutableKeepInfoCollection(options);
     this.reflectiveIdentification = new EnqueuerReflectiveIdentification(appView, this);
     this.useRegistryFactory = createUseRegistryFactory();
@@ -576,6 +582,10 @@ public class Enqueuer {
 
   private AppInfoWithClassHierarchy appInfo() {
     return appView.appInfo();
+  }
+
+  public ReentrantReadWriteLock.ReadLock getAppReadLock() {
+    return appReadWriteLock.readLock();
   }
 
   public ProfileCollectionAdditions getProfileCollectionAdditions() {
@@ -4264,6 +4274,24 @@ public class Enqueuer {
     if (!mode.isInitialTreeShaking()) {
       return;
     }
+    // Verify that there are no active dependent tasks, or we would need each dependent task to
+    // acquire the app read lock.
+    assert taskCollection.verifyNoEnqueuerDependentTasks();
+
+    // Acquire lock for mutating app.
+    assert !appReadWriteLock.isWriteLocked();
+    ReentrantReadWriteLock.WriteLock appWriteLock = appReadWriteLock.writeLock();
+    appWriteLock.lock();
+
+    try {
+      synthesizeWithLock(timing);
+    } finally {
+      // Release lock.
+      appReadWriteLock.writeLock().unlock();
+    }
+  }
+
+  private void synthesizeWithLock(Timing timing) throws ExecutionException {
     // First part of synthesis is to create and register all reachable synthetic additions.
     // In particular these additions are order independent, i.e., it does not matter which are
     // registered first and no dependencies may exist among them.

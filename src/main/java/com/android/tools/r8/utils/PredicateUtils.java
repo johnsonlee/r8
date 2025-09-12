@@ -25,4 +25,9 @@ public class PredicateUtils {
   public static <T, R> Predicate<T> isNull(Function<T, R> func) {
     return t -> func.apply(t) == null;
   }
+
+  public static <T> Predicate<? super T> or(
+      Predicate<? super T> predicate, Predicate<? super T> other) {
+    return t -> predicate.test(t) || other.test(t);
+  }
 }

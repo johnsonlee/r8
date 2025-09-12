@@ -6,8 +6,9 @@ package com.android.tools.r8.shaking;
 
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexClass;
+import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.ObjectAllocationInfoCollection;
 import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
 import com.android.tools.r8.utils.TraversalContinuation;
@@ -60,22 +61,12 @@ public class ObjectAllocationInfoCollectionUtils {
             clazz -> {
               if (objectAllocationInfoCollection.isInterfaceWithUnknownSubtypeHierarchy(clazz)) {
                 return TraversalContinuation.doBreak();
+              } else if (objectAllocationInfoCollection.hasInstantiatedStrictSubtype(clazz)) {
+                // Only look for finalize() methods from the leaves of the instantiated hierarchy.
+                return TraversalContinuation.doContinue();
               } else {
-                SingleResolutionResult resolution =
-                    appView
-                        .appInfo()
-                        .resolveMethodOnLegacy(
-                            clazz, appView.dexItemFactory().objectMembers.finalize)
-                        .asSingleResolution();
-                if (resolution != null) {
-                  DexType resolvedType = resolution.getResolvedHolder().getType();
-                  if (resolvedType.isNotIdenticalTo(appView.dexItemFactory().objectType)
-                      && resolvedType.isNotIdenticalTo(appView.dexItemFactory().enumType)) {
-                    return TraversalContinuation.doBreak();
-                  }
-                }
+                return TraversalContinuation.breakIf(hasFinalizeMethodDirectly(appView, clazz));
               }
-              return TraversalContinuation.doContinue();
             },
             lambda -> {
               // Lambda classes do not have finalizers.
@@ -83,5 +74,19 @@ public class ObjectAllocationInfoCollectionUtils {
             },
             appView.appInfo())
         .isBreak();
+  }
+
+  public static boolean hasFinalizeMethodDirectly(
+      AppView<? extends AppInfoWithClassHierarchy> appView, DexClass clazz) {
+    DexItemFactory factory = appView.dexItemFactory();
+    while (clazz != null
+        && clazz.getType().isNotIdenticalTo(factory.objectType)
+        && clazz.getType().isNotIdenticalTo(factory.enumType)) {
+      if (clazz.lookupMethod(factory.objectMembers.finalize) != null) {
+        return true;
+      }
+      clazz = appView.definitionFor(clazz.getSuperType());
+    }
+    return false;
   }
 }

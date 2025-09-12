@@ -31,35 +31,6 @@ public class DexOutputBuffer {
     this(new ByteBufferProvider() {});
   }
 
-  /**
-   * Internal constructor to create a DexOutputBuffer wrapping an existing ByteBuffer disallowing
-   * the buffer to grow thereby ensuring the backing array never changes.
-   */
-  private DexOutputBuffer(CompatByteBuffer byteBuffer) {
-    this.byteBuffer = CompatByteBuffer.wrap(byteBuffer.array());
-    this.byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
-    byteBufferProvider =
-        new ByteBufferProvider() {
-          @Override
-          public ByteBuffer acquireByteBuffer(int capacity) {
-            throw new UnsupportedOperationException();
-          }
-
-          @Override
-          public void releaseByteBuffer(ByteBuffer buffer) {
-            throw new UnsupportedOperationException();
-          }
-        };
-  }
-
-  /**
-   * Creates a DexOutputBuffer wrapping an existing DexOutputBuffer disallowing the buffer to grow
-   * thereby ensuring the backing array never changes.
-   */
-  public DexOutputBuffer nonExpandableWrapper() {
-    return new DexOutputBuffer(byteBuffer);
-  }
-
   public DexOutputBuffer(ByteBufferProvider byteBufferProvider) {
     this.byteBufferProvider = byteBufferProvider;
     byteBuffer = allocateByteBuffer(DEFAULT_BUFFER_SIZE);
@@ -158,10 +129,6 @@ public class DexOutputBuffer {
   public void putInt(int anInteger) {
     ensureSpaceFor(Integer.BYTES);
     byteBuffer.putInt(anInteger);
-  }
-
-  public byte get() {
-    return byteBuffer.get();
   }
 
   public short getShort() {

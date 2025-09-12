@@ -115,6 +115,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -2013,20 +2014,31 @@ public class TestBase {
     if (filesAreEqual) {
       return true;
     }
+    uploadFilesToGoogleCloudStorage(expected, actual);
+    if (error != null) {
+      if (error instanceof Exception) {
+        throw (Exception) error;
+      }
+      throw new RuntimeException(error);
+    }
+    return false;
+  }
+
+  private static void uploadFilesToGoogleCloudStorage(Path expected, Path actual) {
     // Only upload files if we are running on the bots.
+    System.out.println("DIFFERENCE IN FILES DETECTED");
     if (ToolHelper.isBot()) {
       try {
-        System.out.println("DIFFERENCE IN JARS DETECTED");
         System.out.println(
             "***********************************************************************");
         String expectedSha = ToolHelper.uploadFileToGoogleCloudStorage(R8_TEST_BUCKET, expected);
-        System.out.println("EXPECTED JAR SHA1: " + expectedSha);
+        System.out.println("EXPECTED FILE SHA1: " + expectedSha);
         System.out.println(
             String.format(
                 "DOWNLOAD BY: `download_from_google_storage.py --bucket %s %s -o %s`",
                 R8_TEST_BUCKET, expectedSha, expected.getFileName()));
         String actualSha = ToolHelper.uploadFileToGoogleCloudStorage(R8_TEST_BUCKET, actual);
-        System.out.println("ACTUAL JAR SHA1: " + actualSha);
+        System.out.println("ACTUAL FILE SHA1: " + actualSha);
         System.out.println(
             String.format(
                 "DOWNLOAD BY: `download_from_google_storage.py --bucket %s %s -o %s`",
@@ -2036,14 +2048,21 @@ public class TestBase {
       } catch (Throwable e) {
         e.printStackTrace();
       }
-    }
-    if (error != null) {
-      if (error instanceof Exception) {
-        throw (Exception) error;
+    } else {
+      System.out.println("Not running on bot, so not uploading files to Google Cloud Storage");
+      System.out.println("The files are:");
+      System.out.println("Expected: " + expected);
+      System.out.println("Actual: " + actual);
+      Path expectedCopy = Paths.get("/tmp", expected.toString().replace("/", "_"));
+      Path actualCopy = Paths.get("/tmp", actual.toString().replace("/", "_"));
+      System.out.println("Copied to: " + expectedCopy + " and " + actualCopy);
+      try {
+        Files.copy(expected, expectedCopy, StandardCopyOption.REPLACE_EXISTING);
+        Files.copy(actual, actualCopy, StandardCopyOption.REPLACE_EXISTING);
+      } catch (IOException e) {
+        e.printStackTrace();
       }
-      throw new RuntimeException(error);
     }
-    return false;
   }
 
   public static boolean assertProgramsEqual(Path expectedJar, Path actualJar) throws IOException {
@@ -2054,6 +2073,13 @@ public class TestBase {
       throws IOException {
     if (filesAreEqual(expectedJar, actualJar)) {
       return true;
+    }
+    // Attempt to upload files to Google Cloud Storage before checking with inspectors, as the
+    // files are different.
+    try {
+      uploadFilesToGoogleCloudStorage(expectedJar, actualJar);
+    } catch (Throwable ee) {
+      // Ignore.
     }
     assertIdenticalInspectors(new CodeInspector(expectedJar), new CodeInspector(actualJar));
     // The above may not fail but the programs are not equal so force fail in any case.

@@ -7,20 +7,24 @@ package com.android.tools.r8.shaking;
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.shaking.ObjectAllocationInfoCollectionUtils.mayHaveFinalizeMethodDirectlyOrIndirectly;
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
+import static com.google.common.base.Predicates.alwaysFalse;
 
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.Code;
+import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.FieldAccessInfoCollectionImpl;
 import com.android.tools.r8.graph.FieldAccessInfoImpl;
 import com.android.tools.r8.graph.FieldResolutionResult;
+import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.analysis.EnqueuerAnalysisCollection;
 import com.android.tools.r8.graph.analysis.FixpointEnqueuerAnalysis;
+import com.android.tools.r8.graph.analysis.NewlyLiveMethodEnqueuerAnalysis;
 import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.conversion.IRFinalizer;
@@ -40,16 +44,19 @@ import com.android.tools.r8.utils.collections.ProgramFieldMap;
 import com.android.tools.r8.utils.collections.ProgramFieldSet;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.android.tools.r8.utils.timing.Timing;
+import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Predicate;
 
 public class EnqueuerDeferredTracingImpl extends EnqueuerDeferredTracing
-    implements FixpointEnqueuerAnalysis {
+    implements FixpointEnqueuerAnalysis, NewlyLiveMethodEnqueuerAnalysis {
 
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
   private final Enqueuer enqueuer;
@@ -66,6 +73,9 @@ public class EnqueuerDeferredTracingImpl extends EnqueuerDeferredTracing
 
   // A set of fields that are never eligible for pruning.
   private final ProgramFieldSet ineligibleForPruning = ProgramFieldSet.create();
+
+  // Whether a finalize() method has become live since the last enqueuer fixpoint.
+  private boolean newlySeenProgramFinalizer = false;
 
   EnqueuerDeferredTracingImpl(
       AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer) {
@@ -119,7 +129,10 @@ public class EnqueuerDeferredTracingImpl extends EnqueuerDeferredTracing
       }
     }
 
-    if (!isEligibleForPruning(field)) {
+    // During tracing we assume that the field cannot store an object with a finalize method. This
+    // is safe to assume since we will check this property at the next fixpoint. If it is found to
+    // have a finalize method at that time, we will mark it as ineligible for optimization.
+    if (!isEligibleForPruning(field, alwaysFalse())) {
       return enqueueDeferredEnqueuerActions(field);
     }
 
@@ -154,7 +167,8 @@ public class EnqueuerDeferredTracingImpl extends EnqueuerDeferredTracing
     enqueueDeferredEnqueuerActions(field);
   }
 
-  private boolean isEligibleForPruning(ProgramField field) {
+  private boolean isEligibleForPruning(
+      ProgramField field, Predicate<DexType> mayHaveFinalizeMethodDirectlyOrIndirectly) {
     if (enqueuer.isFieldLive(field)) {
       return false;
     }
@@ -188,8 +202,7 @@ public class EnqueuerDeferredTracingImpl extends EnqueuerDeferredTracing
       if (field.getType().isReferenceType()) {
         DexType fieldBaseType = field.getType().toBaseType(appView.dexItemFactory());
         if (fieldBaseType.isClassType()
-            && mayHaveFinalizeMethodDirectlyOrIndirectly(
-                appView, fieldBaseType, enqueuer.getObjectAllocationInfoCollection())) {
+            && mayHaveFinalizeMethodDirectlyOrIndirectly.test(fieldBaseType)) {
           return false;
         }
       }
@@ -230,7 +243,18 @@ public class EnqueuerDeferredTracingImpl extends EnqueuerDeferredTracing
 
   @Override
   public void register(EnqueuerAnalysisCollection.Builder analysesBuilder) {
-    analysesBuilder.addFixpointAnalysis(this);
+    analysesBuilder.addFixpointAnalysis(this).addNewlyLiveMethodAnalysis(this);
+  }
+
+  @Override
+  public void processNewlyLiveMethod(
+      ProgramMethod method,
+      ProgramDefinition context,
+      Enqueuer enqueuer,
+      EnqueuerWorklist worklist) {
+    if (method.getReference().match(appView.dexItemFactory().objectMembers.finalize)) {
+      newlySeenProgramFinalizer = true;
+    }
   }
 
   @Override
@@ -238,15 +262,56 @@ public class EnqueuerDeferredTracingImpl extends EnqueuerDeferredTracing
       Enqueuer enqueuer, EnqueuerWorklist worklist, ExecutorService executorService, Timing timing)
       throws ExecutionException {
     timing.begin("Process deferred tracing");
+    Map<DexType, List<ProgramField>> pendingFinalizerChecks = new IdentityHashMap<>();
     deferredEnqueuerActions.removeIf(
         (field, worklistActions) -> {
-          if (isEligibleForPruning(field)) {
+          boolean isEligibleForPruning =
+              isEligibleForPruning(
+                  field,
+                  fieldBaseType ->
+                      addToPendingFinalizerChecks(fieldBaseType, field, pendingFinalizerChecks));
+          if (isEligibleForPruning) {
             return false;
           }
+          ineligibleForPruning.add(field);
           worklist.enqueueAll(worklistActions);
           return true;
         });
+    pendingFinalizerChecks.forEach(
+        (fieldBaseType, fields) -> {
+          if (computeMayHaveFinalizeMethodDirectlyOrIndirectly(fieldBaseType)) {
+            for (ProgramField field : fields) {
+              if (ineligibleForPruning.add(field)) {
+                worklist.enqueueAll(deferredEnqueuerActions.remove(field));
+              }
+            }
+          }
+        });
     timing.end();
+    newlySeenProgramFinalizer = false;
+  }
+
+  private boolean addToPendingFinalizerChecks(
+      DexType fieldBaseType,
+      ProgramField field,
+      Map<DexType, List<ProgramField>> pendingFinalizerChecks) {
+    pendingFinalizerChecks.computeIfAbsent(fieldBaseType, ignoreKey(ArrayList::new)).add(field);
+    return false;
+  }
+
+  private boolean computeMayHaveFinalizeMethodDirectlyOrIndirectly(DexType fieldBaseType) {
+    DexClass fieldBaseClass = appView.definitionFor(fieldBaseType);
+    if (fieldBaseClass == null) {
+      return false;
+    }
+    if (newlySeenProgramFinalizer
+        || !fieldBaseClass.isProgramClass()
+        || fieldBaseClass.isInterface()) {
+      return mayHaveFinalizeMethodDirectlyOrIndirectly(
+          appView, fieldBaseType, enqueuer.getObjectAllocationInfoCollection());
+    } else {
+      return ObjectAllocationInfoCollectionUtils.hasFinalizeMethodDirectly(appView, fieldBaseClass);
+    }
   }
 
   @Override

@@ -12,8 +12,11 @@ import com.android.tools.r8.utils.timing.Timing;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class EnqueuerTaskCollection implements FixpointEnqueuerAnalysis, FinishedEnqueuerAnalysis {
+
+  private final Enqueuer enqueuer;
 
   // A task collection that stores tasks that may enqueue worklist items. The enqueuer therefore
   // needs to await this task collection upon each intermediate fixpoint.
@@ -23,7 +26,9 @@ public class EnqueuerTaskCollection implements FixpointEnqueuerAnalysis, Finishe
   // entirely done.
   private final TaskCollection<Void> enqueuerIndependentTaskCollection;
 
-  EnqueuerTaskCollection(ThreadingModule threadingModule, ExecutorService executorService) {
+  EnqueuerTaskCollection(
+      Enqueuer enqueuer, ThreadingModule threadingModule, ExecutorService executorService) {
+    this.enqueuer = enqueuer;
     this.enqueuerDependentTaskCollection = new TaskCollection<>(threadingModule, executorService);
     this.enqueuerIndependentTaskCollection = new TaskCollection<>(threadingModule, executorService);
   }
@@ -36,8 +41,20 @@ public class EnqueuerTaskCollection implements FixpointEnqueuerAnalysis, Finishe
     enqueuerDependentTaskCollection.submitUnchecked(callable);
   }
 
-  public void submitEnqueuerIndependentTask(Callable<Void> callable) {
-    enqueuerIndependentTaskCollection.submitUnchecked(callable);
+  public void submitEnqueuerIndependentTask(Runnable runnable) {
+    enqueuerIndependentTaskCollection.submitUnchecked(
+        () -> {
+          // Conservatively acquire the app read lock. This ensures that the execution of Enqueuer
+          // independent tasks is mutually exclusive with desugaring.
+          ReentrantReadWriteLock.ReadLock appReadLock = enqueuer.getAppReadLock();
+          appReadLock.lock();
+          try {
+            runnable.run();
+          } finally {
+            appReadLock.unlock();
+          }
+          return null;
+        });
   }
 
   public void awaitEnqueuerIndependentTasks() throws ExecutionException {
@@ -62,5 +79,10 @@ public class EnqueuerTaskCollection implements FixpointEnqueuerAnalysis, Finishe
   public void done(Enqueuer enqueuer, ExecutorService executorService) {
     assert enqueuerDependentTaskCollection.isEmpty();
     assert enqueuerIndependentTaskCollection.isEmpty();
+  }
+
+  public boolean verifyNoEnqueuerDependentTasks() {
+    assert enqueuerDependentTaskCollection.isEmpty();
+    return true;
   }
 }
