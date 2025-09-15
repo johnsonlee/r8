@@ -245,7 +245,10 @@ class R8Partial {
     r8Options.setKeepSpecificationSources(options.getKeepSpecifications());
     r8Options.getTestingOptions().enableEmbeddedKeepAnnotations =
         options.getTestingOptions().enableEmbeddedKeepAnnotations;
+    r8Options.configurationConsumer = options.configurationConsumer;
     r8Options.mapConsumer = options.mapConsumer;
+    r8Options.proguardSeedsConsumer = options.proguardSeedsConsumer;
+    r8Options.usageInformationConsumer = options.usageInformationConsumer;
     r8Options.sourceFileProvider = options.sourceFileProvider;
     r8Options
         .getLibraryDesugaringOptions()
