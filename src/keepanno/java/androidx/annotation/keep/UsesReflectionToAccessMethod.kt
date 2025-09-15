@@ -60,6 +60,9 @@ public annotation class UsesReflectionToAccessMethod(
      */
     @Suppress("KotlinDefaultParameterOrder") val className: String = "",
 
+    /** Also access methods on subclasses. */
+    @Suppress("KotlinDefaultParameterOrder") val includeSubclasses: Boolean = false,
+
     /** Name (or name pattern) of method accessed by reflection. */
     val methodName: String,
 

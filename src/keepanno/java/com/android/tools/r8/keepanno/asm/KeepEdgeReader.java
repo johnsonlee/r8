@@ -69,6 +69,7 @@ import com.android.tools.r8.keepanno.ast.ParsingContext.ClassParsingContext;
 import com.android.tools.r8.keepanno.ast.ParsingContext.FieldParsingContext;
 import com.android.tools.r8.keepanno.ast.ParsingContext.MethodParsingContext;
 import com.android.tools.r8.keepanno.ast.ParsingContext.PropertyParsingContext;
+import com.android.tools.r8.keepanno.utils.DescriptorUtils;
 import com.google.common.collect.ImmutableList;
 import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
@@ -125,6 +126,29 @@ public class KeepEdgeReader implements Opcodes {
       return true;
     }
     return false;
+  }
+
+  private static String kotlinTypeToJavaType(String kotlinType) {
+    switch (kotlinType) {
+      case "Boolean":
+        return "boolean";
+      case "Byte":
+        return "byte";
+      case "Short":
+        return "short";
+      case "Char":
+        return "char";
+      case "Int":
+        return "int";
+      case "Long":
+        return "long";
+      case "Float":
+        return "float";
+      case "Double":
+        return "double";
+      default:
+        return kotlinType;
+    }
   }
 
   public static List<KeepDeclaration> readKeepEdges(byte[] classFileBytes) {
@@ -1489,7 +1513,9 @@ public class KeepEdgeReader implements Opcodes {
     public void visit(String name, Object value) {
       assert name == null;
       if (value instanceof String) {
-        builder.addParameterTypePattern(KeepTypePattern.fromDescriptor("L" + value + ";"));
+        builder.addParameterTypePattern(
+            KeepTypePattern.fromDescriptor(
+                DescriptorUtils.javaTypeToDescriptor(kotlinTypeToJavaType((String) value))));
       } else {
         super.visit(name, value);
       }
@@ -1565,9 +1591,73 @@ public class KeepEdgeReader implements Opcodes {
     }
   }
 
-  private static class UsesReflectionToConstructVisitor extends AnnotationVisitorBase {
+  private static class UsesReflectionToXXXVisitor extends AnnotationVisitorBase {
 
-    private final ParsingContext parsingContext;
+    private static final String UsesReflectionToXXXClassConstant = "classConstant";
+    private static final String UsesReflectionToXXXClassName = "className";
+    private static final String UsesReflectionToXXXIncludeSubclasses = "includeSubclasses";
+
+    protected final ParsingContext parsingContext;
+
+    protected KeepQualifiedClassNamePattern qualifiedName;
+    protected boolean includeSubclasses = false;
+
+    UsesReflectionToXXXVisitor(AnnotationParsingContext parsingContext) {
+      super(parsingContext);
+      this.parsingContext = parsingContext;
+      assert UsesReflectionToXXXClassConstant.equals(UsesReflectionToConstruct.classConstant);
+      assert UsesReflectionToXXXClassConstant.equals(UsesReflectionToAccessMethod.classConstant);
+      assert UsesReflectionToXXXClassConstant.equals(UsesReflectionToAccessField.classConstant);
+      assert UsesReflectionToXXXClassName.equals(UsesReflectionToConstruct.className);
+      assert UsesReflectionToXXXClassName.equals(UsesReflectionToAccessMethod.className);
+      assert UsesReflectionToXXXClassName.equals(UsesReflectionToAccessField.className);
+      assert UsesReflectionToXXXIncludeSubclasses.equals(
+          UsesReflectionToConstruct.includeSubclasses);
+      assert UsesReflectionToXXXIncludeSubclasses.equals(
+          UsesReflectionToAccessMethod.includeSubclasses);
+      assert UsesReflectionToXXXIncludeSubclasses.equals(
+          UsesReflectionToAccessField.includeSubclasses);
+    }
+
+    protected boolean maybeVisitQualifiedName(String name, Object value) {
+      if (name.equals(UsesReflectionToXXXClassConstant) && value instanceof Type) {
+        qualifiedName =
+            KeepQualifiedClassNamePattern.exactFromDescriptor(((Type) value).getDescriptor());
+        return true;
+      }
+      if (name.equals(UsesReflectionToXXXClassName) && value instanceof String) {
+        qualifiedName = KeepQualifiedClassNamePattern.exact((String) value);
+        return true;
+      }
+      return false;
+    }
+
+    protected boolean maybeVisitIncludeSubclasses(String name, Object value) {
+      if (name.equals(UsesReflectionToXXXIncludeSubclasses) && value instanceof Boolean) {
+        includeSubclasses = (Boolean) value;
+        return true;
+      }
+      return false;
+    }
+
+    protected KeepClassItemPattern getKeepClassItemPattern() {
+      return includeSubclasses
+          ? KeepClassItemPattern.builder()
+              .setInstanceOfPattern(
+                  KeepInstanceOfPattern.builder()
+                      .classPattern(qualifiedName)
+                      .setInclusive(true)
+                      .build())
+              .build()
+          : KeepClassItemPattern.builder()
+              .setClassPattern(
+                  KeepClassPattern.builder().setClassNamePattern(qualifiedName).build())
+              .build();
+    }
+  }
+
+  private static class UsesReflectionToConstructVisitor extends UsesReflectionToXXXVisitor {
+
     private final Parent<KeepEdge> parent;
     private final KeepEdge.Builder builder = KeepEdge.builder();
     private final KeepPreconditions.Builder preconditions = KeepPreconditions.builder();
@@ -1575,15 +1665,12 @@ public class KeepEdgeReader implements Opcodes {
     private KeepMethodParametersPattern parameters = KeepMethodParametersPattern.any();
     private final UserBindingsHelper bindingsHelper = new UserBindingsHelper();
 
-    private KeepQualifiedClassNamePattern qualifiedName;
-
     UsesReflectionToConstructVisitor(
         AnnotationParsingContext parsingContext,
         Parent<KeepEdge> parent,
         Consumer<KeepEdgeMetaInfo.Builder> addContext,
         Function<UserBindingsHelper, KeepItemPattern> contextBuilder) {
       super(parsingContext);
-      this.parsingContext = parsingContext;
       this.parent = parent;
       KeepItemPattern context = contextBuilder.apply(bindingsHelper);
       KeepBindingReference contextBinding =
@@ -1594,14 +1681,10 @@ public class KeepEdgeReader implements Opcodes {
 
     @Override
     public void visit(String name, Object value) {
-      if (name.equals(UsesReflectionToConstruct.classConstant) && value instanceof Type) {
-        qualifiedName =
-            KeepQualifiedClassNamePattern.exactFromDescriptor(((Type) value).getDescriptor());
+      if (maybeVisitQualifiedName(name, value)) {
         return;
       }
-      if (name.equals(AnnotationConstants.UsesReflectionToConstruct.className)
-          && value instanceof String) {
-        qualifiedName = KeepQualifiedClassNamePattern.exact((String) value);
+      if (maybeVisitIncludeSubclasses(name, value)) {
         return;
       }
       super.visit(name, value);
@@ -1626,11 +1709,7 @@ public class KeepEdgeReader implements Opcodes {
       String kotlinMetadataDescriptor = "Lkotlin/Metadata;";
 
       KeepClassBindingReference classBinding =
-          bindingsHelper.defineFreshClassBinding(
-              KeepClassItemPattern.builder()
-                  .setClassPattern(
-                      KeepClassPattern.builder().setClassNamePattern(qualifiedName).build())
-                  .build());
+          bindingsHelper.defineFreshClassBinding(getKeepClassItemPattern());
       KeepMemberBindingReference memberBinding =
           bindingsHelper.defineFreshMemberBinding(
               KeepMemberItemPattern.builder()
@@ -1766,9 +1845,8 @@ public class KeepEdgeReader implements Opcodes {
     }
   }
 
-  private static class UsesReflectionToAccessMethodVisitor extends AnnotationVisitorBase {
+  private static class UsesReflectionToAccessMethodVisitor extends UsesReflectionToXXXVisitor {
 
-    private final ParsingContext parsingContext;
     private final Parent<KeepEdge> parent;
     private final KeepEdge.Builder builder = KeepEdge.builder();
     private final KeepPreconditions.Builder preconditions = KeepPreconditions.builder();
@@ -1777,6 +1855,7 @@ public class KeepEdgeReader implements Opcodes {
     private final UserBindingsHelper bindingsHelper = new UserBindingsHelper();
 
     private KeepQualifiedClassNamePattern qualifiedName;
+    private boolean includeSubclasses = false;
     private KeepMethodNamePattern methodName;
     private KeepMethodNamePattern methodNameKotlinDefault;
     private KeepMethodReturnTypePattern returnType = KeepMethodReturnTypePattern.any();
@@ -1787,7 +1866,6 @@ public class KeepEdgeReader implements Opcodes {
         Consumer<KeepEdgeMetaInfo.Builder> addContext,
         Function<UserBindingsHelper, KeepItemPattern> contextBuilder) {
       super(parsingContext);
-      this.parsingContext = parsingContext;
       this.parent = parent;
       KeepItemPattern context = contextBuilder.apply(bindingsHelper);
       KeepBindingReference contextBinding =
@@ -1798,14 +1876,10 @@ public class KeepEdgeReader implements Opcodes {
 
     @Override
     public void visit(String name, Object value) {
-      if (name.equals(UsesReflectionToAccessMethod.classConstant) && value instanceof Type) {
-        qualifiedName =
-            KeepQualifiedClassNamePattern.exactFromDescriptor(((Type) value).getDescriptor());
+      if (maybeVisitQualifiedName(name, value)) {
         return;
       }
-      if (name.equals(AnnotationConstants.UsesReflectionToAccessMethod.className)
-          && value instanceof String) {
-        qualifiedName = KeepQualifiedClassNamePattern.exact((String) value);
+      if (maybeVisitIncludeSubclasses(name, value)) {
         return;
       }
       if (name.equals(UsesReflectionToAccessMethod.methodName) && value instanceof String) {
@@ -1820,11 +1894,17 @@ public class KeepEdgeReader implements Opcodes {
         return;
       }
       if (name.equals(UsesReflectionToAccessMethod.returnTypeName) && value instanceof String) {
-        returnType =
-            KeepMethodReturnTypePattern.fromType(
-                KeepTypePattern.fromClass(
-                    KeepClassPattern.fromName(
-                        KeepQualifiedClassNamePattern.exact((String) value))));
+        if (value.equals("void") || value.equals("Unit")) {
+          returnType = KeepMethodReturnTypePattern.voidType();
+        } else {
+          returnType =
+              KeepMethodReturnTypePattern.fromType(
+                  KeepTypePattern.fromClass(
+                      KeepClassPattern.fromName(
+                          KeepQualifiedClassNamePattern.exactFromDescriptor(
+                              DescriptorUtils.javaTypeToDescriptor(
+                                  kotlinTypeToJavaType((String) value))))));
+        }
         return;
       }
       super.visit(name, value);
@@ -1849,11 +1929,7 @@ public class KeepEdgeReader implements Opcodes {
       String kotlinMetadataDescriptor = "Lkotlin/Metadata;";
 
       KeepClassBindingReference classBinding =
-          bindingsHelper.defineFreshClassBinding(
-              KeepClassItemPattern.builder()
-                  .setClassPattern(
-                      KeepClassPattern.builder().setClassNamePattern(qualifiedName).build())
-                  .build());
+          bindingsHelper.defineFreshClassBinding(getKeepClassItemPattern());
       KeepMemberBindingReference memberBinding =
           bindingsHelper.defineFreshMemberBinding(
               KeepMemberItemPattern.builder()
@@ -1872,13 +1948,7 @@ public class KeepEdgeReader implements Opcodes {
                   // method will be part of the required structure of the class matched. See test
                   // KeepConjunctiveBindingsTest.
                   .setClassReference(
-                      bindingsHelper.defineFreshClassBinding(
-                          KeepClassItemPattern.builder()
-                              .setClassPattern(
-                                  KeepClassPattern.builder()
-                                      .setClassNamePattern(qualifiedName)
-                                      .build())
-                              .build()))
+                      bindingsHelper.defineFreshClassBinding(getKeepClassItemPattern()))
                   .setMemberPattern(
                       KeepMethodPattern.builder()
                           .setNamePattern(methodNameKotlinDefault)
@@ -2015,9 +2085,8 @@ public class KeepEdgeReader implements Opcodes {
     }
   }
 
-  private static class UsesReflectionToAccessFieldVisitor extends AnnotationVisitorBase {
+  private static class UsesReflectionToAccessFieldVisitor extends UsesReflectionToXXXVisitor {
 
-    private final ParsingContext parsingContext;
     private final Parent<KeepEdge> parent;
     private final KeepEdge.Builder builder = KeepEdge.builder();
     private final KeepPreconditions.Builder preconditions = KeepPreconditions.builder();
@@ -2026,6 +2095,7 @@ public class KeepEdgeReader implements Opcodes {
     private final UserBindingsHelper bindingsHelper = new UserBindingsHelper();
 
     private KeepQualifiedClassNamePattern qualifiedName;
+    private boolean includeSubclasses = false;
     private KeepFieldNamePattern fieldName;
     private KeepFieldTypePattern fieldType = KeepFieldTypePattern.any();
 
@@ -2035,7 +2105,6 @@ public class KeepEdgeReader implements Opcodes {
         Consumer<KeepEdgeMetaInfo.Builder> addContext,
         Function<UserBindingsHelper, KeepItemPattern> contextBuilder) {
       super(parsingContext);
-      this.parsingContext = parsingContext;
       this.parent = parent;
       KeepItemPattern context = contextBuilder.apply(bindingsHelper);
       KeepBindingReference contextBinding =
@@ -2046,13 +2115,10 @@ public class KeepEdgeReader implements Opcodes {
 
     @Override
     public void visit(String name, Object value) {
-      if (name.equals(UsesReflectionToAccessField.classConstant) && value instanceof Type) {
-        qualifiedName =
-            KeepQualifiedClassNamePattern.exactFromDescriptor(((Type) value).getDescriptor());
+      if (maybeVisitQualifiedName(name, value)) {
         return;
       }
-      if (name.equals(UsesReflectionToAccessField.className) && value instanceof String) {
-        qualifiedName = KeepQualifiedClassNamePattern.exact((String) value);
+      if (maybeVisitIncludeSubclasses(name, value)) {
         return;
       }
       if (name.equals(UsesReflectionToAccessField.fieldName) && value instanceof String) {
@@ -2081,11 +2147,7 @@ public class KeepEdgeReader implements Opcodes {
       String kotlinMetadataDescriptor = "Lkotlin/Metadata;";
 
       KeepClassBindingReference classBinding =
-          bindingsHelper.defineFreshClassBinding(
-              KeepClassItemPattern.builder()
-                  .setClassPattern(
-                      KeepClassPattern.builder().setClassNamePattern(qualifiedName).build())
-                  .build());
+          bindingsHelper.defineFreshClassBinding(getKeepClassItemPattern());
       KeepMemberBindingReference memberBinding =
           bindingsHelper.defineFreshMemberBinding(
               KeepMemberItemPattern.builder()

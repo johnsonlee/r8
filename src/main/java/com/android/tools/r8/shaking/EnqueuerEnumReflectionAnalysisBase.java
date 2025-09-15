@@ -37,7 +37,7 @@ abstract class EnqueuerEnumReflectionAnalysisBase
   protected DexProgramClass maybeGetProgramEnumType(DexType type, boolean checkSuper) {
     // Arrays can be used for serialization-related methods.
     if (type.isArrayType()) {
-      type = type.toBaseType(appView.dexItemFactory());
+      type = type.getBaseType();
       if (!type.isClassType()) {
         return null;
       }

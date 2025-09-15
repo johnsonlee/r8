@@ -8,11 +8,11 @@ import com.android.tools.r8.graph.AccessFlags;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.DexAnnotation;
 import com.android.tools.r8.graph.DexAnnotationSet;
+import com.android.tools.r8.graph.DexArrayType;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMember;
 import com.android.tools.r8.graph.DexEncodedMethod;
-import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexTypeList;
@@ -45,11 +45,7 @@ import java.util.List;
 
 public class KeepAnnotationMatcherPredicates {
 
-  private final DexItemFactory factory;
-
-  public KeepAnnotationMatcherPredicates(DexItemFactory factory) {
-    this.factory = factory;
-  }
+  public KeepAnnotationMatcherPredicates() {}
 
   public boolean matchesClass(
       DexClass clazz, KeepClassItemPattern classPattern, AppInfoWithClassHierarchy appInfo) {
@@ -314,14 +310,15 @@ public class KeepAnnotationMatcherPredicates {
     if (!type.isArrayType()) {
       return false;
     }
+    DexArrayType arrayType = type.asArrayType();
     if (pattern.isAny()) {
       return true;
     }
-    if (type.getArrayTypeDimensions() < pattern.getDimensions()) {
+    if (arrayType.getArrayTypeDimensions() < pattern.getDimensions()) {
       return false;
     }
     return matchesType(
-        type.toArrayElementAfterDimension(pattern.getDimensions(), factory),
+        arrayType.getArrayElementTypeAfterDimension(pattern.getDimensions()),
         pattern.getBaseType(),
         appInfo);
   }

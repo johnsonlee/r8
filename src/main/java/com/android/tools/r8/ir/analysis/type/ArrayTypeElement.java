@@ -43,7 +43,7 @@ public class ArrayTypeElement extends ReferenceTypeElement {
       assert baseTypeLattice.isClassType();
       baseType = baseTypeLattice.asClassType().getClassType();
     }
-    return factory.createArrayType(getNesting(), baseType);
+    return baseType.toArrayType(factory, getNesting());
   }
 
   public int getNesting() {

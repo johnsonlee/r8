@@ -297,7 +297,7 @@ public class ObjectToOffsetMapping {
       StartupProfile startupProfile) {
     startupProfile.forEachRule(
         rule -> {
-          DexType type = rule.getReference().getContextType().toBaseType(dexItemFactory());
+          DexType type = rule.getReference().getContextType().getBaseType();
           if (type.isPrimitiveType()) {
             assert false;
             return;

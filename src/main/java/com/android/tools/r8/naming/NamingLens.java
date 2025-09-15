@@ -4,6 +4,7 @@
 package com.android.tools.r8.naming;
 
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexArrayType;
 import com.android.tools.r8.graph.DexCallSite;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexEncodedField;
@@ -122,8 +123,9 @@ public abstract class NamingLens {
       return type;
     }
     if (type.isArrayType()) {
-      DexType newBaseType = lookupType(type.toBaseType(dexItemFactory), dexItemFactory);
-      return type.replaceBaseType(newBaseType, dexItemFactory);
+      DexArrayType arrayType = type.asArrayType();
+      DexType newBaseType = lookupType(arrayType.getBaseType(), dexItemFactory);
+      return arrayType.replaceBaseType(newBaseType, dexItemFactory);
     }
     assert type.isClassType();
     return dexItemFactory.createType(lookupClassDescriptor(type));
@@ -227,9 +229,9 @@ public abstract class NamingLens {
         return type.getDescriptor();
       }
       if (type.isArrayType()) {
-        DexType baseType = type.toBaseType(dexItemFactory);
+        DexType baseType = type.getBaseType();
         DexString desc = lookupDescriptor(baseType);
-        return desc.toArrayDescriptor(type.getNumberOfLeadingSquareBrackets(), dexItemFactory);
+        return desc.toArrayDescriptor(type.getArrayTypeDimensions(), dexItemFactory);
       }
       assert type.isClassType();
       return lookupClassDescriptor(type);

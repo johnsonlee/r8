@@ -64,7 +64,7 @@ public class InstrumentedReflectiveMethodList {
     builder.put(
         factory.createMethod(
             factory.classType,
-            factory.createProto(factory.createArrayType(1, factory.methodType)),
+            factory.createProto(factory.methodType.toArrayType(factory)),
             "getDeclaredMethods"),
         getMethodReferenceWithClassParameter("onClassGetDeclaredMethods"));
     builder.put(
@@ -73,7 +73,7 @@ public class InstrumentedReflectiveMethodList {
     builder.put(
         factory.createMethod(
             factory.classType,
-            factory.createProto(factory.createArrayType(1, factory.fieldType)),
+            factory.createProto(factory.fieldType.toArrayType(factory)),
             "getDeclaredFields"),
         getMethodReferenceWithClassParameter("onClassGetDeclaredFields"));
     builder.put(
@@ -83,7 +83,7 @@ public class InstrumentedReflectiveMethodList {
     builder.put(
         factory.createMethod(
             factory.classType,
-            factory.createProto(factory.createArrayType(1, factory.constructorType)),
+            factory.createProto(factory.constructorType.toArrayType(factory)),
             "getDeclaredConstructors"),
         getMethodReferenceWithClassParameter("onClassGetDeclaredConstructors"));
     builder.put(
@@ -93,7 +93,7 @@ public class InstrumentedReflectiveMethodList {
     builder.put(
         factory.createMethod(
             factory.classType,
-            factory.createProto(factory.createArrayType(1, factory.methodType)),
+            factory.createProto(factory.methodType.toArrayType(factory)),
             "getMethods"),
         getMethodReferenceWithClassParameter("onClassGetMethods"));
     builder.put(
@@ -103,7 +103,7 @@ public class InstrumentedReflectiveMethodList {
     builder.put(
         factory.createMethod(
             factory.classType,
-            factory.createProto(factory.createArrayType(1, factory.fieldType)),
+            factory.createProto(factory.fieldType.toArrayType(factory)),
             "getFields"),
         getMethodReferenceWithClassParameter("onClassGetFields"));
     builder.put(
@@ -113,7 +113,7 @@ public class InstrumentedReflectiveMethodList {
     builder.put(
         factory.createMethod(
             factory.classType,
-            factory.createProto(factory.createArrayType(1, factory.constructorType)),
+            factory.createProto(factory.constructorType.toArrayType(factory)),
             "getConstructors"),
         getMethodReferenceWithClassParameter("onClassGetConstructors"));
 

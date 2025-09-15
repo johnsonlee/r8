@@ -62,7 +62,7 @@ public class CheckCast extends Instruction {
       // elimination may lead to verification errors. See b/123269162.
       if (options.canHaveArtCheckCastVerifierBug()
           && getType().isArrayType()
-          && getType().toBaseType(options.dexItemFactory()).isFloatType()) {
+          && getType().getBaseType().isFloatType()) {
         return true;
       }
       return false;
@@ -155,7 +155,7 @@ public class CheckCast extends Instruction {
       return true;
     }
     AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
-    DexType baseType = type.toBaseType(appView.dexItemFactory());
+    DexType baseType = type.getBaseType();
     if (baseType.isClassType()) {
       DexClass definition = appView.definitionFor(baseType);
       // Check that the class and its super types are present.

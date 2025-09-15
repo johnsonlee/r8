@@ -94,8 +94,7 @@ public class TwrInstructionDesugaring implements CfInstructionDesugaring {
   private DesugarDescription rewriteTwrGetSuppressedInvoke() {
     DexItemFactory factory = appView.dexItemFactory();
     DexProto proto =
-        factory.createProto(
-            factory.createArrayType(1, factory.throwableType), factory.throwableType);
+        factory.createProto(factory.throwableType.toArrayType(factory), factory.throwableType);
     return DesugarDescription.builder()
         .setDesugarRewrite(
             (position,

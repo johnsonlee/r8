@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.ir.desugar.desugaredlibrary;
 
+import com.android.tools.r8.graph.DexArrayType;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
@@ -54,8 +55,11 @@ public abstract class DesugaredLibraryTypeRewriter {
     @Override
     public DexType rewrittenType(DexType type) {
       if (type.isArrayType()) {
-        DexType rewrittenBaseType = rewrittenType(type.toBaseType(factory));
-        return rewrittenBaseType != null ? type.replaceBaseType(rewrittenBaseType, factory) : null;
+        DexArrayType arrayType = type.asArrayType();
+        DexType rewrittenBaseType = rewrittenType(arrayType.getBaseType());
+        return rewrittenBaseType != null
+            ? arrayType.replaceBaseType(rewrittenBaseType, factory)
+            : null;
       }
       return rewriteType.get(type);
     }

@@ -58,10 +58,7 @@ public class TypeElementFactory {
       }
       memberType =
           TypeElement.fromDexType(
-              type.toArrayElementType(appView.dexItemFactory()),
-              Nullability.maybeNull(),
-              appView,
-              true);
+              type.getArrayElementType(), Nullability.maybeNull(), appView, true);
     }
     TypeElement finalMemberType = memberType;
     return referenceTypes

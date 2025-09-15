@@ -63,6 +63,9 @@ public annotation class UsesReflectionToConstruct(
      */
     val className: String = "",
 
+    /** Also instantiate subclasses. */
+    @Suppress("KotlinDefaultParameterOrder") val includeSubclasses: Boolean = false,
+
     /**
      * Defines which constructor to keep by specifying the parameter list types.
      *

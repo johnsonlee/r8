@@ -126,7 +126,7 @@ public class MainDexListBuilder {
         for (DexEncodedMethod method : clazz.virtualMethods()) {
           DexProto proto = method.getReference().proto;
           if (proto.parameters.isEmpty()) {
-            DexType valueType = proto.returnType.toBaseType(appView.dexItemFactory());
+            DexType valueType = proto.returnType.getBaseType();
             if (valueType.isClassType()) {
               assert !value;
               DexClass valueTypeClass = appInfo().definitionFor(valueType);
@@ -168,7 +168,7 @@ public class MainDexListBuilder {
     for (DexEncodedMethod method : clazz.virtualMethods()) {
       DexProto proto = method.getReference().proto;
       if (proto.parameters.isEmpty()) {
-        DexType valueType = proto.returnType.toBaseType(appView.dexItemFactory());
+        DexType valueType = proto.returnType.getBaseType();
         if (isEnum(valueType)) {
           addDirectDependency(valueType);
         }
@@ -178,7 +178,7 @@ public class MainDexListBuilder {
 
   private void addDirectDependency(DexType type) {
     // Consider only component type of arrays
-    type = type.toBaseType(appView.dexItemFactory());
+    type = type.getBaseType();
     if (!type.isClassType() || mainDexInfoBuilder.contains(type)) {
       return;
     }

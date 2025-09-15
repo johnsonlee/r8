@@ -299,7 +299,7 @@ public class DefaultEnqueuerUseRegistry extends ComputeApiLevelUseRegistry {
     DexMethod values =
         factory.createMethod(
             enumType,
-            factory.createProto(factory.createArrayType(1, enumType)),
+            factory.createProto(factory.enumType.toArrayType(factory)),
             factory.valuesMethodName);
     registerInvokeStatic(values);
     DexMethod valueOf =

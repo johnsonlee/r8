@@ -128,7 +128,7 @@ public class InvokeMultiNewArray extends Invoke {
       ProgramMethod context,
       AbstractValueSupplier abstractValueSupplier,
       SideEffectAssumption assumption) {
-    DexType baseType = type.isArrayType() ? type.toBaseType(appView.dexItemFactory()) : type;
+    DexType baseType = type.isArrayType() ? type.getBaseType() : type;
     if (baseType.isPrimitiveType()) {
       // Primitives types are known to be present and accessible.
       assert !type.isWideType() : "The array's contents must be single-word";

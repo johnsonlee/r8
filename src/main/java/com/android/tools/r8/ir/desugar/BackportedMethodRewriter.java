@@ -1313,7 +1313,7 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
                 (ignore, methodArg) ->
                     CollectionMethodGenerators.generateMapOf(factory, methodArg, formalCount)));
       }
-      proto = factory.createProto(type, factory.createArrayType(1, factory.mapEntryType));
+      proto = factory.createProto(type, factory.mapEntryType.toArrayType(factory));
       method = factory.createMethod(type, proto, "ofEntries");
       addProvider(
           new MethodGenerator(

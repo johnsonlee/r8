@@ -6,6 +6,7 @@ package com.android.tools.r8.ir.conversion.passes;
 
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexArrayType;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItem;
@@ -252,7 +253,7 @@ public class FilledNewArrayRewriter extends CodeRewriterPass<AppInfo> {
         return false;
       }
       // filled-new-array is implemented only for int[] and Object[].
-      DexType arrayType = newArrayFilled.getArrayType();
+      DexArrayType arrayType = newArrayFilled.getArrayType();
       if (arrayType.isIdenticalTo(dexItemFactory.intArrayType)) {
         // For int[], using filled-new-array is usually smaller than filled-array-data.
         // filled-new-array supports up to 5 registers before it's filled-new-array/range.
@@ -278,7 +279,7 @@ public class FilledNewArrayRewriter extends CodeRewriterPass<AppInfo> {
           return false;
         }
         if (!rewriteArrayOptions.canUseFilledNewArrayOfArrays()
-            && arrayType.getNumberOfLeadingSquareBrackets() > 1) {
+            && arrayType.getArrayTypeDimensions() > 1) {
           return false;
         }
         // Check that all arguments to the array is the array type or that the array is type
@@ -286,7 +287,7 @@ public class FilledNewArrayRewriter extends CodeRewriterPass<AppInfo> {
         if (rewriteArrayOptions.canHaveSubTypesInFilledNewArrayBug()
             && arrayType.isNotIdenticalTo(dexItemFactory.objectArrayType)
             && !arrayType.isPrimitiveArrayType()) {
-          DexType arrayElementType = arrayType.toArrayElementType(dexItemFactory);
+          DexType arrayElementType = arrayType.getArrayElementType();
           for (Value elementValue : newArrayFilled.inValues()) {
             if (!canStoreElementInNewArrayFilled(elementValue.getType(), arrayElementType)) {
               return false;
@@ -311,11 +312,11 @@ public class FilledNewArrayRewriter extends CodeRewriterPass<AppInfo> {
         }
         ArrayTypeElement arrayTypeElement = valueType.asArrayType();
         if (arrayTypeElement == null
-            || arrayTypeElement.getNesting() != elementType.getNumberOfLeadingSquareBrackets()) {
+            || arrayTypeElement.getNesting() != elementType.getArrayTypeDimensions()) {
           return false;
         }
         valueType = arrayTypeElement.getBaseType();
-        elementType = elementType.toBaseType(dexItemFactory);
+        elementType = elementType.getBaseType();
       }
       assert !valueType.isArrayType();
       assert !elementType.isArrayType();
@@ -387,7 +388,7 @@ public class FilledNewArrayRewriter extends CodeRewriterPass<AppInfo> {
       NewArrayFilledData newArrayFilledData =
           new NewArrayFilledData(
               newArrayFilled.outValue(),
-              newArrayFilled.getArrayType().elementSizeForPrimitiveArrayType(),
+              newArrayFilled.getArrayType().getElementSizeForPrimitiveArrayType(),
               newArrayFilled.size(),
               contents);
       newArrayFilledData.setPosition(newArrayFilled.getPosition());
@@ -401,7 +402,7 @@ public class FilledNewArrayRewriter extends CodeRewriterPass<AppInfo> {
     }
 
     private short[] computeArrayFilledData(NewArrayFilled newArrayFilled) {
-      int elementSize = newArrayFilled.getArrayType().elementSizeForPrimitiveArrayType();
+      int elementSize = newArrayFilled.getArrayType().getElementSizeForPrimitiveArrayType();
       int size = newArrayFilled.size();
       if (elementSize == 1) {
         short[] result = new short[(size + 1) / 2];
@@ -554,7 +555,7 @@ public class FilledNewArrayRewriter extends CodeRewriterPass<AppInfo> {
       instructionIterator.add(constNumber);
 
       // Add the ArrayPut instruction.
-      DexType arrayElementType = newArrayEmpty.getArrayType().toArrayElementType(dexItemFactory);
+      DexType arrayElementType = newArrayEmpty.getArrayType().getArrayElementType();
       MemberType memberType = MemberType.fromDexType(arrayElementType);
       ArrayPut arrayPut =
           ArrayPut.create(

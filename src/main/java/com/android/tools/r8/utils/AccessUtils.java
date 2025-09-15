@@ -8,7 +8,6 @@ import com.android.tools.r8.FeatureSplit;
 import com.android.tools.r8.features.ClassToFeatureSplitMap;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
-import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 
@@ -16,8 +15,7 @@ public class AccessUtils {
 
   public static boolean isAccessibleInSameContextsAs(
       DexType newType, DexType oldType, AppView<AppInfoWithLiveness> appView) {
-    DexItemFactory dexItemFactory = appView.dexItemFactory();
-    DexType newBaseType = newType.toBaseType(dexItemFactory);
+    DexType newBaseType = newType.getBaseType();
     if (!newBaseType.isClassType()) {
       return true;
     }
@@ -28,7 +26,7 @@ public class AccessUtils {
 
     // If the new class is not public, then the old class must be non-public as well and reside in
     // the same package as the new class.
-    DexType oldBaseType = oldType.toBaseType(dexItemFactory);
+    DexType oldBaseType = oldType.getBaseType();
     if (!newBaseClass.isPublic()) {
       assert oldBaseType.isClassType();
       DexClass oldBaseClass = appView.definitionFor(oldBaseType);

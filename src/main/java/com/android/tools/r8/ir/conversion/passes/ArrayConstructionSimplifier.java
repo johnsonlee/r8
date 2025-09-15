@@ -167,7 +167,7 @@ public class ArrayConstructionSimplifier extends CodeRewriterPass<AppInfo> {
     //   desired interface, then we could add check-cast instructions for arguments we're not sure
     //   about.
     NewArrayEmpty newArrayEmpty = arrayValues.getDefinition().asNewArrayEmpty();
-    DexType elementType = newArrayEmpty.type.toArrayElementType(dexItemFactory);
+    DexType elementType = newArrayEmpty.type.getArrayElementType();
     boolean needsTypeCheck =
         !elementType.isPrimitiveType() && elementType.isNotIdenticalTo(dexItemFactory.objectType);
     if (!needsTypeCheck) {
@@ -180,7 +180,7 @@ public class ArrayConstructionSimplifier extends CodeRewriterPass<AppInfo> {
     // !instruction.instructionMayHaveSideEffects(). Alternatively, we could replace the
     // new-array-empty with a const-class instruction in this case.
     if (!DexTypeUtils.isTypeAccessibleInMethodContext(
-        appView, elementType.toBaseType(dexItemFactory), code.context())) {
+        appView, elementType.getBaseType(), code.context())) {
       return false;
     }
 

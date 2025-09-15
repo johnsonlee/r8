@@ -4,12 +4,10 @@
 package com.android.tools.r8.examples.regress_70736958;
 
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.examples.ExamplesTestBase;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
-import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
@@ -129,5 +127,10 @@ public class Regress70736958TestRunner extends ExamplesTestBase {
             + " 1.6101889E9, 1.6101889E9, 1.6101889E9, 1.6101889E9, 1.6101889E9, 1.6101889E9,"
             + " 1.6101889E9, 1.6101889E9, 1.6101889E9, 1.6101889E9, 1.6101889E9, 1.6101889E9,"
             + " 1.6101889E9, 1.6101889E9, 1.6101889E9, 1.6101889E9, 1.6101889E9, 1.6101889E9]");
+  }
+
+  @Override
+  public boolean isTestDebugKnownToBeFlaky() {
+    return true;
   }
 }

@@ -65,7 +65,7 @@ public class KeepUsesReflectionToAccessFieldTest extends KeepAnnoTestExtractedRu
   }
 
   private static ExpectedRules getExpectedRulesJava(
-      Class<?> conditionClass, String... consequentMembers) {
+      Class<?> conditionClass, boolean includeSubclasses, String... consequentMembers) {
     java.util.function.Consumer<ExpectedKeepRule.Builder> setCondition =
         b ->
             b.setConditionClass(conditionClass)
@@ -78,11 +78,28 @@ public class KeepUsesReflectionToAccessFieldTest extends KeepAnnoTestExtractedRu
               .setConsequentClass(KeptClass.class)
               .setConsequentMembers(consequentMembers[i])
               .build());
+      if (includeSubclasses) {
+        builder.add(
+            ExpectedKeepRule.builder()
+                .apply(setCondition)
+                .setConsequentExtendsClass(KeptClass.class)
+                .setConsequentMembers(consequentMembers[i])
+                .build());
+      }
     }
     addConsequentKotlinMetadata(builder, b -> b.apply(setCondition));
     addDefaultInitWorkaround(
         builder, b -> b.apply(setCondition).setConsequentClass(KeptClass.class));
+    if (includeSubclasses) {
+      addDefaultInitWorkaround(
+          builder, b -> b.apply(setCondition).setConsequentExtendsClass(KeptClass.class));
+    }
     return builder.build();
+  }
+
+  private static ExpectedRules getExpectedRulesJava(
+      Class<?> conditionClass, String... consequentMembers) {
+    return getExpectedRulesJava(conditionClass, false, consequentMembers);
   }
 
   private static ExpectedRules getExpectedRulesKotlin(
@@ -196,6 +213,24 @@ public class KeepUsesReflectionToAccessFieldTest extends KeepAnnoTestExtractedRu
         getExpectedRulesJava(
             ClassWithAnnotation.class, "{ int x; }", "{ long y; }", "{ java.lang.String s; }"),
         StringUtils.lines("3"));
+  }
+
+  @Test
+  public void testIncludeSubclasses() throws Exception {
+    testExtractedRules(
+        ImmutableList.of(
+            setAnnotationOnMethod(
+                ClassWithAnnotation.class,
+                MethodPredicate.onName("foo"),
+                builder -> {
+                  builder
+                      .setAnnotationClass(
+                          Reference.classFromClass(UsesReflectionToAccessField.class))
+                      .setField("classConstant", KeptClass.class)
+                      .setField("fieldName", "x")
+                      .setField("includeSubclasses", true);
+                })),
+        getExpectedRulesJava(ClassWithAnnotation.class, true, "{ *** x; }"));
   }
 
   @Test

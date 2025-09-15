@@ -22,7 +22,6 @@ import com.android.tools.r8.utils.structural.CompareToVisitor;
 import com.android.tools.r8.utils.structural.HashingVisitor;
 import com.android.tools.r8.utils.structural.StructuralMapping;
 import com.google.common.collect.ImmutableList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.function.BiConsumer;
@@ -49,7 +48,7 @@ public class DexType extends DexReference implements NamingLensComparable<DexTyp
 
   // Bundletool is merging classes that may originate from a build with an old version of R8.
   // Allow merging of classes that use names from older versions of R8.
-  private static List<String> OLD_SYNTHESIZED_NAMES =
+  private static final List<String> OLD_SYNTHESIZED_NAMES =
       ImmutableList.of(
           "$r8$backportedMethods$utility",
           "$r8$java8methods$utility",
@@ -65,7 +64,7 @@ public class DexType extends DexReference implements NamingLensComparable<DexTyp
   private String toStringCache = null;
 
   DexType(DexString descriptor) {
-    assert !descriptor.toString().contains(".") : "Malformed descriptor: " + descriptor.toString();
+    assert !descriptor.toString().contains(".") : "Malformed descriptor: " + descriptor;
     this.descriptor = descriptor;
   }
 
@@ -283,8 +282,7 @@ public class DexType extends DexReference implements NamingLensComparable<DexTyp
   }
 
   public char toShorty() {
-    char c = descriptor.getFirstByteAsChar();
-    return c == '[' ? 'L' : c;
+    return descriptor.getFirstByteAsChar();
   }
 
   @Override
@@ -377,8 +375,16 @@ public class DexType extends DexReference implements NamingLensComparable<DexTyp
   }
 
   public boolean isArrayType() {
-    char firstChar = descriptor.getFirstByteAsChar();
-    return firstChar == '[';
+    return false;
+  }
+
+  public boolean isPrimitiveArrayType() {
+    assert !isArrayType();
+    return false;
+  }
+
+  public DexArrayType asArrayType() {
+    return null;
   }
 
   public boolean isClassType() {
@@ -390,13 +396,6 @@ public class DexType extends DexReference implements NamingLensComparable<DexTyp
     boolean isReferenceType = isArrayType() || isClassType() || isNullValueType();
     assert isReferenceType != isPrimitiveType() || isVoidType();
     return isReferenceType;
-  }
-
-  public boolean isPrimitiveArrayType() {
-    if (!isArrayType()) {
-      return false;
-    }
-    return DescriptorUtils.isPrimitiveType((char) descriptor.content[1]);
   }
 
   public boolean isWideType() {
@@ -430,76 +429,9 @@ public class DexType extends DexReference implements NamingLensComparable<DexTyp
     return asProgramClassOrNull(definitions.definitionFor(this));
   }
 
-  public boolean isProgramType(DexDefinitionSupplier definitions) {
-    DexClass clazz = definitions.definitionFor(this);
-    return clazz != null && clazz.isProgramClass();
-  }
-
   public boolean isResolvable(AppView<?> appView) {
     DexClass clazz = appView.definitionFor(this);
     return clazz != null && clazz.isResolvable(appView);
-  }
-
-  public int elementSizeForPrimitiveArrayType() {
-    assert isPrimitiveArrayType();
-    switch (descriptor.content[1]) {
-      case 'Z': // boolean
-      case 'B': // byte
-        return 1;
-      case 'S': // short
-      case 'C': // char
-        return 2;
-      case 'I': // int
-      case 'F': // float
-        return 4;
-      case 'J': // long
-      case 'D': // double
-        return 8;
-      default:
-        throw new Unreachable("Not array of primitives '" + descriptor + "'");
-    }
-  }
-
-  public int getNumberOfLeadingSquareBrackets() {
-    int leadingSquareBrackets = 0;
-    while (descriptor.content[leadingSquareBrackets] == '[') {
-      leadingSquareBrackets++;
-    }
-    return leadingSquareBrackets;
-  }
-
-  public DexType toBaseType(DexItemFactory dexItemFactory) {
-    int leadingSquareBrackets = getNumberOfLeadingSquareBrackets();
-    if (leadingSquareBrackets == 0) {
-      return this;
-    }
-    DexString newDesc =
-        dexItemFactory.createString(
-            descriptor.length() - leadingSquareBrackets,
-            Arrays.copyOfRange(
-                descriptor.content, leadingSquareBrackets, descriptor.content.length));
-    return dexItemFactory.createType(newDesc);
-  }
-
-  // Similar to the method above, but performs a lookup only, allowing to use
-  // this method also after strings are sorted in the ApplicationWriter.
-  public DexType lookupBaseType(DexItemFactory dexItemFactory) {
-    int leadingSquareBrackets = getNumberOfLeadingSquareBrackets();
-    if (leadingSquareBrackets == 0) {
-      return this;
-    }
-    DexString newDesc =
-        dexItemFactory.lookupString(
-            descriptor.length() - leadingSquareBrackets,
-            Arrays.copyOfRange(
-                descriptor.content, leadingSquareBrackets, descriptor.content.length));
-    return dexItemFactory.lookupType(newDesc);
-  }
-
-  public DexType replaceBaseType(DexType newBase, DexItemFactory dexItemFactory) {
-    assert this.isArrayType();
-    assert !newBase.isArrayType();
-    return newBase.toArrayType(getNumberOfLeadingSquareBrackets(), dexItemFactory);
   }
 
   public DexType replacePackage(String newPackageDescriptor, DexItemFactory dexItemFactory) {
@@ -527,32 +459,6 @@ public class DexType extends DexReference implements NamingLensComparable<DexTyp
     }
     assert index > 0;
     return addSuffix("$" + index, dexItemFactory);
-  }
-
-  public DexType toArrayType(int dimensions, DexItemFactory dexItemFactory) {
-    return dexItemFactory.createType(descriptor.toArrayDescriptor(dimensions, dexItemFactory));
-  }
-
-  public int getArrayTypeDimensions() {
-    for (int i = 0; i < descriptor.content.length; i++) {
-      if (descriptor.content[i] != '[') {
-        return i;
-      }
-    }
-    return 0;
-  }
-
-  public DexType toArrayElementType(DexItemFactory dexItemFactory) {
-    return toArrayElementAfterDimension(1, dexItemFactory);
-  }
-
-  public DexType toArrayElementAfterDimension(int dimension, DexItemFactory dexItemFactory) {
-    assert getArrayTypeDimensions() >= dimension;
-    DexString newDesc =
-        dexItemFactory.createString(
-            descriptor.length() - dimension,
-            Arrays.copyOfRange(descriptor.content, dimension, descriptor.content.length));
-    return dexItemFactory.createType(newDesc);
   }
 
   private String getPackageOrName(boolean packagePart) {
@@ -598,5 +504,27 @@ public class DexType extends DexReference implements NamingLensComparable<DexTyp
 
   public String getPackageName() {
     return DescriptorUtils.getPackageNameFromBinaryName(toBinaryName());
+  }
+
+  // Array methods.
+
+  public DexType getArrayElementType() {
+    throw new Unreachable();
+  }
+
+  public int getArrayTypeDimensions() {
+    return 0;
+  }
+
+  public DexType getBaseType() {
+    return this;
+  }
+
+  public DexType toArrayType(DexItemFactory factory) {
+    return toArrayType(factory, 1);
+  }
+
+  public DexType toArrayType(DexItemFactory factory, int dimensions) {
+    return factory.createType(descriptor.toArrayDescriptor(dimensions, factory));
   }
 }

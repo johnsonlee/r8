@@ -414,9 +414,7 @@ public abstract class TypeElement {
 
   static ArrayTypeElement objectArrayType(AppView<?> appView, Nullability nullability) {
     DexItemFactory dexItemFactory = appView.dexItemFactory();
-    return fromDexType(
-            dexItemFactory.createArrayType(1, dexItemFactory.objectType), nullability, appView)
-        .asArrayType();
+    return fromDexType(dexItemFactory.objectArrayType, nullability, appView).asArrayType();
   }
 
   public static ClassTypeElement stringClassType(AppView<?> appView) {

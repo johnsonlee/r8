@@ -98,7 +98,7 @@ public class SingleConstClassValue extends SingleConstValue {
   @Override
   boolean internalIsMaterializableInContext(
       AppView<? extends AppInfoWithClassHierarchy> appView, ProgramMethod context) {
-    DexType baseType = type.toBaseType(appView.dexItemFactory());
+    DexType baseType = type.getBaseType();
     if (baseType.isClassType()) {
       DexClass clazz = appView.definitionFor(baseType);
       return clazz != null
@@ -111,7 +111,7 @@ public class SingleConstClassValue extends SingleConstValue {
 
   @Override
   public boolean isMaterializableInAllContexts(AppView<? extends AppInfoWithLiveness> appView) {
-    DexType baseType = type.toBaseType(appView.dexItemFactory());
+    DexType baseType = type.getBaseType();
     if (baseType.isPrimitiveType()) {
       return true;
     }

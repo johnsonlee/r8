@@ -815,8 +815,7 @@ public class LazyCfCode extends Code {
           addInstruction(new CfConstNumber(operand, ValueType.INT));
           break;
         case Opcodes.NEWARRAY:
-          addInstruction(
-              new CfNewArray(factory.createArrayType(1, arrayTypeDesc(operand, factory))));
+          addInstruction(new CfNewArray(arrayTypeDesc(operand, factory)));
           break;
         default:
           throw new Unreachable("Unexpected int opcode " + opcode);
@@ -826,21 +825,21 @@ public class LazyCfCode extends Code {
     private static DexType arrayTypeDesc(int arrayTypeCode, DexItemFactory factory) {
       switch (arrayTypeCode) {
         case Opcodes.T_BOOLEAN:
-          return factory.booleanType;
+          return factory.booleanArrayType;
         case Opcodes.T_CHAR:
-          return factory.charType;
+          return factory.charArrayType;
         case Opcodes.T_FLOAT:
-          return factory.floatType;
+          return factory.floatArrayType;
         case Opcodes.T_DOUBLE:
-          return factory.doubleType;
+          return factory.doubleArrayType;
         case Opcodes.T_BYTE:
-          return factory.byteType;
+          return factory.byteArrayType;
         case Opcodes.T_SHORT:
-          return factory.shortType;
+          return factory.shortArrayType;
         case Opcodes.T_INT:
-          return factory.intType;
+          return factory.intArrayType;
         case Opcodes.T_LONG:
-          return factory.longType;
+          return factory.longArrayType;
         default:
           throw new Unreachable("Unexpected array-type code " + arrayTypeCode);
       }
@@ -887,27 +886,31 @@ public class LazyCfCode extends Code {
 
     @Override
     public void visitTypeInsn(int opcode, String typeName) {
-      DexType type = factory.createType(Type.getObjectType(typeName).getDescriptor());
-      switch (opcode) {
-        case Opcodes.NEW:
-          // A label is only required if this uninitialized-new instance flows into a frame.
-          CfNew cfNew = new CfNew(type, currentLabel);
-          if (cfNew.hasLabel()) {
-            labelToNewMap.put(cfNew.getLabel(), cfNew);
-          }
-          addInstruction(cfNew);
-          break;
-        case Opcodes.ANEWARRAY:
-          addInstruction(new CfNewArray(factory.createArrayType(1, type)));
-          break;
-        case Opcodes.CHECKCAST:
-          addInstruction(new CfCheckCast(type));
-          break;
-        case Opcodes.INSTANCEOF:
-          addInstruction(new CfInstanceOf(type));
-          break;
-        default:
-          throw new Unreachable("Unexpected TypeInsn opcode: " + opcode);
+      String descriptor = Type.getObjectType(typeName).getDescriptor();
+      if (opcode == Opcodes.ANEWARRAY) {
+        String arrayDescriptor = DescriptorUtils.toArrayDescriptor(1, descriptor);
+        DexType arrayType = factory.createType(arrayDescriptor);
+        addInstruction(new CfNewArray(arrayType));
+      } else {
+        DexType type = factory.createType(descriptor);
+        switch (opcode) {
+          case Opcodes.NEW:
+            // A label is only required if this uninitialized-new instance flows into a frame.
+            CfNew cfNew = new CfNew(type, currentLabel);
+            if (cfNew.hasLabel()) {
+              labelToNewMap.put(cfNew.getLabel(), cfNew);
+            }
+            addInstruction(cfNew);
+            break;
+          case Opcodes.CHECKCAST:
+            addInstruction(new CfCheckCast(type));
+            break;
+          case Opcodes.INSTANCEOF:
+            addInstruction(new CfInstanceOf(type));
+            break;
+          default:
+            throw new Unreachable("Unexpected TypeInsn opcode: " + opcode);
+        }
       }
     }
 

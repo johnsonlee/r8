@@ -53,7 +53,7 @@ public class ServiceLoaderSourceCode {
     builder.add(
         tryCatchStart,
         new CfConstNumber(classes.size(), ValueType.INT),
-        new CfNewArray(factory.createArrayType(1, serviceType)));
+        new CfNewArray(serviceType.toArrayType(factory)));
 
     for (int i = 0; i < classes.size(); i++) {
       builder.add(

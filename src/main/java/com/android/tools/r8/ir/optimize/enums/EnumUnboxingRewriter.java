@@ -112,8 +112,7 @@ public class EnumUnboxingRewriter implements CustomLensCodeRewriter {
       assert next.isArgument();
       if (argumentInfo.isRewrittenTypeInfo()) {
         RewrittenTypeInfo rewrittenTypeInfo = argumentInfo.asRewrittenTypeInfo();
-        DexType enumType =
-            getEnumClassTypeOrNull(rewrittenTypeInfo.getOldType().toBaseType(factory));
+        DexType enumType = getEnumClassTypeOrNull(rewrittenTypeInfo.getOldType().getBaseType());
         if (rewrittenTypeInfo.hasSingleValue()
             && rewrittenTypeInfo.getSingleValue().isSingleNumberValue()) {
           assert rewrittenTypeInfo
@@ -557,7 +556,7 @@ public class EnumUnboxingRewriter implements CustomLensCodeRewriter {
       IRCode code,
       Map<Instruction, DexType> convertedEnums,
       InstructionListIterator instructionIterator) {
-    DexType arrayBaseType = newArrayFilled.getArrayType().toBaseType(factory);
+    DexType arrayBaseType = newArrayFilled.getArrayType().getBaseType();
     if (isArrayUsedOnlyForHashCode(newArrayFilled, factory)) {
       DexType rewrittenArrayType =
           newArrayFilled.getArrayType().replaceBaseType(factory.objectType, factory);

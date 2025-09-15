@@ -184,7 +184,7 @@ public class TypeSwitchIRRewriter {
             newValue =
                 code.createValue(
                     TypeElement.fromDexType(
-                        fieldAccessor.getFirst().getType().toBaseType(appView.dexItemFactory()),
+                        fieldAccessor.getFirst().getType().getBaseType(),
                         Nullability.maybeNull(),
                         appView));
             Value arrayValue =

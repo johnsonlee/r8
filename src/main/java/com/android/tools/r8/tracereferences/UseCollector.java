@@ -318,7 +318,7 @@ public class UseCollector implements UseCollectorEventConsumer {
   private void addType(
       DexType type, DefinitionContext referencedFrom, UseCollectorEventConsumer eventConsumer) {
     if (type.isArrayType()) {
-      addType(type.toBaseType(factory), referencedFrom, eventConsumer);
+      addType(type.getBaseType(), referencedFrom, eventConsumer);
       return;
     }
     if (type.isPrimitiveType() || type.isVoidType()) {

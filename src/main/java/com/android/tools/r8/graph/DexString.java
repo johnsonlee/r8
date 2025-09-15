@@ -691,4 +691,12 @@ public class DexString extends IndexedDexItem
     System.arraycopy(content, 0, newContent, dimensions, content.length);
     return dexItemFactory.createString(javaLangStringLength + dimensions, newContent);
   }
+
+  public DexString toArrayElementDescriptor(DexItemFactory dexItemFactory) {
+    assert getFirstByteAsChar() == '[';
+    int newContentLength = content.length - 1;
+    byte[] newContent = new byte[newContentLength];
+    System.arraycopy(content, 1, newContent, 0, newContentLength);
+    return dexItemFactory.createString(javaLangStringLength - 1, newContent);
+  }
 }

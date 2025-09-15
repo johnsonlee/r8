@@ -68,7 +68,7 @@ public class RespectPackageBoundaries extends MultiClassPolicy {
     // If any field has a non-public type, then field merging may lead to check-cast instructions
     // being synthesized. These synthesized accesses depends on the package.
     for (DexEncodedField field : clazz.fields()) {
-      DexType fieldBaseType = field.getType().toBaseType(appView.dexItemFactory());
+      DexType fieldBaseType = field.getType().getBaseType();
       if (fieldBaseType.isClassType()) {
         DexClass fieldBaseClass = appView.definitionFor(fieldBaseType);
         if (fieldBaseClass == null || !fieldBaseClass.isPublic()) {
@@ -93,7 +93,7 @@ public class RespectPackageBoundaries extends MultiClassPolicy {
                           // current class in its package in case we end up synthesizing a
                           // check-cast for the field type after relaxing the type of the field
                           // after instance field merging.
-                          DexType fieldBaseType = field.getType().toBaseType(dexItemFactory());
+                          DexType fieldBaseType = field.getType().getBaseType();
                           if (fieldBaseType.isClassType()) {
                             DexClass fieldBaseClass = appView.definitionFor(fieldBaseType);
                             if (fieldBaseClass == null || !fieldBaseClass.isPublic()) {

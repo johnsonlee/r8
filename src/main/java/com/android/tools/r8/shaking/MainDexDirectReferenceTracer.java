@@ -90,7 +90,7 @@ public class MainDexDirectReferenceTracer {
     new MainDexDirectReferenceTracer(
             appView,
             type -> {
-              DexType baseType = type.toBaseType(appView.dexItemFactory());
+              DexType baseType = type.getBaseType();
               if (baseType.isClassType() && isOutside.test(baseType)) {
                 DexClass cls = appView.definitionFor(baseType);
                 if (cls != null && cls.isProgramClass()) {

@@ -176,7 +176,7 @@ public class ArrayGet extends ArrayAccess {
       // JVM 8 §4.10.1.9.aaload: Array component type of null is null.
       return arrayType;
     }
-    return arrayType.toArrayElementType(appView.dexItemFactory());
+    return arrayType.getArrayElementType();
   }
 
   @Override

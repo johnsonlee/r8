@@ -136,7 +136,7 @@ public class InstanceOf extends Instruction {
       // However, in this case the original code is invalid, since it does not verify.
       return true;
     }
-    DexType baseType = type.toBaseType(appView.dexItemFactory());
+    DexType baseType = type.getBaseType();
     if (baseType.isIdenticalTo(context.getHolderType()) || baseType.isPrimitiveType()) {
       return false;
     }

@@ -136,13 +136,10 @@ public class CfConstClass extends CfInstruction implements CfTypeInstruction {
 
   private String getInternalName(GraphLens graphLens, GraphLens codeLens, NamingLens namingLens) {
     DexType rewrittenType = graphLens.lookupType(type, codeLens);
-    switch (rewrittenType.toShorty()) {
-      case '[':
-      case 'L':
-        return namingLens.lookupInternalName(rewrittenType);
-      default:
-        throw new Unreachable("Unexpected type in const-class: " + rewrittenType);
+    if (rewrittenType.isReferenceType()) {
+      return namingLens.lookupInternalName(rewrittenType);
     }
+    throw new Unreachable("Unexpected type in const-class: " + rewrittenType);
   }
 
   @Override

@@ -81,7 +81,7 @@ public class CfArrayLoad extends CfArrayLoadOrStore {
     assert array.type.isObject();
     ValueType memberType = ValueType.fromMemberType(getType());
     if (array.preciseType != null) {
-      value = state.push(array.preciseType.toArrayElementType(builder.appView.dexItemFactory()));
+      value = state.push(array.preciseType.getArrayElementType());
       assert state.peek().type == memberType;
     } else {
       value = state.push(memberType);
@@ -119,7 +119,7 @@ public class CfArrayLoad extends CfArrayLoadOrStore {
                     config,
                     head.asInitializedNonNullReferenceTypeWithoutInterfaces()
                         .getInitializedType()
-                        .toArrayElementType(dexItemFactory));
+                        .getArrayElementType());
               }
             });
   }

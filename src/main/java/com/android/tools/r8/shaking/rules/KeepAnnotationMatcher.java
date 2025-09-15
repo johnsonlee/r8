@@ -68,8 +68,7 @@ public class KeepAnnotationMatcher {
       List<KeepDeclaration> keepDeclarations,
       ExecutorService executorService)
       throws ExecutionException {
-    KeepAnnotationMatcherPredicates predicates =
-        new KeepAnnotationMatcherPredicates(appView.dexItemFactory());
+    KeepAnnotationMatcherPredicates predicates = new KeepAnnotationMatcherPredicates();
     ApplicableRulesEvaluator.Builder builder = ApplicableRulesEvaluator.initialRulesBuilder();
     ThreadUtils.processItems(
         keepDeclarations,

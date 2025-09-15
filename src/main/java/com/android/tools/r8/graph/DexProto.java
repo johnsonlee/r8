@@ -75,11 +75,11 @@ public class DexProto extends IndexedDexItem
   }
 
   public Iterable<DexType> getParameterBaseTypes(DexItemFactory dexItemFactory) {
-    return Iterables.transform(parameters, type -> type.toBaseType(dexItemFactory));
+    return Iterables.transform(parameters, type -> type.getBaseType());
   }
 
   public Iterable<DexType> getBaseTypes(DexItemFactory dexItemFactory) {
-    return Iterables.transform(getTypes(), type -> type.toBaseType(dexItemFactory));
+    return Iterables.transform(getTypes(), type -> type.getBaseType());
   }
 
   public Iterable<DexType> getTypes() {
@@ -150,7 +150,7 @@ public class DexProto extends IndexedDexItem
   public String createShortyString() {
     StringBuilder shortyBuilder = new StringBuilder();
     shortyBuilder.append(returnType.toShorty());
-    for (DexType argumentType : parameters.values) {
+    for (DexType argumentType : parameters) {
       shortyBuilder.append(argumentType.toShorty());
     }
     return shortyBuilder.toString();

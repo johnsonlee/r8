@@ -84,7 +84,7 @@ public class AndroidApiReferenceLevelCache {
       if (reference.isDexMethod() && reference.asDexMethod().match(factory.objectMembers.clone)) {
         return appView.computedMinApiLevel();
       }
-      return lookup(contextType.toBaseType(factory), unknownValue, ignoringDesugaredLibrary);
+      return lookup(contextType.getBaseType(), unknownValue, ignoringDesugaredLibrary);
     }
     if (contextType.isPrimitiveType() || contextType.isVoidType()) {
       return appView.computedMinApiLevel();

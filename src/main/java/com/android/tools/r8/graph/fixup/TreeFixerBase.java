@@ -5,6 +5,7 @@
 package com.android.tools.r8.graph.fixup;
 
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexArrayType;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
@@ -360,15 +361,12 @@ public abstract class TreeFixerBase {
   }
 
   /** Fixup a type reference. */
-  @SuppressWarnings("ReferenceEquality")
   public DexType fixupType(DexType type) {
     if (type.isArrayType()) {
-      DexType base = type.toBaseType(dexItemFactory);
+      DexArrayType arrayType = type.asArrayType();
+      DexType base = arrayType.getBaseType();
       DexType fixed = fixupType(base);
-      if (base == fixed) {
-        return type;
-      }
-      return type.replaceBaseType(fixed, dexItemFactory);
+      return arrayType.replaceBaseType(fixed, dexItemFactory);
     }
     if (type.isClassType()) {
       return mapClassType(type);

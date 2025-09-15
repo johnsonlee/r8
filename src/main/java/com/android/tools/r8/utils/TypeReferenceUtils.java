@@ -115,9 +115,8 @@ public class TypeReferenceUtils {
     if (typeReference.isArray()) {
       ArrayReference arrayReference = typeReference.asArray();
       TypeReference baseType = arrayReference.getBaseType();
-      return dexItemFactory.createArrayType(
-          arrayReference.getDimensions(),
-          toDexType(baseType, dexItemFactory, classReferenceConverter));
+      return toDexType(baseType, dexItemFactory, classReferenceConverter)
+          .toArrayType(dexItemFactory, arrayReference.getDimensions());
     }
     assert typeReference.isClass();
     return classReferenceConverter.apply(typeReference.asClass());

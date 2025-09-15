@@ -137,7 +137,7 @@ class EnumUnboxingCandidateAnalysis {
     for (DexEncodedMethod method : clazz.virtualMethods()) {
       assert method.getParameters().isEmpty()
           || appView.options().testing.allowInjectedAnnotationMethods;
-      DexType valueType = method.returnType().toBaseType(appView.dexItemFactory());
+      DexType valueType = method.returnType().getBaseType();
       if (enumToUnboxCandidates.isCandidate(valueType)) {
         if (!enumUnboxer.reportFailure(valueType, Reason.ANNOTATION)) {
           enumToUnboxCandidates.removeCandidate(valueType);
@@ -167,7 +167,7 @@ class EnumUnboxingCandidateAnalysis {
 
   @SuppressWarnings("ReferenceEquality")
   private void removePinnedIfNotHolder(DexMember<?, ?> member, DexType type) {
-    DexType baseType = type.toBaseType(factory);
+    DexType baseType = type.getBaseType();
     if (baseType != member.holder) {
       removePinnedCandidate(baseType);
     }

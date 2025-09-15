@@ -98,7 +98,7 @@ public class TypeLatticeTest extends TestBase {
   }
 
   private ArrayTypeElement array(int nesting, DexType base) {
-    return (ArrayTypeElement) element(factory.createArrayType(nesting, base));
+    return (ArrayTypeElement) element(base.toArrayType(factory, nesting));
   }
 
   private ArrayTypeElement array(TypeElement baseType) {

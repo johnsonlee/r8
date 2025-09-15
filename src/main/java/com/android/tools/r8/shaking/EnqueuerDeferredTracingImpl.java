@@ -200,7 +200,7 @@ public class EnqueuerDeferredTracingImpl extends EnqueuerDeferredTracing
       // Note that this check depends on the set of instantiated types, and must therefore be rerun
       // when the enqueuer's fixpoint is reached.
       if (field.getType().isReferenceType()) {
-        DexType fieldBaseType = field.getType().toBaseType(appView.dexItemFactory());
+        DexType fieldBaseType = field.getType().getBaseType();
         if (fieldBaseType.isClassType()
             && mayHaveFinalizeMethodDirectlyOrIndirectly.test(fieldBaseType)) {
           return false;

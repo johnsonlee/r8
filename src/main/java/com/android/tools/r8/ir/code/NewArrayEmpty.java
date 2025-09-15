@@ -93,7 +93,7 @@ public class NewArrayEmpty extends Instruction {
   }
 
   private boolean isArrayTypeInaccessible(AppView<?> appView, ProgramMethod context) {
-    DexType baseType = type.toBaseType(appView.dexItemFactory());
+    DexType baseType = type.getBaseType();
     return !DexTypeUtils.isTypeAccessibleInMethodContext(appView, baseType, context);
   }
 

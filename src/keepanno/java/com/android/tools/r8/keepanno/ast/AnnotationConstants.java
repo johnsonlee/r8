@@ -153,6 +153,7 @@ public final class AnnotationConstants {
     public static final String classSelectionGroup = "class-selection";
     public static final String classConstant = "classConstant";
     public static final String className = "className";
+    public static final String includeSubclasses = "includeSubclasses";
     public static final String constructorParametersGroup = "constructor-parameters";
     public static final String parameterTypes = "parameterTypes";
     public static final String parameterTypeNames = "parameterTypeNames";
@@ -181,6 +182,7 @@ public final class AnnotationConstants {
     public static final String classSelectionGroup = "class-selection";
     public static final String classConstant = "classConstant";
     public static final String className = "className";
+    public static final String includeSubclasses = "includeSubclasses";
     public static final String methodName = "methodName";
     public static final String constructorParametersGroup = "constructor-parameters";
     public static final String parameterTypes = "parameterTypes";
@@ -213,6 +215,7 @@ public final class AnnotationConstants {
     public static final String classSelectionGroup = "class-selection";
     public static final String classConstant = "classConstant";
     public static final String className = "className";
+    public static final String includeSubclasses = "includeSubclasses";
     public static final String fieldName = "fieldName";
     public static final String fieldTypeSelectionGroup = "field-type-selection";
     public static final String fieldType = "fieldType";

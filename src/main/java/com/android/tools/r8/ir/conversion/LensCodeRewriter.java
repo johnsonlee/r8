@@ -39,6 +39,7 @@ import com.android.tools.r8.graph.AccessControl;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DebugLocalInfo;
+import com.android.tools.r8.graph.DexArrayType;
 import com.android.tools.r8.graph.DexCallSite;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndField;
@@ -387,12 +388,13 @@ public class LensCodeRewriter {
               DexMethod invokedMethod = invoke.getInvokedMethod();
               DexType invokedHolder = invokedMethod.holder;
               if (invokedHolder.isArrayType()) {
-                DexType baseType = invokedHolder.toBaseType(factory);
+                DexArrayType arrayType = invokedHolder.asArrayType();
+                DexType baseType = arrayType.getBaseType();
                 new InstructionReplacer(code, current, iterator, affectedPhis)
                     .replaceInstructionIfTypeChanged(
                         baseType,
                         (t, v) -> {
-                          DexType mappedHolder = invokedHolder.replaceBaseType(t, factory);
+                          DexType mappedHolder = arrayType.replaceBaseType(t, factory);
                           // Just reuse proto and name, as no methods on array types cant be renamed
                           // nor change signature.
                           DexMethod actualTarget =
