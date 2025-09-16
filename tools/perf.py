@@ -153,6 +153,9 @@ LOCAL_BENCHMARKS = {
     'AGSA': {
         'targets': ['r8-full']
     },
+    'ChromeAppTreeShaking': {
+        'targets': ['r8-full']
+    },
     'SystemUIAppTreeShaking': {
         'targets': ['r8-full']
     },

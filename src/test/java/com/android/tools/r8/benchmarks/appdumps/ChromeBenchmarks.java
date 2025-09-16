@@ -13,6 +13,7 @@ import com.android.tools.r8.Version;
 import com.android.tools.r8.benchmarks.BenchmarkBase;
 import com.android.tools.r8.benchmarks.BenchmarkConfig;
 import com.android.tools.r8.utils.LibraryProvidedProguardRulesTestUtils;
+import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.ImmutableList;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -49,7 +50,13 @@ public class ChromeBenchmarks extends BenchmarkBase {
             .setDumpDependencyPath(dir)
             .setFromRevision(16457)
             .buildR8WithPartialShrinking(
-                ChromeBenchmarks::configurePartial, ChromeBenchmarks::inspectPartial));
+                ChromeBenchmarks::configurePartial, ChromeBenchmarks::inspectPartial),
+        AppDumpBenchmarkBuilder.builder()
+            .setName("ChromeAppTreeShaking")
+            .setDumpDependencyPath(dir)
+            .setFromRevision(16457)
+            .setRuntimeOnly()
+            .buildR8(ChromeBenchmarks::configureTreeShaking));
   }
 
   private static void configure(R8FullTestBuilder testBuilder) {
@@ -70,6 +77,24 @@ public class ChromeBenchmarks extends BenchmarkBase {
         .allowUnusedDontWarnPatterns()
         .allowUnusedProguardConfigurationRules()
         .allowUnnecessaryDontWarnWildcards();
+  }
+
+  private static void configureTreeShaking(R8FullTestBuilder testBuilder) {
+    configure(testBuilder);
+    testBuilder.addOptionsModification(
+        options ->
+            options.getTestingOptions().enqueuerInspector =
+                (appInfo, enqueuerMode) -> {
+                  if (appInfo.options().printTimes) {
+                    Timing timing = appInfo.app().timing;
+                    timing.end(); // End "Create result"
+                    timing.end(); // End "Trace application"
+                    timing.end(); // End "Enqueuer"
+                    timing.end(); // End "Strip unused code"
+                    timing.report(); // Report "R8 main"
+                  }
+                  throw new AbortBenchmarkException();
+                });
   }
 
   private static void inspectPartial(R8PartialTestCompileResult compileResult) {
@@ -100,5 +125,10 @@ public class ChromeBenchmarks extends BenchmarkBase {
   @Test
   public void testChromeAppPartial() throws Exception {
     testBenchmarkWithName("ChromeAppPartial");
+  }
+
+  @Test
+  public void testChromeTreeShaking() throws Exception {
+    testBenchmarkWithName("ChromeTreeShaking");
   }
 }
