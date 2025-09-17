@@ -201,6 +201,10 @@ public abstract class ProguardConfigurationRule extends ProguardClassSpecificati
     return false;
   }
 
+  public final boolean isOnlyApplicableToProgramClasses() {
+    return !isApplicableToClasspathClasses() && !isApplicableToLibraryClasses();
+  }
+
   protected boolean hasBackReferences() {
     return !Iterables.isEmpty(getBackReferences());
   }

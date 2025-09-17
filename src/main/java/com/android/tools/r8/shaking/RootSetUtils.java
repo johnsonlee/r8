@@ -339,6 +339,15 @@ public class RootSetUtils {
       return this;
     }
 
+    private void process(
+        Collection<DexClass> classes,
+        ProguardConfigurationRule rule,
+        ProguardIfRulePreconditionMatch ifRulePreconditionMatch) {
+      for (DexClass clazz : classes) {
+        process(clazz, rule, ifRulePreconditionMatch);
+      }
+    }
+
     // Process a class with the keep rule.
     private void process(
         DexClass clazz,
@@ -524,7 +533,7 @@ public class RootSetUtils {
       if (rule.getClassNames().hasSpecificTypes()) {
         // This keep rule only lists specific type matches.
         // This means there is no need to iterate over all classes.
-        timing.begin("Process rule");
+        timing.begin("Process rule with specific types");
         for (DexType type : rule.getClassNames().getSpecificTypes()) {
           DexClass clazz = application.definitionFor(type);
           // Ignore keep rule iff it does not reference a class in the app.
@@ -533,28 +542,91 @@ public class RootSetUtils {
           }
         }
         timing.end();
-        return;
+      } else if (rule.isOnlyApplicableToProgramClasses() && !rule.hasMemberRules()) {
+        timing.begin("Fork rule evaluation ST");
+        evaluateRuleConcurrentlySingleTask(tasks, rule, ifRulePreconditionMatch, timing);
+        timing.end();
+      } else {
+        timing.begin("Fork rule evaluation");
+        evaluateRuleConcurrently(tasks, rule, ifRulePreconditionMatch, timing);
+        timing.end();
+      }
+    }
+
+    private void evaluateRuleConcurrently(
+        TaskCollection<?> tasks,
+        ProguardConfigurationRule rule,
+        ProguardIfRulePreconditionMatch ifRulePreconditionMatch,
+        Timing timing)
+        throws ExecutionException {
+      int batchSize =
+          (int)
+              Math.ceil(
+                  (double) application.classes().size() / tasks.getNumberOfThreadsOrDefault(1));
+      List<DexClass> classes = new ArrayList<>(batchSize);
+      rule.forEachRelevantCandidate(
+          appView,
+          subtypingInfo,
+          application.classes(),
+          alwaysTrue(),
+          clazz -> {
+            classes.add(clazz);
+            if (classes.size() == batchSize) {
+              List<DexClass> job = new ArrayList<>(classes);
+              tasks.submitUnchecked(
+                  () -> {
+                    Timing threadTiming = timing.createThreadTiming("Process rule", options);
+                    process(job, rule, ifRulePreconditionMatch);
+                    threadTiming.end().notifyThreadTimingFinished();
+                  });
+              classes.clear();
+            }
+          });
+
+      // Process remaining classes.
+      if (!classes.isEmpty()) {
+        tasks.submitUnchecked(
+            () -> {
+              Timing threadTiming = timing.createThreadTiming("Process rule", options);
+              process(classes, rule, ifRulePreconditionMatch);
+              threadTiming.end().notifyThreadTimingFinished();
+            });
       }
 
-      tasks.submit(
+      if (!rule.isOnlyApplicableToProgramClasses()) {
+        tasks.submit(
+            () -> {
+              Timing threadTiming = timing.createThreadTiming("Evaluate non-program", options);
+              if (rule.isApplicableToClasspathClasses()) {
+                for (DexClasspathClass clazz : application.classpathClasses()) {
+                  process(clazz, rule, ifRulePreconditionMatch);
+                }
+              }
+              if (rule.isApplicableToLibraryClasses()) {
+                for (DexLibraryClass clazz : application.libraryClasses()) {
+                  process(clazz, rule, ifRulePreconditionMatch);
+                }
+              }
+              threadTiming.end().notifyThreadTimingFinished();
+            });
+      }
+    }
+
+    private void evaluateRuleConcurrentlySingleTask(
+        TaskCollection<?> tasks,
+        ProguardConfigurationRule rule,
+        ProguardIfRulePreconditionMatch ifRulePreconditionMatch,
+        Timing timing) {
+      assert rule.isOnlyApplicableToProgramClasses();
+      tasks.submitUnchecked(
           () -> {
-            Timing threadTiming = timing.createThreadTiming("Process rule", options);
+            Timing threadTiming = timing.createThreadTiming("Process rule ST", options);
             rule.forEachRelevantCandidate(
                 appView,
                 subtypingInfo,
                 application.classes(),
                 alwaysTrue(),
                 clazz -> process(clazz, rule, ifRulePreconditionMatch));
-            if (rule.isApplicableToClasspathClasses()) {
-              for (DexClasspathClass clazz : application.classpathClasses()) {
-                process(clazz, rule, ifRulePreconditionMatch);
-              }
-            }
-            if (rule.isApplicableToLibraryClasses()) {
-              for (DexLibraryClass clazz : application.libraryClasses()) {
-                process(clazz, rule, ifRulePreconditionMatch);
-              }
-            }
             threadTiming.end().notifyThreadTimingFinished();
           });
     }

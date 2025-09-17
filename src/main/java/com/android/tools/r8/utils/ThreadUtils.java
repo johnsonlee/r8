@@ -320,9 +320,13 @@ public class ThreadUtils {
   }
 
   public static int getNumberOfThreads(ExecutorService service) {
+    return getNumberOfThreadsOrDefault(service, -1);
+  }
+
+  public static int getNumberOfThreadsOrDefault(ExecutorService service, int defaultValue) {
     if (service instanceof ForkJoinPool) {
       return ((ForkJoinPool) service).getParallelism();
     }
-    return -1;
+    return defaultValue;
   }
 }

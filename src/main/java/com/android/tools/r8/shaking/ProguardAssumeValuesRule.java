@@ -79,6 +79,16 @@ public class ProguardAssumeValuesRule extends ProguardConfigurationRule {
   }
 
   @Override
+  public boolean isApplicableToClasspathClasses() {
+    return true;
+  }
+
+  @Override
+  public boolean isApplicableToLibraryClasses() {
+    return true;
+  }
+
+  @Override
   String typeString() {
     return "assumevalues";
   }
