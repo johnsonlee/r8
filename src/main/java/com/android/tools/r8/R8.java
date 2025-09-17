@@ -296,9 +296,7 @@ public class R8 {
             options.partialSubCompilationConfiguration != null
                 ? options.partialSubCompilationConfiguration.asR8().getAndClearKeepDeclarations()
                 : lazyLoaded.getKeepDeclarations();
-        timing.begin("To direct app");
-        DirectMappedDexApplication application = lazyLoaded.toDirect();
-        timing.end();
+        DirectMappedDexApplication application = lazyLoaded.toDirect(timing);
         timing.end();
         options
             .getLibraryDesugaringOptions()

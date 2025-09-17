@@ -285,7 +285,7 @@ public class LazyLoadedDexApplication extends DexApplication {
         libraryClasses, classpathClasses, synthesizedClasspathClasses, programClasses, options);
   }
 
-  public static class Builder extends DexApplication.Builder<Builder> {
+  public static class Builder extends DexApplication.Builder<LazyLoadedDexApplication, Builder> {
 
     private ClasspathClassCollection classpathClasses;
     private Map<DexType, DexClasspathClass> synthesizedClasspathClasses;
@@ -345,7 +345,7 @@ public class LazyLoadedDexApplication extends DexApplication {
     }
 
     @Override
-    public LazyLoadedDexApplication build() {
+    public LazyLoadedDexApplication build(Timing timing) {
       ProgramClassConflictResolver resolver =
           options.programClassConflictResolver == null
               ? ProgramClassCollection.defaultConflictResolver(options.reporter)
@@ -375,7 +375,17 @@ public class LazyLoadedDexApplication extends DexApplication {
   }
 
   public DirectMappedDexApplication toDirect() {
-    return new DirectMappedDexApplication.Builder(this).build();
+    return toDirect(Timing.empty());
+  }
+
+  public DirectMappedDexApplication toDirect(Timing timing) {
+    try (Timing t0 = timing.begin("To direct app")) {
+      // As a side-effect, this will force-load all classes.
+      AllClasses allClasses = loadAllClasses();
+      DirectMappedDexApplication.Builder builder =
+          new DirectMappedDexApplication.Builder(this, allClasses);
+      return builder.build(timing);
+    }
   }
 
   @Override

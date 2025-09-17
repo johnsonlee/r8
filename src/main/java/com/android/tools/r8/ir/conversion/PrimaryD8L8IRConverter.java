@@ -13,7 +13,6 @@ import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexApplication;
-import com.android.tools.r8.graph.DexApplication.Builder;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexString;
@@ -84,7 +83,7 @@ public class PrimaryD8L8IRConverter extends IRConverter {
     processCovariantReturnTypeAnnotations(profileCollectionAdditions, executorService);
 
     // Build a new application with jumbo string info,
-    Builder<?> builder = application.builder();
+    DexApplication.Builder<?, ?> builder = application.builder();
 
     if (appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation()) {
       new EmulatedInterfaceApplicationRewriter(appView).rewriteApplication(builder);

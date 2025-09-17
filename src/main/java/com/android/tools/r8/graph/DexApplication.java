@@ -46,7 +46,7 @@ public abstract class DexApplication implements DexDefinitionSupplier {
     this.timing = timing;
   }
 
-  public abstract Builder<?> builder();
+  public abstract Builder<?, ?> builder();
 
   @Override
   public DexItemFactory dexItemFactory() {
@@ -141,7 +141,7 @@ public abstract class DexApplication implements DexDefinitionSupplier {
     return proguardMap;
   }
 
-  public abstract static class Builder<T extends Builder<T>> {
+  public abstract static class Builder<S extends DexApplication, T extends Builder<S, T>> {
 
     private final List<DexProgramClass> programClasses = new ArrayList<>();
 
@@ -162,7 +162,7 @@ public abstract class DexApplication implements DexDefinitionSupplier {
     abstract T self();
 
     public Builder(DexApplication application) {
-      flags = application.flags;
+      flags = application.getFlags();
       programClasses.addAll(application.programClasses());
       dataResourceProviders.addAll(application.dataResourceProviders);
       proguardMap = application.getProguardMap();
@@ -243,7 +243,11 @@ public abstract class DexApplication implements DexDefinitionSupplier {
       return programClasses;
     }
 
-    public abstract DexApplication build();
+    public final S build() {
+      return build(Timing.empty());
+    }
+
+    public abstract S build(Timing timing);
   }
 
   public static LazyLoadedDexApplication.Builder builder(InternalOptions options, Timing timing) {

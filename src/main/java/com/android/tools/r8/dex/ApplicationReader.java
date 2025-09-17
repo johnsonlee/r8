@@ -268,7 +268,7 @@ public class ApplicationReader {
   }
 
   private void readProguardMap(
-      StringResource map, DexApplication.Builder<?> builder, TaskCollection<?> tasks)
+      StringResource map, DexApplication.Builder<?, ?> builder, TaskCollection<?> tasks)
       throws ExecutionException {
     // Read the Proguard mapping file in parallel with DexCode and DexProgramClass items.
     if (map == null) {
