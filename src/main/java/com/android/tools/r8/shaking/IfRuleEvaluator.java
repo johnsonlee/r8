@@ -228,7 +228,9 @@ public class IfRuleEvaluator {
     boolean classNameResult = memberRule.getClassNames().matches(source.type);
     assert classNameResult;
     if (memberRule.hasInheritanceClassName()) {
-      boolean inheritanceResult = rootSetBuilder.satisfyInheritanceRule(target, memberRule);
+      boolean inheritanceResult =
+          memberRule.satisfyInheritanceRule(
+              target, appView, rootSetBuilder::handleMatchedAnnotation);
       assert inheritanceResult;
     }
   }
@@ -278,7 +280,7 @@ public class IfRuleEvaluator {
     }
     if (rule.hasInheritanceClassName()) {
       // Try another live type since the current one doesn't satisfy the inheritance rule.
-      return rootSetBuilder.satisfyInheritanceRule(clazz, rule);
+      return rule.satisfyInheritanceRule(clazz, appView, rootSetBuilder::handleMatchedAnnotation);
     }
     return true;
   }

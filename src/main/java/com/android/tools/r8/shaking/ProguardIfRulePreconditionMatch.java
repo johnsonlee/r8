@@ -33,7 +33,7 @@ public class ProguardIfRulePreconditionMatch {
   public void disallowOptimizationsForReevaluation(
       Enqueuer enqueuer, ConsequentRootSetBuilder rootSetBuilder) {
     if (enqueuer.getMode().isInitialTreeShaking()
-        && !ifRule.isTrivalAllClassMatch()
+        && !ifRule.isTrivialAllClassMatchWithNoMembersRules()
         && classMatch.isProgramClass()) {
       disallowClassOptimizationsForReevaluation(rootSetBuilder);
       disallowMethodOptimizationsForReevaluation(rootSetBuilder);

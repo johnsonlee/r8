@@ -9,6 +9,7 @@ import com.android.tools.r8.position.TextPosition;
 import com.android.tools.r8.position.TextRange;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -262,6 +263,19 @@ public abstract class ProguardClassSpecification {
 
   public List<ProguardMemberRule> getMemberRules() {
     return memberRules;
+  }
+
+  public void getFieldAndMethodRules(
+      Collection<ProguardMemberRule> fieldRules, Collection<ProguardMemberRule> methodRules) {
+    for (ProguardMemberRule memberRule : memberRules) {
+      ProguardMemberType ruleType = memberRule.getRuleType();
+      if (ruleType.includesFields()) {
+        fieldRules.add(memberRule);
+      }
+      if (ruleType.includesMethods()) {
+        methodRules.add(memberRule);
+      }
+    }
   }
 
   public boolean getInheritanceIsExtends() {

@@ -342,9 +342,10 @@ public class RootSetUtils {
     private void process(
         Collection<DexClass> classes,
         ProguardConfigurationRule rule,
-        ProguardIfRulePreconditionMatch ifRulePreconditionMatch) {
+        ProguardIfRulePreconditionMatch ifRulePreconditionMatch,
+        Timing timing) {
       for (DexClass clazz : classes) {
-        process(clazz, rule, ifRulePreconditionMatch);
+        process(clazz, rule, ifRulePreconditionMatch, timing);
       }
     }
 
@@ -352,35 +353,15 @@ public class RootSetUtils {
     private void process(
         DexClass clazz,
         ProguardConfigurationRule rule,
-        ProguardIfRulePreconditionMatch ifRulePreconditionMatch) {
-      if (!satisfyNonSyntheticClass(clazz, appView)) {
+        ProguardIfRulePreconditionMatch ifRulePreconditionMatch,
+        Timing timing) {
+      if (!rule.testClassCondition(clazz, appView, this::handleMatchedAnnotation)) {
         return;
       }
-      if (!satisfyClassType(rule, clazz)) {
-        return;
-      }
-      if (!satisfyAccessFlag(rule, clazz)) {
-        return;
-      }
-      AnnotationMatchResult annotationMatchResult = satisfyAnnotation(rule, clazz);
-      if (annotationMatchResult == null) {
-        return;
-      }
-      handleMatchedAnnotation(annotationMatchResult);
-      // In principle it should make a difference whether the user specified in a class
-      // spec that a class either extends or implements another type. However, proguard
-      // seems not to care, so users have started to use this inconsistently. We are thus
-      // inconsistent, as well, but tell them.
-      // TODO(herhut): One day make this do what it says.
-      if (rule.hasInheritanceClassName() && !satisfyInheritanceRule(clazz, rule)) {
-        return;
-      }
-
-      if (!rule.getClassNames().matches(clazz.type)) {
-        return;
-      }
-
       Collection<ProguardMemberRule> memberKeepRules = rule.getMemberRules();
+      Collection<ProguardMemberRule> fieldKeepRules = new ArrayList<>();
+      Collection<ProguardMemberRule> methodKeepRules = new ArrayList<>();
+      rule.getFieldAndMethodRules(fieldKeepRules, methodKeepRules);
       Map<Predicate<DexDefinition>, DexClass> preconditionSupplier;
       if (rule instanceof ProguardKeepRule) {
         ProguardKeepRule keepRule = rule.asProguardKeepRule();
@@ -398,7 +379,7 @@ public class RootSetUtils {
             preconditionSupplier = ImmutableMap.of(definition -> true, clazz);
             markMatchingVisibleMethods(
                 clazz,
-                memberKeepRules,
+                methodKeepRules,
                 rule,
                 preconditionSupplier,
                 keepRule.getIncludeDescriptorClasses(),
@@ -406,7 +387,7 @@ public class RootSetUtils {
                 ifRulePreconditionMatch);
             markMatchingVisibleFields(
                 clazz,
-                memberKeepRules,
+                fieldKeepRules,
                 rule,
                 preconditionSupplier,
                 keepRule.getIncludeDescriptorClasses(),
@@ -433,7 +414,7 @@ public class RootSetUtils {
             }
             markMatchingVisibleMethods(
                 clazz,
-                memberKeepRules,
+                methodKeepRules,
                 rule,
                 preconditionSupplier,
                 keepRule.getIncludeDescriptorClasses(),
@@ -441,7 +422,7 @@ public class RootSetUtils {
                 ifRulePreconditionMatch);
             markMatchingVisibleFields(
                 clazz,
-                memberKeepRules,
+                fieldKeepRules,
                 rule,
                 preconditionSupplier,
                 keepRule.getIncludeDescriptorClasses(),
@@ -467,29 +448,29 @@ public class RootSetUtils {
           || rule instanceof ProguardWhyAreYouKeepingRule) {
         markClass(clazz, rule, ifRulePreconditionMatch);
         markMatchingVisibleMethods(
-            clazz, memberKeepRules, rule, null, true, true, ifRulePreconditionMatch);
+            clazz, methodKeepRules, rule, null, true, true, ifRulePreconditionMatch);
         markMatchingVisibleFields(
-            clazz, memberKeepRules, rule, null, true, true, ifRulePreconditionMatch);
+            clazz, fieldKeepRules, rule, null, true, true, ifRulePreconditionMatch);
       } else if (rule instanceof ProguardAssumeMayHaveSideEffectsRule) {
         markMatchingVisibleMethods(
-            clazz, memberKeepRules, rule, null, true, true, ifRulePreconditionMatch);
+            clazz, methodKeepRules, rule, null, true, true, ifRulePreconditionMatch);
         markMatchingOverriddenMethods(
-            clazz, memberKeepRules, rule, null, true, true, ifRulePreconditionMatch);
+            clazz, methodKeepRules, rule, null, true, true, ifRulePreconditionMatch);
         markMatchingVisibleFields(
-            clazz, memberKeepRules, rule, null, true, true, ifRulePreconditionMatch);
+            clazz, fieldKeepRules, rule, null, true, true, ifRulePreconditionMatch);
       } else if (rule instanceof ProguardAssumeNoSideEffectRule
           || rule instanceof ProguardAssumeValuesRule) {
         if (assumeInfoCollectionBuilder != null) {
           markMatchingVisibleMethods(
-              clazz, memberKeepRules, rule, null, true, true, ifRulePreconditionMatch);
+              clazz, methodKeepRules, rule, null, true, true, ifRulePreconditionMatch, timing);
           markMatchingOverriddenMethods(
-              clazz, memberKeepRules, rule, null, true, true, ifRulePreconditionMatch);
+              clazz, methodKeepRules, rule, null, true, true, ifRulePreconditionMatch, timing);
           markMatchingVisibleFields(
-              clazz, memberKeepRules, rule, null, true, true, ifRulePreconditionMatch);
+              clazz, fieldKeepRules, rule, null, true, true, ifRulePreconditionMatch, timing);
         }
       } else if (rule instanceof NoFieldTypeStrengtheningRule
           || rule instanceof NoRedundantFieldLoadEliminationRule) {
-        markMatchingFields(clazz, memberKeepRules, rule, null, ifRulePreconditionMatch);
+        markMatchingFields(clazz, fieldKeepRules, rule, ifRulePreconditionMatch);
       } else if (rule instanceof InlineRule
           || rule instanceof KeepConstantArgumentRule
           || rule instanceof KeepUnusedReturnValueRule
@@ -501,7 +482,7 @@ public class RootSetUtils {
           || rule instanceof ReprocessMethodRule
           || rule instanceof WhyAreYouNotInliningRule
           || rule.isMaximumRemovedAndroidLogLevelRule()) {
-        markMatchingMethods(clazz, memberKeepRules, rule, null, ifRulePreconditionMatch);
+        markMatchingMethods(clazz, methodKeepRules, rule, ifRulePreconditionMatch);
       } else if (rule instanceof ClassInlineRule
           || rule instanceof NoUnusedInterfaceRemovalRule
           || rule instanceof NoVerticalClassMergingRule
@@ -512,15 +493,15 @@ public class RootSetUtils {
         }
       } else if (rule instanceof NoValuePropagationRule) {
         markMatchingVisibleMethods(
-            clazz, memberKeepRules, rule, null, true, true, ifRulePreconditionMatch);
+            clazz, methodKeepRules, rule, null, true, true, ifRulePreconditionMatch);
         markMatchingVisibleFields(
-            clazz, memberKeepRules, rule, null, true, true, ifRulePreconditionMatch);
+            clazz, fieldKeepRules, rule, null, true, true, ifRulePreconditionMatch);
       } else if (rule instanceof ProguardIdentifierNameStringRule) {
-        markMatchingFields(clazz, memberKeepRules, rule, null, ifRulePreconditionMatch);
-        markMatchingMethods(clazz, memberKeepRules, rule, null, ifRulePreconditionMatch);
+        markMatchingFields(clazz, fieldKeepRules, rule, ifRulePreconditionMatch);
+        markMatchingMethods(clazz, methodKeepRules, rule, ifRulePreconditionMatch);
       } else {
         assert rule instanceof ConvertCheckNotNullRule;
-        markMatchingMethods(clazz, memberKeepRules, rule, null, ifRulePreconditionMatch);
+        markMatchingMethods(clazz, methodKeepRules, rule, ifRulePreconditionMatch);
       }
     }
 
@@ -538,7 +519,7 @@ public class RootSetUtils {
           DexClass clazz = application.definitionFor(type);
           // Ignore keep rule iff it does not reference a class in the app.
           if (clazz != null) {
-            process(clazz, rule, ifRulePreconditionMatch);
+            process(clazz, rule, ifRulePreconditionMatch, timing);
           }
         }
         timing.end();
@@ -575,8 +556,9 @@ public class RootSetUtils {
               List<DexClass> job = new ArrayList<>(classes);
               tasks.submitUnchecked(
                   () -> {
-                    Timing threadTiming = timing.createThreadTiming("Process rule", options);
-                    process(job, rule, ifRulePreconditionMatch);
+                    Timing threadTiming =
+                        timing.createThreadTiming("Process rule: " + rule, options);
+                    process(job, rule, ifRulePreconditionMatch, threadTiming);
                     threadTiming.end().notifyThreadTimingFinished();
                   });
               classes.clear();
@@ -588,7 +570,7 @@ public class RootSetUtils {
         tasks.submitUnchecked(
             () -> {
               Timing threadTiming = timing.createThreadTiming("Process rule", options);
-              process(classes, rule, ifRulePreconditionMatch);
+              process(classes, rule, ifRulePreconditionMatch, threadTiming);
               threadTiming.end().notifyThreadTimingFinished();
             });
       }
@@ -599,12 +581,12 @@ public class RootSetUtils {
               Timing threadTiming = timing.createThreadTiming("Evaluate non-program", options);
               if (rule.isApplicableToClasspathClasses()) {
                 for (DexClasspathClass clazz : application.classpathClasses()) {
-                  process(clazz, rule, ifRulePreconditionMatch);
+                  process(clazz, rule, ifRulePreconditionMatch, threadTiming);
                 }
               }
               if (rule.isApplicableToLibraryClasses()) {
                 for (DexLibraryClass clazz : application.libraryClasses()) {
-                  process(clazz, rule, ifRulePreconditionMatch);
+                  process(clazz, rule, ifRulePreconditionMatch, threadTiming);
                 }
               }
               threadTiming.end().notifyThreadTimingFinished();
@@ -626,7 +608,7 @@ public class RootSetUtils {
                 subtypingInfo,
                 application.classes(),
                 alwaysTrue(),
-                clazz -> process(clazz, rule, ifRulePreconditionMatch));
+                clazz -> process(clazz, rule, ifRulePreconditionMatch, threadTiming));
             threadTiming.end().notifyThreadTimingFinished();
           });
     }
@@ -788,13 +770,37 @@ public class RootSetUtils {
         Map<Predicate<DexDefinition>, DexClass> preconditionSupplier,
         boolean includeClasspathClasses,
         boolean includeLibraryClasses,
+        ProguardIfRulePreconditionMatch ifRulePreconditionMatch,
+        Timing timing) {
+      timing.begin("Mark visible methods");
+      markMatchingVisibleMethods(
+          clazz,
+          memberKeepRules,
+          rule,
+          preconditionSupplier,
+          includeClasspathClasses,
+          includeLibraryClasses,
+          ifRulePreconditionMatch);
+      timing.end();
+    }
+
+    private void markMatchingVisibleMethods(
+        DexClass clazz,
+        Collection<ProguardMemberRule> memberKeepRules,
+        ProguardConfigurationRule rule,
+        Map<Predicate<DexDefinition>, DexClass> preconditionSupplier,
+        boolean includeClasspathClasses,
+        boolean includeLibraryClasses,
         ProguardIfRulePreconditionMatch ifRulePreconditionMatch) {
+      if (memberKeepRules.isEmpty()) {
+        return;
+      }
+      // TODO(b/422947619): Evaluate the impact of matching the rule against the superclass.
+      boolean includeSuperclasses = !rule.isTrivialAllClassMatch();
       Set<Wrapper<DexMethod>> methodsMarked =
           options.forceProguardCompatibility ? null : new HashSet<>();
-      Deque<DexClass> worklist = new ArrayDeque<>();
-      worklist.add(clazz);
-      while (!worklist.isEmpty()) {
-        DexClass currentClass = worklist.pop();
+      DexClass currentClass = clazz;
+      do {
         if (!includeClasspathClasses && currentClass.isClasspathClass()) {
           break;
         }
@@ -805,7 +811,7 @@ public class RootSetUtils {
         currentClass.forEachClassMethodMatching(
             method ->
                 method.belongsToVirtualPool()
-                    || currentClass == clazz
+                    || method.getHolderType().isIdenticalTo(clazz.getType())
                     || (method.isStatic() && !method.isPrivate() && !method.isInitializer())
                     || options.forceProguardCompatibility,
             method -> {
@@ -819,13 +825,12 @@ public class RootSetUtils {
                   precondition,
                   ifRulePreconditionMatch);
             });
-        if (currentClass.superType != null) {
-          DexClass dexClass = application.definitionFor(currentClass.superType);
-          if (dexClass != null) {
-            worklist.add(dexClass);
-          }
+        if (currentClass.hasSuperType() && includeSuperclasses) {
+          currentClass = application.definitionFor(currentClass.getSuperType());
+        } else {
+          break;
         }
-      }
+      } while (currentClass != null);
       // TODO(b/143643942): Generalize the below approach to also work for subtyping hierarchies in
       //  fullmode.
       if (clazz.isProgramClass()
@@ -978,13 +983,35 @@ public class RootSetUtils {
         Map<Predicate<DexDefinition>, DexClass> preconditionSupplier,
         boolean includeClasspathClasses,
         boolean includeLibraryClasses,
+        ProguardIfRulePreconditionMatch ifRulePreconditionMatch,
+        Timing timing) {
+      timing.begin("Mark overridden methods");
+      markMatchingOverriddenMethods(
+          clazz,
+          memberKeepRules,
+          rule,
+          preconditionSupplier,
+          includeClasspathClasses,
+          includeLibraryClasses,
+          ifRulePreconditionMatch);
+      timing.end();
+    }
+
+    private void markMatchingOverriddenMethods(
+        DexClass clazz,
+        Collection<ProguardMemberRule> memberKeepRules,
+        ProguardConfigurationRule rule,
+        Map<Predicate<DexDefinition>, DexClass> preconditionSupplier,
+        boolean includeClasspathClasses,
+        boolean includeLibraryClasses,
         ProguardIfRulePreconditionMatch ifRulePreconditionMatch) {
+      if (memberKeepRules.isEmpty()) {
+        return;
+      }
       Set<DexClass> visited = Sets.newIdentityHashSet();
-      Deque<DexClass> worklist = new ArrayDeque<>();
       // Intentionally skip the current `clazz`, assuming it's covered by
       // markMatchingVisibleMethods.
-      worklist.addAll(subtypingInfo.getSubclasses(clazz));
-
+      Deque<DexClass> worklist = new ArrayDeque<>(subtypingInfo.getSubclasses(clazz));
       while (!worklist.isEmpty()) {
         DexClass currentClass = worklist.poll();
         if (!visited.add(currentClass)) {
@@ -1012,14 +1039,30 @@ public class RootSetUtils {
         DexClass clazz,
         Collection<ProguardMemberRule> memberKeepRules,
         ProguardConfigurationRule rule,
-        Map<Predicate<DexDefinition>, DexClass> preconditionSupplier,
         ProguardIfRulePreconditionMatch ifRulePreconditionMatch) {
       clazz.forEachClassMethod(
-          method -> {
-            DexClass precondition =
-                testAndGetPrecondition(method.getDefinition(), preconditionSupplier);
-            markMethod(method, memberKeepRules, null, rule, precondition, ifRulePreconditionMatch);
-          });
+          method -> markMethod(method, memberKeepRules, null, rule, null, ifRulePreconditionMatch));
+    }
+
+    private void markMatchingVisibleFields(
+        DexClass clazz,
+        Collection<ProguardMemberRule> memberKeepRules,
+        ProguardConfigurationRule rule,
+        Map<Predicate<DexDefinition>, DexClass> preconditionSupplier,
+        boolean includeClasspathClasses,
+        boolean includeLibraryClasses,
+        ProguardIfRulePreconditionMatch ifRulePreconditionMatch,
+        Timing timing) {
+      timing.begin("Mark visible fields");
+      markMatchingVisibleFields(
+          clazz,
+          memberKeepRules,
+          rule,
+          preconditionSupplier,
+          includeClasspathClasses,
+          includeLibraryClasses,
+          ifRulePreconditionMatch);
+      timing.end();
     }
 
     private void markMatchingVisibleFields(
@@ -1030,6 +1073,11 @@ public class RootSetUtils {
         boolean includeClasspathClasses,
         boolean includeLibraryClasses,
         ProguardIfRulePreconditionMatch ifRulePreconditionMatch) {
+      if (memberKeepRules.isEmpty()) {
+        return;
+      }
+      // TODO(b/422947619): Evaluate the impact of matching the rule against the superclass.
+      boolean includeSuperclasses = !rule.isTrivialAllClassMatch();
       while (clazz != null) {
         if (!includeClasspathClasses && clazz.isClasspathClass()) {
           return;
@@ -1043,7 +1091,11 @@ public class RootSetUtils {
                   testAndGetPrecondition(field.getDefinition(), preconditionSupplier);
               markField(field, memberKeepRules, rule, precondition, ifRulePreconditionMatch);
             });
-        clazz = clazz.superType == null ? null : application.definitionFor(clazz.superType);
+        if (clazz.hasSuperType() && includeSuperclasses) {
+          clazz = application.definitionFor(clazz.superType);
+        } else {
+          break;
+        }
       }
     }
 
@@ -1051,14 +1103,9 @@ public class RootSetUtils {
         DexClass clazz,
         Collection<ProguardMemberRule> memberKeepRules,
         ProguardConfigurationRule rule,
-        Map<Predicate<DexDefinition>, DexClass> preconditionSupplier,
         ProguardIfRulePreconditionMatch ifRulePreconditionMatch) {
       clazz.forEachClassField(
-          field -> {
-            DexClass precondition =
-                testAndGetPrecondition(field.getDefinition(), preconditionSupplier);
-            markField(field, memberKeepRules, rule, precondition, ifRulePreconditionMatch);
-          });
+          field -> markField(field, memberKeepRules, rule, null, ifRulePreconditionMatch));
     }
 
     // TODO(b/67934426): Test this code.
@@ -1145,105 +1192,6 @@ public class RootSetUtils {
 
     static AnnotationMatchResult satisfyAnnotation(ProguardConfigurationRule rule, DexClass clazz) {
       return containsAllAnnotations(rule.getClassAnnotations(), clazz);
-    }
-
-    boolean satisfyInheritanceRule(DexClass clazz, ProguardConfigurationRule rule) {
-      if (satisfyExtendsRule(clazz, rule)) {
-        return true;
-      }
-
-      return satisfyImplementsRule(clazz, rule);
-    }
-
-    boolean satisfyExtendsRule(DexClass clazz, ProguardConfigurationRule rule) {
-      if (anySuperTypeMatchesExtendsRule(clazz.superType, rule)) {
-        return true;
-      }
-      // It is possible that this class used to inherit from another class X, but no longer does it,
-      // because X has been merged into `clazz`.
-      return anySourceMatchesInheritanceRuleDirectly(clazz, rule, false);
-    }
-
-    boolean anySuperTypeMatchesExtendsRule(DexType type, ProguardConfigurationRule rule) {
-      while (type != null) {
-        DexClass clazz = application.definitionFor(type);
-        if (clazz == null) {
-          // TODO(herhut): Warn about broken supertype chain?
-          return false;
-        }
-        // TODO(b/110141157): Should the vertical class merger move annotations from the source to
-        // the target class? If so, it is sufficient only to apply the annotation-matcher to the
-        // annotations of `class`.
-        if (rule.getInheritanceClassName().matches(clazz.type, appView)) {
-          AnnotationMatchResult annotationMatchResult =
-              containsAllAnnotations(rule.getInheritanceAnnotations(), clazz);
-          if (annotationMatchResult != null) {
-            handleMatchedAnnotation(annotationMatchResult);
-            return true;
-          }
-        }
-        type = clazz.superType;
-      }
-      return false;
-    }
-
-    boolean satisfyImplementsRule(DexClass clazz, ProguardConfigurationRule rule) {
-      if (anyImplementedInterfaceMatchesImplementsRule(clazz, rule)) {
-        return true;
-      }
-      // It is possible that this class used to implement an interface I, but no longer does it,
-      // because I has been merged into `clazz`.
-      return anySourceMatchesInheritanceRuleDirectly(clazz, rule, true);
-    }
-
-    private boolean anyImplementedInterfaceMatchesImplementsRule(
-        DexClass clazz, ProguardConfigurationRule rule) {
-      // TODO(herhut): Maybe it would be better to do this breadth first.
-      if (clazz == null) {
-        return false;
-      }
-      for (DexType iface : clazz.interfaces.values) {
-        DexClass ifaceClass = application.definitionFor(iface);
-        if (ifaceClass == null) {
-          // TODO(herhut): Warn about broken supertype chain?
-          return false;
-        }
-        // TODO(b/110141157): Should the vertical class merger move annotations from the source to
-        // the target class? If so, it is sufficient only to apply the annotation-matcher to the
-        // annotations of `ifaceClass`.
-        if (rule.getInheritanceClassName().matches(iface, appView)) {
-          AnnotationMatchResult annotationMatchResult =
-              containsAllAnnotations(rule.getInheritanceAnnotations(), ifaceClass);
-          if (annotationMatchResult != null) {
-            handleMatchedAnnotation(annotationMatchResult);
-            return true;
-          }
-        }
-        if (anyImplementedInterfaceMatchesImplementsRule(ifaceClass, rule)) {
-          return true;
-        }
-      }
-      if (clazz.superType == null) {
-        return false;
-      }
-      DexClass superClass = application.definitionFor(clazz.superType);
-      if (superClass == null) {
-        // TODO(herhut): Warn about broken supertype chain?
-        return false;
-      }
-      return anyImplementedInterfaceMatchesImplementsRule(superClass, rule);
-    }
-
-    private boolean anySourceMatchesInheritanceRuleDirectly(
-        DexClass clazz, ProguardConfigurationRule rule, boolean isInterface) {
-      // TODO(b/110141157): Figure out what to do with annotations. Should the annotations of
-      // the DexClass corresponding to `sourceType` satisfy the `annotation`-matcher?
-      return appView.getVerticallyMergedClasses() != null
-          && appView.getVerticallyMergedClasses().getSourcesFor(clazz.type).stream()
-              .filter(
-                  sourceType ->
-                      appView.definitionFor(sourceType).accessFlags.isInterface() == isInterface)
-              .anyMatch(rule.getInheritanceClassName()::matches);
     }
 
     private boolean allRulesSatisfied(
@@ -1745,8 +1693,8 @@ public class RootSetUtils {
       if (rule.getMemberRules().isEmpty()) {
         evaluateCheckDiscardClassAndAllMembersRule(clazz, rule);
       } else if (clazz.hasFields() || clazz.hasMethods()) {
-        markMatchingFields(clazz, rule.getMemberRules(), rule, null, null);
-        markMatchingMethods(clazz, rule.getMemberRules(), rule, null, null);
+        markMatchingFields(clazz, rule.getMemberRules(), rule, null);
+        markMatchingMethods(clazz, rule.getMemberRules(), rule, null);
         classesWithCheckDiscardedMembers.add(clazz);
       }
     }
