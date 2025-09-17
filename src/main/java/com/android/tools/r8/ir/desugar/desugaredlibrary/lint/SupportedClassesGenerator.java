@@ -28,6 +28,7 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.graph.FieldResolutionResult;
+import com.android.tools.r8.graph.LazyLoadedDexApplication;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.ir.desugar.BackportedMethodRewriter;
@@ -503,7 +504,7 @@ public class SupportedClassesGenerator {
     ExecutorService executorService = ThreadUtils.getExecutorService(options);
     assert !options.ignoreJavaLibraryOverride;
     options.ignoreJavaLibraryOverride = true;
-    DexApplication appForMax = applicationReader.read(executorService);
+    LazyLoadedDexApplication appForMax = applicationReader.read(executorService);
     options.ignoreJavaLibraryOverride = false;
     DexClass varHandle =
         appForMax.definitionFor(

@@ -43,7 +43,7 @@ public class AssemblyWriter extends DexByteCodeWriter {
   private final RetracerForCodePrinting retracer;
 
   public AssemblyWriter(
-      DexApplication application,
+      LazyLoadedDexApplication application,
       InternalOptions options,
       boolean allInfo,
       boolean writeIR,
@@ -52,7 +52,7 @@ public class AssemblyWriter extends DexByteCodeWriter {
   }
 
   public AssemblyWriter(
-      DexApplication application,
+      LazyLoadedDexApplication application,
       InternalOptions options,
       boolean allInfo,
       boolean writeIR,

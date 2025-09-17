@@ -12,10 +12,10 @@ import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppServices;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ImmediateAppSubtypingInfo;
+import com.android.tools.r8.graph.LazyLoadedDexApplication;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.shaking.Enqueuer;
@@ -48,7 +48,7 @@ public class GenerateMainDexList {
   private void run(AndroidApp app, ExecutorService executor, SortingStringConsumer consumer)
       throws IOException {
     try {
-      DexApplication application =
+      LazyLoadedDexApplication application =
           new ApplicationReader(app, options, Timing.empty()).read(executor);
       traceMainDexForGenerateMainDexList(executor, application)
           .forEach(type -> consumer.accept(type.toBinaryName() + ".class", options.reporter));
@@ -62,12 +62,12 @@ public class GenerateMainDexList {
       throws ExecutionException {
     return traceMainDex(
         AppView.createForD8MainDexTracing(
-            appView.app().toDirect(), appView.appInfo().getMainDexInfo()),
+            appView.app().asLazy().toDirect(), appView.appInfo().getMainDexInfo()),
         executor);
   }
 
   public MainDexInfo traceMainDexForGenerateMainDexList(
-      ExecutorService executor, DexApplication application) throws ExecutionException {
+      ExecutorService executor, LazyLoadedDexApplication application) throws ExecutionException {
     return traceMainDex(AppView.createForR8(application.toDirect()), executor);
   }
 

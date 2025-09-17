@@ -7,7 +7,6 @@
 package com.android.tools.r8.graph;
 
 import com.android.tools.r8.DataResourceProvider;
-import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.naming.ClassNameMapper;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.timing.Timing;
@@ -252,11 +251,14 @@ public abstract class DexApplication implements DexDefinitionSupplier {
   }
 
   public DirectMappedDexApplication asDirect() {
-    throw new Unreachable("Cannot use a LazyDexApplication where a DirectDexApplication is"
-        + " expected.");
+    return null;
   }
 
-  public abstract DirectMappedDexApplication toDirect();
+  public boolean isDirect() {
+    return false;
+  }
 
-  public abstract boolean isDirect();
+  public LazyLoadedDexApplication asLazy() {
+    return null;
+  }
 }

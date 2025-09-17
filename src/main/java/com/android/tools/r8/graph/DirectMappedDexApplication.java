@@ -131,11 +131,6 @@ public class DirectMappedDexApplication extends DexApplication {
   }
 
   @Override
-  public DirectMappedDexApplication toDirect() {
-    return this;
-  }
-
-  @Override
   public boolean isDirect() {
     return true;
   }

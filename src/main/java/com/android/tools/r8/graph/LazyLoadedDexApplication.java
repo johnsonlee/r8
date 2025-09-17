@@ -370,13 +370,12 @@ public class LazyLoadedDexApplication extends DexApplication {
   }
 
   @Override
-  public DirectMappedDexApplication toDirect() {
-    return new DirectMappedDexApplication.Builder(this).build().asDirect();
+  public LazyLoadedDexApplication asLazy() {
+    return this;
   }
 
-  @Override
-  public boolean isDirect() {
-    return false;
+  public DirectMappedDexApplication toDirect() {
+    return new DirectMappedDexApplication.Builder(this).build();
   }
 
   @Override

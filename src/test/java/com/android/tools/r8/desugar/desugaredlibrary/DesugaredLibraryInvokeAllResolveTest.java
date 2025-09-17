@@ -119,6 +119,7 @@ public class DesugaredLibraryInvokeAllResolveTest extends DesugaredLibraryTestBa
     DirectMappedDexApplication finalApp =
         inspector
             .getApplication()
+            .asLazy()
             .toDirect()
             .builder()
             .replaceLibraryClasses(libHolder.libraryClasses())

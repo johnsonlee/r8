@@ -34,7 +34,6 @@ import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppServices;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexCode;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
@@ -45,6 +44,7 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.GenericSignature;
 import com.android.tools.r8.graph.GenericSignature.ClassSignature;
 import com.android.tools.r8.graph.ImmediateAppSubtypingInfo;
+import com.android.tools.r8.graph.LazyLoadedDexApplication;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.SmaliWriter;
 import com.android.tools.r8.jasmin.JasminBuilder;
@@ -898,8 +898,8 @@ public class TestBase {
     return newJar;
   }
 
-  private static DexApplication readApplicationForDexOutput(AndroidApp app, InternalOptions options)
-      throws Exception {
+  private static LazyLoadedDexApplication readApplicationForDexOutput(
+      AndroidApp app, InternalOptions options) throws Exception {
     assert options.programConsumer == null;
     options.programConsumer = DexIndexedConsumer.emptyConsumer();
     return new ApplicationReader(app, options, Timing.empty()).read();
@@ -959,7 +959,7 @@ public class TestBase {
     if (optionsConsumer != null) {
       optionsConsumer.accept(options);
     }
-    DexApplication dexApplication = readApplicationForDexOutput(app, options);
+    LazyLoadedDexApplication dexApplication = readApplicationForDexOutput(app, options);
     AppView<AppInfoWithClassHierarchy> appView = AppView.createForR8(dexApplication.toDirect());
     appView.setAppServices(AppServices.builder(appView).build());
     return appView;

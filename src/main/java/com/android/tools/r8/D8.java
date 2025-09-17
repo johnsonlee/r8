@@ -284,7 +284,8 @@ public final class D8 {
         // without iterating again the IR. We fall-back to writing one app with rewriting and
         // merging it with the other app in rewriteNonDexInputs.
         timing.begin("Rewrite non-dex inputs");
-        DexApplication app = rewriteNonDexInputs(appView, inputApp, executor, marker, timing);
+        LazyLoadedDexApplication app =
+            rewriteNonDexInputs(appView, inputApp, executor, marker, timing);
         timing.end();
         appView.rebuildAppInfo(app);
         appView.setNamingLens(NamingLens.getIdentityLens());
@@ -404,7 +405,7 @@ public final class D8 {
         "Api reference stubber", () -> new ApiReferenceStubber(appView).run(executorService));
   }
 
-  private static DexApplication rewriteNonDexInputs(
+  private static LazyLoadedDexApplication rewriteNonDexInputs(
       AppView<AppInfo> appView,
       AndroidApp inputApp,
       ExecutorService executor,
@@ -440,9 +441,9 @@ public final class D8 {
     builder.getProgramResourceProviders().clear();
     builder.addProgramResourceProvider(convertedCfFiles);
     AndroidApp newAndroidApp = builder.build();
-    DexApplication newApp =
+    LazyLoadedDexApplication newApp =
         new ApplicationReader(newAndroidApp, appView.options(), timing).read(executor);
-    DexApplication.Builder<?> finalDexApp = newApp.builder();
+    LazyLoadedDexApplication.Builder finalDexApp = newApp.builder();
     for (DexProgramClass dexProgramClass : dexProgramClasses) {
       finalDexApp.addProgramClass(dexProgramClass);
     }
