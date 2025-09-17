@@ -216,7 +216,6 @@ public abstract class DexApplication implements DexDefinitionSupplier {
             }
           });
       this.flags = builder.build();
-
       return self();
     }
 
