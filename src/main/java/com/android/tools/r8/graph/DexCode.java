@@ -40,6 +40,7 @@ import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodC
 import com.android.tools.r8.lightir.ByteUtils;
 import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.DexDebugUtils.PositionInfo;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.RetracerForCodePrinting;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.structural.Equatable;
@@ -157,6 +158,14 @@ public class DexCode extends Code
     assert instructions != null;
     assert verifySetPositionFramesFollowedByDefaultEvent(debugInfo);
     int unused = hashCode(); // Cache the hash code eagerly.
+  }
+
+  @Override
+  public boolean canBeCanonicalized(InternalOptions options) {
+    // Do not canonicalize code objects with invoke-super instructions due to ART's thread
+    // interpreter cache. See also b/445349082.
+    return options.canUseCanonicalizedCodeObjects()
+        && ArrayUtils.none(instructions, i -> i.isInvokeSuper() || i.isInvokeSuperRange());
   }
 
   public DexCode withCodeLens(GraphLens codeLens) {

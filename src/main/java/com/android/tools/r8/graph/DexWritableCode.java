@@ -11,6 +11,7 @@ import com.android.tools.r8.graph.DexCode.Try;
 import com.android.tools.r8.graph.DexCode.TryHandler;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.structural.CompareToVisitor;
 import com.android.tools.r8.utils.structural.HashingVisitor;
 import java.nio.ShortBuffer;
@@ -22,6 +23,10 @@ public interface DexWritableCode {
     DEFAULT_INSTANCE_INITIALIZER,
     THROW_NULL,
     THROW_EXCEPTION
+  }
+
+  default boolean canBeCanonicalized(InternalOptions options) {
+    return options.canUseCanonicalizedCodeObjects();
   }
 
   boolean isThrowExceptionCode();

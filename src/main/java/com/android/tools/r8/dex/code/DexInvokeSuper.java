@@ -49,6 +49,11 @@ public class DexInvokeSuper extends DexInvokeMethod {
   }
 
   @Override
+  public boolean isInvokeSuper() {
+    return true;
+  }
+
+  @Override
   public void registerUse(UseRegistry<?> registry) {
     registry.registerInvokeSuper(getMethod());
   }
