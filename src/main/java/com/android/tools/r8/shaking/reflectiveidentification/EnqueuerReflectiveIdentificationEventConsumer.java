@@ -107,7 +107,7 @@ public class EnqueuerReflectiveIdentificationEventConsumer
   }
 
   @Override
-  public void onJavaLangReflectProxyNewProxyInstance(
+  public void onJavaLangReflectProxyGetProxyClassOrNewProxyInstance(
       Set<DexProgramClass> classes, ProgramMethod context) {
     KeepReason reason = KeepReason.reflectiveUseIn(context);
     for (DexProgramClass clazz : classes) {

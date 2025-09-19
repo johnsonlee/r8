@@ -2942,9 +2942,15 @@ public class DexItemFactory {
 
   public class ProxyMethods {
 
+    public final DexMethod getProxyClass;
     public final DexMethod newProxyInstance;
 
     private ProxyMethods() {
+      getProxyClass =
+          createMethod(
+              proxyType,
+              createProto(classType, classLoaderType, classArrayType),
+              createString("getProxyClass"));
       newProxyInstance =
           createMethod(
               proxyType,

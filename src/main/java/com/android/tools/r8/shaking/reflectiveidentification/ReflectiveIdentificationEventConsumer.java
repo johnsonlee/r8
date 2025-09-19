@@ -24,7 +24,8 @@ public interface ReflectiveIdentificationEventConsumer {
 
   void onJavaLangReflectConstructorNewInstance(ProgramMethod initializer, ProgramMethod context);
 
-  void onJavaLangReflectProxyNewProxyInstance(Set<DexProgramClass> classes, ProgramMethod context);
+  void onJavaLangReflectProxyGetProxyClassOrNewProxyInstance(
+      Set<DexProgramClass> classes, ProgramMethod context);
 
   void onJavaUtilConcurrentAtomicAtomicIntegerFieldUpdaterNewUpdater(
       ProgramField field, ProgramMethod context);

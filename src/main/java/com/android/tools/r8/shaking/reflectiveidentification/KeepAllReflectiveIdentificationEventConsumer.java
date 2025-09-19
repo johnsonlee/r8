@@ -59,7 +59,7 @@ public class KeepAllReflectiveIdentificationEventConsumer
   }
 
   @Override
-  public void onJavaLangReflectProxyNewProxyInstance(
+  public void onJavaLangReflectProxyGetProxyClassOrNewProxyInstance(
       Set<DexProgramClass> classes, ProgramMethod context) {
     for (DexProgramClass clazz : classes) {
       keep(clazz, context);
