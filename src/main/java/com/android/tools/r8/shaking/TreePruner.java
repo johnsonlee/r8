@@ -96,7 +96,6 @@ public class TreePruner {
     appView.pruneItems(prunedItems, executorService, timing);
     appView.notifyOptimizationFinishedForTesting();
     timing.end();
-    appView.dexItemFactory().gc();
   }
 
   private DirectMappedDexApplication.Builder removeUnused(DirectMappedDexApplication application) {
