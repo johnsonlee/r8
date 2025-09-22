@@ -2327,6 +2327,7 @@ public class Enqueuer {
     processAnnotations(clazz);
 
     if (clazz.isAnnotation()) {
+      markAnnotationAsInstantiated(clazz, witness);
       deferredAnnotationTracing.notifyNewlyLiveAnnotation(clazz);
     }
 

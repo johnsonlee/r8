@@ -43,8 +43,7 @@ public class AnnotationToNonAnnotationClassMergingTest extends TestBase {
         .addKeepRuntimeVisibleAnnotations()
         .compile()
         .run(parameters.getRuntime(), Main.class)
-        // TODO(b/445911487): Should succeed with "Hello, world!".
-        .assertSuccessWithOutputLines(", world!, world!");
+        .assertSuccessWithOutputLines("Hello, world!");
   }
 
   @I("Hello")
