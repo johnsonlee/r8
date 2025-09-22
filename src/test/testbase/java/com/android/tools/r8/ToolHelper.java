@@ -29,6 +29,7 @@ import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
+import com.android.tools.r8.graph.LazyLoadedDexApplication;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
 import com.android.tools.r8.shaking.FilteredClassPath;
@@ -2704,8 +2705,8 @@ public class ToolHelper {
   }
 
   public static void disassemble(AndroidApp app, PrintStream ps) throws IOException {
-    DexApplication application =
-        new ApplicationReader(app, new InternalOptions(), Timing.empty()).read().toDirect();
+    LazyLoadedDexApplication application =
+        new ApplicationReader(app, new InternalOptions(), Timing.empty()).read();
     new AssemblyWriter(application, new InternalOptions(), true, false, true).write(ps);
   }
 

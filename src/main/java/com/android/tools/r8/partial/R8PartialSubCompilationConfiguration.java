@@ -184,7 +184,7 @@ public abstract class R8PartialSubCompilationConfiguration {
           desugaredOutputClasses.add(clazz);
         }
       }
-      DirectMappedDexApplication app = appView.app().toDirect();
+      DirectMappedDexApplication app = appView.app().asLazy().toDirect();
       outputClasspathClasses = app.classpathClasses();
       outputLibraryClasses = app.libraryClasses();
       startupProfile = appView.getStartupProfile();

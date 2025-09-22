@@ -251,9 +251,7 @@ public class FileWriter {
       Map<DexWritableCacheKey, Integer> offsetCache = new HashMap<>();
       for (ProgramMethod method : codes) {
         DexWritableCode dexWritableCode = method.getDefinition().getCode().asDexWritableCode();
-        if (!options.canUseCanonicalizedCodeObjects()) {
-          writeCodeItem(method, dexWritableCode);
-        } else {
+        if (dexWritableCode.canBeCanonicalized(options)) {
           DexWritableCacheKey cacheLookupKey =
               dexWritableCode.getCacheLookupKey(method, appView.dexItemFactory());
           Integer offsetOrNull = offsetCache.get(cacheLookupKey);
@@ -262,6 +260,8 @@ public class FileWriter {
           } else {
             offsetCache.put(cacheLookupKey, writeCodeItem(method, dexWritableCode));
           }
+        } else {
+          writeCodeItem(method, dexWritableCode);
         }
       }
       assert sizeAndCountOfCodeItems.getCount()
@@ -479,7 +479,7 @@ public class FileWriter {
     Set<DexWritableCacheKey> cache = new HashSet<>();
     for (ProgramMethod method : methods) {
       DexWritableCode code = method.getDefinition().getCode().asDexWritableCode();
-      if (!options.canUseCanonicalizedCodeObjects()
+      if (!code.canBeCanonicalized(options)
           || cache.add(code.getCacheLookupKey(method, appView.dexItemFactory()))) {
         sizeAndCount.count++;
         sizeAndCount.size = alignSize(4, sizeAndCount.size) + sizeOfCodeItem(code);

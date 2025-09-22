@@ -1287,7 +1287,7 @@ public class SyntheticItems {
       committedProgramTypes = ImmutableList.of();
       amendedApplication = application;
     } else {
-      DexApplication.Builder<?> appBuilder = application.builder();
+      DexApplication.Builder<?, ?> appBuilder = application.builder();
       ImmutableList.Builder<DexType> committedProgramTypesBuilder = ImmutableList.builder();
       for (SyntheticDefinition<?, ?, ?> definition : pending.definitions.values()) {
         if (!removedClasses.contains(definition.getHolder().getType())) {

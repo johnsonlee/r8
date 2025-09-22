@@ -78,13 +78,12 @@ public class DefaultMixedSectionLayoutStrategy extends MixedSectionLayoutStrateg
       this.appView = appView;
     }
 
-    public void addCode(DexWritableCode dexWritableCode, ProgramMethod method) {
+    public void addCode(DexWritableCode code, ProgramMethod method) {
       assert appView.options().canUseCanonicalizedCodeObjects();
       if (counts == null) {
         counts = new HashMap<>();
       }
-      DexWritableCacheKey cacheKey =
-          dexWritableCode.getCacheLookupKey(method, appView.dexItemFactory());
+      DexWritableCacheKey cacheKey = code.getCacheLookupKey(method, appView.dexItemFactory());
       if (!counts.containsKey(cacheKey)) {
         counts.put(cacheKey, 1);
       } else {
@@ -98,9 +97,11 @@ public class DefaultMixedSectionLayoutStrategy extends MixedSectionLayoutStrateg
             || method.getDefinition().getDexWritableCodeOrNull() == null;
         return 1;
       }
-      DexWritableCode dexWritableCodeOrNull = method.getDefinition().getDexWritableCodeOrNull();
-      DexWritableCacheKey cacheLookupKey =
-          dexWritableCodeOrNull.getCacheLookupKey(method, appView.dexItemFactory());
+      DexWritableCode code = method.getDefinition().getCode().asDexWritableCode();
+      if (!code.canBeCanonicalized(appView.options())) {
+        return 1;
+      }
+      DexWritableCacheKey cacheLookupKey = code.getCacheLookupKey(method, appView.dexItemFactory());
       assert counts.containsKey(cacheLookupKey);
       return counts.get(cacheLookupKey);
     }
@@ -117,7 +118,7 @@ public class DefaultMixedSectionLayoutStrategy extends MixedSectionLayoutStrateg
             DexWritableCode code = method.getDefinition().getDexWritableCodeOrNull();
             assert code != null || method.getDefinition().shouldNotHaveCode();
             if (code != null) {
-              if (appView.options().canUseCanonicalizedCodeObjects()) {
+              if (code.canBeCanonicalized(appView.options())) {
                 codeCounts.addCode(code, method);
               }
               codesSorted.add(method);

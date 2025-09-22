@@ -5,9 +5,9 @@ package com.android.tools.r8;
 
 import com.android.tools.r8.dex.ApplicationReader;
 import com.android.tools.r8.graph.AssemblyWriter;
-import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexByteCodeWriter;
 import com.android.tools.r8.graph.DexByteCodeWriter.OutputStreamProvider;
+import com.android.tools.r8.graph.LazyLoadedDexApplication;
 import com.android.tools.r8.graph.SmaliWriter;
 import com.android.tools.r8.naming.ClassNameMapper;
 import com.android.tools.r8.origin.CommandLineOrigin;
@@ -351,7 +351,7 @@ public class Disassemble {
       throws IOException {
     ExecutorService executor = ThreadUtils.getExecutorService(options);
     try {
-      DexApplication application =
+      LazyLoadedDexApplication application =
           new ApplicationReader(
                   AndroidApp.builder()
                       .addProgramResourceProvider(() -> Collections.singletonList(programResource))

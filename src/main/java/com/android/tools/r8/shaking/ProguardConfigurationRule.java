@@ -4,6 +4,10 @@
 package com.android.tools.r8.shaking;
 
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
+import static com.android.tools.r8.shaking.RootSetUtils.RootSetBuilder.satisfyAccessFlag;
+import static com.android.tools.r8.shaking.RootSetUtils.RootSetBuilder.satisfyAnnotation;
+import static com.android.tools.r8.shaking.RootSetUtils.RootSetBuilder.satisfyClassType;
+import static com.android.tools.r8.shaking.RootSetUtils.RootSetBuilder.satisfyNonSyntheticClass;
 import static com.google.common.base.Predicates.alwaysTrue;
 
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
@@ -15,8 +19,9 @@ import com.android.tools.r8.graph.ImmediateAppSubtypingInfo;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
 import com.android.tools.r8.shaking.ProguardWildcard.BackReference;
-import com.android.tools.r8.utils.BooleanBox;
+import com.android.tools.r8.shaking.RootSetUtils.RootSetBuilder;
 import com.android.tools.r8.utils.IterableUtils;
+import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.Iterables;
 import java.util.List;
@@ -30,6 +35,7 @@ public abstract class ProguardConfigurationRule extends ProguardClassSpecificati
   // TODO(b/164019179): Since we are using the rule language for tracing main dex we can end up in
   //  a situation where the references to types are dead.
   private boolean canReferenceDeadTypes = false;
+  private OptionalBool trivialAllClassMatch = OptionalBool.unknown();
 
   ProguardConfigurationRule(
       Origin origin,
@@ -61,21 +67,27 @@ public abstract class ProguardConfigurationRule extends ProguardClassSpecificati
         memberRules);
   }
 
-  public boolean isTrivalAllClassMatch() {
-    BooleanBox booleanBox = new BooleanBox(true);
-    getClassNames()
-        .forEachTypeMatcher(
-            unused -> booleanBox.set(false),
-            proguardTypeMatcher -> !proguardTypeMatcher.isMatchAnyClassPattern());
-    return booleanBox.get()
+  public boolean isTrivialAllClassMatch() {
+    if (trivialAllClassMatch.isUnknown()) {
+      trivialAllClassMatch = OptionalBool.of(computeIsTrivialAllClassMatch());
+    }
+    assert trivialAllClassMatch.isTrue() == computeIsTrivialAllClassMatch();
+    return trivialAllClassMatch.isTrue();
+  }
+
+  public boolean isTrivialAllClassMatchWithNoMembersRules() {
+    return isTrivialAllClassMatch() && !hasMemberRules();
+  }
+
+  public boolean computeIsTrivialAllClassMatch() {
+    return getClassNames().isMatchAnyClassPattern()
         && getClassAnnotations().isEmpty()
         && getClassAccessFlags().isDefaultFlags()
         && getNegatedClassAccessFlags().isDefaultFlags()
         && !getClassTypeNegated()
         && getClassType() == ProguardClassType.CLASS
         && getInheritanceAnnotations().isEmpty()
-        && getInheritanceClassName() == null
-        && getMemberRules().isEmpty();
+        && !hasInheritanceClassName();
   }
 
   public boolean isUsed() {
@@ -201,6 +213,10 @@ public abstract class ProguardConfigurationRule extends ProguardClassSpecificati
     return false;
   }
 
+  public final boolean isOnlyApplicableToProgramClasses() {
+    return !isApplicableToClasspathClasses() && !isApplicableToLibraryClasses();
+  }
+
   protected boolean hasBackReferences() {
     return !Iterables.isEmpty(getBackReferences());
   }
@@ -262,5 +278,142 @@ public abstract class ProguardConfigurationRule extends ProguardClassSpecificati
     builder.append(' ');
     super.append(builder);
     return builder;
+  }
+
+  public boolean testClassCondition(
+      DexClass clazz,
+      AppView<?> appView,
+      Consumer<AnnotationMatchResult> annotationMatchResultConsumer) {
+    if (!satisfyNonSyntheticClass(clazz, appView)) {
+      return false;
+    }
+    if (!satisfyClassType(this, clazz)) {
+      return false;
+    }
+    if (!satisfyAccessFlag(this, clazz)) {
+      return false;
+    }
+    AnnotationMatchResult annotationMatchResult = satisfyAnnotation(this, clazz);
+    if (annotationMatchResult == null) {
+      return false;
+    }
+    annotationMatchResultConsumer.accept(annotationMatchResult);
+    // In principle it should make a difference whether the user specified in a class
+    // spec that a class either extends or implements another type. However, proguard
+    // seems not to care, so users have started to use this inconsistently. We are thus
+    // inconsistent, as well, but tell them.
+    // TODO(herhut): One day make this do what it says.
+    if (hasInheritanceClassName()
+        && !satisfyInheritanceRule(clazz, appView, annotationMatchResultConsumer)) {
+      return false;
+    }
+    return getClassNames().matches(clazz.type);
+  }
+
+  public boolean satisfyInheritanceRule(
+      DexClass clazz,
+      AppView<?> appView,
+      Consumer<AnnotationMatchResult> annotationMatchResultConsumer) {
+    return satisfyExtendsRule(clazz, appView, annotationMatchResultConsumer)
+        || satisfyImplementsRule(clazz, appView, annotationMatchResultConsumer);
+  }
+
+  private boolean satisfyExtendsRule(
+      DexClass clazz,
+      AppView<?> appView,
+      Consumer<AnnotationMatchResult> annotationMatchResultConsumer) {
+    if (anySuperTypeMatchesExtendsRule(clazz.superType, appView, annotationMatchResultConsumer)) {
+      return true;
+    }
+    // It is possible that this class used to inherit from another class X, but no longer does it,
+    // because X has been merged into `clazz`.
+    return anySourceMatchesInheritanceRuleDirectly(clazz, false, appView);
+  }
+
+  private boolean anySuperTypeMatchesExtendsRule(
+      DexType type,
+      AppView<?> appView,
+      Consumer<AnnotationMatchResult> annotationMatchResultConsumer) {
+    while (type != null) {
+      DexClass clazz = appView.definitionFor(type);
+      if (clazz == null) {
+        // TODO(herhut): Warn about broken supertype chain?
+        return false;
+      }
+      // TODO(b/110141157): Should the vertical class merger move annotations from the source to
+      //  the target class? If so, it is sufficient only to apply the annotation-matcher to the
+      //  annotations of `class`.
+      if (getInheritanceClassName().matches(clazz.type, appView)) {
+        AnnotationMatchResult annotationMatchResult =
+            RootSetBuilder.containsAllAnnotations(getInheritanceAnnotations(), clazz);
+        if (annotationMatchResult != null) {
+          annotationMatchResultConsumer.accept(annotationMatchResult);
+          return true;
+        }
+      }
+      type = clazz.superType;
+    }
+    return false;
+  }
+
+  private boolean satisfyImplementsRule(
+      DexClass clazz,
+      AppView<?> appView,
+      Consumer<AnnotationMatchResult> annotationMatchResultConsumer) {
+    if (anyImplementedInterfaceMatchesImplementsRule(
+        clazz, appView, annotationMatchResultConsumer)) {
+      return true;
+    }
+    // It is possible that this class used to implement an interface I, but no longer does it,
+    // because I has been merged into `clazz`.
+    return anySourceMatchesInheritanceRuleDirectly(clazz, true, appView);
+  }
+
+  private boolean anyImplementedInterfaceMatchesImplementsRule(
+      DexClass clazz,
+      AppView<?> appView,
+      Consumer<AnnotationMatchResult> annotationMatchResultConsumer) {
+    // TODO(herhut): Maybe it would be better to do this breadth first.
+    for (DexType iface : clazz.getInterfaces()) {
+      DexClass ifaceClass = appView.definitionFor(iface);
+      if (ifaceClass == null) {
+        // TODO(herhut): Warn about broken supertype chain?
+        continue;
+      }
+      // TODO(b/110141157): Should the vertical class merger move annotations from the source to
+      // the target class? If so, it is sufficient only to apply the annotation-matcher to the
+      // annotations of `ifaceClass`.
+      if (getInheritanceClassName().matches(iface, appView)) {
+        AnnotationMatchResult annotationMatchResult =
+            RootSetBuilder.containsAllAnnotations(getInheritanceAnnotations(), ifaceClass);
+        if (annotationMatchResult != null) {
+          annotationMatchResultConsumer.accept(annotationMatchResult);
+          return true;
+        }
+      }
+      if (anyImplementedInterfaceMatchesImplementsRule(
+          ifaceClass, appView, annotationMatchResultConsumer)) {
+        return true;
+      }
+    }
+    if (!clazz.hasSuperType()) {
+      return false;
+    }
+    DexClass superClass = appView.definitionFor(clazz.getSuperType());
+    return superClass != null
+        && anyImplementedInterfaceMatchesImplementsRule(
+            superClass, appView, annotationMatchResultConsumer);
+  }
+
+  private boolean anySourceMatchesInheritanceRuleDirectly(
+      DexClass clazz, boolean isInterface, AppView<?> appView) {
+    // TODO(b/110141157): Figure out what to do with annotations. Should the annotations of
+    // the DexClass corresponding to `sourceType` satisfy the `annotation`-matcher?
+    return appView.getVerticallyMergedClasses() != null
+        && appView.getVerticallyMergedClasses().getSourcesFor(clazz.type).stream()
+            .filter(
+                sourceType ->
+                    appView.definitionFor(sourceType).accessFlags.isInterface() == isInterface)
+            .anyMatch(getInheritanceClassName()::matches);
   }
 }

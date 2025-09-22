@@ -229,6 +229,14 @@ public abstract class DexInstruction implements CfOrDexInstruction, StructuralIt
     return null;
   }
 
+  public boolean isInvokeSuper() {
+    return false;
+  }
+
+  public boolean isInvokeSuperRange() {
+    return false;
+  }
+
   public boolean isInvokeVirtual() {
     return false;
   }

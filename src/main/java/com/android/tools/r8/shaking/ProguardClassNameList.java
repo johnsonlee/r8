@@ -38,6 +38,8 @@ public abstract class ProguardClassNameList {
     return new SingleClassNameList(matcher);
   }
 
+  public abstract boolean isMatchAnyClassPattern();
+
   public abstract int size();
 
   public static class Builder {
@@ -154,6 +156,11 @@ public abstract class ProguardClassNameList {
     }
 
     @Override
+    public boolean isMatchAnyClassPattern() {
+      return false;
+    }
+
+    @Override
     public int size() {
       return 0;
     }
@@ -204,6 +211,11 @@ public abstract class ProguardClassNameList {
 
     private SingleClassNameList(ProguardTypeMatcher className) {
       this.className = className;
+    }
+
+    @Override
+    public boolean isMatchAnyClassPattern() {
+      return className.isMatchAnyClassPattern();
     }
 
     @Override
@@ -297,6 +309,11 @@ public abstract class ProguardClassNameList {
     private PositiveClassNameList(Collection<ProguardTypeMatcher> classNames) {
       this.classNames = ImmutableList.copyOf(classNames);
       assert !hasSpecificTypes() || getSpecificTypes().size() > 1;
+    }
+
+    @Override
+    public boolean isMatchAnyClassPattern() {
+      return false;
     }
 
     @Override
@@ -409,6 +426,11 @@ public abstract class ProguardClassNameList {
 
     private MixedClassNameList(Object2BooleanMap<ProguardTypeMatcher> classNames) {
       this.classNames = classNames;
+    }
+
+    @Override
+    public boolean isMatchAnyClassPattern() {
+      return false;
     }
 
     @Override

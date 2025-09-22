@@ -49,6 +49,11 @@ public class DexInvokeSuperRange extends DexInvokeMethodRange {
   }
 
   @Override
+  public boolean isInvokeSuperRange() {
+    return true;
+  }
+
+  @Override
   public void registerUse(UseRegistry<?> registry) {
     registry.registerInvokeSuper(getMethod());
   }

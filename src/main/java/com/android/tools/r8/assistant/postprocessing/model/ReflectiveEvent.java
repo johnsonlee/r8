@@ -52,6 +52,14 @@ public abstract class ReflectiveEvent {
     return null;
   }
 
+  public boolean isServiceLoaderLoad() {
+    return false;
+  }
+
+  public ServiceLoaderLoad asServiceLoaderLoad() {
+    return null;
+  }
+
   public boolean isClassGetMember() {
     return false;
   }
@@ -119,7 +127,7 @@ public abstract class ReflectiveEvent {
       case ATOMIC_FIELD_UPDATER_NEW_UPDATER:
         return new AtomicFieldUpdaterNewUpdater(eventType, stack, args, factory);
       case SERVICE_LOADER_LOAD:
-        break;
+        return new ServiceLoaderLoad(eventType, stack, args, factory);
       case PROXY_NEW_PROXY_INSTANCE:
         break;
     }

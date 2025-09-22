@@ -463,7 +463,7 @@ public class SyntheticFinalization {
       assert verifyNonRepresentativesRemovedFromApplication(application, syntheticMethodGroups);
 
       timing.begin("Tree fixing");
-      DexApplication.Builder<?> builder = application.builder();
+      DexApplication.Builder<?, ?> builder = application.builder();
       treeFixer.fixupClasses(deduplicatedClasses);
       builder.replaceProgramClasses(treeFixer.fixupClasses(application.classes()));
       application = builder.build();

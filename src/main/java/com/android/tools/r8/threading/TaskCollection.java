@@ -7,6 +7,7 @@ package com.android.tools.r8.threading;
 import static com.google.common.base.Predicates.alwaysTrue;
 
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.ThrowingAction;
 import com.android.tools.r8.utils.UncheckedExecutionException;
 import com.google.common.util.concurrent.Futures;
@@ -45,6 +46,10 @@ public class TaskCollection<T> {
   public TaskCollection(
       InternalOptions options, ExecutorService executorService, int initialCapacity) {
     this(options.getThreadingModule(), executorService, initialCapacity);
+  }
+
+  public int getNumberOfThreadsOrDefault(int defaultValue) {
+    return ThreadUtils.getNumberOfThreadsOrDefault(executorService, defaultValue);
   }
 
   public <S> void stream(Collection<S> items, Function<S, T> fn, Consumer<T> consumer)

@@ -38,7 +38,7 @@ public final class EmulatedInterfaceApplicationRewriter {
         .forEach((ei, descriptor) -> emulatedInterfaces.put(ei, descriptor.getRewrittenType()));
   }
 
-  public void rewriteApplication(DexApplication.Builder<?> builder) {
+  public void rewriteApplication(DexApplication.Builder<?, ?> builder) {
     assert appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation();
     ArrayList<DexProgramClass> newProgramClasses = new ArrayList<>();
     for (DexProgramClass clazz : builder.getProgramClasses()) {

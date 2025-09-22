@@ -82,12 +82,6 @@ public class LegacyResourceShrinker {
 
     public Builder addResourceTable(String path, byte[] bytes, FeatureSplit featureSplit) {
       resourceTables.put(new PathAndBytes(bytes, path), featureSplit);
-      try {
-        ResourceTable resourceTable = ResourceTable.parseFrom(bytes);
-        System.currentTimeMillis();
-      } catch (InvalidProtocolBufferException e) {
-        throw new RuntimeException(e);
-      }
       return this;
     }
 

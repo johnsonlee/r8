@@ -18,6 +18,7 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.ImmediateAppSubtypingInfo;
+import com.android.tools.r8.graph.LazyLoadedDexApplication;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
@@ -463,7 +464,8 @@ public class InlineTest extends IrInjectionTestBase {
         application, options, methodSubject, ImmutableList.of(codeA, codeB));
   }
 
-  protected DexApplication buildApplication(SmaliBuilder builder, InternalOptions options) {
+  protected LazyLoadedDexApplication buildApplication(
+      SmaliBuilder builder, InternalOptions options) {
     try {
       AndroidApp app =
           AndroidApp.builder()

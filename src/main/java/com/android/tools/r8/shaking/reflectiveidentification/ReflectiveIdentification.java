@@ -97,7 +97,8 @@ public class ReflectiveIdentification {
       }
     } else if (holder.isIdenticalTo(factory.proxyType)) {
       // java.lang.reflect.Proxy
-      if (invokedMethod.isIdenticalTo(factory.proxyMethods.newProxyInstance)) {
+      if (invokedMethod.isIdenticalTo(factory.proxyMethods.getProxyClass)
+          || invokedMethod.isIdenticalTo(factory.proxyMethods.newProxyInstance)) {
         enqueue(method);
       }
     } else if (holder.isIdenticalTo(factory.serviceLoaderType)) {
@@ -187,8 +188,9 @@ public class ReflectiveIdentification {
       }
     } else if (holder.isIdenticalTo(factory.proxyType)) {
       // java.lang.reflect.Proxy
-      if (invokedMethod.isIdenticalTo(factory.proxyMethods.newProxyInstance)) {
-        handleJavaLangReflectProxyNewProxyInstance(method, invoke);
+      if (invokedMethod.isIdenticalTo(factory.proxyMethods.getProxyClass)
+          || invokedMethod.isIdenticalTo(factory.proxyMethods.newProxyInstance)) {
+        handleJavaLangReflectProxyGetProxyClassOrNewProxyInstance(method, invoke);
         return true;
       }
     } else if (holder.isIdenticalTo(factory.serviceLoaderType)) {
@@ -423,7 +425,7 @@ public class ReflectiveIdentification {
    * Handles reflective uses of {@link java.lang.reflect.Proxy#newProxyInstance(ClassLoader,
    * Class[], InvocationHandler)}.
    */
-  private void handleJavaLangReflectProxyNewProxyInstance(
+  private void handleJavaLangReflectProxyGetProxyClassOrNewProxyInstance(
       ProgramMethod method, InvokeMethod invoke) {
     if (!invoke.isInvokeStatic()) {
       assert false;
@@ -466,7 +468,7 @@ public class ReflectiveIdentification {
       }
     }
     if (!classes.isEmpty()) {
-      eventConsumer.onJavaLangReflectProxyNewProxyInstance(classes, method);
+      eventConsumer.onJavaLangReflectProxyGetProxyClassOrNewProxyInstance(classes, method);
     }
   }
 

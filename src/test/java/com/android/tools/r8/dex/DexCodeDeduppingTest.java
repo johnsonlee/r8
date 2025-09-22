@@ -29,11 +29,11 @@ import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class DexCodeDeduppingTest extends TestBase {
-  private final TestParameters parameters;
   private static final List<String> EXPECTED = ImmutableList.of("foo", "bar", "foo", "bar");
 
   private static final int ONE_CLASS_COUNT = 4;
@@ -42,13 +42,12 @@ public class DexCodeDeduppingTest extends TestBase {
   private static final int TWO_CLASS_COUNT = 6;
   private static final int TWO_CLASS_DEDUPLICATED_COUNT = 3;
 
+  @Parameter(0)
+  public TestParameters parameters;
+
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters().withDexRuntimes().withAllApiLevels().build();
-  }
-
-  public DexCodeDeduppingTest(TestParameters parameters) {
-    this.parameters = parameters;
   }
 
   @Test

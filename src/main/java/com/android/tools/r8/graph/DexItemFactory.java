@@ -53,7 +53,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -2943,9 +2942,15 @@ public class DexItemFactory {
 
   public class ProxyMethods {
 
+    public final DexMethod getProxyClass;
     public final DexMethod newProxyInstance;
 
     private ProxyMethods() {
+      getProxyClass =
+          createMethod(
+              proxyType,
+              createProto(classType, classLoaderType, classArrayType),
+              createString("getProxyClass"));
       newProxyInstance =
           createMethod(
               proxyType,
@@ -3666,37 +3671,6 @@ public class DexItemFactory {
     List<DexType> allTypes = new ArrayList<>(committedTypes.values());
     allTypes.addAll(types.values());
     allTypes.forEach(f);
-  }
-
-  public void gc() {
-    markers = new WeakHashMap<>(markers);
-    methodHandles = new WeakHashMap<>(methodHandles);
-    strings = new WeakHashMap<>(strings);
-    types = new WeakHashMap<>(types);
-    fields = new WeakHashMap<>(fields);
-    protos = new WeakHashMap<>(protos);
-    methods = new WeakHashMap<>(methods);
-    committedMethodHandles = new WeakHashMap<>(committedMethodHandles);
-    committedStrings = new WeakHashMap<>(committedStrings);
-    committedTypes = new WeakHashMap<>(committedTypes);
-    committedFields = new WeakHashMap<>(committedFields);
-    committedProtos = new WeakHashMap<>(committedProtos);
-    committedMethods = new WeakHashMap<>(committedMethods);
-    System.gc();
-    System.gc();
-    markers = new ConcurrentHashMap<>(markers);
-    methodHandles = new ConcurrentHashMap<>(methodHandles);
-    strings = new ConcurrentHashMap<>(strings);
-    types = new ConcurrentHashMap<>(types);
-    fields = new ConcurrentHashMap<>(fields);
-    protos = new ConcurrentHashMap<>(protos);
-    methods = new ConcurrentHashMap<>(methods);
-    committedMethodHandles = new HashMap<>(committedMethodHandles);
-    committedStrings = new HashMap<>(committedStrings);
-    committedTypes = new HashMap<>(committedTypes);
-    committedFields = new HashMap<>(committedFields);
-    committedProtos = new HashMap<>(committedProtos);
-    committedMethods = new HashMap<>(committedMethods);
   }
 
   public void commitPendingItems() {
