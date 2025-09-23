@@ -58,6 +58,7 @@ import com.android.tools.r8.utils.InternalOptions.HorizontalClassMergerOptions;
 import com.android.tools.r8.utils.InternalOptions.LineNumberOptimization;
 import com.android.tools.r8.utils.InternalOptions.MappingComposeOptions;
 import com.android.tools.r8.utils.InternalProgramClassProvider;
+import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.ProgramClassCollection;
 import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.SemanticVersion;
@@ -514,24 +515,13 @@ public final class R8Command extends BaseCompilerCommand {
      */
     public Builder addFeatureSplit(
         Function<FeatureSplit.Builder, FeatureSplit> featureSplitGenerator) {
-      FeatureSplit featureSplit = featureSplitGenerator.apply(FeatureSplit.builder(getReporter()));
-      featureSplitConfigurationBuilder.addFeatureSplit(featureSplit);
-      for (ProgramResourceProvider programResourceProvider : featureSplit
-          .getProgramResourceProviders()) {
-        // Data resources are handled separately and passed directly to the feature split consumer.
-        ProgramResourceProvider providerWithoutDataResources = new ProgramResourceProvider() {
-          @Override
-          public Collection<ProgramResource> getProgramResources() throws ResourceException {
-            return programResourceProvider.getProgramResources();
-          }
-
-          @Override
-          public DataResourceProvider getDataResourceProvider() {
-            return null;
-          }
-        };
-        addProgramResourceProvider(providerWithoutDataResources);
-      }
+      FeatureSplit featureSplit = featureSplitGenerator.apply(FeatureSplit.builder());
+      List<FeatureSplitProgramResourceProvider> featureSplitProgramResourceProviders =
+          ListUtils.map(
+              featureSplit.getProgramResourceProviders(), FeatureSplitProgramResourceProvider::new);
+      featureSplitConfigurationBuilder.addFeatureSplit(
+          featureSplit, featureSplitProgramResourceProviders);
+      featureSplitProgramResourceProviders.forEach(this::addProgramResourceProvider);
       return self();
     }
 
@@ -896,7 +886,7 @@ public final class R8Command extends BaseCompilerCommand {
               getIncludeClassesChecksum(),
               getDexClassChecksumFilter(),
               desugaredLibrarySpecification,
-              featureSplitConfigurationBuilder.build(),
+              featureSplitConfigurationBuilder.build(factory),
               getAssertionsConfiguration(),
               getOutputInspections(),
               synthesizedClassPrefix,

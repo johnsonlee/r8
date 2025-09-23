@@ -717,8 +717,7 @@ public class AndroidApp {
     Map<FeatureSplit, ZipOutputStream> featureSplitArchiveOutputStreams = new IdentityHashMap<>();
     try {
       ClassToFeatureSplitMap classToFeatureSplitMap =
-          ClassToFeatureSplitMap.createInitialClassToFeatureSplitMap(
-              options.dexItemFactory(), featureSplitConfiguration, options.reporter);
+          ClassToFeatureSplitMap.createInitialClassToFeatureSplitMap(featureSplitConfiguration);
       if (featureSplitConfiguration != null) {
         for (FeatureSplit featureSplit : featureSplitConfiguration.getFeatureSplits()) {
           ByteArrayOutputStream archiveByteStream = new ByteArrayOutputStream();

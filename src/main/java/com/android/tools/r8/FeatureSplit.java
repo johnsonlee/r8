@@ -89,8 +89,8 @@ public class FeatureSplit {
     return programConsumer;
   }
 
-  static Builder builder(DiagnosticsHandler handler) {
-    return new Builder(handler);
+  static Builder builder() {
+    return new Builder();
   }
 
   public AndroidResourceProvider getAndroidResourceProvider() {
@@ -113,13 +113,7 @@ public class FeatureSplit {
     private AndroidResourceProvider androidResourceProvider;
     private AndroidResourceConsumer androidResourceConsumer;
 
-    @SuppressWarnings("UnusedVariable")
-    private final DiagnosticsHandler handler;
-
-
-    private Builder(DiagnosticsHandler handler) {
-      this.handler = handler;
-    }
+    private Builder() {}
 
     /**
      * Set the program consumer.
