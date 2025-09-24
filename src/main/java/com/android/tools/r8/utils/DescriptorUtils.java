@@ -818,8 +818,11 @@ public class DescriptorUtils {
 
   public static boolean isRClassDescriptor(String descriptor) {
     String simpleClassName = DescriptorUtils.getSimpleClassNameFromDescriptor(descriptor);
-    List<String> split = StringUtils.split(simpleClassName, '$');
-
+    int innerClassSeparatorIndex = simpleClassName.lastIndexOf(INNER_CLASS_SEPARATOR);
+    if (innerClassSeparatorIndex < 0 || innerClassSeparatorIndex == simpleClassName.length() - 1) {
+      return false;
+    }
+    List<String> split = StringUtils.split(simpleClassName, INNER_CLASS_SEPARATOR);
     if (split.size() < 2) {
       return false;
     }
@@ -828,8 +831,7 @@ public class DescriptorUtils {
     // We match on R if:
     // - The name of the Class is R$type - we allow R to be an inner class.
     //   - The inner type should be with lower case
-    boolean isRClass = Character.isLowerCase(type.charAt(0)) && rClass.equals("R");
-    return isRClass;
+    return Character.isLowerCase(type.charAt(0)) && rClass.equals("R");
   }
 
   public static String getPathFromDescriptor(String descriptor) {
