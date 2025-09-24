@@ -149,7 +149,21 @@ public class ProguardConfigurationParser {
       Reporter reporter,
       ProguardConfigurationParserOptions options,
       InputDependencyGraphConsumer inputDependencyConsumer) {
-    this.configurationBuilder = ProguardConfiguration.builder(dexItemFactory, reporter);
+    this(
+        dexItemFactory,
+        reporter,
+        options,
+        inputDependencyConsumer,
+        ProguardConfiguration.builder(dexItemFactory, reporter));
+  }
+
+  public ProguardConfigurationParser(
+      DexItemFactory dexItemFactory,
+      Reporter reporter,
+      ProguardConfigurationParserOptions options,
+      InputDependencyGraphConsumer inputDependencyConsumer,
+      ProguardConfiguration.Builder configurationBuilder) {
+    this.configurationBuilder = configurationBuilder;
     this.dexItemFactory = dexItemFactory;
     this.options = options;
     this.reporter = reporter;
