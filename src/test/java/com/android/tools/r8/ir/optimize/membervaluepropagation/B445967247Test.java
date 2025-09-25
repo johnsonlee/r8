@@ -41,8 +41,7 @@ public class B445967247Test extends TestBase {
         .addKeepClassAndMembersRules(Main.class)
         .enableInliningAnnotations()
         .run(parameters.getRuntime(), Main.class)
-        // TODO(b/445967247): Fixme.
-        .assertSuccessWithOutputLines("[]");
+        .assertSuccessWithOutputLines("[Hello, world!]");
   }
 
   static class Main {
