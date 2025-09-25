@@ -7,6 +7,7 @@
 package com.android.tools.r8.graph;
 
 import com.android.tools.r8.DataResourceProvider;
+import com.android.tools.r8.ProgramResourceProvider;
 import com.android.tools.r8.naming.ClassNameMapper;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.timing.Timing;
@@ -179,8 +180,9 @@ public abstract class DexApplication implements DexDefinitionSupplier {
       return null;
     }
 
-    public void setFlags(DexApplicationReadFlags flags) {
+    public T setFlags(DexApplicationReadFlags flags) {
       this.flags = flags;
+      return self();
     }
 
     public synchronized T setProguardMap(ClassNameMapper proguardMap) {
@@ -219,8 +221,13 @@ public abstract class DexApplication implements DexDefinitionSupplier {
       return self();
     }
 
-    public synchronized T addDataResourceProvider(DataResourceProvider provider) {
-      dataResourceProviders.add(provider);
+    public synchronized T addDataResourceProviders(List<ProgramResourceProvider> providers) {
+      for (ProgramResourceProvider provider : providers) {
+        DataResourceProvider dataResourceProvider = provider.getDataResourceProvider();
+        if (dataResourceProvider != null) {
+          dataResourceProviders.add(dataResourceProvider);
+        }
+      }
       return self();
     }
 
@@ -242,11 +249,7 @@ public abstract class DexApplication implements DexDefinitionSupplier {
       return programClasses;
     }
 
-    public final S build() {
-      return build(Timing.empty());
-    }
-
-    public abstract S build(Timing timing);
+    public abstract S build();
   }
 
   public static LazyLoadedDexApplication.Builder builder(InternalOptions options, Timing timing) {

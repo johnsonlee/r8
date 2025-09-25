@@ -12,6 +12,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /**
  * Lazy Java class file resource provider based on preloaded/prebuilt context.
@@ -49,6 +50,16 @@ public final class PreloadedClassFileProvider implements ClassFileResourceProvid
     if (bytes == null) {
       return null;
     }
+    return createProgramResource(descriptor, bytes);
+  }
+
+  @Override
+  public void getProgramResources(Consumer<ProgramResource> consumer) {
+    content.forEach(
+        (descriptor, bytes) -> consumer.accept(createProgramResource(descriptor, bytes)));
+  }
+
+  private static ProgramResource createProgramResource(String descriptor, byte[] bytes) {
     return ProgramResource.fromBytes(
         new ClassDescriptorOrigin(descriptor), Kind.CF, bytes, Collections.singleton(descriptor));
   }

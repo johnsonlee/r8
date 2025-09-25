@@ -91,9 +91,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -848,7 +848,7 @@ public class DexParser<T extends DexClass> {
     return methods;
   }
 
-  void addClassDefsTo(Consumer<T> classCollection, ApplicationReaderMap applicationReaderMap) {
+  void addClassDefsTo(Collection<T> classCollection, ApplicationReaderMap applicationReaderMap) {
     final DexSection dexSection = lookupSection(Constants.TYPE_CLASS_DEF_ITEM);
     final int length = dexSection.length;
     indexedItems.initializeClasses(length);
@@ -969,7 +969,7 @@ public class DexParser<T extends DexClass> {
               // Interpreting reachability sensitivity from DEX inputs is not supported.
               // The compiler does not support building IR from DEX with debug information.
               ReachabilitySensitiveValue.DISABLED);
-      classCollection.accept(clazz); // Update the application object.
+      classCollection.add(clazz); // Update the application object.
     }
   }
 

@@ -29,8 +29,10 @@ import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
 
 /**
@@ -100,6 +102,34 @@ class InternalArchiveClassFileProvider
       }
     } catch (IOException e) {
       throw new CompilationError("Failed to read '" + descriptor, origin);
+    }
+  }
+
+  @Override
+  public void getProgramResources(Consumer<ProgramResource> consumer) {
+    try (ZipFile zipFile = FileUtils.createZipFile(path.toFile(), StandardCharsets.UTF_8)) {
+      final Enumeration<? extends ZipEntry> entries = zipFile.entries();
+      while (entries.hasMoreElements()) {
+        ZipEntry entry = entries.nextElement();
+        try (InputStream stream = zipFile.getInputStream(entry)) {
+          String name = entry.getName();
+          Origin entryOrigin = new ArchiveEntryOrigin(name, origin);
+          if (ZipUtils.isClassFile(name)) {
+            String descriptor = DescriptorUtils.guessTypeDescriptor(name);
+            ProgramResource resource =
+                OneShotByteResource.create(
+                    Kind.CF,
+                    entryOrigin,
+                    ByteStreams.toByteArray(stream),
+                    Collections.singleton(descriptor));
+            consumer.accept(resource);
+          }
+        }
+      }
+    } catch (ZipException e) {
+      throw new CompilationError("Zip error while reading '" + path + "': " + e.getMessage(), e);
+    } catch (IOException e) {
+      throw new RuntimeException(new ResourceException(origin, e));
     }
   }
 

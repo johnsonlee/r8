@@ -960,7 +960,8 @@ public class TestBase {
       optionsConsumer.accept(options);
     }
     LazyLoadedDexApplication dexApplication = readApplicationForDexOutput(app, options);
-    AppView<AppInfoWithClassHierarchy> appView = AppView.createForR8(dexApplication.toDirect());
+    AppView<AppInfoWithClassHierarchy> appView =
+        AppView.createForR8(dexApplication.toDirectSingleThreadedForTesting());
     appView.setAppServices(AppServices.builder(appView).build());
     return appView;
   }

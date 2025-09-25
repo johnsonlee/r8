@@ -8,6 +8,7 @@ import com.android.tools.r8.graph.DexType;
 import com.google.common.collect.Sets;
 import java.util.Collection;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /**
  * A wrapper around the ProgramResourceProvider of a feature split, which intentionally returns an
@@ -39,6 +40,24 @@ public class FeatureSplitProgramResourceProvider implements ProgramResourceProvi
       }
     }
     return programResources;
+  }
+
+  @Override
+  public void getProgramResources(Consumer<ProgramResource> consumer) throws ResourceException {
+    assert factory != null;
+    // If the types in this provider has been unset, then the ClassToFeatureSplitMap has already
+    // been created and we no longer need tracking.
+    if (types == null) {
+      programResourceProvider.getProgramResources(consumer);
+    } else {
+      programResourceProvider.getProgramResources(
+          programResource -> {
+            for (String classDescriptor : programResource.getClassDescriptors()) {
+              types.add(factory.createType(classDescriptor));
+            }
+            consumer.accept(programResource);
+          });
+    }
   }
 
   @Override

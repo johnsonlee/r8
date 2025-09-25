@@ -161,7 +161,7 @@ public class GlobalSyntheticsGenerator {
       throws IOException {
     timing.begin("Application read");
     ApplicationReader applicationReader = new ApplicationReader(inputApp, options, timing);
-    DirectMappedDexApplication app = applicationReader.read(executor).toDirect();
+    DirectMappedDexApplication app = applicationReader.readDirect(executor);
     timing.end();
     AppInfo appInfo =
         timing.time(

@@ -14,6 +14,7 @@ import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.origin.PathOrigin;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.FileUtils;
+import com.android.tools.r8.utils.OneShotByteResource;
 import com.android.tools.r8.utils.ZipUtils;
 import com.google.common.io.ByteStreams;
 import java.io.Closeable;
@@ -28,6 +29,7 @@ import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -95,6 +97,33 @@ public class ArchiveClassFileProvider implements ClassFileResourceProvider, Clos
   }
 
   @Override
+  public void getProgramResources(Consumer<ProgramResource> consumer) {
+    ZipFile zipFile = ensureZipFile();
+    try {
+      final Enumeration<? extends ZipEntry> entries = zipFile.entries();
+      while (entries.hasMoreElements()) {
+        ZipEntry entry = entries.nextElement();
+        try (InputStream stream = zipFile.getInputStream(entry)) {
+          String name = entry.getName();
+          Origin entryOrigin = new ArchiveEntryOrigin(name, origin);
+          if (ZipUtils.isClassFile(name) && include.test(name)) {
+            String descriptor = DescriptorUtils.guessTypeDescriptor(name);
+            ProgramResource resource =
+                OneShotByteResource.create(
+                    Kind.CF,
+                    entryOrigin,
+                    ByteStreams.toByteArray(stream),
+                    Collections.singleton(descriptor));
+            consumer.accept(resource);
+          }
+        }
+      }
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
+  }
+
+  @Override
   public void finished(DiagnosticsHandler handler) throws IOException {
     close();
   }
@@ -136,7 +165,7 @@ public class ArchiveClassFileProvider implements ClassFileResourceProvider, Clos
       try {
         reopenZipFile();
       } catch (IOException e) {
-        throw new RuntimeException(e);
+        throw new UncheckedIOException(e);
       }
     }
     return lazyZipFile;

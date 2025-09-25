@@ -51,7 +51,7 @@ public class ArrayTargetLookupTest extends TestBase {
             .addProgramFiles(ToolHelper.getClassFileForTestClass(Foo.class))
             .build();
     DirectMappedDexApplication application =
-        new ApplicationReader(app, options, timing).read().toDirect();
+        new ApplicationReader(app, options, timing).readDirectSingleThreaded();
     AppInfoWithClassHierarchy appInfo = AppView.createForR8(application).appInfo();
     DexItemFactory factory = options.itemFactory;
     DexType fooType =

@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.utils;
 
+import static com.android.tools.r8.utils.ConsumerUtils.emptyConsumer;
 import static com.android.tools.r8.utils.FileUtils.CLASS_EXTENSION;
 import static com.android.tools.r8.utils.FileUtils.isAarFile;
 import static com.android.tools.r8.utils.FileUtils.isArchive;
@@ -29,6 +30,7 @@ import com.android.tools.r8.OutputMode;
 import com.android.tools.r8.ProgramResource;
 import com.android.tools.r8.ProgramResource.Kind;
 import com.android.tools.r8.ProgramResourceProvider;
+import com.android.tools.r8.R8Command.EnsureNonDexProgramResourceProvider;
 import com.android.tools.r8.Resource;
 import com.android.tools.r8.ResourceException;
 import com.android.tools.r8.StringResource;
@@ -36,6 +38,7 @@ import com.android.tools.r8.Version;
 import com.android.tools.r8.dump.DumpOptions;
 import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.errors.InternalCompilerError;
+import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.features.ClassToFeatureSplitMap;
 import com.android.tools.r8.features.FeatureSplitConfiguration;
@@ -50,6 +53,7 @@ import com.android.tools.r8.profile.startup.StartupProfileProviderUtils;
 import com.android.tools.r8.shaking.FilteredClassPath;
 import com.android.tools.r8.startup.StartupProfileProvider;
 import com.android.tools.r8.synthesis.SyntheticItems;
+import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
@@ -271,22 +275,35 @@ public class AndroidApp {
   }
 
   public Collection<ProgramResource> computeAllProgramResources() throws ResourceException {
-    return computeAllProgramResources(null);
+    List<ProgramResource> programResources = new ArrayList<>();
+    computeAllProgramResources(programResources::add, null, emptyConsumer(), Timing.empty());
+    return programResources;
   }
 
   /** Get full collection of all program resources from all program providers. */
-  public Collection<ProgramResource> computeAllProgramResources(
-      Consumer<InternalProgramClassProvider> internalProviderConsumer) throws ResourceException {
-    List<ProgramResource> resources = new ArrayList<>();
+  public void computeAllProgramResources(
+      Consumer<ProgramResource> consumer,
+      Consumer<InternalProgramClassProvider> internalProviderConsumer,
+      Consumer<ProgramResourceProvider> legacyProgramResourceProviderConsumer,
+      Timing timing)
+      throws ResourceException {
     for (ProgramResourceProvider provider : programResourceProviders) {
+      timing.begin(
+          "Process "
+              + EnsureNonDexProgramResourceProvider.unwrap(provider).getClass().getTypeName());
       if (provider instanceof InternalProgramClassProvider) {
         InternalProgramClassProvider internalProvider = (InternalProgramClassProvider) provider;
         internalProviderConsumer.accept(internalProvider);
       } else {
-        resources.addAll(provider.getProgramResources());
+        try {
+          provider.getProgramResources(consumer);
+        } catch (Unimplemented e) {
+          legacyProgramResourceProviderConsumer.accept(provider);
+          provider.getProgramResources().forEach(consumer);
+        }
       }
+      timing.end();
     }
-    return resources;
   }
 
   // TODO(zerny): Remove this method.
@@ -1299,7 +1316,11 @@ public class AndroidApp {
     }
 
     public Builder setProguardMapInputData(Path mapPath) {
-      this.proguardMapInputData = StringResource.fromFile(mapPath);
+      return setProguardMapInputData(StringResource.fromFile(mapPath));
+    }
+
+    public Builder setProguardMapInputData(StringResource proguardMapInputData) {
+      this.proguardMapInputData = proguardMapInputData;
       return this;
     }
 
@@ -1381,6 +1402,11 @@ public class AndroidApp {
             @Override
             public Collection<ProgramResource> getProgramResources() {
               return finalProgramResources;
+            }
+
+            @Override
+            public void getProgramResources(Consumer<ProgramResource> consumer) {
+              finalProgramResources.forEach(consumer);
             }
 
             @Override

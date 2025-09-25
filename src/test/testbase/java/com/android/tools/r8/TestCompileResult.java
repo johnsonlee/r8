@@ -651,7 +651,7 @@ public abstract class TestCompileResult<
     return self();
   }
 
-  public CR disassemble(PrintStream ps) throws IOException {
+  public CR disassemble(PrintStream ps) throws ExecutionException, IOException {
     ToolHelper.disassemble(app, ps);
     return self();
   }

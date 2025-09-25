@@ -9,11 +9,9 @@ import static com.android.tools.r8.graph.ClassKind.PROGRAM;
 import static com.android.tools.r8.utils.ExceptionUtils.unwrapExecutionException;
 
 import com.android.tools.r8.ClassFileResourceProvider;
-import com.android.tools.r8.DataResourceProvider;
 import com.android.tools.r8.Diagnostic;
 import com.android.tools.r8.ProgramResource;
-import com.android.tools.r8.ProgramResource.Kind;
-import com.android.tools.r8.ProgramResourceProvider;
+import com.android.tools.r8.R8Command.EnsureNonDexProgramResourceProvider;
 import com.android.tools.r8.ResourceException;
 import com.android.tools.r8.StringResource;
 import com.android.tools.r8.dump.DumpOptions;
@@ -30,9 +28,12 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexLibraryClass;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.graph.JarApplicationReader;
 import com.android.tools.r8.graph.JarClassFileReader;
 import com.android.tools.r8.graph.LazyLoadedDexApplication;
+import com.android.tools.r8.graph.LazyLoadedDexApplication.AllClasses;
+import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.naming.ClassNameMapper;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.shaking.MainDexInfo;
@@ -46,19 +47,21 @@ import com.android.tools.r8.utils.DexVersion;
 import com.android.tools.r8.utils.DumpInputFlags;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.LibraryClassCollection;
+import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.MainDexListParser;
+import com.android.tools.r8.utils.ProgramClassCollection;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.Iterables;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class ApplicationReader {
@@ -123,7 +126,7 @@ public class ApplicationReader {
     }
 
     timing.begin("DexApplication.read");
-    final LazyLoadedDexApplication.Builder builder = DexApplication.builder(options, timing);
+    LazyLoadedDexApplication.Builder builder = DexApplication.builder(options, timing);
     TaskCollection<?> tasks = new TaskCollection<>(options, executorService);
     try {
       // Still preload some of the classes, primarily for two reasons:
@@ -135,17 +138,16 @@ public class ApplicationReader {
       // TODO: try and preload less classes.
       readProguardMap(proguardMap, builder, tasks);
       ClassReader classReader = new ClassReader(tasks);
-      classReader.readSources();
-      tasks.await();
-      flags = classReader.getDexApplicationReadFlags();
-      builder.setFlags(flags);
       classReader.initializeLazyClassCollection(builder);
-      for (ProgramResourceProvider provider : inputApp.getProgramResourceProviders()) {
-        DataResourceProvider dataResourceProvider = provider.getDataResourceProvider();
-        if (dataResourceProvider != null) {
-          builder.addDataResourceProvider(dataResourceProvider);
-        }
-      }
+      classReader.readSources();
+      timing.time("Await read", () -> tasks.await());
+      flags = classReader.getDexApplicationReadFlags();
+      return builder
+          .addDataResourceProviders(inputApp.getProgramResourceProviders())
+          .addProgramClasses(classReader.programClasses)
+          .setFlags(flags)
+          .setKeepDeclarations(classReader.getKeepDeclarations())
+          .build();
     } catch (ExecutionException e) {
       throw unwrapExecutionException(e);
     } catch (ResourceException e) {
@@ -153,7 +155,58 @@ public class ApplicationReader {
     } finally {
       timing.end();
     }
-    return builder.build();
+  }
+
+  @Deprecated
+  public DirectMappedDexApplication readDirectSingleThreaded() throws IOException {
+    ExecutorService executor = options.getThreadingModule().createSingleThreadedExecutorService();
+    try {
+      return readDirect(executor);
+    } finally {
+      executor.shutdown();
+    }
+  }
+
+  public DirectMappedDexApplication readDirect(ExecutorService executorService) throws IOException {
+    assert verifyMainDexOptionsCompatible(inputApp, options);
+    dumpApplication(options.getDumpInputFlags());
+
+    if (options.testing.verifyInputs) {
+      inputApp.validateInputs();
+    }
+
+    timing.begin("DexApplication.readDirect");
+    DirectMappedDexApplication.Builder builder =
+        DirectMappedDexApplication.directBuilder(options, timing);
+    TaskCollection<?> tasks = new TaskCollection<>(options, executorService);
+    try {
+      readProguardMap(inputApp.getProguardMapInputData(), builder, tasks);
+      ClassReader classReader = new ClassReader(tasks);
+      AllClasses.Builder allClassesBuilder = AllClasses.builder();
+      classReader.acceptClasspathAndLibraryClassCollections(
+          allClassesBuilder::setClasspathClasses, allClassesBuilder::setLibraryClasses);
+      allClassesBuilder.forceLoadNonProgramClassCollections(options, tasks, timing);
+      classReader.readSources();
+      timing.time("Await read", () -> tasks.await());
+      allClassesBuilder.setProgramClasses(
+          ProgramClassCollection.resolveConflicts(classReader.programClasses, options));
+      AllClasses allClasses = allClassesBuilder.build(options, timing);
+      flags = classReader.getDexApplicationReadFlags();
+      return builder
+          .addDataResourceProviders(inputApp.getProgramResourceProviders())
+          .addProgramClasses(allClasses.getProgramClasses())
+          .replaceClasspathClasses(allClasses.getClasspathClasses())
+          .replaceLibraryClasses(allClasses.getLibraryClasses())
+          .setFlags(flags)
+          .setKeepDeclarations(classReader.getKeepDeclarations())
+          .build();
+    } catch (ExecutionException e) {
+      throw unwrapExecutionException(e);
+    } catch (ResourceException e) {
+      throw options.reporter.fatalError(new StringDiagnostic(e.getMessage(), e.getOrigin()));
+    } finally {
+      timing.end();
+    }
   }
 
   public final void dump(DumpInputFlags dumpInputFlags) {
@@ -293,11 +346,8 @@ public class ApplicationReader {
   private final class ClassReader {
     private final TaskCollection<?> tasks;
 
-    // We use concurrent queues to collect classes
-    // since the classes can be collected concurrently.
+    // We use concurrent queues to collect classes since the classes can be collected concurrently.
     private final Queue<DexProgramClass> programClasses = new ConcurrentLinkedQueue<>();
-    private final Queue<DexClasspathClass> classpathClasses = new ConcurrentLinkedQueue<>();
-    private final Queue<DexLibraryClass> libraryClasses = new ConcurrentLinkedQueue<>();
     // Jar application reader to share across all class readers.
     private final DexApplicationReadFlags.Builder readFlagsBuilder =
         DexApplicationReadFlags.builder();
@@ -325,12 +375,15 @@ public class ApplicationReader {
           .build();
     }
 
-    private void readDexSources(List<ProgramResource> dexSources, Queue<DexProgramClass> classes)
+    public List<KeepDeclaration> getKeepDeclarations() {
+      return application.getKeepDeclarations();
+    }
+
+    private void readDexSources(List<ProgramResource> dexSources)
         throws IOException, ResourceException, ExecutionException {
       if (dexSources.isEmpty()) {
         return;
       }
-      hasReadProgramResourceFromDex = true;
       List<DexParser<DexProgramClass>> dexParsers = new ArrayList<>(dexSources.size());
       List<DexParser<DexProgramClass>> dexContainerParsers = new ArrayList<>(4);
       AndroidApiLevel computedMinApiLevel = options.getMinApiLevel();
@@ -360,16 +413,13 @@ public class ApplicationReader {
         ApplicationReaderMap applicationReaderMap = ApplicationReaderMap.getInstance(options);
         // Read the DexCode items and DexProgramClass items in parallel.
         for (DexParser<DexProgramClass> dexParser : dexParsers) {
-          tasks.submit(
-              () -> {
-                dexParser.addClassDefsTo(
-                    classes::add, applicationReaderMap); // Depends on Methods, Code items etc.
-              });
+          // Depends on Methods, Code items etc.
+          tasks.submit(() -> dexParser.addClassDefsTo(programClasses, applicationReaderMap));
         }
         // All DEX parsers for container sections use the same DEX reader,
         // so don't process in parallel.
         for (DexParser<DexProgramClass> dexParser : dexContainerParsers) {
-          dexParser.addClassDefsTo(classes::add, applicationReaderMap);
+          dexParser.addClassDefsTo(programClasses, applicationReaderMap);
         }
       }
     }
@@ -394,94 +444,80 @@ public class ApplicationReader {
       return retentionAnnotation.annotation.toString().contains("RUNTIME");
     }
 
-    private void readClassSources(
-        List<ProgramResource> classSources, Queue<DexProgramClass> classes)
-        throws ExecutionException {
-      if (classSources.isEmpty()) {
-        return;
-      }
-      hasReadProgramResourceFromCf = true;
-      JarClassFileReader<DexProgramClass> reader =
+    void readSources() throws IOException, ResourceException, ExecutionException {
+      timing.begin("Compute all program resources");
+      List<ProgramResource> dexResources = new ArrayList<>();
+      JarClassFileReader<DexProgramClass> cfReader =
           new JarClassFileReader<>(
               application,
               clazz -> {
                 if (clazz.isAnnotation() && !includeAnnotationClass(clazz)) {
                   return;
                 }
-                classes.add(clazz);
+                programClasses.add(clazz);
               },
               PROGRAM);
-      // Read classes in parallel.
-      for (ProgramResource input : classSources) {
-        tasks.submit(() -> reader.read(input));
-      }
-    }
-
-    void readSources() throws IOException, ResourceException, ExecutionException {
-      Collection<ProgramResource> resources =
-          inputApp.computeAllProgramResources(
-              internalProvider -> programClasses.addAll(internalProvider.getClasses()));
-      List<ProgramResource> dexResources = new ArrayList<>(resources.size());
-      List<ProgramResource> cfResources = new ArrayList<>(resources.size());
-      for (ProgramResource resource : resources) {
-        if (resource.getKind() == Kind.DEX) {
-          dexResources.add(resource);
-        } else {
-          assert resource.getKind() == Kind.CF;
-          cfResources.add(resource);
-        }
-      }
-      readDexSources(dexResources, programClasses);
-      readClassSources(cfResources, programClasses);
+      inputApp.computeAllProgramResources(
+          resource -> {
+            if (resource.getKind() == ProgramResource.Kind.CF) {
+              hasReadProgramResourceFromCf = true;
+              tasks.submitUnchecked(
+                  () -> {
+                    Timing threadTiming =
+                        timing.createThreadTiming("Read program resource", options);
+                    cfReader.read(resource);
+                    threadTiming.end().notifyThreadTimingFinished();
+                  });
+            } else {
+              assert resource.getKind() == ProgramResource.Kind.DEX;
+              dexResources.add(resource);
+            }
+          },
+          internalProvider -> programClasses.addAll(internalProvider.getClasses()),
+          legacyProgramResourceProvider ->
+              options.reporter.warning(
+                  "Program resource provider does not support async parsing: "
+                      + EnsureNonDexProgramResourceProvider.unwrap(legacyProgramResourceProvider)
+                          .getClass()
+                          .getTypeName()),
+          timing);
+      hasReadProgramResourceFromDex = !dexResources.isEmpty();
+      timing.end();
+      readDexSources(dexResources);
     }
 
     private <T extends DexClass> ClassProvider<T> buildClassProvider(
-        ClassKind<T> classKind,
-        Queue<T> preloadedClasses,
-        List<ClassFileResourceProvider> resourceProviders,
-        JarApplicationReader reader) {
-      List<ClassProvider<T>> providers = new ArrayList<>();
-
-      // Preloaded classes.
-      if (!preloadedClasses.isEmpty()) {
-        providers.add(ClassProvider.forPreloadedClasses(classKind, preloadedClasses));
-      }
-
-      // Class file resource providers.
-      for (ClassFileResourceProvider provider : resourceProviders) {
-        providers.add(ClassProvider.forClassFileResources(classKind, provider, reader));
-      }
-
-      // Combine if needed.
-      if (providers.isEmpty()) {
-        return null;
-      }
-      return providers.size() == 1 ? providers.get(0)
-          : ClassProvider.combine(classKind, providers);
+        ClassKind<T> classKind, List<ClassFileResourceProvider> resourceProviders) {
+      return ClassProvider.combine(
+          classKind,
+          ListUtils.map(
+              resourceProviders,
+              resourceProvider ->
+                  ClassProvider.forClassFileResources(classKind, resourceProvider, application)));
     }
 
-    void initializeLazyClassCollection(LazyLoadedDexApplication.Builder builder) {
-      // Add all program classes to the builder.
-      for (DexProgramClass clazz : programClasses) {
-        builder.addProgramClass(clazz.asProgramClass());
-      }
-
+    void acceptClasspathAndLibraryClassCollections(
+        Consumer<ClasspathClassCollection> classpathClassCollectionConsumer,
+        Consumer<LibraryClassCollection> libraryClassCollectionConsumer) {
       // Create classpath class collection if needed.
-      ClassProvider<DexClasspathClass> classpathClassProvider = buildClassProvider(CLASSPATH,
-          classpathClasses, inputApp.getClasspathResourceProviders(), application);
+      ClassProvider<DexClasspathClass> classpathClassProvider =
+          buildClassProvider(CLASSPATH, inputApp.getClasspathResourceProviders());
       if (classpathClassProvider != null) {
-        builder.setClasspathClassCollection(new ClasspathClassCollection(classpathClassProvider));
+        classpathClassCollectionConsumer.accept(
+            new ClasspathClassCollection(classpathClassProvider));
       }
 
       // Create library class collection if needed.
-      ClassProvider<DexLibraryClass> libraryClassProvider = buildClassProvider(LIBRARY,
-          libraryClasses, inputApp.getLibraryResourceProviders(), application);
+      ClassProvider<DexLibraryClass> libraryClassProvider =
+          buildClassProvider(LIBRARY, inputApp.getLibraryResourceProviders());
       if (libraryClassProvider != null) {
-        builder.setLibraryClassCollection(new LibraryClassCollection(libraryClassProvider));
+        libraryClassCollectionConsumer.accept(new LibraryClassCollection(libraryClassProvider));
       }
+    }
 
-      // Transfer the keep declarations found during reading.
-      builder.setKeepDeclarations(application.getKeepDeclarations());
+    void initializeLazyClassCollection(LazyLoadedDexApplication.Builder builder) {
+      acceptClasspathAndLibraryClassCollections(
+          builder::setClasspathClassCollection, builder::setLibraryClassCollection);
     }
   }
 }

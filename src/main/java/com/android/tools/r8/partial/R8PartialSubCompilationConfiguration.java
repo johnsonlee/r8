@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 
 public abstract class R8PartialSubCompilationConfiguration {
 
@@ -171,7 +172,7 @@ public abstract class R8PartialSubCompilationConfiguration {
       return this;
     }
 
-    public void writeApplication(AppView<AppInfo> appView) {
+    public void writeApplication(AppView<AppInfo> appView, ExecutorService executorService) {
       artProfiles = appView.getArtProfileCollection().transformForR8Partial(appView);
       classToFeatureSplitMap =
           appView.appInfo().getClassToFeatureSplitMap().commitSyntheticsForR8Partial(appView);
@@ -184,7 +185,7 @@ public abstract class R8PartialSubCompilationConfiguration {
           desugaredOutputClasses.add(clazz);
         }
       }
-      DirectMappedDexApplication app = appView.app().asLazy().toDirect();
+      DirectMappedDexApplication app = appView.app().asDirect();
       outputClasspathClasses = app.classpathClasses();
       outputLibraryClasses = app.libraryClasses();
       startupProfile = appView.getStartupProfile();

@@ -66,8 +66,7 @@ public class DumpCoreLibUsage {
         AndroidApp.builder().addLibraryFiles(ToolHelper.getAndroidJar(apiLevel)).build();
     DirectMappedDexApplication dexApplication =
         new ApplicationReader(input, new InternalOptions(factory, new Reporter()), Timing.empty())
-            .read()
-            .toDirect();
+            .readDirectSingleThreaded();
 
     Set<DexReference> found = Sets.newIdentityHashSet();
     found.addAll(filter);

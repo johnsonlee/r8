@@ -10,7 +10,7 @@ import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.util.Set;
 
-class OneShotByteResource implements ProgramResource {
+public class OneShotByteResource implements ProgramResource {
 
   private final Origin origin;
   private final Kind kind;

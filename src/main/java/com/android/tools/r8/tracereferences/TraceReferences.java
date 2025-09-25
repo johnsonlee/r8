@@ -83,7 +83,8 @@ public class TraceReferences {
     AppView<AppInfoWithClassHierarchy> appView =
         AppView.createForTracer(
             AppInfoWithClassHierarchy.createInitialAppInfoWithClassHierarchy(
-                new ApplicationReader(builder.build(), options, Timing.empty()).read().toDirect(),
+                new ApplicationReader(builder.build(), options, Timing.empty())
+                    .readDirectSingleThreaded(),
                 ClassToFeatureSplitMap.createEmptyClassToFeatureSplitMap(),
                 MainDexInfo.none(),
                 GlobalSyntheticsStrategy.forSingleOutputMode()));

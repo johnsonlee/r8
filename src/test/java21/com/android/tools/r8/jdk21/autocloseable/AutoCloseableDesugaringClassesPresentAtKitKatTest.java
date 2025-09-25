@@ -47,7 +47,7 @@ public class AutoCloseableDesugaringClassesPresentAtKitKatTest extends TestBase 
     Path androidJarK = ToolHelper.getAndroidJar(AndroidApiLevel.K);
     AndroidApp app = AndroidApp.builder().addProgramFile(androidJarK).build();
     DirectMappedDexApplication libHolder =
-        new ApplicationReader(app, options, Timing.empty()).read().toDirect();
+        new ApplicationReader(app, options, Timing.empty()).readDirectSingleThreaded();
     AppInfo initialAppInfo =
         AppInfo.createInitialAppInfo(libHolder, GlobalSyntheticsStrategy.forNonSynthesizing());
     AppView<AppInfo> appView = AppView.createForD8(initialAppInfo, Timing.empty());

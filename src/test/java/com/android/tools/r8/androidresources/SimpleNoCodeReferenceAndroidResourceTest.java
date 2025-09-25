@@ -70,7 +70,8 @@ public class SimpleNoCodeReferenceAndroidResourceTest extends TestBase {
         .addInnerClasses(getClass())
         .setMinApi(parameters)
         .addAndroidResources(testResource, output)
-        .applyIf(optimized, R8TestBuilder::enableOptimizedShrinking)
+        .applyIf(
+            optimized, R8TestBuilder::enableOptimizedShrinking, R8TestBuilder::allowStderrMessages)
         .addKeepMainRule(FooBar.class)
         .compile()
         .inspectShrunkenResources(

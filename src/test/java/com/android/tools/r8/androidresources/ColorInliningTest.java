@@ -99,7 +99,8 @@ public class ColorInliningTest extends TestBase {
                       o.enableXmlInlining = true;
                       o.enableColorInlining = true;
                     }))
-        .applyIf(optimize, R8TestBuilder::enableOptimizedShrinking)
+        .applyIf(
+            optimize, R8TestBuilder::enableOptimizedShrinking, R8TestBuilder::allowStderrMessages)
         .applyIf(
             addResourcesSubclass,
             builder ->

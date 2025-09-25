@@ -48,6 +48,7 @@ import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.ArchiveResourceProvider;
 import com.android.tools.r8.utils.AssertionConfigurationWithDefault;
+import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.DumpInputFlags;
 import com.android.tools.r8.utils.EmbeddedRulesExtractor;
 import com.android.tools.r8.utils.ExceptionDiagnostic;
@@ -1098,7 +1099,7 @@ public final class R8Command extends BaseCompilerCommand {
   }
 
   // Wrapper class to ensure that R8 does not allow DEX as program inputs.
-  private static class EnsureNonDexProgramResourceProvider implements ProgramResourceProvider {
+  public static class EnsureNonDexProgramResourceProvider implements ProgramResourceProvider {
 
     final ProgramResourceProvider provider;
 
@@ -1107,12 +1108,30 @@ public final class R8Command extends BaseCompilerCommand {
     }
 
     @Override
+    public void getProgramResources(Consumer<ProgramResource> consumer) throws ResourceException {
+      Box<ProgramResource> dexResource = new Box<>();
+      provider.getProgramResources(
+          resource -> {
+            if (resource.getKind() == Kind.CF) {
+              consumer.accept(resource);
+            } else {
+              assert resource.getKind() == Kind.DEX;
+              dexResource.set(resource);
+            }
+          });
+      if (dexResource.isSet()) {
+        throw new ResourceException(
+            dexResource.get().getOrigin(), "R8 does not support compiling DEX inputs");
+      }
+    }
+
+    @Override
     public Collection<ProgramResource> getProgramResources() throws ResourceException {
       Collection<ProgramResource> resources = provider.getProgramResources();
       for (ProgramResource resource : resources) {
         if (resource.getKind() == Kind.DEX) {
-          throw new ResourceException(resource.getOrigin(),
-              "R8 does not support compiling DEX inputs");
+          throw new ResourceException(
+              resource.getOrigin(), "R8 does not support compiling DEX inputs");
         }
       }
       return resources;
@@ -1121,6 +1140,15 @@ public final class R8Command extends BaseCompilerCommand {
     @Override
     public DataResourceProvider getDataResourceProvider() {
       return provider.getDataResourceProvider();
+    }
+
+    public static ProgramResourceProvider unwrap(ProgramResourceProvider provider) {
+      if (provider instanceof EnsureNonDexProgramResourceProvider) {
+        EnsureNonDexProgramResourceProvider wrapper =
+            (EnsureNonDexProgramResourceProvider) provider;
+        return wrapper.provider;
+      }
+      return provider;
     }
   }
 

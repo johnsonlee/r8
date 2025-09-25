@@ -407,8 +407,13 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
     }
 
     @Override
-    public Collection<ProgramResource> getProgramResources() throws ResourceException {
+    public Collection<ProgramResource> getProgramResources() {
       return programResources;
+    }
+
+    @Override
+    public void getProgramResources(Consumer<ProgramResource> consumer) {
+      programResources.forEach(consumer);
     }
 
     @Override
@@ -417,7 +422,7 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
     }
 
     @Override
-    public void accept(Visitor visitor) throws ResourceException {
+    public void accept(Visitor visitor) {
       dataResources.forEach(visitor::visit);
     }
   }

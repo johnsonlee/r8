@@ -280,12 +280,13 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
         timing);
   }
 
-  public static AppView<AppInfoWithClassHierarchy> createForR8(DexApplication application) {
+  public static AppView<AppInfoWithClassHierarchy> createForR8(
+      DirectMappedDexApplication application) {
     return createForR8(application, MainDexInfo.none());
   }
 
   public static AppView<AppInfoWithClassHierarchy> createForR8(
-      DexApplication application, MainDexInfo mainDexInfo) {
+      DirectMappedDexApplication application, MainDexInfo mainDexInfo) {
     ClassToFeatureSplitMap classToFeatureSplitMap =
         ClassToFeatureSplitMap.createInitialR8ClassToFeatureSplitMap(application.options);
     AppInfoWithClassHierarchy appInfo =

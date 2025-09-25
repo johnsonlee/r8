@@ -1686,7 +1686,8 @@ public class ToolHelper {
             .addProgramFiles(ListUtils.map(fileNames, Paths::get))
             .addLibraryFiles(androidJar)
             .build();
-    return new ApplicationReader(input, new InternalOptions(), Timing.empty()).read().toDirect();
+    return new ApplicationReader(input, new InternalOptions(), Timing.empty())
+        .readDirectSingleThreaded();
   }
 
   public static ProguardConfiguration loadProguardConfiguration(
@@ -2704,7 +2705,8 @@ public class ToolHelper {
     R8.writeApplication(appView, null, Executors.newSingleThreadExecutor());
   }
 
-  public static void disassemble(AndroidApp app, PrintStream ps) throws IOException {
+  public static void disassemble(AndroidApp app, PrintStream ps)
+      throws ExecutionException, IOException {
     LazyLoadedDexApplication application =
         new ApplicationReader(app, new InternalOptions(), Timing.empty()).read();
     new AssemblyWriter(application, new InternalOptions(), true, false, true).write(ps);

@@ -3,9 +3,11 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8;
 
+import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
 import java.io.IOException;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /**
  * Program resource provider for program resources of class-file kind.
@@ -35,6 +37,10 @@ public interface ClassFileResourceProvider {
    * calls from different threads.
    */
   ProgramResource getProgramResource(String descriptor);
+
+  default void getProgramResources(Consumer<ProgramResource> consumer) {
+    throw new Unimplemented();
+  }
 
   /**
    * Callback signifying that a given compilation unit is done using the resource provider.

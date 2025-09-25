@@ -136,8 +136,7 @@ public class FieldBitAccessInfoTest extends TestBase {
                     .build(),
                 options,
                 timing)
-            .read()
-            .toDirect();
+            .readDirectSingleThreaded();
     return AppView.createForR8(application);
   }
 

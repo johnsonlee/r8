@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 
 public abstract class TestBaseBuilder<
         C extends BaseCommand,
@@ -174,6 +175,11 @@ public abstract class TestBaseBuilder<
       @Override
       public ProgramResource getProgramResource(String descriptor) {
         return resources.get(descriptor);
+      }
+
+      @Override
+      public void getProgramResources(Consumer<ProgramResource> consumer) {
+        resources.values().forEach(consumer);
       }
     };
   }

@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.utils;
 
+import static com.android.tools.r8.utils.ConsumerUtils.emptyConsumer;
+
 import com.android.tools.r8.GlobalSyntheticsResourceProvider;
 import com.android.tools.r8.ProgramResource;
 import com.android.tools.r8.ProgramResource.Kind;
@@ -19,6 +21,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -50,12 +53,22 @@ public class InternalGlobalSyntheticsProgramProvider implements ProgramResourceP
   @Override
   public Collection<ProgramResource> getProgramResources() throws ResourceException {
     if (resources == null) {
-      ensureResources();
+      ensureResources(emptyConsumer());
     }
     return resources;
   }
 
-  private synchronized void ensureResources() throws ResourceException {
+  @Override
+  public void getProgramResources(Consumer<ProgramResource> consumer) throws ResourceException {
+    if (resources == null) {
+      ensureResources(consumer);
+    } else {
+      resources.forEach(consumer);
+    }
+  }
+
+  private synchronized void ensureResources(Consumer<ProgramResource> consumer)
+      throws ResourceException {
     if (resources != null) {
       return;
     }
@@ -101,7 +114,9 @@ public class InternalGlobalSyntheticsProgramProvider implements ProgramResourceP
             "Invalid global synthetics provider does not specify its content kind.");
       }
       for (Function<Kind, ProgramResource> fn : delayedResouces) {
-        resources.add(fn.apply(providerKind));
+        ProgramResource resource = fn.apply(providerKind);
+        consumer.accept(resource);
+        resources.add(resource);
       }
     }
     this.resources = resources;

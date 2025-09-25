@@ -496,6 +496,11 @@ public final class L8Command extends BaseCompilerCommand {
     }
 
     @Override
+    public void getProgramResources(Consumer<ProgramResource> consumer) {
+      resources.forEach(consumer);
+    }
+
+    @Override
     public void finished(DiagnosticsHandler handler) {}
   }
 

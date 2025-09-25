@@ -58,6 +58,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Consumer;
 
 /**
  * The D8 dex compiler.
@@ -172,7 +173,11 @@ public final class D8 {
       throws IOException {
     timing.begin("Application read");
     ApplicationReader applicationReader = new ApplicationReader(inputApp, options, timing);
-    LazyLoadedDexApplication app = applicationReader.read(executor);
+    boolean readDirect =
+        options.partialSubCompilationConfiguration != null
+            || (options.isGeneratingDex() && !options.mainDexKeepRules.isEmpty());
+    DexApplication app =
+        readDirect ? applicationReader.readDirect(executor) : applicationReader.read(executor);
     timing.end();
     timing.begin("Load desugared lib");
     options.getLibraryDesugaringOptions().loadMachineDesugaredLibrarySpecification(timing, app);
@@ -466,6 +471,11 @@ public final class D8 {
     @Override
     public Collection<ProgramResource> getProgramResources() {
       return resources;
+    }
+
+    @Override
+    public void getProgramResources(Consumer<ProgramResource> consumer) {
+      resources.forEach(consumer);
     }
 
     @Override

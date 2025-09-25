@@ -56,7 +56,8 @@ public class KeepXmlFilesTest extends TestBase {
         .addProgramClasses(FooBar.class)
         .addAndroidResources(getTestResources(temp))
         .addKeepMainRule(FooBar.class)
-        .applyIf(optimized, R8TestBuilder::enableOptimizedShrinking)
+        .applyIf(
+            optimized, R8TestBuilder::enableOptimizedShrinking, R8TestBuilder::allowStderrMessages)
         .compile()
         .inspectShrunkenResources(
             resourceTableInspector -> {

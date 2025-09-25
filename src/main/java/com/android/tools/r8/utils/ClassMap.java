@@ -3,22 +3,18 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.utils;
 
-import static com.google.common.base.Predicates.alwaysTrue;
-
+import com.android.tools.r8.ProgramResource;
 import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.ClassKind;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.threading.TaskCollection;
+import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
@@ -40,13 +36,13 @@ public abstract class ClassMap<T extends DexClass> {
   /**
    * For each type which has ever been queried stores one class loaded from resources provided by
    * different resource providers.
-   * <p>
-   * <b>NOTE:</b> mutated concurrently but we require that the value assigned to a keys never
+   *
+   * <p><b>NOTE:</b> mutated concurrently but we require that the value assigned to a keys never
    * changes its meaning, i.e., the supplier object might change but the contained value does not.
    * We also allow the transition from Supplier of a null value to the actual value null and vice
    * versa.
    */
-  private final Map<DexType, Supplier<T>> classes;
+  private final ConcurrentHashMap<DexType, Supplier<T>> classes;
 
   /**
    * Class provider if available.
@@ -59,9 +55,14 @@ public abstract class ClassMap<T extends DexClass> {
    */
   private final AtomicReference<ClassProvider<T>> classProvider = new AtomicReference<>();
 
-  ClassMap(Map<DexType, Supplier<T>> classes, ClassProvider<T> classProvider) {
+  ClassMap(ConcurrentHashMap<DexType, Supplier<T>> classes) {
+    this.classes = classes;
+    this.classProvider.set(null);
+  }
+
+  ClassMap(ClassProvider<T> classProvider) {
     assert classProvider == null || classProvider.getClassKind() == getClassKind();
-    this.classes = classes == null ? new ConcurrentHashMap<>() : classes;
+    this.classes = new ConcurrentHashMap<>();
     this.classProvider.set(classProvider);
   }
 
@@ -80,7 +81,7 @@ public abstract class ClassMap<T extends DexClass> {
 
   @Override
   public String toString() {
-    return classes.size() + " loaded, provider: " + Objects.toString(this.classProvider.get());
+    return classes.size() + " loaded, provider: " + this.classProvider.get();
   }
 
   /**
@@ -88,34 +89,18 @@ public abstract class ClassMap<T extends DexClass> {
    */
   public T get(DexType type) {
     // If this collection is fully loaded, just return the found result.
-    if (classProvider.get() == null) {
+    ClassProvider<T> classProvider = this.classProvider.get();
+    if (classProvider == null) {
       Supplier<T> supplier = classes.get(type);
       return supplier == null ? null : supplier.get();
     }
+    return internalGetNotFullyLoaded(type, classProvider);
+  }
 
-    Supplier<T> supplier = classes.get(type);
-    // If we find a result, we can just return it as it won't change.
-    if (supplier != null) {
-      return supplier.get();
-    }
-
-    // Otherwise, we have to do the full dance with locking to avoid creating two suppliers.
-    // Lock on this to ensure classProvider is not changed concurrently, so we do not create
-    // a concurrent class loader with a null classProvider.
-    synchronized (this) {
-      supplier = classes.computeIfAbsent(type, key -> {
-        // Get class supplier, create it if it does not
-        // exist and the collection is NOT fully loaded.
-        if (classProvider.get() == null) {
-          // There is no supplier, the collection is fully loaded.
-          return null;
-        }
-
-        return new ConcurrentClassLoader<>(this, classProvider.get(), type);
-      });
-    }
-
-    return supplier == null ? null : supplier.get();
+  private T internalGetNotFullyLoaded(DexType type, ClassProvider<T> classProvider) {
+    return classes
+        .computeIfAbsent(type, key -> new ConcurrentClassLoader<>(this, classProvider, type))
+        .get();
   }
 
   /**
@@ -151,6 +136,9 @@ public abstract class ClassMap<T extends DexClass> {
   }
 
   public ImmutableMap<DexType, T> getAllClassesInMap() {
+    if (classProvider.get() != null) {
+      throw new Unreachable("Getting all classes from not fully loaded collection.");
+    }
     ImmutableMap.Builder<DexType, T> builder = ImmutableMap.builder();
     // This is fully loaded, so the class map will no longer change.
     forEach(builder::put);
@@ -177,10 +165,6 @@ public abstract class ClassMap<T extends DexClass> {
         "Cannot access all types since the classProvider is no longer available");
   }
 
-  public ClassMap<T> forceLoad() {
-    return forceLoad(alwaysTrue());
-  }
-
   /**
    * Forces loading of all the classes satisfying the criteria specified.
    *
@@ -188,73 +172,39 @@ public abstract class ClassMap<T extends DexClass> {
    * sealed. This has one side-effect: if we filter out some of the classes with `load` predicate,
    * these classes will never be loaded.
    */
-  @SuppressWarnings("ReferenceEquality")
-  public ClassMap<T> forceLoad(Predicate<DexType> load) {
-    Set<DexType> knownClasses;
-    ClassProvider<T> classProvider;
-
+  public ClassMap<T> forceLoad(
+      InternalOptions options,
+      TaskCollection<?> tasks,
+      Timing timing,
+      Predicate<ProgramResource> load) {
     // Cache value of class provider, as it might change concurrently.
     if (isFullyLoaded()) {
       return this;
     }
-    classProvider = this.classProvider.get();
 
-    // Collects the types which might be represented in fully loaded class map.
-    knownClasses = Sets.newIdentityHashSet();
-    knownClasses.addAll(classes.keySet());
-
-    // Add all types the class provider provides. Note that it may take time for class
-    // provider to collect these types, so we do it outside synchronized context.
-    knownClasses.addAll(classProvider.collectTypes());
-
-    // Make sure all the types in `knownClasses` are loaded.
-    //
-    // We just go and touch every class, thus triggering their loading if they
-    // are not loaded so far. In case the class has already been loaded,
-    // touching the class will be a no-op with minimal overhead.
-    for (DexType type : knownClasses) {
-      if (load.test(type)) {
-        get(type);
-      }
-    }
-
-    // Lock on this to prevent concurrent changes to classProvider state and to ensure that
-    // only one thread proceeds to rewriting the map.
-    synchronized (this) {
-      if (this.classProvider.get() == null) {
-        return this; // Has been force-loaded concurrently.
-      }
-
-      // We avoid calling get() on a class supplier unless we know it was loaded.
-      // At this time `classes` may have more types then `knownClasses`, but for
-      // all extra classes we expect the supplier to return 'null' after loading.
-      Iterator<Map.Entry<DexType, Supplier<T>>> iterator = classes.entrySet().iterator();
-      while (iterator.hasNext()) {
-        Map.Entry<DexType, Supplier<T>> e = iterator.next();
-
-        if (knownClasses.contains(e.getKey())) {
-          // Get the class (it is expected to be loaded by this time).
-          T clazz = e.getValue().get();
-          if (clazz != null) {
-            // Since the class is already loaded, get rid of possible wrapping suppliers.
-            assert clazz.type == e.getKey();
-            e.setValue(getTransparentSupplier(clazz));
-            continue;
-          }
-        }
-
-        // If the type is not in `knownClasses` or resolves to `null`,
-        // just remove the record from the map.
-        iterator.remove();
-      }
-
-      // Mark the class map as fully loaded. This has to be the last operation, as this toggles
-      // the class map into fully loaded state and the get operation will no longer try to load
-      // classes by blocking on 'this' and hence wait for the loading operation to finish.
-      this.classProvider.set(null);
-    }
-
+    ClassProvider<T> classProvider = this.classProvider.get();
+    classProvider.forceLoad(
+        clazz ->
+            classes.compute(
+                clazz.getType(),
+                (type, existing) ->
+                    getTransparentSupplier(
+                        existing == null ? clazz : resolveClassConflict(existing.get(), clazz))),
+        options,
+        load,
+        tasks,
+        timing);
     return this;
+  }
+
+  public void setFullyLoaded() {
+    // Remove null entries.
+    MapUtils.removeIf(classes, (type, supplier) -> supplier.get() == null);
+
+    // Mark the class map as fully loaded. This has to be the last operation, as this toggles
+    // the class map into fully loaded state and the get operation will no longer try to load
+    // classes by blocking on 'this' and hence wait for the loading operation to finish.
+    this.classProvider.set(null);
   }
 
   public boolean isFullyLoaded() {

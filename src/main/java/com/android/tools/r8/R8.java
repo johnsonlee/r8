@@ -31,7 +31,6 @@ import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.graph.GenericSignatureContextBuilder;
 import com.android.tools.r8.graph.GenericSignatureCorrectnessHelper;
 import com.android.tools.r8.graph.ImmediateAppSubtypingInfo;
-import com.android.tools.r8.graph.LazyLoadedDexApplication;
 import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger;
@@ -291,12 +290,11 @@ public class R8 {
       {
         timing.begin("Read app");
         ApplicationReader applicationReader = new ApplicationReader(inputApp, options, timing);
-        LazyLoadedDexApplication lazyLoaded = applicationReader.read(executorService);
+        DirectMappedDexApplication application = applicationReader.readDirect(executorService);
         keepDeclarations =
             options.partialSubCompilationConfiguration != null
                 ? options.partialSubCompilationConfiguration.asR8().getAndClearKeepDeclarations()
-                : lazyLoaded.getKeepDeclarations();
-        DirectMappedDexApplication application = lazyLoaded.toDirect(timing);
+                : application.getKeepDeclarations();
         timing.end();
         options
             .getLibraryDesugaringOptions()

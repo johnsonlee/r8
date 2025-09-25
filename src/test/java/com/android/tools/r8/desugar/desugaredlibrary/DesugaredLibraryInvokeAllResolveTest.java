@@ -115,12 +115,12 @@ public class DesugaredLibraryInvokeAllResolveTest extends DesugaredLibraryTestBa
             .build();
     InternalOptions options = inspector.getApplication().options;
     DirectMappedDexApplication libHolder =
-        new ApplicationReader(build, options, Timing.empty()).read().toDirect();
+        new ApplicationReader(build, options, Timing.empty()).readDirectSingleThreaded();
     DirectMappedDexApplication finalApp =
         inspector
             .getApplication()
             .asLazy()
-            .toDirect()
+            .toDirectSingleThreadedForTesting()
             .builder()
             .replaceLibraryClasses(libHolder.libraryClasses())
             .build();

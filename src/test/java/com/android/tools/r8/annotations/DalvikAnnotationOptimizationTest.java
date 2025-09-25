@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -163,6 +164,11 @@ public class DalvikAnnotationOptimizationTest extends TestBase {
           ? null
           : ProgramResource.fromBytes(
               Origin.unknown(), Kind.CF, bytes, Collections.singleton(descriptor));
+    }
+
+    @Override
+    public void getProgramResources(Consumer<ProgramResource> consumer) {
+      getClassDescriptors().forEach(descriptor -> consumer.accept(getProgramResource(descriptor)));
     }
 
     private byte[] transformPackageName(Class<?> clazz) throws IOException {

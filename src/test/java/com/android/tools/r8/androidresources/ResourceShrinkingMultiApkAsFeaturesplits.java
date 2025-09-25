@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.androidresources;
 
+import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.R8TestCompileResultBase;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -70,7 +71,10 @@ public class ResourceShrinkingMultiApkAsFeaturesplits extends TestBase {
                 // For the feature, we don't add the R class (we already have it in the base)
                 // and to test we add one less xml file.
                 getTestResources(featureSplitTemp, false, VIEW), featureSplitName)
-            .applyIf(optimized, b -> b.enableOptimizedShrinking())
+            .applyIf(
+                optimized,
+                R8TestBuilder::enableOptimizedShrinking,
+                R8TestBuilder::allowStderrMessages)
             .addKeepMainRule(Base.class)
             .compile()
             .inspectShrunkenResources(

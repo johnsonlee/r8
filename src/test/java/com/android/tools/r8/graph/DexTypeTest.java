@@ -35,8 +35,7 @@ public class DexTypeTest {
                     .build(),
                 options,
                 Timing.empty())
-            .read()
-            .toDirect();
+            .readDirectSingleThreaded();
     factory = options.itemFactory;
     appInfo = AppView.createForR8(application).appInfo();
   }
