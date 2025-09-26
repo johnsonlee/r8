@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.androidresources.optimizedshrinking;
 
+import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.ResourceShrinkerConfiguration;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -61,7 +62,8 @@ public class TestOptimizedShrinking extends TestBase {
                         internalOptions.resourceShrinkerConfiguration =
                             ResourceShrinkerConfiguration.builder(null)
                                 .enableOptimizedShrinkingWithR8()
-                                .build()))
+                                .build()),
+            R8TestBuilder::allowStderrMessages)
         .applyIf(debug, builder -> builder.debug())
         .compile()
         .inspectShrunkenResources(

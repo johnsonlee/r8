@@ -152,7 +152,8 @@ public class RelocatorCommand {
                 .disableObfuscation()
                 .disableOptimization()
                 .addKeepAttributePatterns(ImmutableList.of("*"))
-                .addAdaptResourceFilenames(ProguardPathList.builder().addFileName("**").build())
+                .applyAdaptResourceFilenamesBuilder(
+                    b -> b.addPattern(ProguardPathList.builder().addFileName("**").build()))
                 .build(),
             getReporter());
     options.relocatorCompilation = true;

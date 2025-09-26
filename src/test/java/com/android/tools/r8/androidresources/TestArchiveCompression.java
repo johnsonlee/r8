@@ -57,6 +57,7 @@ public class TestArchiveCompression extends TestBase {
         .addProgramClasses(FooBar.class)
         .addAndroidResources(testResources, resourceOutput)
         .addKeepMainRule(FooBar.class)
+        .allowStderrMessages()
         .compile()
         .run(parameters.getRuntime(), FooBar.class)
         .assertSuccess();

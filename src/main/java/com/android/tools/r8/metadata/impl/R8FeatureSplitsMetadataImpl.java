@@ -54,9 +54,8 @@ public class R8FeatureSplitsMetadataImpl implements R8FeatureSplitsMetadata {
     InternalOptions options = appView.options();
     assert options.hasFeatureSplitConfiguration();
     FeatureSplitConfiguration configuration = options.getFeatureSplitConfiguration();
-    List<FeatureSplit> featureSplits = configuration.getFeatureSplits();
     List<R8FeatureSplitMetadata> featureSplitsMetadata = new ArrayList<>();
-    for (FeatureSplit featureSplit : featureSplits) {
+    for (FeatureSplit featureSplit : configuration.getFeatureSplits()) {
       List<VirtualFile> featureSplitVirtualFiles =
           virtualFilesForFeatureSplit.getOrDefault(featureSplit, Collections.emptyList());
       List<R8DexFileMetadata> dexFilesMetadata =

@@ -84,7 +84,8 @@ public class ResourceShrinkingWithSeveralFeaturesTest extends TestBase {
             getFeatureSplitTestResources(featureSplitTemp), FeatureSplit.class.getName())
         .addFeatureSplitAndroidResources(
             getFeatureSplit2TestResources(featureSplit2Temp), FeatureSplit2.class.getName())
-        .applyIf(optimized, R8TestBuilder::enableOptimizedShrinking)
+        .applyIf(
+            optimized, R8TestBuilder::enableOptimizedShrinking, R8TestBuilder::allowStderrMessages)
         .addResourceShrinkerLogCapture()
         .addKeepMainRule(Base.class)
         .addKeepMainRule(FeatureSplitMain.class)

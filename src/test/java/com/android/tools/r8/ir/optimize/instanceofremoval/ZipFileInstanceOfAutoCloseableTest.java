@@ -111,8 +111,7 @@ public class ZipFileInstanceOfAutoCloseableTest extends TestBase {
                     .build(),
                 options,
                 Timing.empty())
-            .read()
-            .toDirect();
+            .readDirectSingleThreaded();
     AppView<AppInfoWithClassHierarchy> appView = AppView.createForR8(application);
 
     // Type references.

@@ -9,7 +9,6 @@ import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.features.FeatureSplitConfiguration;
 import com.android.tools.r8.graph.DexClasspathClass;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
-import com.android.tools.r8.graph.LazyLoadedDexApplication;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.metadata.impl.R8PartialCompilationStatsMetadataBuilder;
 import com.android.tools.r8.partial.R8PartialD8Input;
@@ -36,6 +35,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Consumer;
 
 class R8Partial {
 
@@ -93,10 +93,9 @@ class R8Partial {
 
   private R8PartialD8Input runProcessInputStep(AndroidApp androidApp, ExecutorService executor)
       throws IOException {
-    LazyLoadedDexApplication lazyApp =
-        new ApplicationReader(androidApp, options, timing).read(executor);
-    List<KeepDeclaration> keepDeclarations = lazyApp.getKeepDeclarations();
-    DirectMappedDexApplication app = lazyApp.toDirect();
+    DirectMappedDexApplication app =
+        new ApplicationReader(androidApp, options, timing).readDirect(executor);
+    List<KeepDeclaration> keepDeclarations = app.getKeepDeclarations();
     R8PartialProgramPartitioning partitioning = R8PartialProgramPartitioning.create(app);
     partitioning.printForTesting(options);
     options.getLibraryDesugaringOptions().loadMachineDesugaredLibrarySpecification(timing, app);
@@ -210,6 +209,11 @@ class R8Partial {
               }
 
               @Override
+              public void getProgramResources(Consumer<ProgramResource> consumer) {
+                // Intentionally empty.
+              }
+
+              @Override
               public DataResourceProvider getDataResourceProvider() {
                 return programResourceProvider.getDataResourceProvider();
               }
@@ -303,6 +307,11 @@ class R8Partial {
 
                     @Override
                     public Collection<ProgramResource> getProgramResources() {
+                      throw new Unreachable();
+                    }
+
+                    @Override
+                    public void getProgramResources(Consumer<ProgramResource> consumer) {
                       throw new Unreachable();
                     }
 

@@ -20,6 +20,7 @@ import com.android.tools.r8.ir.conversion.callgraph.CallGraphBuilder;
 import com.android.tools.r8.ir.conversion.callgraph.Node;
 import com.android.tools.r8.ir.conversion.callgraph.PartialCallGraphBuilder;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.shaking.ProguardConfiguration;
 import com.android.tools.r8.shaking.ProguardConfigurationParser;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.InternalOptions;
@@ -47,12 +48,15 @@ public class PartialCallGraphTest extends CallGraphTestBase {
         computeAppViewWithLiveness(
             app,
             factory -> {
+              Reporter reporter = new Reporter();
+              ProguardConfiguration.Builder configurationBuilder =
+                  ProguardConfiguration.builder(factory, reporter);
               ProguardConfigurationParser parser =
-                  new ProguardConfigurationParser(factory, new Reporter());
+                  new ProguardConfigurationParser(factory, reporter, configurationBuilder);
               parser.parse(
                   createConfigurationForTesting(
                       ImmutableList.of("-keep class ** { void m1(); void m5(); }")));
-              return parser.getConfig();
+              return configurationBuilder.build();
             });
     this.options = appView.options();
     this.executorService = ThreadUtils.getExecutorService(options);

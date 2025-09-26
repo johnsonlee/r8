@@ -61,9 +61,9 @@ public class ArchiveResourceProvider implements ProgramResourceProvider, DataRes
     return origin;
   }
 
-  private List<ProgramResource> readArchive() throws IOException {
-    List<ProgramResource> dexResources = new ArrayList<>();
-    List<ProgramResource> classResources = new ArrayList<>();
+  private void readArchive(Consumer<ProgramResource> consumer) throws ResourceException {
+    BooleanBox seenCf = new BooleanBox();
+    BooleanBox seenDex = new BooleanBox();
     try (ZipFile zipFile =
         FileUtils.createZipFile(archive.getPath().toFile(), StandardCharsets.UTF_8)) {
       final Enumeration<? extends ZipEntry> entries = zipFile.entries();
@@ -78,7 +78,8 @@ public class ArchiveResourceProvider implements ProgramResourceProvider, DataRes
                 ProgramResource resource =
                     OneShotByteResource.create(
                         Kind.DEX, entryOrigin, ByteStreams.toByteArray(stream), null);
-                dexResources.add(resource);
+                consumer.accept(resource);
+                seenDex.set();
               }
             } else if (ZipUtils.isClassFile(name)) {
               String descriptor = DescriptorUtils.guessTypeDescriptor(name);
@@ -88,7 +89,8 @@ public class ArchiveResourceProvider implements ProgramResourceProvider, DataRes
                       entryOrigin,
                       ByteStreams.toByteArray(stream),
                       Collections.singleton(descriptor));
-              classResources.add(resource);
+              consumer.accept(resource);
+              seenCf.set();
             }
           }
         }
@@ -96,24 +98,28 @@ public class ArchiveResourceProvider implements ProgramResourceProvider, DataRes
     } catch (ZipException e) {
       throw new CompilationError(
           "Zip error while reading '" + archive + "': " + e.getMessage(), e);
+    } catch (IOException e) {
+      throw new ResourceException(origin, e);
     }
-    if (!dexResources.isEmpty() && !classResources.isEmpty()) {
+    if (seenCf.isTrue() && seenDex.isTrue()) {
       throw new CompilationError(
           "Cannot create android app from an archive '"
               + archive
               + "' containing both DEX and Java-bytecode content",
           origin);
     }
-    return !dexResources.isEmpty() ? dexResources : classResources;
   }
 
   @Override
   public Collection<ProgramResource> getProgramResources() throws ResourceException {
-    try {
-      return readArchive();
-    } catch (IOException e) {
-      throw new ResourceException(origin, e);
-    }
+    List<ProgramResource> programResources = new ArrayList<>();
+    readArchive(programResources::add);
+    return programResources;
+  }
+
+  @Override
+  public void getProgramResources(Consumer<ProgramResource> consumer) throws ResourceException {
+    readArchive(consumer);
   }
 
   @Override

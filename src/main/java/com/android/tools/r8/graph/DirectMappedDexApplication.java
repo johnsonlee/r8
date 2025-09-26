@@ -11,6 +11,7 @@ import static com.android.tools.r8.graph.ClassResolutionResult.NoResolutionResul
 import com.android.tools.r8.DataResourceProvider;
 import com.android.tools.r8.graph.LazyLoadedDexApplication.AllClasses;
 import com.android.tools.r8.graph.lens.GraphLens;
+import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.naming.ClassNameMapper;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.timing.Timing;
@@ -20,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +34,7 @@ public class DirectMappedDexApplication extends DexApplication {
   // Mapping from code objects to their encoded-method owner. Used for asserting unique ownership
   // and debugging purposes.
   private final Map<Code, DexEncodedMethod> codeOwners = new IdentityHashMap<>();
+  private List<KeepDeclaration> keepDeclarations;
 
   // Unmodifiable mapping of all types to their definitions.
   private final ImmutableMap<DexType, ProgramOrClasspathClass> programOrClasspathClasses;
@@ -49,6 +52,7 @@ public class DirectMappedDexApplication extends DexApplication {
       ImmutableCollection<DexProgramClass> programClasses,
       ImmutableCollection<DexClasspathClass> classpathClasses,
       ImmutableList<DataResourceProvider> dataResourceProviders,
+      List<KeepDeclaration> keepDeclarations,
       InternalOptions options,
       Timing timing) {
     super(proguardMap, flags, dataResourceProviders, options, timing);
@@ -56,6 +60,11 @@ public class DirectMappedDexApplication extends DexApplication {
     this.libraryClasses = libraryClasses;
     this.programClasses = programClasses;
     this.classpathClasses = classpathClasses;
+    this.keepDeclarations = keepDeclarations;
+  }
+
+  public static Builder directBuilder(InternalOptions options, Timing timing) {
+    return new Builder(options, timing);
   }
 
   public Collection<DexClasspathClass> classpathClasses() {
@@ -75,6 +84,10 @@ public class DirectMappedDexApplication extends DexApplication {
   @Override
   public void forEachLibraryType(Consumer<DexType> consumer) {
     libraryClasses.forEach((type, clazz) -> consumer.accept(type));
+  }
+
+  public List<KeepDeclaration> getKeepDeclarations() {
+    return keepDeclarations;
   }
 
   public Collection<DexLibraryClass> libraryClasses() {
@@ -210,21 +223,26 @@ public class DirectMappedDexApplication extends DexApplication {
 
     private ImmutableCollection<DexClasspathClass> classpathClasses;
     private Map<DexType, DexLibraryClass> libraryClasses;
+    private List<KeepDeclaration> keepDeclarations = Collections.emptyList();
 
     private final List<DexClasspathClass> pendingClasspathClasses = new ArrayList<>();
     private final Set<DexType> pendingClasspathRemovalIfPresent = Sets.newIdentityHashSet();
 
     Builder(LazyLoadedDexApplication application, AllClasses allClasses) {
       super(application);
-      classpathClasses = allClasses.getClasspathClasses().values();
+      classpathClasses = ImmutableList.copyOf(allClasses.getClasspathClasses());
       libraryClasses = allClasses.getLibraryClasses();
-      replaceProgramClasses(allClasses.getProgramClasses().values());
+      replaceProgramClasses(allClasses.getProgramClasses());
     }
 
     private Builder(DirectMappedDexApplication application) {
       super(application);
       classpathClasses = application.classpathClasses;
       libraryClasses = application.libraryClasses;
+    }
+
+    private Builder(InternalOptions options, Timing timing) {
+      super(options, timing);
     }
 
     @Override
@@ -312,13 +330,22 @@ public class DirectMappedDexApplication extends DexApplication {
 
     public Builder replaceLibraryClasses(Collection<DexLibraryClass> libraryClasses) {
       ImmutableMap.Builder<DexType, DexLibraryClass> builder = ImmutableMap.builder();
-      libraryClasses.forEach(clazz -> builder.put(clazz.type, clazz));
-      this.libraryClasses = builder.build();
+      libraryClasses.forEach(clazz -> builder.put(clazz.getType(), clazz));
+      return replaceLibraryClasses(builder.build());
+    }
+
+    public Builder replaceLibraryClasses(Map<DexType, DexLibraryClass> libraryClasses) {
+      this.libraryClasses = libraryClasses;
       return self();
     }
 
+    public Builder setKeepDeclarations(List<KeepDeclaration> declarations) {
+      this.keepDeclarations = declarations;
+      return this;
+    }
+
     @Override
-    public DirectMappedDexApplication build(Timing timing) {
+    public DirectMappedDexApplication build() {
       try (Timing t0 = timing.begin("Build")) {
         // Rebuild the map. This will fail if keys are not unique.
         // TODO(zerny): Consider not rebuilding the map if no program classes are added.
@@ -348,6 +375,7 @@ public class DirectMappedDexApplication extends DexApplication {
             ImmutableList.copyOf(getProgramClasses()),
             newClasspathClasses,
             ImmutableList.copyOf(dataResourceProviders),
+            keepDeclarations,
             options,
             timing);
       }

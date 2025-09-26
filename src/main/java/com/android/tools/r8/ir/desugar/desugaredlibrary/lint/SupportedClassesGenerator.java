@@ -28,7 +28,6 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.graph.FieldResolutionResult;
-import com.android.tools.r8.graph.LazyLoadedDexApplication;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.ir.desugar.BackportedMethodRewriter;
@@ -312,7 +311,7 @@ public class SupportedClassesGenerator {
     }
     AndroidApp implementation = appBuilder.build();
     DirectMappedDexApplication implementationApplication =
-        new ApplicationReader(implementation, options, Timing.empty()).read().toDirect();
+        new ApplicationReader(implementation, options, Timing.empty()).readDirectSingleThreaded();
 
     List<DexMethod> backports = new ArrayList<>();
     List<DexField> backportFields = new ArrayList<>();
@@ -504,7 +503,7 @@ public class SupportedClassesGenerator {
     ExecutorService executorService = ThreadUtils.getExecutorService(options);
     assert !options.ignoreJavaLibraryOverride;
     options.ignoreJavaLibraryOverride = true;
-    LazyLoadedDexApplication appForMax = applicationReader.read(executorService);
+    DirectMappedDexApplication appForMax = applicationReader.readDirect(executorService);
     options.ignoreJavaLibraryOverride = false;
     DexClass varHandle =
         appForMax.definitionFor(
@@ -514,7 +513,7 @@ public class SupportedClassesGenerator {
           "SupportedClassesGenerator expects library above or equal to T, it works below, but the"
               + " modifiers are not correct which is fine for lint but not html doc generation.");
     }
-    return appForMax.toDirect();
+    return appForMax;
   }
 
   private Set<DexMethod> getParallelMethods() {

@@ -7,20 +7,22 @@ import com.android.tools.r8.ClassFileResourceProvider;
 import com.android.tools.r8.ProgramResource;
 import com.android.tools.r8.ResourceException;
 import com.android.tools.r8.errors.CompilationError;
+import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.graph.ClassKind;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.JarApplicationReader;
 import com.android.tools.r8.graph.JarClassFileReader;
-import com.google.common.collect.ImmutableListMultimap;
+import com.android.tools.r8.threading.TaskCollection;
+import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 /** Represents a provider for classes loaded from different sources. */
 public abstract class ClassProvider<T extends DexClass> {
@@ -55,20 +57,17 @@ public abstract class ClassProvider<T extends DexClass> {
    */
   public abstract Collection<DexType> collectTypes();
 
+  public abstract void forceLoad(
+      Consumer<T> classConsumer,
+      InternalOptions options,
+      Predicate<ProgramResource> predicate,
+      TaskCollection<?> tasks,
+      Timing timing);
+
   /** Create class provider for java class resource provider. */
   public static <T extends DexClass> ClassProvider<T> forClassFileResources(
       ClassKind<T> classKind, ClassFileResourceProvider provider, JarApplicationReader reader) {
     return new ClassFileResourceReader<>(classKind, provider, reader);
-  }
-
-  /** Create class provider for preloaded classes, classes may have conflicting names. */
-  public static <T extends DexClass> ClassProvider<T> forPreloadedClasses(
-      ClassKind<T> classKind, Collection<T> classes) {
-    ImmutableListMultimap.Builder<DexType, T> builder = ImmutableListMultimap.builder();
-    for (T clazz : classes) {
-      builder.put(clazz.type, clazz);
-    }
-    return new PreloadedClassProvider<>(classKind, builder.build());
   }
 
   public FilteringClassProvider<T> without(Set<DexType> filteredTypes) {
@@ -78,7 +77,13 @@ public abstract class ClassProvider<T extends DexClass> {
   /** Create class provider for preloaded classes. */
   public static <T extends DexClass> ClassProvider<T> combine(
       ClassKind<T> classKind, List<ClassProvider<T>> providers) {
-    return new CombinedClassProvider<>(classKind, providers);
+    if (providers.isEmpty()) {
+      return null;
+    } else if (providers.size() == 1) {
+      return providers.get(0);
+    } else {
+      return new CombinedClassProvider<>(classKind, providers);
+    }
   }
 
   private static class ClassFileResourceReader<T extends DexClass> extends ClassProvider<T> {
@@ -133,35 +138,51 @@ public abstract class ClassProvider<T extends DexClass> {
       return types;
     }
 
+    @SuppressWarnings("unchecked")
     @Override
-    public String toString() {
-      return "class-resource-provider(" + provider.toString() + ")";
-    }
-  }
-
-  private static class PreloadedClassProvider<T extends DexClass> extends ClassProvider<T> {
-    private final Multimap<DexType, T> classes;
-
-    private PreloadedClassProvider(ClassKind<T> classKind, Multimap<DexType, T> classes) {
-      super(classKind);
-      this.classes = classes;
-    }
-
-    @Override
-    public void collectClass(DexType type, Consumer<T> classConsumer) {
-      for (T clazz : classes.get(type)) {
-        classConsumer.accept(clazz);
+    public void forceLoad(
+        Consumer<T> classConsumer,
+        InternalOptions options,
+        Predicate<ProgramResource> predicate,
+        TaskCollection<?> tasks,
+        Timing timing) {
+      if (provider instanceof InternalClasspathOrLibraryClassProvider) {
+        InternalClasspathOrLibraryClassProvider<T> internalProvider =
+            (InternalClasspathOrLibraryClassProvider<T>) provider;
+        internalProvider.getClasses().forEach(classConsumer);
+      } else {
+        JarClassFileReader<T> classReader =
+            new JarClassFileReader<>(reader, classConsumer, classKind);
+        try {
+          provider.getProgramResources(
+              programResource -> {
+                if (predicate.test(programResource)) {
+                  tasks.submitUnchecked(
+                      () -> {
+                        Timing threadTiming = timing.createThreadTiming("Force load", options);
+                        try {
+                          classReader.read(programResource);
+                        } catch (ResourceException e) {
+                          throw new RuntimeException(e);
+                        }
+                        threadTiming.end().notifyThreadTimingFinished();
+                      });
+                }
+              });
+        } catch (Unimplemented e) {
+          options.reporter.warning(
+              "Class file resource provider does not support async parsing: "
+                  + provider.getClass().getTypeName());
+          for (DexType type : collectTypes()) {
+            collectClass(type, classConsumer);
+          }
+        }
       }
     }
 
     @Override
-    public Collection<DexType> collectTypes() {
-      return classes.keys();
-    }
-
-    @Override
     public String toString() {
-      return "preloaded(" + classes.size() + ")";
+      return "class-resource-provider(" + provider.toString() + ")";
     }
   }
 
@@ -176,6 +197,25 @@ public abstract class ClassProvider<T extends DexClass> {
       assert !(provider instanceof FilteringClassProvider) : "Nested Filtering class providers";
       this.provider = provider;
       this.filteredOut = filteredOut;
+    }
+
+    @Override
+    public void forceLoad(
+        Consumer<T> classConsumer,
+        InternalOptions options,
+        Predicate<ProgramResource> predicate,
+        TaskCollection<?> tasks,
+        Timing timing) {
+      provider.forceLoad(
+          clazz -> {
+            if (!filteredOut.contains(clazz.getType())) {
+              classConsumer.accept(clazz);
+            }
+          },
+          options,
+          predicate,
+          tasks,
+          timing);
     }
 
     @Override
@@ -228,6 +268,18 @@ public abstract class ClassProvider<T extends DexClass> {
         types.addAll(provider.collectTypes());
       }
       return types;
+    }
+
+    @Override
+    public void forceLoad(
+        Consumer<T> classConsumer,
+        InternalOptions options,
+        Predicate<ProgramResource> predicate,
+        TaskCollection<?> tasks,
+        Timing timing) {
+      for (ClassProvider<T> provider : providers) {
+        provider.forceLoad(classConsumer, options, predicate, tasks, timing);
+      }
     }
 
     @Override

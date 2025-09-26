@@ -60,8 +60,7 @@ public class TypeLatticeTest extends TestBase {
                     .build(),
                 options,
                 Timing.empty())
-            .read()
-            .toDirect();
+            .readDirectSingleThreaded();
     factory = options.itemFactory;
     appView = AppView.createForR8(application);
   }

@@ -949,8 +949,9 @@ public class TestBase {
             ProguardConfiguration.Builder builder =
                 ProguardConfiguration.builder(factory, new Reporter());
             builder.addRule(ProguardKeepRule.defaultKeepAllRule(unused -> {}));
-            builder.addKeepAttributePatterns(ImmutableList.of(ProguardKeepAttributes.SIGNATURE));
-            return builder.build();
+            return builder
+                .addKeepAttributePatterns(ImmutableList.of(ProguardKeepAttributes.SIGNATURE))
+                .build();
           };
     }
     InternalOptions options =
@@ -960,7 +961,8 @@ public class TestBase {
       optionsConsumer.accept(options);
     }
     LazyLoadedDexApplication dexApplication = readApplicationForDexOutput(app, options);
-    AppView<AppInfoWithClassHierarchy> appView = AppView.createForR8(dexApplication.toDirect());
+    AppView<AppInfoWithClassHierarchy> appView =
+        AppView.createForR8(dexApplication.toDirectSingleThreadedForTesting());
     appView.setAppServices(AppServices.builder(appView).build());
     return appView;
   }

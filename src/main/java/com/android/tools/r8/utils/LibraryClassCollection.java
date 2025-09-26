@@ -10,7 +10,7 @@ import java.util.function.Supplier;
 /** Represents a collection of library classes. */
 public class LibraryClassCollection extends ClassMap<DexLibraryClass> {
   public LibraryClassCollection(ClassProvider<DexLibraryClass> classProvider) {
-    super(null, classProvider);
+    super(classProvider);
   }
 
   public static LibraryClassCollection empty() {

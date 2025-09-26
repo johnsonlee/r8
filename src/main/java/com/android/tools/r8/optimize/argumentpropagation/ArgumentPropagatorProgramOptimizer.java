@@ -453,6 +453,9 @@ public class ArgumentPropagatorProgramOptimizer {
       SingleValue returnValue = null;
       for (ProgramMethod method : methods) {
         if (method.getDefinition().isAbstract()) {
+          if (method.getHolder().isAnnotation()) {
+            return null;
+          }
           // OK, this can be rewritten to have void return type.
           continue;
         }

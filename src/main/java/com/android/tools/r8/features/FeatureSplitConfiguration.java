@@ -6,19 +6,26 @@ package com.android.tools.r8.features;
 import com.android.tools.r8.DataResourceConsumer;
 import com.android.tools.r8.DataResourceProvider;
 import com.android.tools.r8.FeatureSplit;
+import com.android.tools.r8.FeatureSplitProgramResourceProvider;
 import com.android.tools.r8.ProgramResourceProvider;
+import com.android.tools.r8.graph.DexItemFactory;
+import com.android.tools.r8.utils.IterableUtils;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Set;
 
 public class FeatureSplitConfiguration {
 
-  private final List<FeatureSplit> featureSplits;
+  private final LinkedHashMap<FeatureSplit, List<FeatureSplitProgramResourceProvider>>
+      featureSplits;
   private final boolean isolatedSplits;
 
-  public FeatureSplitConfiguration(List<FeatureSplit> featureSplits, boolean isolatedSplits) {
+  public FeatureSplitConfiguration(
+      LinkedHashMap<FeatureSplit, List<FeatureSplitProgramResourceProvider>> featureSplits,
+      boolean isolatedSplits) {
     this.featureSplits = featureSplits;
     this.isolatedSplits = isolatedSplits;
   }
@@ -28,6 +35,7 @@ public class FeatureSplitConfiguration {
   }
 
   public static class DataResourceProvidersAndConsumer {
+
     public final FeatureSplit featureSplit;
     public final Set<DataResourceProvider> providers;
     public final DataResourceConsumer consumer;
@@ -44,7 +52,7 @@ public class FeatureSplitConfiguration {
 
   public Collection<DataResourceProvidersAndConsumer> getDataResourceProvidersAndConsumers() {
     List<DataResourceProvidersAndConsumer> result = new ArrayList<>();
-    for (FeatureSplit featureSplit : featureSplits) {
+    for (FeatureSplit featureSplit : getFeatureSplits()) {
       DataResourceConsumer dataResourceConsumer =
           featureSplit.getProgramConsumer().getDataResourceConsumer();
       if (dataResourceConsumer != null) {
@@ -67,8 +75,13 @@ public class FeatureSplitConfiguration {
     return result;
   }
 
-  public List<FeatureSplit> getFeatureSplits() {
-    return featureSplits;
+  public Collection<FeatureSplit> getFeatureSplits() {
+    return featureSplits.keySet();
+  }
+
+  public List<FeatureSplitProgramResourceProvider> getFeatureSplitProgramResourceProviders(
+      FeatureSplit featureSplit) {
+    return featureSplits.get(featureSplit);
   }
 
   public boolean isIsolatedSplitsEnabled() {
@@ -77,16 +90,19 @@ public class FeatureSplitConfiguration {
 
   public static class Builder {
 
-    private List<FeatureSplit> featureSplits = new ArrayList<>();
+    private final LinkedHashMap<FeatureSplit, List<FeatureSplitProgramResourceProvider>>
+        featureSplits = new LinkedHashMap<>();
     private boolean isolatedSplits;
 
-    public Builder addFeatureSplit(FeatureSplit featureSplit) {
-      featureSplits.add(featureSplit);
+    public Builder addFeatureSplit(
+        FeatureSplit featureSplit,
+        List<FeatureSplitProgramResourceProvider> featureSplitProgramResourceProviders) {
+      featureSplits.put(featureSplit, featureSplitProgramResourceProviders);
       return this;
     }
 
-    public List<FeatureSplit> getFeatureSplits() {
-      return featureSplits;
+    public Collection<FeatureSplit> getFeatureSplits() {
+      return featureSplits.keySet();
     }
 
     public Builder setEnableIsolatedSplits(boolean isolatedSplits) {
@@ -94,10 +110,15 @@ public class FeatureSplitConfiguration {
       return this;
     }
 
-    public FeatureSplitConfiguration build() {
-      return featureSplits.isEmpty()
-          ? null
-          : new FeatureSplitConfiguration(featureSplits, isolatedSplits);
+    public FeatureSplitConfiguration build(DexItemFactory factory) {
+      if (featureSplits.isEmpty()) {
+        return null;
+      }
+      for (FeatureSplitProgramResourceProvider programResourceProvider :
+          IterableUtils.flatten(featureSplits.values())) {
+        programResourceProvider.setDexItemFactory(factory);
+      }
+      return new FeatureSplitConfiguration(featureSplits, isolatedSplits);
     }
   }
 }

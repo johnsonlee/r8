@@ -1686,14 +1686,16 @@ public class ToolHelper {
             .addProgramFiles(ListUtils.map(fileNames, Paths::get))
             .addLibraryFiles(androidJar)
             .build();
-    return new ApplicationReader(input, new InternalOptions(), Timing.empty()).read().toDirect();
+    return new ApplicationReader(input, new InternalOptions(), Timing.empty())
+        .readDirectSingleThreaded();
   }
 
   public static ProguardConfiguration loadProguardConfiguration(
       DexItemFactory factory, List<Path> configPaths) {
     Reporter reporter = new Reporter();
+    ProguardConfiguration.Builder builder = ProguardConfiguration.builder(factory, reporter);
     if (configPaths.isEmpty()) {
-      return ProguardConfiguration.builder(factory, reporter)
+      return builder
           .disableShrinking()
           .disableObfuscation()
           .disableOptimization()
@@ -1701,11 +1703,11 @@ public class ToolHelper {
           .build();
     }
     ProguardConfigurationParser parser =
-        new ProguardConfigurationParser(factory, reporter);
+        new ProguardConfigurationParser(factory, reporter, builder);
     for (Path configPath : configPaths) {
       parser.parse(configPath);
     }
-    return parser.getConfig();
+    return builder.build();
   }
 
   public static D8Command.Builder prepareD8CommandBuilder(AndroidApp app) {
@@ -2704,7 +2706,8 @@ public class ToolHelper {
     R8.writeApplication(appView, null, Executors.newSingleThreadExecutor());
   }
 
-  public static void disassemble(AndroidApp app, PrintStream ps) throws IOException {
+  public static void disassemble(AndroidApp app, PrintStream ps)
+      throws ExecutionException, IOException {
     LazyLoadedDexApplication application =
         new ApplicationReader(app, new InternalOptions(), Timing.empty()).read();
     new AssemblyWriter(application, new InternalOptions(), true, false, true).write(ps);

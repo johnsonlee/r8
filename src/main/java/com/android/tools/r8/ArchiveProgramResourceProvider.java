@@ -9,6 +9,7 @@ import com.android.tools.r8.keepanno.annotations.KeepForApi;
 import com.android.tools.r8.origin.ArchiveEntryOrigin;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.origin.PathOrigin;
+import com.android.tools.r8.utils.BooleanBox;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.ZipUtils;
@@ -22,6 +23,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
@@ -134,6 +136,43 @@ public class ArchiveProgramResourceProvider implements ProgramResourceProvider {
             origin);
       }
       return !dexResources.isEmpty() ? dexResources : classResources;
+    } catch (IOException e) {
+      throw new ResourceException(origin, e);
+    }
+  }
+
+  @Override
+  public void getProgramResources(Consumer<ProgramResource> consumer) throws ResourceException {
+    try {
+      BooleanBox seenCf = new BooleanBox();
+      BooleanBox seenDex = new BooleanBox();
+      readArchive(
+          (entry, stream) -> {
+            String name = entry.getEntryName();
+            if (include.test(name)) {
+              if (ZipUtils.isDexFile(name)) {
+                consumer.accept(
+                    ProgramResource.fromBytes(
+                        entry, Kind.DEX, ByteStreams.toByteArray(stream), null));
+                seenDex.set();
+              } else if (ZipUtils.isClassFile(name)) {
+                String descriptor = DescriptorUtils.guessTypeDescriptor(name);
+                consumer.accept(
+                    ProgramResource.fromBytes(
+                        entry,
+                        Kind.CF,
+                        ByteStreams.toByteArray(stream),
+                        Collections.singleton(descriptor)));
+                seenCf.set();
+              }
+            }
+          });
+      if (seenCf.isTrue() && seenDex.isTrue()) {
+        throw new CompilationError(
+            "Cannot create android app from an archive containing both DEX and Java-bytecode "
+                + "content.",
+            origin);
+      }
     } catch (IOException e) {
       throw new ResourceException(origin, e);
     }

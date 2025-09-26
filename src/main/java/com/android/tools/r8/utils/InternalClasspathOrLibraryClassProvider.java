@@ -30,6 +30,10 @@ public class InternalClasspathOrLibraryClassProvider<T extends DexClass>
     return classes.get(type);
   }
 
+  public Collection<T> getClasses() {
+    return classes.values();
+  }
+
   public Collection<DexType> getTypes() {
     return classes.keySet();
   }

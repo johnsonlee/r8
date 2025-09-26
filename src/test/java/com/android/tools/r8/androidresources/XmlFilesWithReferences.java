@@ -41,6 +41,7 @@ public class XmlFilesWithReferences extends TestBase {
         .addProgramClasses(FooBar.class)
         .addAndroidResources(getTestResources(temp))
         .addKeepMainRule(FooBar.class)
+        .allowStderrMessages()
         .compile()
         .inspectShrunkenResources(
             resourceTableInspector -> {

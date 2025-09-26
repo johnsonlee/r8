@@ -24,6 +24,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
@@ -44,9 +45,9 @@ public class AarArchiveResourceProvider implements ProgramResourceProvider {
     this.archive = archive;
   }
 
-  private List<ProgramResource> readClassesJar(ZipInputStream stream) throws IOException {
+  private void readClassesJar(ZipInputStream stream, Consumer<ProgramResource> consumer)
+      throws IOException {
     ZipEntry entry;
-    List<ProgramResource> resources = new ArrayList<>();
     while (null != (entry = stream.getNextEntry())) {
       String name = entry.getName();
       if (ZipUtils.isClassFile(name)) {
@@ -58,14 +59,12 @@ public class AarArchiveResourceProvider implements ProgramResourceProvider {
                 entryOrigin,
                 ByteStreams.toByteArray(stream),
                 Collections.singleton(descriptor));
-        resources.add(resource);
+        consumer.accept(resource);
       }
     }
-    return resources;
   }
 
-  private List<ProgramResource> readArchive() throws IOException {
-    List<ProgramResource> classResources = null;
+  private void readArchive(Consumer<ProgramResource> consumer) throws IOException {
     try (ZipFile zipFile = FileUtils.createZipFile(archive.toFile(), StandardCharsets.UTF_8)) {
       final Enumeration<? extends ZipEntry> entries = zipFile.entries();
       while (entries.hasMoreElements()) {
@@ -74,7 +73,7 @@ public class AarArchiveResourceProvider implements ProgramResourceProvider {
           String name = entry.getName();
           if (name.equals("classes.jar")) {
             try (ZipInputStream classesStream = new ZipInputStream(stream)) {
-              classResources = readClassesJar(classesStream);
+              readClassesJar(classesStream, consumer);
             }
             break;
           }
@@ -83,13 +82,23 @@ public class AarArchiveResourceProvider implements ProgramResourceProvider {
     } catch (ZipException e) {
       throw new CompilationError("Zip error while reading '" + archive + "': " + e.getMessage(), e);
     }
-    return classResources == null ? Collections.emptyList() : classResources;
   }
 
   @Override
   public Collection<ProgramResource> getProgramResources() throws ResourceException {
     try {
-      return readArchive();
+      List<ProgramResource> classResources = new ArrayList<>();
+      readArchive(classResources::add);
+      return classResources;
+    } catch (IOException e) {
+      throw new ResourceException(origin, e);
+    }
+  }
+
+  @Override
+  public void getProgramResources(Consumer<ProgramResource> consumer) throws ResourceException {
+    try {
+      readArchive(consumer);
     } catch (IOException e) {
       throw new ResourceException(origin, e);
     }

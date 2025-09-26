@@ -16,8 +16,12 @@ public class DebugConsumerUtils {
 
   private static void ensureReachableOptimized(
       List<String> logStrings, String type, String name, boolean reachable) {
-    assertEquals(
-        reachable, logStrings.stream().anyMatch(s -> s.startsWith(type + ":" + name + ":")));
+    assertTrue(
+        logStrings.stream()
+            .anyMatch(
+                s ->
+                    s.contains(type + ":" + name + ":")
+                        && s.contains(reachable ? "reachable from" : "is not reachable.")));
   }
 
   private static void ensureDexReachableResourcesState(

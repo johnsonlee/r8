@@ -16,7 +16,7 @@ public class ClasspathClassCollection extends ClassMap<DexClasspathClass> {
   }
 
   public ClasspathClassCollection(ClassProvider<DexClasspathClass> classProvider) {
-    super(null, classProvider);
+    super(classProvider);
   }
 
   public static ClasspathClassCollection empty() {

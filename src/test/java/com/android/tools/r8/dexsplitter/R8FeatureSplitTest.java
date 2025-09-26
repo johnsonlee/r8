@@ -12,6 +12,8 @@ import static org.junit.Assert.assertNull;
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.DexIndexedConsumer;
 import com.android.tools.r8.FeatureSplit;
+import com.android.tools.r8.ProgramResource;
+import com.android.tools.r8.ProgramResourceProvider;
 import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.ResourceException;
 import com.android.tools.r8.TestParameters;
@@ -28,7 +30,9 @@ import com.google.common.io.ByteStreams;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Consumer;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import org.junit.Test;
@@ -54,7 +58,19 @@ public class R8FeatureSplitTest extends SplitterTestBase {
 
   private static FeatureSplit emptySplitProvider(FeatureSplit.Builder builder) {
     builder
-        .addProgramResourceProvider(ImmutableList::of)
+        .addProgramResourceProvider(
+            new ProgramResourceProvider() {
+
+              @Override
+              public Collection<ProgramResource> getProgramResources() {
+                return Collections.emptyList();
+              }
+
+              @Override
+              public void getProgramResources(Consumer<ProgramResource> consumer) {
+                // Intentionally empty.
+              }
+            })
         .setProgramConsumer(DexIndexedConsumer.emptyConsumer());
     return builder.build();
   }

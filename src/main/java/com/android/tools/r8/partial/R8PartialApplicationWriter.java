@@ -54,7 +54,7 @@ public class R8PartialApplicationWriter {
     // during writing, which we bypass. The D8 lenses may arise from synthetic finalization and
     // horizontal class merging of synthetics.
     rewriteCodeWithLens(executorService);
-    subCompilationConfiguration.writeApplication(appView);
+    subCompilationConfiguration.writeApplication(appView, executorService);
   }
 
   private void rewriteCodeWithLens(ExecutorService executorService) throws ExecutionException {

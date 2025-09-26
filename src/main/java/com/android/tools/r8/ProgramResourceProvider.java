@@ -3,15 +3,21 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8;
 
+import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.function.Consumer;
 
 /** Program resource provider. */
 @KeepForApi
 public interface ProgramResourceProvider {
 
   Collection<ProgramResource> getProgramResources() throws ResourceException;
+
+  default void getProgramResources(Consumer<ProgramResource> consumer) throws ResourceException {
+    throw new Unimplemented();
+  }
 
   default DataResourceProvider getDataResourceProvider() {
     return null;

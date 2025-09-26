@@ -259,7 +259,9 @@ public class R8ResourceShrinkerState {
     ResourceStore resourceStore = r8ResourceShrinkerModel.getResourceStore();
     resourceStore.processToolsAttributes();
     ImmutableSet<String> resEntriesToKeep = getResEntriesToKeep(resourceStore);
-    List<Integer> resourceIdsToRemove = getResourcesToRemove();
+    List<Resource> resourcesToRemove = getResourcesToRemove();
+    List<Integer> resourceIdsToRemove =
+        resourcesToRemove.stream().map(r -> r.value).collect(Collectors.toList());
 
     Map<FeatureSplit, ResourceTable> shrunkenTables = new IdentityHashMap<>();
     resourceTables.forEach(
@@ -274,6 +276,9 @@ public class R8ResourceShrinkerState {
               resourceStringEntry.getKey().toString()
                   + " reachable from "
                   + resourceStringEntry.getValue());
+    }
+    for (Resource resource : resourcesToRemove) {
+      shrinkerDebugReporter.debug(() -> resource.toString() + " is not reachable.");
     }
     return new ShrinkerResult(resEntriesToKeep, shrunkenTables, changedXmlFiles);
   }
@@ -481,11 +486,10 @@ public class R8ResourceShrinkerState {
     return resourceIdToXmlFiles;
   }
 
-  private List<Integer> getResourcesToRemove() {
+  private List<Resource> getResourcesToRemove() {
     return r8ResourceShrinkerModel.getResourceStore().getResources().stream()
         .filter(r -> !r.isReachable() && !r.isPublic())
         .filter(r -> r.type != ResourceType.ID)
-        .map(r -> r.value)
         .collect(Collectors.toList());
   }
 

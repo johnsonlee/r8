@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /**
  * Lazy Java class file resource provider loading class files from a JDK.
@@ -37,7 +38,7 @@ import java.util.Set;
  */
 @KeepForApi
 public class JdkClassFileProvider implements ClassFileResourceProvider, Closeable {
-  private Origin origin;
+  private final Origin origin;
   private final Set<String> descriptors = new HashSet<>();
   private final Map<String, String> descriptorToModule = new HashMap<>();
   private URLClassLoader jrtFsJarLoader;
@@ -158,6 +159,13 @@ public class JdkClassFileProvider implements ClassFileResourceProvider, Closeabl
           Collections.singleton(descriptor));
     } catch (IOException e) {
       throw new CompilationError("Failed to read '" + descriptor, origin);
+    }
+  }
+
+  @Override
+  public void getProgramResources(Consumer<ProgramResource> consumer) {
+    for (String descriptor : descriptors) {
+      consumer.accept(getProgramResource(descriptor));
     }
   }
 

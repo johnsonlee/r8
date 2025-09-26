@@ -53,7 +53,8 @@ public class ResourceShrinkerLoggingTest extends TestBase {
     Assume.assumeTrue(optimized || parameters.getPartialCompilationTestParameters().isNone());
     testForR8(parameters)
         .addProgramClasses(FooBar.class)
-        .applyIf(optimized, R8TestBuilder::enableOptimizedShrinking)
+        .applyIf(
+            optimized, R8TestBuilder::enableOptimizedShrinking, R8TestBuilder::allowStderrMessages)
         .addResourceShrinkerLogCapture()
         .addAndroidResources(getTestResources(temp))
         .addKeepMainRule(FooBar.class)

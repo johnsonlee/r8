@@ -53,12 +53,17 @@ public class ArchiveWithDexTest extends TestBase {
   private static Origin zipWithDexAndClassOrigin;
 
   @BeforeClass
-  public static void createZipWitDexAndClass() throws IOException {
+  public static void createZipWitDexAndClass() throws CompilationFailedException, IOException {
     Path zipContent = getStaticTemp().newFolder().toPath();
     Files.copy(
         ToolHelper.getClassFileForTestClass(TestClass.class),
         zipContent.resolve("TestClass.class"));
-    Files.createFile(zipContent.resolve("other.dex"));
+    testForD8(getStaticTemp())
+        .addProgramClasses(OtherTestClass.class)
+        .setMinApi(AndroidApiLevel.B)
+        .release()
+        .compile()
+        .writeSingleDexOutputToFile(zipContent.resolve("other.dex"));
     zipWithDexAndClass = getStaticTemp().newFolder().toPath().resolve("input.zip");
     ZipUtils.zip(zipWithDexAndClass, zipContent);
     zipWithDexAndClassOrigin = new PathOrigin(zipWithDexAndClass);
@@ -208,6 +213,13 @@ public class ArchiveWithDexTest extends TestBase {
   }
 
   static class TestClass {
+
+    public static void main(String[] args) {
+      System.out.println("Hello, world!");
+    }
+  }
+
+  static class OtherTestClass {
 
     public static void main(String[] args) {
       System.out.println("Hello, world!");

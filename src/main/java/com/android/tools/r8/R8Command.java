@@ -48,6 +48,7 @@ import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.ArchiveResourceProvider;
 import com.android.tools.r8.utils.AssertionConfigurationWithDefault;
+import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.DumpInputFlags;
 import com.android.tools.r8.utils.EmbeddedRulesExtractor;
 import com.android.tools.r8.utils.ExceptionDiagnostic;
@@ -58,6 +59,7 @@ import com.android.tools.r8.utils.InternalOptions.HorizontalClassMergerOptions;
 import com.android.tools.r8.utils.InternalOptions.LineNumberOptimization;
 import com.android.tools.r8.utils.InternalOptions.MappingComposeOptions;
 import com.android.tools.r8.utils.InternalProgramClassProvider;
+import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.ProgramClassCollection;
 import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.SemanticVersion;
@@ -514,24 +516,13 @@ public final class R8Command extends BaseCompilerCommand {
      */
     public Builder addFeatureSplit(
         Function<FeatureSplit.Builder, FeatureSplit> featureSplitGenerator) {
-      FeatureSplit featureSplit = featureSplitGenerator.apply(FeatureSplit.builder(getReporter()));
-      featureSplitConfigurationBuilder.addFeatureSplit(featureSplit);
-      for (ProgramResourceProvider programResourceProvider : featureSplit
-          .getProgramResourceProviders()) {
-        // Data resources are handled separately and passed directly to the feature split consumer.
-        ProgramResourceProvider providerWithoutDataResources = new ProgramResourceProvider() {
-          @Override
-          public Collection<ProgramResource> getProgramResources() throws ResourceException {
-            return programResourceProvider.getProgramResources();
-          }
-
-          @Override
-          public DataResourceProvider getDataResourceProvider() {
-            return null;
-          }
-        };
-        addProgramResourceProvider(providerWithoutDataResources);
-      }
+      FeatureSplit featureSplit = featureSplitGenerator.apply(FeatureSplit.builder());
+      List<FeatureSplitProgramResourceProvider> featureSplitProgramResourceProviders =
+          ListUtils.map(
+              featureSplit.getProgramResourceProviders(), FeatureSplitProgramResourceProvider::new);
+      featureSplitConfigurationBuilder.addFeatureSplit(
+          featureSplit, featureSplitProgramResourceProviders);
+      featureSplitProgramResourceProviders.forEach(this::addProgramResourceProvider);
       return self();
     }
 
@@ -855,7 +846,7 @@ public final class R8Command extends BaseCompilerCommand {
       long created = System.nanoTime();
       Reporter reporter = getReporter();
       List<ProguardConfigurationRule> mainDexKeepRules =
-          ProguardConfigurationParser.parse(mainDexRules, factory, reporter);
+          ProguardConfigurationParser.parseMainDex(mainDexRules, factory, reporter);
 
       DesugaredLibrarySpecification desugaredLibrarySpecification =
           getDesugaredLibraryConfiguration(factory, false);
@@ -896,7 +887,7 @@ public final class R8Command extends BaseCompilerCommand {
               getIncludeClassesChecksum(),
               getDexClassChecksumFilter(),
               desugaredLibrarySpecification,
-              featureSplitConfigurationBuilder.build(),
+              featureSplitConfigurationBuilder.build(factory),
               getAssertionsConfiguration(),
               getOutputInspections(),
               synthesizedClassPrefix,
@@ -926,14 +917,18 @@ public final class R8Command extends BaseCompilerCommand {
     }
 
     private ProguardConfiguration makeConfiguration(DexItemFactory factory) {
-      ProguardConfigurationParserOptions parserOptions = parserOptionsBuilder.build();
+      ProguardConfigurationParserOptions parserOptions =
+          parserOptionsBuilder.setForceProguardCompatibility(forceProguardCompatibility).build();
+      ProguardConfiguration.Builder configurationBuilder =
+          ProguardConfiguration.builder(factory, getReporter())
+              .setForceProguardCompatibility(forceProguardCompatibility);
       ProguardConfigurationParser parser =
           new ProguardConfigurationParser(
-              factory, getReporter(), parserOptions, inputDependencyGraphConsumer);
-      ProguardConfiguration.Builder configurationBuilder =
-          parser
-              .getConfigurationBuilder()
-              .setForceProguardCompatibility(forceProguardCompatibility);
+              factory,
+              getReporter(),
+              parserOptions,
+              inputDependencyGraphConsumer,
+              configurationBuilder);
       if (!proguardConfigs.isEmpty()) {
         parser.parse(proguardConfigs);
       }
@@ -956,7 +951,7 @@ public final class R8Command extends BaseCompilerCommand {
       }
 
       // Add embedded keep rules.
-      amendWithRulesAndProvidersForInjarsAndMetaInf(getReporter(), parser);
+      amendWithRulesAndProvidersForInjarsAndMetaInf(getReporter(), parser, configurationBuilder);
 
       // Extract out rules for keep annotations and amend the configuration.
       // TODO(b/248408342): Remove this and parse annotations as part of R8 root-set & enqueuer.
@@ -967,7 +962,9 @@ public final class R8Command extends BaseCompilerCommand {
     }
 
     private void amendWithRulesAndProvidersForInjarsAndMetaInf(
-        Reporter reporter, ProguardConfigurationParser parser) {
+        Reporter reporter,
+        ProguardConfigurationParser parser,
+        ProguardConfiguration.Builder configurationBuilder) {
 
       Supplier<SemanticVersion> semanticVersionSupplier =
           SemanticVersionUtils.compilerVersionSemanticVersionSupplier(
@@ -986,7 +983,7 @@ public final class R8Command extends BaseCompilerCommand {
                   .map(ProgramResourceProvider::getDataResourceProvider)
                   .filter(Objects::nonNull)
                   .collect(Collectors.toList()));
-      for (FilteredClassPath injar : parser.getConfigurationBuilder().getInjars()) {
+      for (FilteredClassPath injar : configurationBuilder.getInjars()) {
         if (seen.add(injar)) {
           ArchiveResourceProvider provider = getAppBuilder().createAndAddProvider(injar);
           if (provider != null) {
@@ -1007,8 +1004,7 @@ public final class R8Command extends BaseCompilerCommand {
             .map(ClassFileResourceProvider::getDataResourceProvider)
             .filter(Objects::nonNull)
             .forEach(providers::add);
-        for (FilteredClassPath libraryjar :
-            parser.getConfigurationBuilder().build().getLibraryjars()) {
+        for (FilteredClassPath libraryjar : configurationBuilder.build().getLibraryjars()) {
           if (seen.add(libraryjar)) {
             ArchiveResourceProvider provider = getAppBuilder().createAndAddProvider(libraryjar);
             if (provider != null) {
@@ -1108,7 +1104,7 @@ public final class R8Command extends BaseCompilerCommand {
   }
 
   // Wrapper class to ensure that R8 does not allow DEX as program inputs.
-  private static class EnsureNonDexProgramResourceProvider implements ProgramResourceProvider {
+  public static class EnsureNonDexProgramResourceProvider implements ProgramResourceProvider {
 
     final ProgramResourceProvider provider;
 
@@ -1117,12 +1113,30 @@ public final class R8Command extends BaseCompilerCommand {
     }
 
     @Override
+    public void getProgramResources(Consumer<ProgramResource> consumer) throws ResourceException {
+      Box<ProgramResource> dexResource = new Box<>();
+      provider.getProgramResources(
+          resource -> {
+            if (resource.getKind() == Kind.CF) {
+              consumer.accept(resource);
+            } else {
+              assert resource.getKind() == Kind.DEX;
+              dexResource.set(resource);
+            }
+          });
+      if (dexResource.isSet()) {
+        throw new ResourceException(
+            dexResource.get().getOrigin(), "R8 does not support compiling DEX inputs");
+      }
+    }
+
+    @Override
     public Collection<ProgramResource> getProgramResources() throws ResourceException {
       Collection<ProgramResource> resources = provider.getProgramResources();
       for (ProgramResource resource : resources) {
         if (resource.getKind() == Kind.DEX) {
-          throw new ResourceException(resource.getOrigin(),
-              "R8 does not support compiling DEX inputs");
+          throw new ResourceException(
+              resource.getOrigin(), "R8 does not support compiling DEX inputs");
         }
       }
       return resources;
@@ -1131,6 +1145,15 @@ public final class R8Command extends BaseCompilerCommand {
     @Override
     public DataResourceProvider getDataResourceProvider() {
       return provider.getDataResourceProvider();
+    }
+
+    public static ProgramResourceProvider unwrap(ProgramResourceProvider provider) {
+      if (provider instanceof EnsureNonDexProgramResourceProvider) {
+        EnsureNonDexProgramResourceProvider wrapper =
+            (EnsureNonDexProgramResourceProvider) provider;
+        return wrapper.provider;
+      }
+      return provider;
     }
   }
 

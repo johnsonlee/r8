@@ -29,6 +29,7 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -229,7 +230,7 @@ public class AppServices {
         readServices(provider, FeatureSplit.BASE);
       }
       if (options.hasFeatureSplitConfiguration()) {
-        List<FeatureSplit> featureSplits =
+        Collection<FeatureSplit> featureSplits =
             options.getFeatureSplitConfiguration().getFeatureSplits();
         for (FeatureSplit featureSplit : featureSplits) {
           for (ProgramResourceProvider provider : featureSplit.getProgramResourceProviders()) {

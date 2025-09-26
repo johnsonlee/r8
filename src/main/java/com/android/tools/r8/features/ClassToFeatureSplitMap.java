@@ -5,13 +5,10 @@
 package com.android.tools.r8.features;
 
 import com.android.tools.r8.FeatureSplit;
-import com.android.tools.r8.ProgramResource;
-import com.android.tools.r8.ProgramResourceProvider;
-import com.android.tools.r8.ResourceException;
+import com.android.tools.r8.FeatureSplitProgramResourceProvider;
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
@@ -21,7 +18,6 @@ import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration.R8PartialR8SubCompilationConfiguration;
 import com.android.tools.r8.synthesis.SyntheticItems;
 import com.android.tools.r8.utils.InternalOptions;
-import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.Sets;
 import java.util.IdentityHashMap;
@@ -31,11 +27,11 @@ import java.util.Set;
 public class ClassToFeatureSplitMap {
 
   private final Map<DexType, FeatureSplit> classToFeatureSplitMap;
-  private final Map<FeatureSplit, String> representativeStringsForFeatureSplit;
+  private final Map<FeatureSplit, DexType> representativeStringsForFeatureSplit;
 
   private ClassToFeatureSplitMap(
       Map<DexType, FeatureSplit> classToFeatureSplitMap,
-      Map<FeatureSplit, String> representativeStringsForFeatureSplit) {
+      Map<FeatureSplit, DexType> representativeStringsForFeatureSplit) {
     this.classToFeatureSplitMap = classToFeatureSplitMap;
     this.representativeStringsForFeatureSplit = representativeStringsForFeatureSplit;
   }
@@ -46,8 +42,7 @@ public class ClassToFeatureSplitMap {
 
   public static ClassToFeatureSplitMap createInitialD8ClassToFeatureSplitMap(
       InternalOptions options) {
-    return createInitialClassToFeatureSplitMap(
-        options.dexItemFactory(), options.getFeatureSplitConfiguration(), options.reporter);
+    return createInitialClassToFeatureSplitMap(options.getFeatureSplitConfiguration());
   }
 
   public static ClassToFeatureSplitMap createInitialR8ClassToFeatureSplitMap(
@@ -57,36 +52,26 @@ public class ClassToFeatureSplitMap {
           options.partialSubCompilationConfiguration.asR8();
       return subCompilationConfiguration.getClassToFeatureSplitMap();
     }
-    return createInitialClassToFeatureSplitMap(
-        options.dexItemFactory(), options.getFeatureSplitConfiguration(), options.reporter);
+    return createInitialClassToFeatureSplitMap(options.getFeatureSplitConfiguration());
   }
 
   public static ClassToFeatureSplitMap createInitialClassToFeatureSplitMap(
-      DexItemFactory dexItemFactory,
-      FeatureSplitConfiguration featureSplitConfiguration,
-      Reporter reporter) {
+      FeatureSplitConfiguration featureSplitConfiguration) {
     if (featureSplitConfiguration == null) {
       return createEmptyClassToFeatureSplitMap();
     }
 
     Map<DexType, FeatureSplit> classToFeatureSplitMap = new IdentityHashMap<>();
-    Map<FeatureSplit, String> representativeStringsForFeatureSplit = new IdentityHashMap<>();
+    Map<FeatureSplit, DexType> representativeStringsForFeatureSplit = new IdentityHashMap<>();
     for (FeatureSplit featureSplit : featureSplitConfiguration.getFeatureSplits()) {
-      String representativeType = null;
-      for (ProgramResourceProvider programResourceProvider :
-          featureSplit.getProgramResourceProviders()) {
-        try {
-          for (ProgramResource programResource : programResourceProvider.getProgramResources()) {
-            for (String classDescriptor : programResource.getClassDescriptors()) {
-              DexType type = dexItemFactory.createType(classDescriptor);
-              classToFeatureSplitMap.put(type, featureSplit);
-              if (representativeType == null || classDescriptor.compareTo(representativeType) > 0) {
-                representativeType = classDescriptor;
-              }
-            }
+      DexType representativeType = null;
+      for (FeatureSplitProgramResourceProvider programResourceProvider :
+          featureSplitConfiguration.getFeatureSplitProgramResourceProviders(featureSplit)) {
+        for (DexType type : programResourceProvider.unsetTypes()) {
+          classToFeatureSplitMap.put(type, featureSplit);
+          if (representativeType == null || type.compareTo(representativeType) > 0) {
+            representativeType = type;
           }
-        } catch (ResourceException e) {
-          throw reporter.fatalError(e.getMessage());
         }
       }
       if (representativeType != null) {

@@ -121,7 +121,8 @@ public class MethodResolutionOptimizationInfoAnalysis {
               // If the method is not abstract and does not have any optimization info, there is no
               // need to request the optimization info for overrides in subclasses, since the join
               // of the optimization info becomes unknown anyway.
-              if (method.isAbstract() || !method.getOptimizationInfo().isDefault()) {
+              if ((method.isAbstract() && !superClass.isAnnotation())
+                  || !method.getOptimizationInfo().isDefault()) {
                 state.virtualMethodsInSuperClasses.add(method);
               }
             }

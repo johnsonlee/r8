@@ -149,7 +149,7 @@ public abstract class SingleTestRunResult<RR extends SingleTestRunResult<RR>>
     return self();
   }
 
-  public RR disassemble(PrintStream ps) throws IOException {
+  public RR disassemble(PrintStream ps) throws ExecutionException, IOException {
     ToolHelper.disassemble(app, ps);
     return self();
   }

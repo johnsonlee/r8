@@ -6,10 +6,14 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.graph;
 
+import static com.android.tools.r8.utils.ExceptionUtils.unwrapExecutionException;
+import static com.google.common.base.Predicates.alwaysTrue;
+
 import com.android.tools.r8.DataResourceProvider;
-import com.android.tools.r8.dex.ApplicationReader.ProgramClassConflictResolver;
+import com.android.tools.r8.ProgramResource;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.naming.ClassNameMapper;
+import com.android.tools.r8.threading.TaskCollection;
 import com.android.tools.r8.utils.ClasspathClassCollection;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.LibraryClassCollection;
@@ -18,12 +22,16 @@ import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -63,7 +71,8 @@ public class LazyLoadedDexApplication extends DexApplication {
 
   @Override
   List<DexProgramClass> programClasses() {
-    return programClasses.forceLoad().getAllClasses();
+    assert programClasses.isFullyLoaded();
+    return programClasses.getAllClasses();
   }
 
   @Override
@@ -141,11 +150,11 @@ public class LazyLoadedDexApplication extends DexApplication {
     return programClasses.get(type);
   }
 
-  static class AllClasses {
+  public static class AllClasses {
 
     // Mapping of all types to their definitions.
     // Collections of the three different types for iteration.
-    private final ImmutableMap<DexType, DexProgramClass> programClasses;
+    private final Map<DexType, DexProgramClass> programClasses;
     private final ImmutableMap<DexType, DexClasspathClass> classpathClasses;
     private final ImmutableMap<DexType, DexLibraryClass> libraryClasses;
 
@@ -153,35 +162,18 @@ public class LazyLoadedDexApplication extends DexApplication {
         LibraryClassCollection libraryClassesLoader,
         ClasspathClassCollection classpathClassesLoader,
         Map<DexType, DexClasspathClass> synthesizedClasspathClasses,
-        ProgramClassCollection programClassesLoader,
+        Map<DexType, DexProgramClass> allProgramClasses,
         InternalOptions options,
         Timing timing) {
-      // When desugaring VarHandle do not read the VarHandle and MethodHandles$Lookup classes
-      // from the library as they will be synthesized during desugaring.
-      DexItemFactory factory = options.dexItemFactory();
-      Predicate<DexType> forceLoadPredicate =
-          type ->
-              !(options.shouldDesugarVarHandle()
-                  && (type.isIdenticalTo(factory.varHandleType)
-                      || type.isIdenticalTo(factory.lookupType)));
-
       // Force-load library classes.
       ImmutableMap<DexType, DexLibraryClass> allLibraryClasses;
       try (Timing t0 = timing.begin("Force-load library classes")) {
         if (libraryClassesLoader != null) {
-          libraryClassesLoader.forceLoad(forceLoadPredicate);
+          assert libraryClassesLoader.isFullyLoaded();
           allLibraryClasses = libraryClassesLoader.getAllClassesInMap();
         } else {
           allLibraryClasses = ImmutableMap.of();
         }
-      }
-
-      // Program classes should be fully loaded.
-      ImmutableMap<DexType, DexProgramClass> allProgramClasses;
-      try (Timing t0 = timing.begin("Force-load program classes")) {
-        assert programClassesLoader != null;
-        assert programClassesLoader.isFullyLoaded();
-        allProgramClasses = programClassesLoader.forceLoad().getAllClassesInMap();
       }
 
       // Force-load classpath classes.
@@ -190,7 +182,8 @@ public class LazyLoadedDexApplication extends DexApplication {
         ImmutableMap.Builder<DexType, DexClasspathClass> allClasspathClassesBuilder =
             ImmutableMap.builder();
         if (classpathClassesLoader != null) {
-          classpathClassesLoader.forceLoad().forEach(allClasspathClassesBuilder::put);
+          assert classpathClassesLoader.isFullyLoaded();
+          classpathClassesLoader.forEach(allClasspathClassesBuilder::put);
         }
         if (synthesizedClasspathClasses != null) {
           allClasspathClassesBuilder.putAll(synthesizedClasspathClasses);
@@ -228,16 +221,93 @@ public class LazyLoadedDexApplication extends DexApplication {
       }
     }
 
-    public ImmutableMap<DexType, DexProgramClass> getProgramClasses() {
-      return programClasses;
+    public static Builder builder() {
+      return new Builder();
     }
 
-    public ImmutableMap<DexType, DexClasspathClass> getClasspathClasses() {
-      return classpathClasses;
+    public Collection<DexProgramClass> getProgramClasses() {
+      return programClasses.values();
+    }
+
+    public Collection<DexClasspathClass> getClasspathClasses() {
+      return classpathClasses.values();
     }
 
     public ImmutableMap<DexType, DexLibraryClass> getLibraryClasses() {
       return libraryClasses;
+    }
+
+    public static class Builder {
+
+      private LibraryClassCollection libraryClasses;
+      private ClasspathClassCollection classpathClasses;
+      private Map<DexType, DexClasspathClass> synthesizedClasspathClasses;
+      private Map<DexType, DexProgramClass> programClasses;
+
+      private Builder() {}
+
+      public Builder setClasspathClasses(ClasspathClassCollection classpathClasses) {
+        this.classpathClasses = classpathClasses;
+        return this;
+      }
+
+      public Builder setLibraryClasses(LibraryClassCollection libraryClasses) {
+        this.libraryClasses = libraryClasses;
+        return this;
+      }
+
+      public Builder setProgramClasses(Map<DexType, DexProgramClass> programClasses) {
+        this.programClasses = programClasses;
+        return this;
+      }
+
+      public Builder setSynthesizedClasspathClasses(
+          Map<DexType, DexClasspathClass> synthesizedClasspathClasses) {
+        this.synthesizedClasspathClasses = synthesizedClasspathClasses;
+        return this;
+      }
+
+      public Builder forceLoadNonProgramClassCollections(
+          InternalOptions options, TaskCollection<?> tasks, Timing timing) {
+        // When desugaring VarHandle do not read the VarHandle and MethodHandles$Lookup classes
+        // from the library as they will be synthesized during desugaring.
+        Predicate<ProgramResource> forceLoadPredicate =
+            programResource -> {
+              if (!options.shouldDesugarVarHandle()) {
+                return true;
+              }
+              Set<String> descriptors = programResource.getClassDescriptors();
+              if (descriptors.size() != 1) {
+                return true;
+              }
+              String descriptor = descriptors.iterator().next();
+              return !descriptor.equals(DexItemFactory.varHandleDescriptorString)
+                  && !descriptor.equals(DexItemFactory.methodHandlesLookupDescriptorString);
+            };
+        if (classpathClasses != null) {
+          classpathClasses.forceLoad(options, tasks, timing, alwaysTrue());
+        }
+        if (libraryClasses != null) {
+          libraryClasses.forceLoad(options, tasks, timing, forceLoadPredicate);
+        }
+        return this;
+      }
+
+      public AllClasses build(InternalOptions options, Timing timing) {
+        if (classpathClasses != null) {
+          classpathClasses.setFullyLoaded();
+        }
+        if (libraryClasses != null) {
+          libraryClasses.setFullyLoaded();
+        }
+        return new AllClasses(
+            libraryClasses,
+            classpathClasses,
+            synthesizedClasspathClasses,
+            programClasses,
+            options,
+            timing);
+      }
     }
   }
 
@@ -286,14 +356,18 @@ public class LazyLoadedDexApplication extends DexApplication {
   }
 
   /** Force load all classes and return type -> class map containing all the classes. */
-  public AllClasses loadAllClasses(Timing timing) {
-    return new AllClasses(
-        libraryClasses,
-        classpathClasses,
-        synthesizedClasspathClasses,
-        programClasses,
-        options,
-        timing);
+  public AllClasses loadAllClasses(ExecutorService executorService, Timing timing)
+      throws ExecutionException {
+    TaskCollection<?> tasks = new TaskCollection<>(options, executorService);
+    AllClasses.Builder allClassesBuilder =
+        AllClasses.builder()
+            .setClasspathClasses(classpathClasses)
+            .setLibraryClasses(libraryClasses)
+            .setProgramClasses(programClasses.getAllClassesInMap())
+            .setSynthesizedClasspathClasses(synthesizedClasspathClasses)
+            .forceLoadNonProgramClassCollections(options, tasks, timing);
+    tasks.await();
+    return allClassesBuilder.build(options, timing);
   }
 
   public static class Builder extends DexApplication.Builder<LazyLoadedDexApplication, Builder> {
@@ -356,15 +430,11 @@ public class LazyLoadedDexApplication extends DexApplication {
     }
 
     @Override
-    public LazyLoadedDexApplication build(Timing timing) {
-      ProgramClassConflictResolver resolver =
-          options.programClassConflictResolver == null
-              ? ProgramClassCollection.defaultConflictResolver(options.reporter)
-              : options.programClassConflictResolver;
+    public LazyLoadedDexApplication build() {
       return new LazyLoadedDexApplication(
           proguardMap,
           flags,
-          ProgramClassCollection.create(getProgramClasses(), resolver),
+          ProgramClassCollection.create(getProgramClasses(), options),
           ImmutableList.copyOf(dataResourceProviders),
           classpathClasses,
           synthesizedClasspathClasses,
@@ -385,17 +455,22 @@ public class LazyLoadedDexApplication extends DexApplication {
     return this;
   }
 
-  public DirectMappedDexApplication toDirect() {
-    return toDirect(Timing.empty());
+  @Deprecated
+  public DirectMappedDexApplication toDirectSingleThreadedForTesting() {
+    ExecutorService executor = Executors.newSingleThreadExecutor();
+    return toDirectForTesting(executor);
   }
 
-  public DirectMappedDexApplication toDirect(Timing timing) {
+  @Deprecated
+  private DirectMappedDexApplication toDirectForTesting(ExecutorService executorService) {
     try (Timing t0 = timing.begin("To direct app")) {
       // As a side-effect, this will force-load all classes.
-      AllClasses allClasses = loadAllClasses(timing);
+      AllClasses allClasses = loadAllClasses(executorService, timing);
       DirectMappedDexApplication.Builder builder =
           new DirectMappedDexApplication.Builder(this, allClasses);
-      return builder.build(timing);
+      return builder.build();
+    } catch (ExecutionException e) {
+      throw unwrapExecutionException(e);
     }
   }
 

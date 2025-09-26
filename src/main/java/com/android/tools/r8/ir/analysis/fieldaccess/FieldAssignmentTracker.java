@@ -30,6 +30,8 @@ import com.android.tools.r8.ir.analysis.value.BottomValue;
 import com.android.tools.r8.ir.analysis.value.SingleValue;
 import com.android.tools.r8.ir.analysis.value.UnknownValue;
 import com.android.tools.r8.ir.code.FieldInstruction;
+import com.android.tools.r8.ir.code.InstancePut;
+import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InvokeDirect;
 import com.android.tools.r8.ir.code.NewInstance;
 import com.android.tools.r8.ir.code.Value;
@@ -317,6 +319,18 @@ public class FieldAssignmentTracker {
             } else {
               assert initializationInfo.isUnknown();
               abstractValue = UnknownValue.getInstance();
+            }
+
+            // Due to the possibility of constructor inlining we need to check for field puts in the
+            // caller.
+            if (!abstractValue.isUnknown()) {
+              for (InstancePut instancePut :
+                  invoke.getReceiver().<InstancePut>uniqueUsers(Instruction::isInstancePut)) {
+                if (instancePut.getField().isIdenticalTo(field.getReference())) {
+                  abstractValue = AbstractValue.unknown();
+                  break;
+                }
+              }
             }
 
             assert !abstractValue.isBottom();
