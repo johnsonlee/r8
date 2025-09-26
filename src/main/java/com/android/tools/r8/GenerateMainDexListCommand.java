@@ -111,7 +111,7 @@ public class GenerateMainDexListCommand extends BaseCommand {
       }
 
       List<ProguardConfigurationRule> mainDexKeepRules =
-          ProguardConfigurationParser.parse(mainDexRules, factory, getReporter());
+          ProguardConfigurationParser.parseMainDex(mainDexRules, factory, getReporter());
 
       return new GenerateMainDexListCommand(
           factory,

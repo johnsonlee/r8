@@ -113,18 +113,23 @@ public class ProguardConfigurationParser {
   private static final List<String> UNSUPPORTED_FLAG_OPTIONS =
       ImmutableList.of("skipnonpubliclibraryclasses");
 
-  public static ImmutableList<ProguardConfigurationRule> parse(
+  @Deprecated
+  public static ImmutableList<ProguardConfigurationRule> parseMainDex(
       List<ProguardConfigurationSource> sources, DexItemFactory factory, Reporter reporter) {
     if (sources.isEmpty()) {
       return ImmutableList.of();
     }
-    ProguardConfigurationParser parser = new ProguardConfigurationParser(factory, reporter);
+    ProguardConfiguration.Builder builder = ProguardConfiguration.builder(factory, reporter);
+    ProguardConfigurationParser parser =
+        new ProguardConfigurationParser(factory, reporter, builder);
     parser.parse(sources);
-    return ImmutableList.copyOf(parser.getConfig().getRules());
+    return ImmutableList.copyOf(builder.build().getRules());
   }
 
   public ProguardConfigurationParser(
-      DexItemFactory dexItemFactory, Reporter reporter) {
+      DexItemFactory dexItemFactory,
+      Reporter reporter,
+      ProguardConfiguration.Builder configurationBuilder) {
     this(
         dexItemFactory,
         reporter,
@@ -134,7 +139,9 @@ public class ProguardConfigurationParser {
             .setEnableExperimentalConvertCheckNotNull(false)
             .setEnableExperimentalWhyAreYouNotInlining(false)
             .setEnableTestingOptions(false)
-            .build());
+            .build(),
+        null,
+        configurationBuilder);
   }
 
   public ProguardConfigurationParser(
@@ -189,34 +196,6 @@ public class ProguardConfigurationParser {
 
   public ProguardConfiguration.Builder getConfigurationBuilder() {
     return configurationBuilder;
-  }
-
-  private void validate() {
-    if (configurationBuilder.isKeepParameterNames() && configurationBuilder.isObfuscating()) {
-      // The flag -keepparameternames has only effect when minifying, so ignore it if we
-      // are not.
-      throw reporter.fatalError(new StringDiagnostic(
-          "-keepparameternames is not supported",
-          configurationBuilder.getKeepParameterNamesOptionOrigin(),
-          configurationBuilder.getKeepParameterNamesOptionPosition()));
-    }
-  }
-
-  /**
-   * Returns the Proguard configuration with default rules derived from empty rules added.
-   */
-  public ProguardConfiguration getConfig() {
-    validate();
-    return configurationBuilder.build();
-  }
-
-  /**
-   * Returns the Proguard configuration from exactly the rules parsed, without any
-   * defaults derived from empty rules.
-   */
-  public ProguardConfiguration getConfigRawForTesting() {
-    validate();
-    return configurationBuilder.buildRaw();
   }
 
   public void parse(Path path) {
@@ -861,12 +840,12 @@ public class ProguardConfigurationParser {
       Position end = getPosition();
       ProguardKeepRule rule =
           keepRuleBuilder.setSource(getSourceSnippet(contents, start, end)).setEnd(end).build();
-      if (options.isLegacyFullModeForKeepRulesEnabled(configurationBuilder)
+      if (options.isLegacyFullModeForKeepRulesEnabled()
           && rule.getMemberRules().isEmpty()
           && rule.getType() != ProguardKeepRuleType.KEEP_CLASSES_WITH_MEMBERS) {
         // If there are no member rules, a default rule for the parameterless constructor applies
         // in compatibility mode.
-        if (options.isLegacyFullModeForKeepRulesWarningsEnabled(configurationBuilder)) {
+        if (options.isLegacyFullModeForKeepRulesWarningsEnabled()) {
           reporter.warning(
               EmptyMemberRulesToDefaultInitRuleConversionDiagnostic.Factory.create(rule));
         }

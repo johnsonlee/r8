@@ -15,6 +15,7 @@ public class ProguardConfigurationParserOptions {
   private final boolean enableExperimentalWhyAreYouNotInlining;
   private final boolean enableKeepRuntimeInvisibleAnnotations;
   private final boolean enableTestingOptions;
+  private final boolean forceProguardCompatibility;
 
   ProguardConfigurationParserOptions(
       boolean enableLegacyFullModeForKeepRules,
@@ -23,7 +24,8 @@ public class ProguardConfigurationParserOptions {
       boolean enableExperimentalConvertCheckNotNull,
       boolean enableExperimentalWhyAreYouNotInlining,
       boolean enableKeepRuntimeInvisibleAnnotations,
-      boolean enableTestingOptions) {
+      boolean enableTestingOptions,
+      boolean forceProguardCompatibility) {
     this.enableExperimentalCheckEnumUnboxed = enableExperimentalCheckEnumUnboxed;
     this.enableExperimentalConvertCheckNotNull = enableExperimentalConvertCheckNotNull;
     this.enableExperimentalWhyAreYouNotInlining = enableExperimentalWhyAreYouNotInlining;
@@ -31,23 +33,21 @@ public class ProguardConfigurationParserOptions {
     this.enableTestingOptions = enableTestingOptions;
     this.enableLegacyFullModeForKeepRules = enableLegacyFullModeForKeepRules;
     this.enableLegacyFullModeForKeepRulesWarnings = enableLegacyFullModeForKeepRulesWarnings;
+    this.forceProguardCompatibility = forceProguardCompatibility;
   }
 
   public static Builder builder() {
     return new Builder();
   }
 
-  public boolean isLegacyFullModeForKeepRulesEnabled(
-      ProguardConfiguration.Builder configurationBuilder) {
+  public boolean isLegacyFullModeForKeepRulesEnabled() {
     // TODO(b/356344563): Disable in full mode in the next major version.
-    return configurationBuilder.isForceProguardCompatibility() || enableLegacyFullModeForKeepRules;
+    return forceProguardCompatibility || enableLegacyFullModeForKeepRules;
   }
 
-  public boolean isLegacyFullModeForKeepRulesWarningsEnabled(
-      ProguardConfiguration.Builder configurationBuilder) {
-    assert isLegacyFullModeForKeepRulesEnabled(configurationBuilder);
-    return !configurationBuilder.isForceProguardCompatibility()
-        && enableLegacyFullModeForKeepRulesWarnings;
+  public boolean isLegacyFullModeForKeepRulesWarningsEnabled() {
+    assert isLegacyFullModeForKeepRulesEnabled();
+    return !forceProguardCompatibility && enableLegacyFullModeForKeepRulesWarnings;
   }
 
   public boolean isExperimentalCheckEnumUnboxedEnabled() {
@@ -79,6 +79,7 @@ public class ProguardConfigurationParserOptions {
     private boolean enableExperimentalWhyAreYouNotInlining;
     private boolean enableKeepRuntimeInvisibleAnnotations = true;
     private boolean enableTestingOptions;
+    private boolean forceProguardCompatibility = false;
 
     public Builder readEnvironment() {
       enableLegacyFullModeForKeepRules =
@@ -138,6 +139,11 @@ public class ProguardConfigurationParserOptions {
       return this;
     }
 
+    public Builder setForceProguardCompatibility(boolean forceProguardCompatibility) {
+      this.forceProguardCompatibility = forceProguardCompatibility;
+      return this;
+    }
+
     public ProguardConfigurationParserOptions build() {
       return new ProguardConfigurationParserOptions(
           enableLegacyFullModeForKeepRules,
@@ -146,7 +152,8 @@ public class ProguardConfigurationParserOptions {
           enableExperimentalConvertCheckNotNull,
           enableExperimentalWhyAreYouNotInlining,
           enableKeepRuntimeInvisibleAnnotations,
-          enableTestingOptions);
+          enableTestingOptions,
+          forceProguardCompatibility);
     }
   }
 }

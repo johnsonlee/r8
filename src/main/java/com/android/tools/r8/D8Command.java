@@ -551,7 +551,7 @@ public final class D8Command extends BaseCompilerCommand {
           getDesugaredLibraryConfiguration(factory, false);
 
       ImmutableList<ProguardConfigurationRule> mainDexKeepRules =
-          ProguardConfigurationParser.parse(mainDexRules, factory, getReporter());
+          ProguardConfigurationParser.parseMainDex(mainDexRules, factory, getReporter());
 
       if (!globalSyntheticsResourceProviders.isEmpty()) {
         addProgramResourceProvider(

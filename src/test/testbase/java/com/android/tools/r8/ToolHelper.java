@@ -1693,8 +1693,9 @@ public class ToolHelper {
   public static ProguardConfiguration loadProguardConfiguration(
       DexItemFactory factory, List<Path> configPaths) {
     Reporter reporter = new Reporter();
+    ProguardConfiguration.Builder builder = ProguardConfiguration.builder(factory, reporter);
     if (configPaths.isEmpty()) {
-      return ProguardConfiguration.builder(factory, reporter)
+      return builder
           .disableShrinking()
           .disableObfuscation()
           .disableOptimization()
@@ -1702,11 +1703,11 @@ public class ToolHelper {
           .build();
     }
     ProguardConfigurationParser parser =
-        new ProguardConfigurationParser(factory, reporter);
+        new ProguardConfigurationParser(factory, reporter, builder);
     for (Path configPath : configPaths) {
       parser.parse(configPath);
     }
-    return parser.getConfig();
+    return builder.build();
   }
 
   public static D8Command.Builder prepareD8CommandBuilder(AndroidApp app) {

@@ -846,7 +846,7 @@ public final class R8Command extends BaseCompilerCommand {
       long created = System.nanoTime();
       Reporter reporter = getReporter();
       List<ProguardConfigurationRule> mainDexKeepRules =
-          ProguardConfigurationParser.parse(mainDexRules, factory, reporter);
+          ProguardConfigurationParser.parseMainDex(mainDexRules, factory, reporter);
 
       DesugaredLibrarySpecification desugaredLibrarySpecification =
           getDesugaredLibraryConfiguration(factory, false);
@@ -917,7 +917,8 @@ public final class R8Command extends BaseCompilerCommand {
     }
 
     private ProguardConfiguration makeConfiguration(DexItemFactory factory) {
-      ProguardConfigurationParserOptions parserOptions = parserOptionsBuilder.build();
+      ProguardConfigurationParserOptions parserOptions =
+          parserOptionsBuilder.setForceProguardCompatibility(forceProguardCompatibility).build();
       ProguardConfigurationParser parser =
           new ProguardConfigurationParser(
               factory, getReporter(), parserOptions, inputDependencyGraphConsumer);
