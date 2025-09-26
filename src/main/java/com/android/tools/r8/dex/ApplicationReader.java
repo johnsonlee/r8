@@ -479,7 +479,7 @@ public class ApplicationReader {
                   "Program resource provider does not support async parsing: "
                       + EnsureNonDexProgramResourceProvider.unwrap(legacyProgramResourceProvider)
                           .getClass()
-                          .getTypeName()),
+                          .getName()),
           timing);
       hasReadProgramResourceFromDex = !dexResources.isEmpty();
       timing.end();
