@@ -50,13 +50,11 @@ public class GenericSignatureCorrectnessHelperTests extends TestBase {
             buildInnerClasses(GenericSignatureCorrectnessHelperTests.class)
                 .addLibraryFile(ToolHelper.getJava8RuntimeJar())
                 .build(),
-            factory -> {
-              ProguardConfiguration.Builder builder =
-                  ProguardConfiguration.builder(
-                      factory, new Reporter(new TestDiagnosticMessagesImpl()));
-              builder.addKeepAttributePatterns(ImmutableList.of(ProguardKeepAttributes.SIGNATURE));
-              return builder.build();
-            });
+            factory ->
+                ProguardConfiguration.builder(
+                        factory, new Reporter(new TestDiagnosticMessagesImpl()))
+                    .addKeepAttributePatterns(ImmutableList.of(ProguardKeepAttributes.SIGNATURE))
+                    .build());
     GenericSignatureContextBuilder contextBuilder = GenericSignatureContextBuilder.create(appView);
     GenericSignatureCorrectnessHelper.createForVerification(appView, contextBuilder)
         .run(appView.appInfo().classes());
@@ -195,13 +193,11 @@ public class GenericSignatureCorrectnessHelperTests extends TestBase {
                 .addClassProgramData(transformations)
                 .addLibraryFile(ToolHelper.getJava8RuntimeJar())
                 .build(),
-            factory -> {
-              ProguardConfiguration.Builder builder =
-                  ProguardConfiguration.builder(
-                      factory, new Reporter(new TestDiagnosticMessagesImpl()));
-              builder.addKeepAttributePatterns(ImmutableList.of(ProguardKeepAttributes.SIGNATURE));
-              return builder.build();
-            });
+            factory ->
+                ProguardConfiguration.builder(
+                        factory, new Reporter(new TestDiagnosticMessagesImpl()))
+                    .addKeepAttributePatterns(ImmutableList.of(ProguardKeepAttributes.SIGNATURE))
+                    .build());
     GenericSignatureContextBuilder contextBuilder = GenericSignatureContextBuilder.create(appView);
     GenericSignatureCorrectnessHelper check =
         GenericSignatureCorrectnessHelper.createForInitialCheck(appView, contextBuilder);

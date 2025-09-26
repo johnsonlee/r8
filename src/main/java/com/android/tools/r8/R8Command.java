@@ -919,13 +919,16 @@ public final class R8Command extends BaseCompilerCommand {
     private ProguardConfiguration makeConfiguration(DexItemFactory factory) {
       ProguardConfigurationParserOptions parserOptions =
           parserOptionsBuilder.setForceProguardCompatibility(forceProguardCompatibility).build();
+      ProguardConfiguration.Builder configurationBuilder =
+          ProguardConfiguration.builder(factory, getReporter())
+              .setForceProguardCompatibility(forceProguardCompatibility);
       ProguardConfigurationParser parser =
           new ProguardConfigurationParser(
-              factory, getReporter(), parserOptions, inputDependencyGraphConsumer);
-      ProguardConfiguration.Builder configurationBuilder =
-          parser
-              .getConfigurationBuilder()
-              .setForceProguardCompatibility(forceProguardCompatibility);
+              factory,
+              getReporter(),
+              parserOptions,
+              inputDependencyGraphConsumer,
+              configurationBuilder);
       if (!proguardConfigs.isEmpty()) {
         parser.parse(proguardConfigs);
       }
@@ -948,7 +951,7 @@ public final class R8Command extends BaseCompilerCommand {
       }
 
       // Add embedded keep rules.
-      amendWithRulesAndProvidersForInjarsAndMetaInf(getReporter(), parser);
+      amendWithRulesAndProvidersForInjarsAndMetaInf(getReporter(), parser, configurationBuilder);
 
       // Extract out rules for keep annotations and amend the configuration.
       // TODO(b/248408342): Remove this and parse annotations as part of R8 root-set & enqueuer.
@@ -959,7 +962,9 @@ public final class R8Command extends BaseCompilerCommand {
     }
 
     private void amendWithRulesAndProvidersForInjarsAndMetaInf(
-        Reporter reporter, ProguardConfigurationParser parser) {
+        Reporter reporter,
+        ProguardConfigurationParser parser,
+        ProguardConfiguration.Builder configurationBuilder) {
 
       Supplier<SemanticVersion> semanticVersionSupplier =
           SemanticVersionUtils.compilerVersionSemanticVersionSupplier(
@@ -978,7 +983,7 @@ public final class R8Command extends BaseCompilerCommand {
                   .map(ProgramResourceProvider::getDataResourceProvider)
                   .filter(Objects::nonNull)
                   .collect(Collectors.toList()));
-      for (FilteredClassPath injar : parser.getConfigurationBuilder().getInjars()) {
+      for (FilteredClassPath injar : configurationBuilder.getInjars()) {
         if (seen.add(injar)) {
           ArchiveResourceProvider provider = getAppBuilder().createAndAddProvider(injar);
           if (provider != null) {
@@ -999,8 +1004,7 @@ public final class R8Command extends BaseCompilerCommand {
             .map(ClassFileResourceProvider::getDataResourceProvider)
             .filter(Objects::nonNull)
             .forEach(providers::add);
-        for (FilteredClassPath libraryjar :
-            parser.getConfigurationBuilder().build().getLibraryjars()) {
+        for (FilteredClassPath libraryjar : configurationBuilder.build().getLibraryjars()) {
           if (seen.add(libraryjar)) {
             ArchiveResourceProvider provider = getAppBuilder().createAndAddProvider(libraryjar);
             if (provider != null) {

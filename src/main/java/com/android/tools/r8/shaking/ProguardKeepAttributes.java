@@ -46,6 +46,7 @@ public class ProguardKeepAttributes {
   public boolean annotationDefault = false;
   public boolean stackMapTable = false;
   public boolean permittedSubclasses = false;
+  public boolean lineNumberTable = false;
 
   public ProguardKeepAttributes() {}
 
@@ -63,6 +64,7 @@ public class ProguardKeepAttributes {
     annotationDefault = true;
     stackMapTable = true;
     permittedSubclasses = true;
+    lineNumberTable = true;
     return this;
   }
 
@@ -136,6 +138,7 @@ public class ProguardKeepAttributes {
     annotationDefault = update(annotationDefault, ANNOTATION_DEFAULT, patterns);
     stackMapTable = update(stackMapTable, STACK_MAP_TABLE, patterns);
     permittedSubclasses = update(permittedSubclasses, PERMITTED_SUBCLASSES, patterns);
+    lineNumberTable = update(lineNumberTable, LINE_NUMBER_TABLE, patterns);
   }
 
   public void ensureValid(boolean forceProguardCompatibility) {

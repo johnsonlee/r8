@@ -949,8 +949,9 @@ public class TestBase {
             ProguardConfiguration.Builder builder =
                 ProguardConfiguration.builder(factory, new Reporter());
             builder.addRule(ProguardKeepRule.defaultKeepAllRule(unused -> {}));
-            builder.addKeepAttributePatterns(ImmutableList.of(ProguardKeepAttributes.SIGNATURE));
-            return builder.build();
+            return builder
+                .addKeepAttributePatterns(ImmutableList.of(ProguardKeepAttributes.SIGNATURE))
+                .build();
           };
     }
     InternalOptions options =

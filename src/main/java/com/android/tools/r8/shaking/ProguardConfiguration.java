@@ -18,10 +18,11 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
 
 public class ProguardConfiguration {
 
-  public static class Builder {
+  public static class Builder implements ProguardConfigurationParserConsumer {
 
     private final List<String> parsedConfiguration = new ArrayList<>();
     private final List<FilteredClassPath> injars = new ArrayList<>();
@@ -29,8 +30,6 @@ public class ProguardConfiguration {
     private final List<FilteredClassPath> libraryJars = new ArrayList<>();
 
     private final Reporter reporter;
-    private PackageObfuscationMode packageObfuscationMode = PackageObfuscationMode.NONE;
-    private String packagePrefix = "";
     private boolean allowAccessModification;
     private boolean ignoreWarnings;
     private boolean optimizing = true;
@@ -71,6 +70,8 @@ public class ProguardConfiguration {
     private boolean forceProguardCompatibility = false;
     private boolean protoShrinking = false;
     private int maxRemovedAndroidLogLevel = MaximumRemovedAndroidLogLevelRule.NOT_SET;
+    PackageObfuscationMode packageObfuscationMode = PackageObfuscationMode.NONE;
+    String packagePrefix = "";
 
     private Builder(DexItemFactory dexItemFactory, Reporter reporter) {
       this.dexItemFactory = dexItemFactory;
@@ -81,38 +82,44 @@ public class ProguardConfiguration {
       return injars;
     }
 
+    @Override
     public void addParsedConfiguration(String source) {
       parsedConfiguration.add(source);
     }
 
+    @Override
     public void addInjars(List<FilteredClassPath> injars) {
       this.injars.addAll(injars);
     }
 
+    @Override
     public void addLibraryJars(List<FilteredClassPath> libraryJars) {
       this.libraryJars.addAll(libraryJars);
     }
 
-    public PackageObfuscationMode getPackageObfuscationMode() {
-      return packageObfuscationMode;
+    @Override
+    public void enableAllowAccessModification(Origin origin, Position position) {
+      this.allowAccessModification = true;
     }
 
-    public void setPackagePrefix(String packagePrefix) {
-      packageObfuscationMode = PackageObfuscationMode.REPACKAGE;
-      this.packagePrefix = packagePrefix;
-    }
-
-    public void setFlattenPackagePrefix(String packagePrefix) {
-      packageObfuscationMode = PackageObfuscationMode.FLATTEN;
-      this.packagePrefix = packagePrefix;
-    }
-
-    public void setAllowAccessModification(boolean allowAccessModification) {
-      this.allowAccessModification = allowAccessModification;
-    }
-
+    @Override
     public void setIgnoreWarnings(boolean ignoreWarnings) {
       this.ignoreWarnings = ignoreWarnings;
+    }
+
+    @Override
+    public void disableOptimization(Origin origin, Position position) {
+      this.optimizing = false;
+    }
+
+    @Override
+    public void disableObfuscation(Origin origin, Position position) {
+      this.obfuscating = false;
+    }
+
+    @Override
+    public void disableShrinking(Origin origin, Position position) {
+      this.shrinking = false;
     }
 
     public Builder disableOptimization() {
@@ -146,32 +153,39 @@ public class ProguardConfiguration {
       return this;
     }
 
+    @Override
     public void setPrintConfiguration(boolean printConfiguration) {
       this.printConfiguration = printConfiguration;
     }
 
+    @Override
     public void setPrintConfigurationFile(Path file) {
       assert printConfiguration;
       this.printConfigurationFile = file;
     }
 
+    @Override
     public void setPrintUsage(boolean printUsage) {
       this.printUsage = printUsage;
     }
 
+    @Override
     public void setPrintUsageFile(Path printUsageFile) {
       this.printUsageFile = printUsageFile;
     }
 
+    @Override
     public void setPrintMapping(boolean printMapping) {
       this.printMapping = printMapping;
     }
 
+    @Override
     public void setPrintMappingFile(Path file) {
       assert printMapping;
       this.printMappingFile = file;
     }
 
+    @Override
     public void setApplyMappingFile(Path file) {
       this.applyMappingFile = file;
     }
@@ -180,8 +194,16 @@ public class ProguardConfiguration {
       return applyMappingFile != null;
     }
 
-    public void setRenameSourceFileAttribute(String renameSourceFileAttribute) {
+    @Override
+    public void setRenameSourceFileAttribute(
+        String renameSourceFileAttribute, Origin origin, Position position) {
       this.renameSourceFileAttribute = renameSourceFileAttribute;
+    }
+
+    @Override
+    public void addKeepAttributePatterns(
+        List<String> keepAttributePatterns, Origin origin, Position position) {
+      this.keepAttributePatterns.addAll(keepAttributePatterns);
     }
 
     public Builder addKeepAttributePatterns(List<String> keepAttributePatterns) {
@@ -189,44 +211,96 @@ public class ProguardConfiguration {
       return this;
     }
 
+    @Override
     public void addRule(ProguardConfigurationRule rule) {
       this.rules.add(rule);
     }
 
+    @Override
     public void addKeepPackageNamesPattern(ProguardClassNameList pattern) {
       keepPackageNamesPatterns.addPattern(pattern);
     }
 
+    @Override
+    public void joinMaxRemovedAndroidLogLevel(int maxRemovedAndroidLogLevel) {
+      assert maxRemovedAndroidLogLevel >= MaximumRemovedAndroidLogLevelRule.NONE;
+      if (this.maxRemovedAndroidLogLevel == MaximumRemovedAndroidLogLevelRule.NOT_SET) {
+        this.maxRemovedAndroidLogLevel = maxRemovedAndroidLogLevel;
+      } else {
+        // If there are multiple -maximumremovedandroidloglevel rules we only allow removing logging
+        // calls that are removable according to all rules.
+        this.maxRemovedAndroidLogLevel =
+            Math.min(this.maxRemovedAndroidLogLevel, maxRemovedAndroidLogLevel);
+      }
+    }
+
+    public int getMaxRemovedAndroidLogLevel() {
+      return maxRemovedAndroidLogLevel;
+    }
+
+    @Override
+    public PackageObfuscationMode getPackageObfuscationMode() {
+      return packageObfuscationMode;
+    }
+
+    @Override
+    public void setPackagePrefix(String packagePrefix) {
+      this.packagePrefix = packagePrefix;
+    }
+
+    @Override
+    public void setFlattenPackagePrefix(String packagePrefix) {
+      this.packagePrefix = packagePrefix;
+    }
+
+    @Override
+    public void enableFlattenPackageHierarchy(Origin origin, Position position) {
+      packageObfuscationMode = PackageObfuscationMode.FLATTEN;
+    }
+
+    @Override
+    public void enableRepackageClasses(Origin origin, Position position) {
+      packageObfuscationMode = PackageObfuscationMode.REPACKAGE;
+    }
+
+    @Override
     public void addDontWarnPattern(ProguardClassNameList pattern) {
       dontWarnPatterns.addPattern(pattern);
     }
 
+    @Override
     public void addDontNotePattern(ProguardClassNameList pattern) {
       dontNotePatterns.addPattern(pattern);
     }
 
+    @Override
     public void setSeedFile(Path seedFile) {
       this.seedFile = seedFile;
     }
 
+    @Override
     public void setPrintSeeds(boolean printSeeds) {
       this.printSeeds = printSeeds;
     }
 
+    @Override
     public void setObfuscationDictionary(Path obfuscationDictionary) {
       this.obfuscationDictionary = obfuscationDictionary;
     }
 
+    @Override
     public void setClassObfuscationDictionary(Path classObfuscationDictionary) {
       this.classObfuscationDictionary = classObfuscationDictionary;
     }
 
+    @Override
     public void setPackageObfuscationDictionary(Path packageObfuscationDictionary) {
       this.packageObfuscationDictionary = packageObfuscationDictionary;
     }
 
-    public void setKeepParameterNames(boolean keepParameterNames, Origin optionOrigin,
-        Position optionPosition) {
+    @Override
+    public void setKeepParameterNames(
+        boolean keepParameterNames, Origin optionOrigin, Position optionPosition) {
       assert optionOrigin != null || !keepParameterNames;
       this.keepParameterNames = keepParameterNames;
       this.keepParameterNamesOptionOrigin = optionOrigin;
@@ -245,23 +319,33 @@ public class ProguardConfiguration {
       return keepParameterNamesOptionPosition;
     }
 
+    @Override
     public void addAdaptClassStringsPattern(ProguardClassNameList pattern) {
       adaptClassStrings.addPattern(pattern);
     }
 
-    public Builder addAdaptResourceFilenames(ProguardPathList pattern) {
+    @Override
+    public void addAdaptResourceFilenames(ProguardPathList pattern) {
       adaptResourceFilenames.addPattern(pattern);
+    }
+
+    public Builder applyAdaptResourceFilenamesBuilder(
+        Consumer<ProguardPathFilter.Builder> consumer) {
+      consumer.accept(adaptResourceFilenames);
       return this;
     }
 
+    @Override
     public void addAdaptResourceFileContents(ProguardPathList pattern) {
       adaptResourceFileContents.addPattern(pattern);
     }
 
+    @Override
     public void enableKeepDirectories() {
       keepDirectories.enable();
     }
 
+    @Override
     public void addKeepDirectories(ProguardPathList pattern) {
       keepDirectories.addPattern(pattern);
     }
@@ -275,24 +359,9 @@ public class ProguardConfiguration {
       return this;
     }
 
+    @Override
     public void enableProtoShrinking() {
       protoShrinking = true;
-    }
-
-    public int getMaxRemovedAndroidLogLevel() {
-      return maxRemovedAndroidLogLevel;
-    }
-
-    public void joinMaxRemovedAndroidLogLevel(int maxRemovedAndroidLogLevel) {
-      assert maxRemovedAndroidLogLevel >= MaximumRemovedAndroidLogLevelRule.NONE;
-      if (this.maxRemovedAndroidLogLevel == MaximumRemovedAndroidLogLevelRule.NOT_SET) {
-        this.maxRemovedAndroidLogLevel = maxRemovedAndroidLogLevel;
-      } else {
-        // If there are multiple -maximumremovedandroidloglevel rules we only allow removing logging
-        // calls that are removable according to all rules.
-        this.maxRemovedAndroidLogLevel =
-            Math.min(this.maxRemovedAndroidLogLevel, maxRemovedAndroidLogLevel);
-      }
     }
 
     public ProguardConfiguration buildRaw() {

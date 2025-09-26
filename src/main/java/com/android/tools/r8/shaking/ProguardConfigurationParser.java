@@ -49,7 +49,7 @@ import java.util.function.Predicate;
 
 public class ProguardConfigurationParser {
 
-  private final ProguardConfiguration.Builder configurationBuilder;
+  private final ProguardConfigurationParserConsumer configurationConsumer;
 
   private final DexItemFactory dexItemFactory;
   private final ProguardConfigurationParserOptions options;
@@ -129,7 +129,7 @@ public class ProguardConfigurationParser {
   public ProguardConfigurationParser(
       DexItemFactory dexItemFactory,
       Reporter reporter,
-      ProguardConfiguration.Builder configurationBuilder) {
+      ProguardConfigurationParserConsumer configurationConsumer) {
     this(
         dexItemFactory,
         reporter,
@@ -141,7 +141,7 @@ public class ProguardConfigurationParser {
             .setEnableTestingOptions(false)
             .build(),
         null,
-        configurationBuilder);
+        configurationConsumer);
   }
 
   public ProguardConfigurationParser(
@@ -169,8 +169,8 @@ public class ProguardConfigurationParser {
       Reporter reporter,
       ProguardConfigurationParserOptions options,
       InputDependencyGraphConsumer inputDependencyConsumer,
-      ProguardConfiguration.Builder configurationBuilder) {
-    this.configurationBuilder = configurationBuilder;
+      ProguardConfigurationParserConsumer configurationConsumer) {
+    this.configurationConsumer = configurationConsumer;
     this.dexItemFactory = dexItemFactory;
     this.options = options;
     this.reporter = reporter;
@@ -192,10 +192,6 @@ public class ProguardConfigurationParser {
         // ignored.
       }
     };
-  }
-
-  public ProguardConfiguration.Builder getConfigurationBuilder() {
-    return configurationBuilder;
   }
 
   public void parse(Path path) {
@@ -250,12 +246,12 @@ public class ProguardConfigurationParser {
       } while (parseOption());
       // This may be unknown, but we want to always ensure that we don't attribute lines to the
       // wrong configuration.
-      configurationBuilder.addParsedConfiguration(
+      configurationConsumer.addParsedConfiguration(
           "# The proguard configuration file for the following section is " + origin.toString());
 
       // Collect the parsed configuration.
-      configurationBuilder.addParsedConfiguration(contents.substring(positionAfterInclude));
-      configurationBuilder.addParsedConfiguration("# End of content from " + origin);
+      configurationConsumer.addParsedConfiguration(contents.substring(positionAfterInclude));
+      configurationConsumer.addParsedConfiguration("# End of content from " + origin);
       reporter.failIfPendingErrors();
     }
 
@@ -286,44 +282,47 @@ public class ProguardConfigurationParser {
         // is not present.
         keepKotlinMetadata.markAsUsed();
         keepKotlinJvmNameAnnotation.markAsUsed();
-        configurationBuilder.addRule(keepKotlinMetadata);
-        configurationBuilder.addRule(keepKotlinJvmNameAnnotation);
-        configurationBuilder.addKeepAttributePatterns(
-            Collections.singletonList(RUNTIME_VISIBLE_ANNOTATIONS));
-        configurationBuilder.addKeepAttributePatterns(
-            Collections.singletonList(RUNTIME_INVISIBLE_ANNOTATIONS));
+        configurationConsumer.addRule(keepKotlinMetadata);
+        configurationConsumer.addRule(keepKotlinJvmNameAnnotation);
+        configurationConsumer.addKeepAttributePatterns(
+            Collections.singletonList(RUNTIME_VISIBLE_ANNOTATIONS),
+            origin,
+            getPosition(optionStart));
+        configurationConsumer.addKeepAttributePatterns(
+            Collections.singletonList(RUNTIME_INVISIBLE_ANNOTATIONS),
+            origin,
+            getPosition(optionStart));
       } else if (acceptString("renamesourcefileattribute")) {
         skipWhitespace();
-        if (isOptionalArgumentGiven()) {
-          configurationBuilder.setRenameSourceFileAttribute(acceptQuotedOrUnquotedString());
-        } else {
-          configurationBuilder.setRenameSourceFileAttribute("");
-        }
+        String renameSourceFileAttribute =
+            isOptionalArgumentGiven() ? acceptQuotedOrUnquotedString() : "";
+        configurationConsumer.setRenameSourceFileAttribute(
+            renameSourceFileAttribute, origin, getPosition(optionStart));
       } else if (acceptString("keepattributes")) {
-        parseKeepAttributes();
+        parseKeepAttributes(getPosition(optionStart));
       } else if (acceptString("keeppackagenames")) {
-        parseClassFilter(configurationBuilder::addKeepPackageNamesPattern);
+        parseClassFilter(configurationConsumer::addKeepPackageNamesPattern);
       } else if (acceptString("keepparameternames")) {
-        configurationBuilder.setKeepParameterNames(true, origin, getPosition(optionStart));
+        configurationConsumer.setKeepParameterNames(true, origin, getPosition(optionStart));
       } else if (acceptString("checkdiscard")) {
         ProguardCheckDiscardRule rule =
             parseRuleWithClassSpec(optionStart, ProguardCheckDiscardRule.builder());
-        configurationBuilder.addRule(rule);
+        configurationConsumer.addRule(rule);
       } else if (acceptString("checkenumstringsdiscarded")) {
         // Not supported, ignore.
         parseRuleWithClassSpec(optionStart, ProguardCheckDiscardRule.builder());
       } else if (acceptString("keepdirectories")) {
-        configurationBuilder.enableKeepDirectories();
-        parsePathFilter(configurationBuilder::addKeepDirectories);
+        configurationConsumer.enableKeepDirectories();
+        parsePathFilter(configurationConsumer::addKeepDirectories);
       } else if (acceptString("keep")) {
         ProguardKeepRule rule = parseKeepRule(optionStart);
-        configurationBuilder.addRule(rule);
+        configurationConsumer.addRule(rule);
       } else if (acceptString("whyareyoukeeping")) {
         ProguardWhyAreYouKeepingRule rule =
             parseRuleWithClassSpec(optionStart, ProguardWhyAreYouKeepingRule.builder());
-        configurationBuilder.addRule(rule);
+        configurationConsumer.addRule(rule);
       } else if (acceptString("dontoptimize")) {
-        configurationBuilder.disableOptimization();
+        configurationConsumer.disableOptimization(origin, getPosition(optionStart));
       } else if (acceptString("optimizationpasses")) {
         skipWhitespace();
         Integer expectedOptimizationPasses = acceptInteger();
@@ -333,41 +332,42 @@ public class ProguardConfigurationParser {
         }
         infoIgnoringOptions("optimizationpasses", optionStart);
       } else if (acceptString("dontobfuscate")) {
-        configurationBuilder.disableObfuscation();
+        configurationConsumer.disableObfuscation(origin, getPosition(optionStart));
       } else if (acceptString("dontshrink")) {
-        configurationBuilder.disableShrinking();
+        configurationConsumer.disableShrinking(origin, getPosition(optionStart));
       } else if (acceptString("printusage")) {
-        configurationBuilder.setPrintUsage(true);
+        configurationConsumer.setPrintUsage(true);
         skipWhitespace();
         if (isOptionalArgumentGiven()) {
-          configurationBuilder.setPrintUsageFile(parseFileName(false));
+          configurationConsumer.setPrintUsageFile(parseFileName(false));
         }
       } else if (acceptString("shrinkunusedprotofields")) {
-        configurationBuilder.enableProtoShrinking();
+        configurationConsumer.enableProtoShrinking();
       } else if (acceptString("ignorewarnings")) {
-        configurationBuilder.setIgnoreWarnings(true);
+        configurationConsumer.setIgnoreWarnings(true);
       } else if (acceptString("dontwarn")) {
-        parseClassFilter(configurationBuilder::addDontWarnPattern);
+        parseClassFilter(configurationConsumer::addDontWarnPattern);
       } else if (acceptString("dontnote")) {
-        parseClassFilter(configurationBuilder::addDontNotePattern);
+        parseClassFilter(configurationConsumer::addDontNotePattern);
       } else if (acceptString(REPACKAGE_CLASSES)) {
-        if (configurationBuilder.getPackageObfuscationMode() == PackageObfuscationMode.FLATTEN) {
+        if (configurationConsumer.getPackageObfuscationMode() == PackageObfuscationMode.FLATTEN) {
           warnOverridingOptions(REPACKAGE_CLASSES, FLATTEN_PACKAGE_HIERARCHY, optionStart);
         }
         skipWhitespace();
         char quote = acceptQuoteIfPresent();
         if (isQuote(quote)) {
-          configurationBuilder.setPackagePrefix(parsePackageNameOrEmptyString());
+          configurationConsumer.setPackagePrefix(parsePackageNameOrEmptyString());
           expectClosingQuote(quote);
         } else {
           if (hasNextChar('-')) {
-            configurationBuilder.setPackagePrefix("");
+            configurationConsumer.setPackagePrefix("");
           } else {
-            configurationBuilder.setPackagePrefix(parsePackageNameOrEmptyString());
+            configurationConsumer.setPackagePrefix(parsePackageNameOrEmptyString());
           }
         }
+        configurationConsumer.enableRepackageClasses(origin, getPosition(optionStart));
       } else if (acceptString(FLATTEN_PACKAGE_HIERARCHY)) {
-        if (configurationBuilder.getPackageObfuscationMode() == PackageObfuscationMode.REPACKAGE) {
+        if (configurationConsumer.getPackageObfuscationMode() == PackageObfuscationMode.REPACKAGE) {
           warnOverridingOptions(REPACKAGE_CLASSES, FLATTEN_PACKAGE_HIERARCHY, optionStart);
           skipWhitespace();
           if (isOptionalArgumentGiven()) {
@@ -377,42 +377,43 @@ public class ProguardConfigurationParser {
           skipWhitespace();
           char quote = acceptQuoteIfPresent();
           if (isQuote(quote)) {
-            configurationBuilder.setFlattenPackagePrefix(parsePackageNameOrEmptyString());
+            configurationConsumer.setFlattenPackagePrefix(parsePackageNameOrEmptyString());
             expectClosingQuote(quote);
           } else {
             if (hasNextChar('-')) {
-              configurationBuilder.setFlattenPackagePrefix("");
+              configurationConsumer.setFlattenPackagePrefix("");
             } else {
-              configurationBuilder.setFlattenPackagePrefix(parsePackageNameOrEmptyString());
+              configurationConsumer.setFlattenPackagePrefix(parsePackageNameOrEmptyString());
             }
           }
+          configurationConsumer.enableFlattenPackageHierarchy(origin, getPosition(optionStart));
         }
       } else if (acceptString("allowaccessmodification")) {
-        configurationBuilder.setAllowAccessModification(true);
+        configurationConsumer.enableAllowAccessModification(origin, getPosition(optionStart));
       } else if (acceptString("printconfiguration")) {
-        configurationBuilder.setPrintConfiguration(true);
+        configurationConsumer.setPrintConfiguration(true);
         skipWhitespace();
         if (isOptionalArgumentGiven()) {
-          configurationBuilder.setPrintConfigurationFile(parseFileName(false));
+          configurationConsumer.setPrintConfigurationFile(parseFileName(false));
         }
       } else if (acceptString("printmapping")) {
-        configurationBuilder.setPrintMapping(true);
+        configurationConsumer.setPrintMapping(true);
         skipWhitespace();
         if (isOptionalArgumentGiven()) {
-          configurationBuilder.setPrintMappingFile(parseFileName(false));
+          configurationConsumer.setPrintMappingFile(parseFileName(false));
         }
       } else if (acceptString("applymapping")) {
-        configurationBuilder.setApplyMappingFile(
+        configurationConsumer.setApplyMappingFile(
             parseFileInputDependency(inputDependencyConsumer::acceptProguardApplyMapping));
       } else if (acceptString("assumenosideeffects")) {
         ProguardAssumeNoSideEffectRule rule = parseAssumeNoSideEffectsRule(optionStart);
-        configurationBuilder.addRule(rule);
+        configurationConsumer.addRule(rule);
       } else if (acceptString("assumevalues")) {
         ProguardAssumeValuesRule rule = parseAssumeValuesRule(optionStart);
-        configurationBuilder.addRule(rule);
+        configurationConsumer.addRule(rule);
       } else if (acceptString("include")) {
         // Collect the parsed configuration until the include.
-        configurationBuilder.addParsedConfiguration(
+        configurationConsumer.addParsedConfiguration(
             contents.substring(positionAfterInclude, position - ("include".length() + 1)));
         skipWhitespace();
         parseInclude();
@@ -421,44 +422,44 @@ public class ProguardConfigurationParser {
         skipWhitespace();
         baseDirectory = parseFileName(false);
       } else if (acceptString("injars")) {
-        configurationBuilder.addInjars(
+        configurationConsumer.addInjars(
             parseClassPath(inputDependencyConsumer::acceptProguardInJars));
       } else if (acceptString("libraryjars")) {
-        configurationBuilder.addLibraryJars(
+        configurationConsumer.addLibraryJars(
             parseClassPath(inputDependencyConsumer::acceptProguardLibraryJars));
       } else if (acceptString("printseeds")) {
-        configurationBuilder.setPrintSeeds(true);
+        configurationConsumer.setPrintSeeds(true);
         skipWhitespace();
         if (isOptionalArgumentGiven()) {
-          configurationBuilder.setSeedFile(parseFileName(false));
+          configurationConsumer.setSeedFile(parseFileName(false));
         }
       } else if (acceptString("obfuscationdictionary")) {
-        configurationBuilder.setObfuscationDictionary(
+        configurationConsumer.setObfuscationDictionary(
             parseFileInputDependency(inputDependencyConsumer::acceptProguardObfuscationDictionary));
       } else if (acceptString("classobfuscationdictionary")) {
-        configurationBuilder.setClassObfuscationDictionary(
+        configurationConsumer.setClassObfuscationDictionary(
             parseFileInputDependency(
                 inputDependencyConsumer::acceptProguardClassObfuscationDictionary));
       } else if (acceptString("packageobfuscationdictionary")) {
-        configurationBuilder.setPackageObfuscationDictionary(
+        configurationConsumer.setPackageObfuscationDictionary(
             parseFileInputDependency(
                 inputDependencyConsumer::acceptProguardPackageObfuscationDictionary));
       } else if (acceptString("alwaysinline")) {
         InlineRule rule =
             parseRuleWithClassSpec(
                 optionStart, InlineRule.builder().setType(InlineRuleType.ALWAYS));
-        configurationBuilder.addRule(rule);
+        configurationConsumer.addRule(rule);
       } else if (acceptString("adaptclassstrings")) {
-        parseClassFilter(configurationBuilder::addAdaptClassStringsPattern);
+        parseClassFilter(configurationConsumer::addAdaptClassStringsPattern);
       } else if (acceptString("adaptresourcefilenames")) {
-        parsePathFilter(configurationBuilder::addAdaptResourceFilenames);
+        parsePathFilter(configurationConsumer::addAdaptResourceFilenames);
       } else if (acceptString("adaptresourcefilecontents")) {
-        parsePathFilter(configurationBuilder::addAdaptResourceFileContents);
+        parsePathFilter(configurationConsumer::addAdaptResourceFileContents);
       } else if (acceptString("identifiernamestring")) {
-        configurationBuilder.addRule(
+        configurationConsumer.addRule(
             parseRuleWithClassSpec(optionStart, ProguardIdentifierNameStringRule.builder()));
       } else if (acceptString("if")) {
-        configurationBuilder.addRule(parseIfRule(optionStart));
+        configurationConsumer.addRule(parseIfRule(optionStart));
       } else if (parseMaximumRemovedAndroidLogLevelRule(optionStart)) {
         return true;
       } else {
@@ -479,20 +480,20 @@ public class ProguardConfigurationParser {
       if (acceptString(CheckEnumUnboxedRule.RULE_NAME)) {
         CheckEnumUnboxedRule checkEnumUnboxedRule = parseCheckEnumUnboxedRule(optionStart);
         if (options.isExperimentalCheckEnumUnboxedEnabled()) {
-          configurationBuilder.addRule(checkEnumUnboxedRule);
+          configurationConsumer.addRule(checkEnumUnboxedRule);
         }
         return true;
       }
       if (acceptString(ConvertCheckNotNullRule.RULE_NAME)) {
         ConvertCheckNotNullRule convertCheckNotNullRule = parseConvertCheckNotNullRule(optionStart);
         if (options.isExperimentalConvertCheckNotNullEnabled()) {
-          configurationBuilder.addRule(convertCheckNotNullRule);
+          configurationConsumer.addRule(convertCheckNotNullRule);
         }
         return true;
       }
       if (options.isExperimentalWhyAreYouNotInliningEnabled()) {
         if (acceptString(WhyAreYouNotInliningRule.RULE_NAME)) {
-          configurationBuilder.addRule(
+          configurationConsumer.addRule(
               parseRuleWithClassSpec(optionStart, WhyAreYouNotInliningRule.builder()));
           return true;
         }
@@ -506,123 +507,123 @@ public class ProguardConfigurationParser {
         if (acceptString("assumemayhavesideeffects")) {
           ProguardAssumeMayHaveSideEffectsRule rule =
               parseAssumeMayHaveSideEffectsRule(optionStart);
-          configurationBuilder.addRule(rule);
+          configurationConsumer.addRule(rule);
           return true;
         }
         if (acceptString(KeepConstantArgumentRule.RULE_NAME)) {
           KeepConstantArgumentRule rule =
               parseRuleWithClassSpec(optionStart, KeepConstantArgumentRule.builder());
-          configurationBuilder.addRule(rule);
+          configurationConsumer.addRule(rule);
           return true;
         }
         if (acceptString(KeepUnusedArgumentRule.RULE_NAME)) {
           KeepUnusedArgumentRule rule =
               parseRuleWithClassSpec(optionStart, KeepUnusedArgumentRule.builder());
-          configurationBuilder.addRule(rule);
+          configurationConsumer.addRule(rule);
           return true;
         }
         if (acceptString(KeepUnusedReturnValueRule.RULE_NAME)) {
           KeepUnusedReturnValueRule rule =
               parseRuleWithClassSpec(optionStart, KeepUnusedReturnValueRule.builder());
-          configurationBuilder.addRule(rule);
+          configurationConsumer.addRule(rule);
           return true;
         }
         if (acceptString("alwaysclassinline")) {
           ClassInlineRule rule =
               parseRuleWithClassSpec(
                   optionStart, ClassInlineRule.builder().setType(ClassInlineRule.Type.ALWAYS));
-          configurationBuilder.addRule(rule);
+          configurationConsumer.addRule(rule);
           return true;
         }
         if (acceptString("neverclassinline")) {
           ClassInlineRule rule =
               parseRuleWithClassSpec(
                   optionStart, ClassInlineRule.builder().setType(ClassInlineRule.Type.NEVER));
-          configurationBuilder.addRule(rule);
+          configurationConsumer.addRule(rule);
           return true;
         }
         if (acceptString("neverinline")) {
           InlineRule rule =
               parseRuleWithClassSpec(
                   optionStart, InlineRule.builder().setType(InlineRuleType.NEVER));
-          configurationBuilder.addRule(rule);
+          configurationConsumer.addRule(rule);
           return true;
         }
         if (acceptString("neversinglecallerinline")) {
           InlineRule rule =
               parseRuleWithClassSpec(
                   optionStart, InlineRule.builder().setType(InlineRuleType.NEVER_SINGLE_CALLER));
-          configurationBuilder.addRule(rule);
+          configurationConsumer.addRule(rule);
           return true;
         }
         if (acceptString(NoAccessModificationRule.RULE_NAME)) {
           NoAccessModificationRule rule =
               parseRuleWithClassSpec(optionStart, NoAccessModificationRule.builder());
-          configurationBuilder.addRule(rule);
+          configurationConsumer.addRule(rule);
           return true;
         }
         if (acceptString(NoFieldTypeStrengtheningRule.RULE_NAME)) {
           NoFieldTypeStrengtheningRule rule =
               parseRuleWithClassSpec(optionStart, NoFieldTypeStrengtheningRule.builder());
-          configurationBuilder.addRule(rule);
+          configurationConsumer.addRule(rule);
           return true;
         }
         if (acceptString(NoUnusedInterfaceRemovalRule.RULE_NAME)) {
           NoUnusedInterfaceRemovalRule rule =
               parseRuleWithClassSpec(optionStart, NoUnusedInterfaceRemovalRule.builder());
-          configurationBuilder.addRule(rule);
+          configurationConsumer.addRule(rule);
           return true;
         }
         if (acceptString(NoVerticalClassMergingRule.RULE_NAME)) {
           NoVerticalClassMergingRule rule =
               parseRuleWithClassSpec(optionStart, NoVerticalClassMergingRule.builder());
-          configurationBuilder.addRule(rule);
+          configurationConsumer.addRule(rule);
           return true;
         }
         if (acceptString(NoHorizontalClassMergingRule.RULE_NAME)) {
           NoHorizontalClassMergingRule rule =
               parseRuleWithClassSpec(optionStart, NoHorizontalClassMergingRule.builder());
-          configurationBuilder.addRule(rule);
+          configurationConsumer.addRule(rule);
           return true;
         }
         if (acceptString(NoMethodStaticizingRule.RULE_NAME)) {
           NoMethodStaticizingRule rule =
               parseRuleWithClassSpec(optionStart, NoMethodStaticizingRule.builder());
-          configurationBuilder.addRule(rule);
+          configurationConsumer.addRule(rule);
           return true;
         }
         if (acceptString(NoParameterReorderingRule.RULE_NAME)) {
           NoParameterReorderingRule rule =
               parseRuleWithClassSpec(optionStart, NoParameterReorderingRule.builder());
-          configurationBuilder.addRule(rule);
+          configurationConsumer.addRule(rule);
           return true;
         }
         if (acceptString(NoParameterTypeStrengtheningRule.RULE_NAME)) {
           NoParameterTypeStrengtheningRule rule =
               parseRuleWithClassSpec(optionStart, NoParameterTypeStrengtheningRule.builder());
-          configurationBuilder.addRule(rule);
+          configurationConsumer.addRule(rule);
           return true;
         }
         if (acceptString(NoRedundantFieldLoadEliminationRule.RULE_NAME)) {
           NoRedundantFieldLoadEliminationRule rule =
               parseRuleWithClassSpec(optionStart, NoRedundantFieldLoadEliminationRule.builder());
-          configurationBuilder.addRule(rule);
+          configurationConsumer.addRule(rule);
           return true;
         }
         if (acceptString(NoReturnTypeStrengtheningRule.RULE_NAME)) {
           NoReturnTypeStrengtheningRule rule =
               parseRuleWithClassSpec(optionStart, NoReturnTypeStrengtheningRule.builder());
-          configurationBuilder.addRule(rule);
+          configurationConsumer.addRule(rule);
           return true;
         }
         if (acceptString("neverpropagatevalue")) {
           NoValuePropagationRule rule =
               parseRuleWithClassSpec(optionStart, NoValuePropagationRule.builder());
-          configurationBuilder.addRule(rule);
+          configurationConsumer.addRule(rule);
           return true;
         }
         if (acceptString("neverreprocessclassinitializer")) {
-          configurationBuilder.addRule(
+          configurationConsumer.addRule(
               parseRuleWithClassSpec(
                   optionStart,
                   ReprocessClassInitializerRule.builder()
@@ -630,14 +631,14 @@ public class ProguardConfigurationParser {
           return true;
         }
         if (acceptString("neverreprocessmethod")) {
-          configurationBuilder.addRule(
+          configurationConsumer.addRule(
               parseRuleWithClassSpec(
                   optionStart,
                   ReprocessMethodRule.builder().setType(ReprocessMethodRule.Type.NEVER)));
           return true;
         }
         if (acceptString("reprocessclassinitializer")) {
-          configurationBuilder.addRule(
+          configurationConsumer.addRule(
               parseRuleWithClassSpec(
                   optionStart,
                   ReprocessClassInitializerRule.builder()
@@ -645,7 +646,7 @@ public class ProguardConfigurationParser {
           return true;
         }
         if (acceptString("reprocessmethod")) {
-          configurationBuilder.addRule(
+          configurationConsumer.addRule(
               parseRuleWithClassSpec(
                   optionStart,
                   ReprocessMethodRule.builder().setType(ReprocessMethodRule.Type.ALWAYS)));
@@ -734,7 +735,7 @@ public class ProguardConfigurationParser {
       return true;
     }
 
-    private void parseKeepAttributes() throws ProguardRuleParserException {
+    private void parseKeepAttributes(Position position) throws ProguardRuleParserException {
       List<String> attributesPatterns = acceptKeepAttributesPatternList();
       if (attributesPatterns.isEmpty()) {
         throw parseError("Expected attribute pattern list");
@@ -752,7 +753,7 @@ public class ProguardConfigurationParser {
                       + ")"));
         }
       }
-      configurationBuilder.addKeepAttributePatterns(attributesPatterns);
+      configurationConsumer.addKeepAttributePatterns(attributesPatterns, origin, position);
     }
 
     private boolean skipFlag(String name) {
@@ -929,10 +930,10 @@ public class ProguardConfigurationParser {
         }
         if (builder.hasClassType()) {
           Position end = getPosition();
-          configurationBuilder.addRule(
+          configurationConsumer.addRule(
               builder.setEnd(end).setSource(getSourceSnippet(contents, start, end)).build());
         } else {
-          configurationBuilder.joinMaxRemovedAndroidLogLevel(maxRemovedAndroidLogLevel);
+          configurationConsumer.joinMaxRemovedAndroidLogLevel(maxRemovedAndroidLogLevel);
         }
         return true;
       }
