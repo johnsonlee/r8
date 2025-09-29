@@ -45,20 +45,22 @@ public class ProcessKeepRulesCommandTest extends TestBase {
               "-allowaccessmodification not allowed in library consumer rules.")
           .put(
               "-keepattributes LineNumberTable",
-              "Illegal attempt to keep LineNumberTable in library consumer rules.")
+              "Illegal attempt to keep the attribute 'LineNumberTable' in library consumer rules.")
           .put(
               "-keepattributes RuntimeInvisibleAnnotations",
-              "Illegal attempt to keep RuntimeInvisibleAnnotations in library consumer rules.")
+              "Illegal attempt to keep the attribute 'RuntimeInvisibleAnnotations' in library"
+                  + " consumer rules.")
           .put(
               "-keepattributes RuntimeInvisibleTypeAnnotations",
-              "Illegal attempt to keep RuntimeInvisibleTypeAnnotations in library consumer rules.")
+              "Illegal attempt to keep the attribute 'RuntimeInvisibleTypeAnnotations' in library"
+                  + " consumer rules.")
           .put(
               "-keepattributes RuntimeInvisibleParameterAnnotations",
-              "Illegal attempt to keep RuntimeInvisibleParameterAnnotations in library consumer"
-                  + " rules.")
+              "Illegal attempt to keep the attribute 'RuntimeInvisibleParameterAnnotations' in"
+                  + " library consumer rules.")
           .put(
               "-keepattributes SourceFile",
-              "Illegal attempt to keep SourceFile in library consumer rules.")
+              "Illegal attempt to keep the attribute 'SourceFile' in library consumer rules.")
           .put(
               "-renamesourcefileattribute",
               "-renamesourcefileattribute not allowed in library consumer rules.")
