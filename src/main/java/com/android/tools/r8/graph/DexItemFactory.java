@@ -3360,28 +3360,6 @@ public class DexItemFactory {
     return markers;
   }
 
-  // Non-synchronized internal create.
-  private DexType internalCreateType(DexString descriptor) {
-    assert descriptor != null;
-    DexType result = types.get(descriptor);
-    if (result == null) {
-      if (descriptor.getFirstByteAsChar() != '[') {
-        result = new DexType(descriptor);
-      } else {
-        DexType elementType = createType(descriptor.toArrayElementDescriptor(this));
-        result = new DexArrayType(descriptor, elementType);
-      }
-      assert result.isArrayType()
-              || result.isClassType()
-              || result.isPrimitiveType()
-              || result.isVoidType()
-          : descriptor.toString();
-      assert !isInternalSentinel(result);
-      types.put(descriptor, result);
-    }
-    return result;
-  }
-
   private DexType createStaticallyKnownType(String descriptor) {
     return createStaticallyKnownType(createString(descriptor));
   }
@@ -3394,7 +3372,7 @@ public class DexItemFactory {
   }
 
   private DexType createStaticallyKnownType(DexString descriptor) {
-    DexType type = internalCreateType(descriptor);
+    DexType type = createType(descriptor);
     // Conservatively add all statically known types to "compiler synthesized types set".
     addPossiblySynthesizedType(type);
     return type;
@@ -3403,7 +3381,7 @@ public class DexItemFactory {
   // Safe synchronized external create. May be used for statically known types in synthetic code.
   // See the generated BackportedMethods.java for reference.
   public synchronized DexType createSynthesizedType(String descriptor) {
-    DexType type = internalCreateType(createString(descriptor));
+    DexType type = createType(createString(descriptor));
     addPossiblySynthesizedType(type);
     return type;
   }
@@ -3431,9 +3409,21 @@ public class DexItemFactory {
     possibleCompilerSynthesizedTypes.forEach(fn);
   }
 
-  // Safe synchronized external create. Should never be used to create a statically known type!
-  public synchronized DexType createType(DexString descriptor) {
-    return internalCreateType(descriptor);
+  public DexType createType(DexString descriptor) {
+    assert descriptor != null;
+    DexType committed = committedTypes.get(descriptor);
+    if (committed != null) {
+      return committed;
+    }
+    if (descriptor.getFirstByteAsChar() != '[') {
+      return types.computeIfAbsent(descriptor, DexType::new);
+    }
+    DexType pending = types.get(descriptor);
+    if (pending != null) {
+      return pending;
+    }
+    DexType elementType = createType(descriptor.toArrayElementDescriptor(this));
+    return types.computeIfAbsent(descriptor, d -> new DexArrayType(d, elementType));
   }
 
   public DexType createType(String descriptor) {
@@ -3686,7 +3676,7 @@ public class DexItemFactory {
   public void commitPendingItems() {
     commitPendingItems(committedMethodHandles, methodHandles);
     commitPendingItems(committedStrings, strings);
-    // commitPendingItems(committedTypes, types);
+    commitPendingItems(committedTypes, types);
     commitPendingItems(committedFields, fields);
     commitPendingItems(committedProtos, protos);
     commitPendingItems(committedMethods, methods);
