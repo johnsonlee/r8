@@ -17,7 +17,7 @@ public class ProcessKeepRules {
         command.getReporter(),
         () -> {
           // This is the only valid form of keep rule processing for now.
-          assert command.getValidateLibraryConsumerRules();
+          assert command.isValidateLibraryConsumerRules();
           DexItemFactory dexItemFactory = new DexItemFactory();
           ProguardConfigurationParserConsumer configurationConsumer =
               new ValidateLibraryConsumerRulesKeepRuleProcessor(command.getReporter());

@@ -10,6 +10,7 @@ import com.android.tools.r8.shaking.ProguardConfigurationSourceFile;
 import com.android.tools.r8.utils.Reporter;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
@@ -49,7 +50,7 @@ public class ProcessKeepRulesCommand {
     return reporter;
   }
 
-  boolean getValidateLibraryConsumerRules() {
+  boolean isValidateLibraryConsumerRules() {
     return validateLibraryConsumerRules;
   }
 
@@ -79,6 +80,10 @@ public class ProcessKeepRulesCommand {
         keepRuleFiles.add(new ProguardConfigurationSourceFile(path));
       }
       return this;
+    }
+
+    public Builder addKeepRuleFiles(Path... paths) {
+      return addKeepRuleFiles(Arrays.asList(paths));
     }
 
     public Builder setLibraryConsumerRuleValidation(boolean enable) {
