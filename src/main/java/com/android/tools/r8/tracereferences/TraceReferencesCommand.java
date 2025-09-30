@@ -39,6 +39,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 
@@ -214,15 +215,20 @@ public class TraceReferencesCommand {
       public ProgramResource getProgramResource(String descriptor) {
         return descriptor.equals(this.descriptor) ? programResource : null;
       }
+
+      @Override
+      public void getProgramResources(Consumer<ProgramResource> consumer) {
+        consumer.accept(programResource);
+      }
     }
 
-    private ClassFileResourceProvider singleClassFileClassFileResourceProvider(Path file)
+    private static ClassFileResourceProvider singleClassFileClassFileResourceProvider(Path file)
         throws IOException {
       return new SingleClassClassFileResourceProvider(
           new PathOrigin(file), Files.readAllBytes(file));
     }
 
-    private ProgramResourceProvider singleClassFileProgramResourceProvider(Path file)
+    private static ProgramResourceProvider singleClassFileProgramResourceProvider(Path file)
         throws IOException {
       byte[] bytes = Files.readAllBytes(file);
       String descriptor = extractClassDescriptor(bytes);
@@ -230,9 +236,33 @@ public class TraceReferencesCommand {
 
         @Override
         public Collection<ProgramResource> getProgramResources() {
-          return ImmutableList.of(
-              ProgramResource.fromBytes(
-                  new PathOrigin(file), Kind.CF, bytes, ImmutableSet.of(descriptor)));
+          return Collections.singletonList(createProgramResource());
+        }
+
+        @Override
+        public void getProgramResources(Consumer<ProgramResource> consumer) {
+          consumer.accept(createProgramResource());
+        }
+
+        private ProgramResource createProgramResource() {
+          return ProgramResource.fromBytes(
+              new PathOrigin(file), Kind.CF, bytes, ImmutableSet.of(descriptor));
+        }
+      };
+    }
+
+    private static ProgramResourceProvider singleDexFileProgramResourceProvider(Path file) {
+      ProgramResource programResource = ProgramResource.fromFile(Kind.DEX, file);
+      return new ProgramResourceProvider() {
+
+        @Override
+        public Collection<ProgramResource> getProgramResources() {
+          return Collections.singletonList(programResource);
+        }
+
+        @Override
+        public void getProgramResources(Consumer<ProgramResource> consumer) {
+          consumer.accept(programResource);
         }
       };
     }
@@ -277,15 +307,7 @@ public class TraceReferencesCommand {
           error(new ExceptionDiagnostic(e));
         }
       } else if (isDexFile(file)) {
-        traceSourceBuilder.add(
-            new ProgramResourceProvider() {
-              ProgramResource dexResource = ProgramResource.fromFile(Kind.DEX, file);
-
-              @Override
-              public Collection<ProgramResource> getProgramResources() {
-                return Collections.singletonList(dexResource);
-              }
-            });
+        traceSourceBuilder.add(singleDexFileProgramResourceProvider(file));
       } else {
         error(new StringDiagnostic("Unsupported source file type", new PathOrigin(file)));
       }
