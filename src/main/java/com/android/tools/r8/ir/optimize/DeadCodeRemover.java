@@ -12,6 +12,7 @@ import static com.android.tools.r8.ir.code.Opcodes.INVOKE_POLYMORPHIC;
 import static com.android.tools.r8.ir.code.Opcodes.INVOKE_STATIC;
 import static com.android.tools.r8.ir.code.Opcodes.INVOKE_SUPER;
 import static com.android.tools.r8.ir.code.Opcodes.INVOKE_VIRTUAL;
+import static com.android.tools.r8.ir.code.Opcodes.NEW_ARRAY_FILLED;
 import static com.android.tools.r8.ir.code.Opcodes.STATIC_GET;
 
 import com.android.tools.r8.errors.Unreachable;
@@ -179,6 +180,7 @@ public class DeadCodeRemover {
           case INVOKE_SUPER:
           case INVOKE_POLYMORPHIC:
           case INVOKE_VIRTUAL:
+          case NEW_ARRAY_FILLED:
             // Remove unused invoke results.
             if (!current.outValue().isUsed()) {
               current.clearOutValue();
