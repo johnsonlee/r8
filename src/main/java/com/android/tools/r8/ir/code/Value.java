@@ -1087,13 +1087,9 @@ public class Value implements Comparable<Value>, InstructionOrValue {
         && !appView.enableWholeProgramOptimizations();
   }
 
-  public boolean hasBlock() {
-    return definition.hasBlock();
-  }
-
   @Override
-  public BasicBlock getBlock() {
-    return definition.getBlock();
+  public BasicBlock getBlockOrNull() {
+    return definition.getBlockOrNull();
   }
 
   public TypeElement getType() {

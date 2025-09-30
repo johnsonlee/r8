@@ -374,12 +374,9 @@ public abstract class Instruction
     }
   }
 
-  /**
-   * Returns the basic block containing this instruction.
-   */
+  /** Returns the basic block containing this instruction. */
   @Override
-  public BasicBlock getBlock() {
-    assert block != null;
+  public BasicBlock getBlockOrNull() {
     return block;
   }
 
@@ -421,13 +418,6 @@ public abstract class Instruction
 
   public void replace(Instruction newInstruction, AffectedValues affectedValues) {
     block.getInstructions().replace(this, newInstruction, affectedValues);
-  }
-
-  /**
-   * Returns true if the instruction is in the IR and therefore has a block.
-   */
-  public boolean hasBlock() {
-    return block != null;
   }
 
   public String getInstructionName() {
