@@ -88,12 +88,13 @@ public class ProguardConfiguration {
     }
 
     @Override
-    public void addInjars(List<FilteredClassPath> injars) {
+    public void addInjars(List<FilteredClassPath> injars, Origin origin, Position position) {
       this.injars.addAll(injars);
     }
 
     @Override
-    public void addLibraryJars(List<FilteredClassPath> libraryJars) {
+    public void addLibraryJars(
+        List<FilteredClassPath> libraryJars, Origin origin, Position position) {
       this.libraryJars.addAll(libraryJars);
     }
 
@@ -154,8 +155,8 @@ public class ProguardConfiguration {
     }
 
     @Override
-    public void setPrintConfiguration(boolean printConfiguration) {
-      this.printConfiguration = printConfiguration;
+    public void enablePrintConfiguration(Origin origin, Position position) {
+      this.printConfiguration = true;
     }
 
     @Override
@@ -175,8 +176,8 @@ public class ProguardConfiguration {
     }
 
     @Override
-    public void setPrintMapping(boolean printMapping) {
-      this.printMapping = printMapping;
+    public void enablePrintMapping(Origin origin, Position position) {
+      this.printMapping = true;
     }
 
     @Override
@@ -186,7 +187,7 @@ public class ProguardConfiguration {
     }
 
     @Override
-    public void setApplyMappingFile(Path file) {
+    public void setApplyMappingFile(Path file, Origin origin, Position position) {
       this.applyMappingFile = file;
     }
 
@@ -279,22 +280,25 @@ public class ProguardConfiguration {
     }
 
     @Override
-    public void setPrintSeeds(boolean printSeeds) {
+    public void setPrintSeeds(boolean printSeeds, Origin origin, Position position) {
       this.printSeeds = printSeeds;
     }
 
     @Override
-    public void setObfuscationDictionary(Path obfuscationDictionary) {
+    public void setObfuscationDictionary(
+        Path obfuscationDictionary, Origin origin, Position position) {
       this.obfuscationDictionary = obfuscationDictionary;
     }
 
     @Override
-    public void setClassObfuscationDictionary(Path classObfuscationDictionary) {
+    public void setClassObfuscationDictionary(
+        Path classObfuscationDictionary, Origin origin, Position position) {
       this.classObfuscationDictionary = classObfuscationDictionary;
     }
 
     @Override
-    public void setPackageObfuscationDictionary(Path packageObfuscationDictionary) {
+    public void setPackageObfuscationDictionary(
+        Path packageObfuscationDictionary, Origin origin, Position position) {
       this.packageObfuscationDictionary = packageObfuscationDictionary;
     }
 

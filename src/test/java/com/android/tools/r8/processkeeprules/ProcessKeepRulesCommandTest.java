@@ -37,6 +37,21 @@ public class ProcessKeepRulesCommandTest extends TestBase {
           .put("-dontobfuscate", "-dontobfuscate not allowed in library consumer rules.")
           .put("-dontshrink", "-dontshrink not allowed in library consumer rules.")
           .put("-repackageclasses", "-repackageclasses not allowed in library consumer rules.")
+          .put("-printconfiguration", "-printconfiguration not allowed in library consumer rules.")
+          .put("-printmapping", "-printmapping not allowed in library consumer rules.")
+          .put("-applymapping foo", "-applymapping not allowed in library consumer rules.")
+          .put("-injars foo", "-injars not allowed in library consumer rules.")
+          .put("-libraryjars foo", "-libraryjars not allowed in library consumer rules.")
+          .put("-printseeds", "-printseeds not allowed in library consumer rules.")
+          .put(
+              "-obfuscationdictionary foo",
+              "-obfuscationdictionary not allowed in library consumer rules.")
+          .put(
+              "-classobfuscationdictionary foo",
+              "-classobfuscationdictionary not allowed in library consumer rules.")
+          .put(
+              "-packageobfuscationdictionary foo",
+              "-packageobfuscationdictionary not allowed in library consumer rules.")
           .put(
               "-flattenpackagehierarchy",
               "-flattenpackagehierarchy not allowed in library consumer rules.")

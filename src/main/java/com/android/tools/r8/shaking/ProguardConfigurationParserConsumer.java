@@ -47,29 +47,29 @@ public interface ProguardConfigurationParserConsumer {
 
   void enableAllowAccessModification(Origin origin, Position position);
 
-  void setPrintConfiguration(boolean b);
+  void enablePrintConfiguration(Origin origin, Position position);
 
   void setPrintConfigurationFile(Path path);
 
-  void setPrintMapping(boolean b);
+  void enablePrintMapping(Origin origin, Position position);
 
   void setPrintMappingFile(Path path);
 
-  void setApplyMappingFile(Path path);
+  void setApplyMappingFile(Path path, Origin origin, Position position);
 
-  void addInjars(List<FilteredClassPath> filteredClassPaths);
+  void addInjars(List<FilteredClassPath> filteredClassPaths, Origin origin, Position position);
 
-  void addLibraryJars(List<FilteredClassPath> filteredClassPaths);
+  void addLibraryJars(List<FilteredClassPath> filteredClassPaths, Origin origin, Position position);
 
-  void setPrintSeeds(boolean b);
+  void setPrintSeeds(boolean b, Origin origin, Position position);
 
   void setSeedFile(Path path);
 
-  void setObfuscationDictionary(Path path);
+  void setObfuscationDictionary(Path path, Origin origin, Position position);
 
-  void setClassObfuscationDictionary(Path path);
+  void setClassObfuscationDictionary(Path path, Origin origin, Position position);
 
-  void setPackageObfuscationDictionary(Path path);
+  void setPackageObfuscationDictionary(Path path, Origin origin, Position position);
 
   void addAdaptClassStringsPattern(ProguardClassNameList pattern);
 

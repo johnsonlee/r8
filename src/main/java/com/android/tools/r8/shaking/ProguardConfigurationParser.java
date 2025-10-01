@@ -391,20 +391,22 @@ public class ProguardConfigurationParser {
       } else if (acceptString("allowaccessmodification")) {
         configurationConsumer.enableAllowAccessModification(origin, getPosition(optionStart));
       } else if (acceptString("printconfiguration")) {
-        configurationConsumer.setPrintConfiguration(true);
+        configurationConsumer.enablePrintConfiguration(origin, getPosition(optionStart));
         skipWhitespace();
         if (isOptionalArgumentGiven()) {
           configurationConsumer.setPrintConfigurationFile(parseFileName(false));
         }
       } else if (acceptString("printmapping")) {
-        configurationConsumer.setPrintMapping(true);
+        configurationConsumer.enablePrintMapping(origin, getPosition(optionStart));
         skipWhitespace();
         if (isOptionalArgumentGiven()) {
           configurationConsumer.setPrintMappingFile(parseFileName(false));
         }
       } else if (acceptString("applymapping")) {
         configurationConsumer.setApplyMappingFile(
-            parseFileInputDependency(inputDependencyConsumer::acceptProguardApplyMapping));
+            parseFileInputDependency(inputDependencyConsumer::acceptProguardApplyMapping),
+            origin,
+            getPosition(optionStart));
       } else if (acceptString("assumenosideeffects")) {
         ProguardAssumeNoSideEffectRule rule = parseAssumeNoSideEffectsRule(optionStart);
         configurationConsumer.addRule(rule);
@@ -423,27 +425,37 @@ public class ProguardConfigurationParser {
         baseDirectory = parseFileName(false);
       } else if (acceptString("injars")) {
         configurationConsumer.addInjars(
-            parseClassPath(inputDependencyConsumer::acceptProguardInJars));
+            parseClassPath(inputDependencyConsumer::acceptProguardInJars),
+            origin,
+            getPosition(optionStart));
       } else if (acceptString("libraryjars")) {
         configurationConsumer.addLibraryJars(
-            parseClassPath(inputDependencyConsumer::acceptProguardLibraryJars));
+            parseClassPath(inputDependencyConsumer::acceptProguardLibraryJars),
+            origin,
+            getPosition(optionStart));
       } else if (acceptString("printseeds")) {
-        configurationConsumer.setPrintSeeds(true);
+        configurationConsumer.setPrintSeeds(true, origin, getPosition(optionStart));
         skipWhitespace();
         if (isOptionalArgumentGiven()) {
           configurationConsumer.setSeedFile(parseFileName(false));
         }
       } else if (acceptString("obfuscationdictionary")) {
         configurationConsumer.setObfuscationDictionary(
-            parseFileInputDependency(inputDependencyConsumer::acceptProguardObfuscationDictionary));
+            parseFileInputDependency(inputDependencyConsumer::acceptProguardObfuscationDictionary),
+            origin,
+            getPosition(optionStart));
       } else if (acceptString("classobfuscationdictionary")) {
         configurationConsumer.setClassObfuscationDictionary(
             parseFileInputDependency(
-                inputDependencyConsumer::acceptProguardClassObfuscationDictionary));
+                inputDependencyConsumer::acceptProguardClassObfuscationDictionary),
+            origin,
+            getPosition(optionStart));
       } else if (acceptString("packageobfuscationdictionary")) {
         configurationConsumer.setPackageObfuscationDictionary(
             parseFileInputDependency(
-                inputDependencyConsumer::acceptProguardPackageObfuscationDictionary));
+                inputDependencyConsumer::acceptProguardPackageObfuscationDictionary),
+            origin,
+            getPosition(optionStart));
       } else if (acceptString("alwaysinline")) {
         InlineRule rule =
             parseRuleWithClassSpec(

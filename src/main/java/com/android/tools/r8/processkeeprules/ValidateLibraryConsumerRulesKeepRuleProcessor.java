@@ -128,40 +128,60 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
   public void addDontNotePattern(ProguardClassNameList pattern) {}
 
   @Override
-  public void setPrintConfiguration(boolean b) {}
+  public void enablePrintConfiguration(Origin origin, Position position) {
+    handleGlobalRule(origin, position, "-printconfiguration");
+  }
 
   @Override
   public void setPrintConfigurationFile(Path path) {}
 
   @Override
-  public void setPrintMapping(boolean b) {}
+  public void enablePrintMapping(Origin origin, Position position) {
+    handleGlobalRule(origin, position, "-printmapping");
+  }
 
   @Override
   public void setPrintMappingFile(Path path) {}
 
   @Override
-  public void setApplyMappingFile(Path path) {}
+  public void setApplyMappingFile(Path path, Origin origin, Position position) {
+    handleGlobalRule(origin, position, "-applymapping");
+  }
 
   @Override
-  public void addInjars(List<FilteredClassPath> filteredClassPaths) {}
+  public void addInjars(
+      List<FilteredClassPath> filteredClassPaths, Origin origin, Position position) {
+    handleGlobalRule(origin, position, "-injars");
+  }
 
   @Override
-  public void addLibraryJars(List<FilteredClassPath> filteredClassPaths) {}
+  public void addLibraryJars(
+      List<FilteredClassPath> filteredClassPaths, Origin origin, Position position) {
+    handleGlobalRule(origin, position, "-libraryjars");
+  }
 
   @Override
-  public void setPrintSeeds(boolean b) {}
+  public void setPrintSeeds(boolean b, Origin origin, Position position) {
+    handleGlobalRule(origin, position, "-printseeds");
+  }
 
   @Override
   public void setSeedFile(Path path) {}
 
   @Override
-  public void setObfuscationDictionary(Path path) {}
+  public void setObfuscationDictionary(Path path, Origin origin, Position position) {
+    handleGlobalRule(origin, position, "-obfuscationdictionary");
+  }
 
   @Override
-  public void setClassObfuscationDictionary(Path path) {}
+  public void setClassObfuscationDictionary(Path path, Origin origin, Position position) {
+    handleGlobalRule(origin, position, "-classobfuscationdictionary");
+  }
 
   @Override
-  public void setPackageObfuscationDictionary(Path path) {}
+  public void setPackageObfuscationDictionary(Path path, Origin origin, Position position) {
+    handleGlobalRule(origin, position, "-packageobfuscationdictionary");
+  }
 
   @Override
   public void addAdaptClassStringsPattern(ProguardClassNameList pattern) {}
