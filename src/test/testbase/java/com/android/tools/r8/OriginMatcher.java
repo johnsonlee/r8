@@ -26,7 +26,7 @@ public abstract class OriginMatcher extends TypeSafeMatcher<Origin> {
 
       @Override
       public void describeTo(Description description) {
-        description.appendText("not a parent " + parent);
+        description.appendText("a parent " + parent);
       }
     };
   }
@@ -40,7 +40,7 @@ public abstract class OriginMatcher extends TypeSafeMatcher<Origin> {
 
       @Override
       public void describeTo(Description description) {
-        description.appendText("part is not " + part);
+        description.appendText("part " + part);
       }
     };
   }

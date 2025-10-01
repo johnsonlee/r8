@@ -11,13 +11,11 @@ import com.android.tools.r8.keepanno.asm.KeepEdgeReader;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.keepanno.keeprules.KeepRuleExtractor;
 import com.android.tools.r8.keepanno.keeprules.KeepRuleExtractorOptions;
-import com.android.tools.r8.shaking.ProguardConfigurationSourceStrings;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.ExceptionDiagnostic;
 import com.android.tools.r8.utils.ExceptionUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.Reporter;
-import java.util.Collections;
 import java.util.List;
 
 /** Experimental API to extract keep rules from keep annotations. */
@@ -50,14 +48,7 @@ public class ExtractKeepAnnoRules {
           List<KeepDeclaration> declarations = KeepEdgeReader.readKeepEdges(resource.getBytes());
           if (!declarations.isEmpty()) {
             KeepRuleExtractor extractor =
-                new KeepRuleExtractor(
-                    rule -> {
-                      ProguardConfigurationSourceStrings source =
-                          new ProguardConfigurationSourceStrings(
-                              Collections.singletonList(rule), null, resource.getOrigin());
-                      consumer.accept(source.get(), reporter);
-                    },
-                    extractorOptions);
+                new KeepRuleExtractor(rule -> consumer.accept(rule, reporter), extractorOptions);
             declarations.forEach(extractor::extract);
           }
         }

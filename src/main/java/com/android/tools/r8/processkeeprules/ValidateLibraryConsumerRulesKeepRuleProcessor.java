@@ -5,8 +5,10 @@ package com.android.tools.r8.processkeeprules;
 
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
+import com.android.tools.r8.position.TextPosition;
 import com.android.tools.r8.shaking.FilteredClassPath;
 import com.android.tools.r8.shaking.ProguardClassNameList;
+import com.android.tools.r8.shaking.ProguardConfigurationParser.ProguardConfigurationSourceParser;
 import com.android.tools.r8.shaking.ProguardConfigurationParserConsumer;
 import com.android.tools.r8.shaking.ProguardConfigurationRule;
 import com.android.tools.r8.shaking.ProguardKeepAttributes;
@@ -75,7 +77,11 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
 
   @Override
   public void addKeepAttributePatterns(
-      List<String> attributesPatterns, Origin origin, Position position) {
+      List<String> attributesPatterns,
+      Origin origin,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
     // TODO(b/270289387): Add support for more attributes.
     ProguardKeepAttributes keepAttributes = ProguardKeepAttributes.fromPatterns(attributesPatterns);
     if (keepAttributes.lineNumberTable) {
@@ -128,40 +134,60 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
   public void addDontNotePattern(ProguardClassNameList pattern) {}
 
   @Override
-  public void setPrintConfiguration(boolean b) {}
+  public void enablePrintConfiguration(Origin origin, Position position) {
+    handleGlobalRule(origin, position, "-printconfiguration");
+  }
 
   @Override
   public void setPrintConfigurationFile(Path path) {}
 
   @Override
-  public void setPrintMapping(boolean b) {}
+  public void enablePrintMapping(Origin origin, Position position) {
+    handleGlobalRule(origin, position, "-printmapping");
+  }
 
   @Override
   public void setPrintMappingFile(Path path) {}
 
   @Override
-  public void setApplyMappingFile(Path path) {}
+  public void setApplyMappingFile(Path path, Origin origin, Position position) {
+    handleGlobalRule(origin, position, "-applymapping");
+  }
 
   @Override
-  public void addInjars(List<FilteredClassPath> filteredClassPaths) {}
+  public void addInjars(
+      List<FilteredClassPath> filteredClassPaths, Origin origin, Position position) {
+    handleGlobalRule(origin, position, "-injars");
+  }
 
   @Override
-  public void addLibraryJars(List<FilteredClassPath> filteredClassPaths) {}
+  public void addLibraryJars(
+      List<FilteredClassPath> filteredClassPaths, Origin origin, Position position) {
+    handleGlobalRule(origin, position, "-libraryjars");
+  }
 
   @Override
-  public void setPrintSeeds(boolean b) {}
+  public void setPrintSeeds(boolean b, Origin origin, Position position) {
+    handleGlobalRule(origin, position, "-printseeds");
+  }
 
   @Override
   public void setSeedFile(Path path) {}
 
   @Override
-  public void setObfuscationDictionary(Path path) {}
+  public void setObfuscationDictionary(Path path, Origin origin, Position position) {
+    handleGlobalRule(origin, position, "-obfuscationdictionary");
+  }
 
   @Override
-  public void setClassObfuscationDictionary(Path path) {}
+  public void setClassObfuscationDictionary(Path path, Origin origin, Position position) {
+    handleGlobalRule(origin, position, "-classobfuscationdictionary");
+  }
 
   @Override
-  public void setPackageObfuscationDictionary(Path path) {}
+  public void setPackageObfuscationDictionary(Path path, Origin origin, Position position) {
+    handleGlobalRule(origin, position, "-packageobfuscationdictionary");
+  }
 
   @Override
   public void addAdaptClassStringsPattern(ProguardClassNameList pattern) {}

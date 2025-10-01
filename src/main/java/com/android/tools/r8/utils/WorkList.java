@@ -167,6 +167,11 @@ public class WorkList<T> {
     return next;
   }
 
+  public void removeSeen(T element) {
+    boolean removed = seen.remove(element);
+    assert removed;
+  }
+
   public void clearSeen() {
     seen.clear();
   }

@@ -37,6 +37,21 @@ public class ProcessKeepRulesCommandTest extends TestBase {
           .put("-dontobfuscate", "-dontobfuscate not allowed in library consumer rules.")
           .put("-dontshrink", "-dontshrink not allowed in library consumer rules.")
           .put("-repackageclasses", "-repackageclasses not allowed in library consumer rules.")
+          .put("-printconfiguration", "-printconfiguration not allowed in library consumer rules.")
+          .put("-printmapping", "-printmapping not allowed in library consumer rules.")
+          .put("-applymapping foo", "-applymapping not allowed in library consumer rules.")
+          .put("-injars foo", "-injars not allowed in library consumer rules.")
+          .put("-libraryjars foo", "-libraryjars not allowed in library consumer rules.")
+          .put("-printseeds", "-printseeds not allowed in library consumer rules.")
+          .put(
+              "-obfuscationdictionary foo",
+              "-obfuscationdictionary not allowed in library consumer rules.")
+          .put(
+              "-classobfuscationdictionary foo",
+              "-classobfuscationdictionary not allowed in library consumer rules.")
+          .put(
+              "-packageobfuscationdictionary foo",
+              "-packageobfuscationdictionary not allowed in library consumer rules.")
           .put(
               "-flattenpackagehierarchy",
               "-flattenpackagehierarchy not allowed in library consumer rules.")
@@ -45,20 +60,22 @@ public class ProcessKeepRulesCommandTest extends TestBase {
               "-allowaccessmodification not allowed in library consumer rules.")
           .put(
               "-keepattributes LineNumberTable",
-              "Illegal attempt to keep LineNumberTable in library consumer rules.")
+              "Illegal attempt to keep the attribute 'LineNumberTable' in library consumer rules.")
           .put(
               "-keepattributes RuntimeInvisibleAnnotations",
-              "Illegal attempt to keep RuntimeInvisibleAnnotations in library consumer rules.")
+              "Illegal attempt to keep the attribute 'RuntimeInvisibleAnnotations' in library"
+                  + " consumer rules.")
           .put(
               "-keepattributes RuntimeInvisibleTypeAnnotations",
-              "Illegal attempt to keep RuntimeInvisibleTypeAnnotations in library consumer rules.")
+              "Illegal attempt to keep the attribute 'RuntimeInvisibleTypeAnnotations' in library"
+                  + " consumer rules.")
           .put(
               "-keepattributes RuntimeInvisibleParameterAnnotations",
-              "Illegal attempt to keep RuntimeInvisibleParameterAnnotations in library consumer"
-                  + " rules.")
+              "Illegal attempt to keep the attribute 'RuntimeInvisibleParameterAnnotations' in"
+                  + " library consumer rules.")
           .put(
               "-keepattributes SourceFile",
-              "Illegal attempt to keep SourceFile in library consumer rules.")
+              "Illegal attempt to keep the attribute 'SourceFile' in library consumer rules.")
           .put(
               "-renamesourcefileattribute",
               "-renamesourcefileattribute not allowed in library consumer rules.")

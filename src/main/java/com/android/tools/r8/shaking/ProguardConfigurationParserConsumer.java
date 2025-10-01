@@ -5,6 +5,8 @@ package com.android.tools.r8.shaking;
 
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
+import com.android.tools.r8.position.TextPosition;
+import com.android.tools.r8.shaking.ProguardConfigurationParser.ProguardConfigurationSourceParser;
 import com.android.tools.r8.utils.InternalOptions.PackageObfuscationMode;
 import java.nio.file.Path;
 import java.util.List;
@@ -15,7 +17,12 @@ public interface ProguardConfigurationParserConsumer {
 
   void addRule(ProguardConfigurationRule rule);
 
-  void addKeepAttributePatterns(List<String> attributesPatterns, Origin origin, Position position);
+  void addKeepAttributePatterns(
+      List<String> attributesPatterns,
+      Origin origin,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart);
 
   void setRenameSourceFileAttribute(String s, Origin origin, Position position);
 
@@ -47,29 +54,29 @@ public interface ProguardConfigurationParserConsumer {
 
   void enableAllowAccessModification(Origin origin, Position position);
 
-  void setPrintConfiguration(boolean b);
+  void enablePrintConfiguration(Origin origin, Position position);
 
   void setPrintConfigurationFile(Path path);
 
-  void setPrintMapping(boolean b);
+  void enablePrintMapping(Origin origin, Position position);
 
   void setPrintMappingFile(Path path);
 
-  void setApplyMappingFile(Path path);
+  void setApplyMappingFile(Path path, Origin origin, Position position);
 
-  void addInjars(List<FilteredClassPath> filteredClassPaths);
+  void addInjars(List<FilteredClassPath> filteredClassPaths, Origin origin, Position position);
 
-  void addLibraryJars(List<FilteredClassPath> filteredClassPaths);
+  void addLibraryJars(List<FilteredClassPath> filteredClassPaths, Origin origin, Position position);
 
-  void setPrintSeeds(boolean b);
+  void setPrintSeeds(boolean b, Origin origin, Position position);
 
   void setSeedFile(Path path);
 
-  void setObfuscationDictionary(Path path);
+  void setObfuscationDictionary(Path path, Origin origin, Position position);
 
-  void setClassObfuscationDictionary(Path path);
+  void setClassObfuscationDictionary(Path path, Origin origin, Position position);
 
-  void setPackageObfuscationDictionary(Path path);
+  void setPackageObfuscationDictionary(Path path, Origin origin, Position position);
 
   void addAdaptClassStringsPattern(ProguardClassNameList pattern);
 
@@ -88,4 +95,6 @@ public interface ProguardConfigurationParserConsumer {
   void enableRepackageClasses(Origin origin, Position position);
 
   void enableFlattenPackageHierarchy(Origin origin, Position position);
+
+  default void addWhitespace(ProguardConfigurationSourceParser parser, TextPosition position) {}
 }

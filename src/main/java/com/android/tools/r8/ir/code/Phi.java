@@ -84,12 +84,7 @@ public class Phi extends Value implements InstructionOrPhi {
   }
 
   @Override
-  public boolean hasBlock() {
-    return block != null;
-  }
-
-  @Override
-  public BasicBlock getBlock() {
+  public BasicBlock getBlockOrNull() {
     return block;
   }
 

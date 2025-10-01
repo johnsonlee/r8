@@ -11,7 +11,7 @@ import com.android.tools.r8.graph.FieldResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 
-public interface FieldGet {
+public interface FieldGet extends InstructionOrValue {
 
   DexField getField();
 

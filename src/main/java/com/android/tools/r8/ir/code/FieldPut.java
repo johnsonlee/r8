@@ -10,9 +10,7 @@ import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.FieldResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
 
-public interface FieldPut {
-
-  BasicBlock getBlock();
+public interface FieldPut extends InstructionOrValue {
 
   DexField getField();
 

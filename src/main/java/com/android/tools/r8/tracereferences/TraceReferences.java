@@ -24,11 +24,13 @@ import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.ExceptionUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.StringUtils;
+import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 
 @KeepForApi
@@ -36,6 +38,11 @@ public class TraceReferences {
 
   public static void run(TraceReferencesCommand command) throws CompilationFailedException {
     runForTesting(command, command.getInternalOptions());
+  }
+
+  public static void run(TraceReferencesCommand command, ExecutorService executorService)
+      throws CompilationFailedException {
+    runForTesting(command, command.getInternalOptions(), executorService);
   }
 
   private static void forEachDescriptor(ProgramResourceProvider provider, Consumer<String> consumer)
@@ -63,11 +70,18 @@ public class TraceReferences {
 
   static void runForTesting(TraceReferencesCommand command, InternalOptions options)
       throws CompilationFailedException {
-    ExceptionUtils.withCompilationHandler(
-        command.getReporter(), () -> runInternal(command, options));
+    runForTesting(command, options, ThreadUtils.getExecutorService(options));
   }
 
-  static void runInternal(TraceReferencesCommand command, InternalOptions options)
+  static void runForTesting(
+      TraceReferencesCommand command, InternalOptions options, ExecutorService executorService)
+      throws CompilationFailedException {
+    ExceptionUtils.withCompilationHandler(
+        command.getReporter(), () -> runInternal(command, options, executorService));
+  }
+
+  static void runInternal(
+      TraceReferencesCommand command, InternalOptions options, ExecutorService executorService)
       throws IOException, ResourceException {
     AndroidApp.Builder builder = AndroidApp.builder();
     command.getLibrary().forEach(builder::addLibraryResourceProvider);
@@ -84,7 +98,7 @@ public class TraceReferences {
         AppView.createForTracer(
             AppInfoWithClassHierarchy.createInitialAppInfoWithClassHierarchy(
                 new ApplicationReader(builder.build(), options, Timing.empty())
-                    .readDirectSingleThreaded(),
+                    .readDirect(executorService),
                 ClassToFeatureSplitMap.createEmptyClassToFeatureSplitMap(),
                 MainDexInfo.none(),
                 GlobalSyntheticsStrategy.forSingleOutputMode()));

@@ -78,7 +78,7 @@ public class InterfaceRenamingTestRunner extends TestBase {
         ToolHelper.addProguardConfigurationConsumer(
                 R8Command.builder(),
                 pgConfig -> {
-                  pgConfig.setPrintMapping(true);
+                  pgConfig.enablePrintMapping(null, null);
                   if (!minify.isMinify()) {
                     pgConfig.disableObfuscation();
                   }

@@ -8,33 +8,27 @@ import com.android.tools.r8.origin.Origin;
 import com.google.common.annotations.VisibleForTesting;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.List;
 
 public class ProguardConfigurationSourceStrings implements ProguardConfigurationSource {
 
   private final Path basePath;
-  private final List<String> config;
+  private final String config;
   private final Origin origin;
 
   /**
-   * Creates {@link ProguardConfigurationSource} with raw {@param config}, along with
-   * {@param basePath}, which allows all other options that use a relative path to reach out
-   * to desired paths appropriately.
+   * Creates {@link ProguardConfigurationSource} with raw {@param config}, along with {@param
+   * basePath}, which allows all other options that use a relative path to reach out to desired
+   * paths appropriately.
    */
-  public ProguardConfigurationSourceStrings(List<String> config, Path basePath, Origin origin) {
+  public ProguardConfigurationSourceStrings(String config, Path basePath, Origin origin) {
     this.basePath = basePath;
     this.config = config;
     this.origin = origin;
   }
 
-  private ProguardConfigurationSourceStrings(List<String> config) {
-    this(config, Paths.get(""), Origin.unknown());
-  }
-
   @VisibleForTesting
-  public static ProguardConfigurationSourceStrings createConfigurationForTesting(
-      List<String> config) {
-    return new ProguardConfigurationSourceStrings(config);
+  public static ProguardConfigurationSourceStrings createConfigurationForTesting(String config) {
+    return new ProguardConfigurationSourceStrings(config, Paths.get(""), Origin.unknown());
   }
 
   @Override

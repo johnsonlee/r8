@@ -3,6 +3,17 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize;
 
+import static com.android.tools.r8.ir.code.Opcodes.CHECK_CAST;
+import static com.android.tools.r8.ir.code.Opcodes.INVOKE_CUSTOM;
+import static com.android.tools.r8.ir.code.Opcodes.INVOKE_DIRECT;
+import static com.android.tools.r8.ir.code.Opcodes.INVOKE_INTERFACE;
+import static com.android.tools.r8.ir.code.Opcodes.INVOKE_MULTI_NEW_ARRAY;
+import static com.android.tools.r8.ir.code.Opcodes.INVOKE_POLYMORPHIC;
+import static com.android.tools.r8.ir.code.Opcodes.INVOKE_STATIC;
+import static com.android.tools.r8.ir.code.Opcodes.INVOKE_SUPER;
+import static com.android.tools.r8.ir.code.Opcodes.INVOKE_VIRTUAL;
+import static com.android.tools.r8.ir.code.Opcodes.NEW_ARRAY_FILLED;
+import static com.android.tools.r8.ir.code.Opcodes.STATIC_GET;
 
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
@@ -25,13 +36,12 @@ import com.android.tools.r8.ir.conversion.passes.MoveResultRewriter;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.IterableUtils;
+import com.android.tools.r8.utils.WorkList;
 import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.ImmutableList;
-import java.util.ArrayDeque;
 import java.util.Collection;
-import java.util.Deque;
 import java.util.Iterator;
-import java.util.Queue;
+import java.util.List;
 
 public class DeadCodeRemover {
 
@@ -51,13 +61,15 @@ public class DeadCodeRemover {
     // We may encounter unneeded catch handlers after each iteration, e.g., if a dead instruction
     // is the only throwing instruction in a block. Removing unneeded catch handlers can lead to
     // more dead instructions.
-    Deque<BasicBlock> worklist = new ArrayDeque<>();
+    List<BasicBlock> topologicallySortedBlocks = code.topologicallySortedBlocks();
+    WorkList<BasicBlock> worklist = WorkList.newIdentityWorkList();
     do {
       AffectedValues affectedValues = new AffectedValues();
       ValueIsDeadAnalysis valueIsDeadAnalysis = new ValueIsDeadAnalysis(appView, code);
-      worklist.addAll(code.topologicallySortedBlocks());
+      worklist.addIfNotSeen(topologicallySortedBlocks);
       while (!worklist.isEmpty()) {
         BasicBlock block = worklist.removeLast();
+        worklist.removeSeen(block);
         removeDeadInstructions(worklist, code, block, affectedValues, valueIsDeadAnalysis);
         removeDeadAndTrivialPhis(worklist, block, valueIsDeadAnalysis);
       }
@@ -95,30 +107,31 @@ public class DeadCodeRemover {
   }
 
   // Add the block from where the value originates to the worklist.
-  private static void updateWorklist(Queue<BasicBlock> worklist, Value value) {
-    BasicBlock block = null;
-    if (value.isPhi()) {
-      block = value.asPhi().getBlock();
-    } else if (value.definition.hasBlock()) {
-      block = value.definition.getBlock();
-    }
+  private static void updateWorklist(WorkList<BasicBlock> worklist, Value value) {
+    BasicBlock block = value.getBlockOrNull();
     if (block != null) {
-      worklist.add(block);
+      worklist.addIfNotSeen(block);
     }
   }
 
   // Add all blocks from where the in/debug-values to the instruction originates.
-  private static void updateWorklist(Queue<BasicBlock> worklist, Instruction instruction) {
+  private static void updateWorklist(WorkList<BasicBlock> worklist, Instruction instruction) {
     for (Value inValue : instruction.inValues()) {
-      updateWorklist(worklist, inValue);
+      BasicBlock block = inValue.getBlockOrNull();
+      if (block != null && block != instruction.getBlock()) {
+        updateWorklist(worklist, inValue);
+      }
     }
     for (Value debugValue : instruction.getDebugValues()) {
-      updateWorklist(worklist, debugValue);
+      BasicBlock block = debugValue.getBlockOrNull();
+      if (block != null && block != instruction.getBlock()) {
+        updateWorklist(worklist, debugValue);
+      }
     }
   }
 
   private void removeDeadAndTrivialPhis(
-      Queue<BasicBlock> worklist, BasicBlock block, ValueIsDeadAnalysis valueIsDeadAnalysis) {
+      WorkList<BasicBlock> worklist, BasicBlock block, ValueIsDeadAnalysis valueIsDeadAnalysis) {
     Iterator<Phi> phiIt = block.getPhis().iterator();
     while (phiIt.hasNext()) {
       Phi phi = phiIt.next();
@@ -137,7 +150,7 @@ public class DeadCodeRemover {
 
   @SuppressWarnings("ReferenceEquality")
   private void removeDeadInstructions(
-      Queue<BasicBlock> worklist,
+      WorkList<BasicBlock> worklist,
       IRCode code,
       BasicBlock block,
       AffectedValues affectedValues,
@@ -146,36 +159,55 @@ public class DeadCodeRemover {
     while (iterator.hasPrevious()) {
       Instruction current = iterator.previous();
       if (current.hasOutValue()) {
-        // Replace unnecessary cast values.
-        if (current.isCheckCast()) {
-          CheckCast checkCast = current.asCheckCast();
-          if (!checkCast.isRefiningStaticType(appView.options())
-              && checkCast.outValue().getLocalInfo() == checkCast.object().getLocalInfo()) {
-            updateWorklistWithNonDebugUses(worklist, checkCast);
-            checkCast.outValue().replaceUsers(checkCast.object(), affectedValues);
-            checkCast.object().uniquePhiUsers().forEach(Phi::removeTrivialPhi);
-          }
-        }
-        // Remove unused invoke results.
-        if (current.isInvoke() && !current.outValue().isUsed()) {
-          current.setOutValue(null);
-        }
-        if (current.isStaticGet() && !current.outValue().isUsed() && appView.hasLiveness()) {
-          Box<InitClass> initClass = new Box<>();
-          if (iterator.removeOrReplaceCurrentInstructionByInitClassIfPossible(
-              appView.withLiveness(),
-              code,
-              current.asStaticGet().getField().getHolderType(),
-              initClass::set)) {
-            if (initClass.isSet()) {
-              // Apply dead code remover to the new init-class instruction.
-              current = iterator.previous();
-              assert current == initClass.get();
-            } else {
-              // Instruction removed.
-              continue;
+        switch (current.opcode()) {
+          case CHECK_CAST:
+            {
+              // Replace unnecessary cast values.
+              CheckCast checkCast = current.asCheckCast();
+              if (!checkCast.isRefiningStaticType(appView.options())
+                  && checkCast.outValue().getLocalInfo() == checkCast.object().getLocalInfo()) {
+                updateWorklistWithNonDebugUses(worklist, checkCast);
+                checkCast.outValue().replaceUsers(checkCast.object(), affectedValues);
+                checkCast.object().uniquePhiUsers().forEach(Phi::removeTrivialPhi);
             }
+              break;
           }
+          case INVOKE_CUSTOM:
+          case INVOKE_DIRECT:
+          case INVOKE_INTERFACE:
+          case INVOKE_MULTI_NEW_ARRAY:
+          case INVOKE_STATIC:
+          case INVOKE_SUPER:
+          case INVOKE_POLYMORPHIC:
+          case INVOKE_VIRTUAL:
+          case NEW_ARRAY_FILLED:
+            // Remove unused invoke results.
+            if (!current.outValue().isUsed()) {
+              current.clearOutValue();
+            }
+            break;
+          case STATIC_GET:
+            if (!current.outValue().isUsed() && appView.hasLiveness()) {
+              Box<InitClass> initClass = new Box<>();
+              if (iterator.removeOrReplaceCurrentInstructionByInitClassIfPossible(
+                  appView.withLiveness(),
+                  code,
+                  current.asStaticGet().getField().getHolderType(),
+                  initClass::set)) {
+                if (initClass.isSet()) {
+                  // Apply dead code remover to the new init-class instruction.
+                  current = iterator.previous();
+                  assert current == initClass.get();
+                } else {
+                  // Instruction removed.
+                  continue;
+                }
+              }
+            }
+            break;
+          default:
+            assert !current.isInvoke();
+            break;
         }
       }
       DeadInstructionResult deadInstructionResult = current.canBeDeadCode(appView, code);
@@ -209,12 +241,12 @@ public class DeadCodeRemover {
   }
 
   private static void updateWorklistWithNonDebugUses(
-      Queue<BasicBlock> worklist, CheckCast checkCast) {
+      WorkList<BasicBlock> worklist, CheckCast checkCast) {
     for (Instruction user : checkCast.outValue().uniqueUsers()) {
-      worklist.add(user.getBlock());
+      worklist.addIfNotSeen(user.getBlock());
     }
     for (Phi user : checkCast.outValue().uniquePhiUsers()) {
-      worklist.add(user.getBlock());
+      worklist.addIfNotSeen(user.getBlock());
     }
   }
 

@@ -8,6 +8,8 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.naming.DictionaryReader;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
+import com.android.tools.r8.position.TextPosition;
+import com.android.tools.r8.shaking.ProguardConfigurationParser.ProguardConfigurationSourceParser;
 import com.android.tools.r8.utils.InternalOptions.PackageObfuscationMode;
 import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.StringUtils;
@@ -88,12 +90,13 @@ public class ProguardConfiguration {
     }
 
     @Override
-    public void addInjars(List<FilteredClassPath> injars) {
+    public void addInjars(List<FilteredClassPath> injars, Origin origin, Position position) {
       this.injars.addAll(injars);
     }
 
     @Override
-    public void addLibraryJars(List<FilteredClassPath> libraryJars) {
+    public void addLibraryJars(
+        List<FilteredClassPath> libraryJars, Origin origin, Position position) {
       this.libraryJars.addAll(libraryJars);
     }
 
@@ -154,8 +157,8 @@ public class ProguardConfiguration {
     }
 
     @Override
-    public void setPrintConfiguration(boolean printConfiguration) {
-      this.printConfiguration = printConfiguration;
+    public void enablePrintConfiguration(Origin origin, Position position) {
+      this.printConfiguration = true;
     }
 
     @Override
@@ -175,8 +178,8 @@ public class ProguardConfiguration {
     }
 
     @Override
-    public void setPrintMapping(boolean printMapping) {
-      this.printMapping = printMapping;
+    public void enablePrintMapping(Origin origin, Position position) {
+      this.printMapping = true;
     }
 
     @Override
@@ -186,7 +189,7 @@ public class ProguardConfiguration {
     }
 
     @Override
-    public void setApplyMappingFile(Path file) {
+    public void setApplyMappingFile(Path file, Origin origin, Position position) {
       this.applyMappingFile = file;
     }
 
@@ -202,7 +205,11 @@ public class ProguardConfiguration {
 
     @Override
     public void addKeepAttributePatterns(
-        List<String> keepAttributePatterns, Origin origin, Position position) {
+        List<String> keepAttributePatterns,
+        Origin origin,
+        ProguardConfigurationSourceParser parser,
+        Position position,
+        TextPosition positionStart) {
       this.keepAttributePatterns.addAll(keepAttributePatterns);
     }
 
@@ -279,22 +286,25 @@ public class ProguardConfiguration {
     }
 
     @Override
-    public void setPrintSeeds(boolean printSeeds) {
+    public void setPrintSeeds(boolean printSeeds, Origin origin, Position position) {
       this.printSeeds = printSeeds;
     }
 
     @Override
-    public void setObfuscationDictionary(Path obfuscationDictionary) {
+    public void setObfuscationDictionary(
+        Path obfuscationDictionary, Origin origin, Position position) {
       this.obfuscationDictionary = obfuscationDictionary;
     }
 
     @Override
-    public void setClassObfuscationDictionary(Path classObfuscationDictionary) {
+    public void setClassObfuscationDictionary(
+        Path classObfuscationDictionary, Origin origin, Position position) {
       this.classObfuscationDictionary = classObfuscationDictionary;
     }
 
     @Override
-    public void setPackageObfuscationDictionary(Path packageObfuscationDictionary) {
+    public void setPackageObfuscationDictionary(
+        Path packageObfuscationDictionary, Origin origin, Position position) {
       this.packageObfuscationDictionary = packageObfuscationDictionary;
     }
 

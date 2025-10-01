@@ -8,6 +8,7 @@ import com.android.tools.r8.SourceFileEnvironment;
 import com.android.tools.r8.SourceFileProvider;
 import com.google.common.collect.ImmutableMap;
 import java.util.Map;
+import java.util.Map.Entry;
 
 public class SourceFileTemplateProvider implements SourceFileProvider {
 
@@ -53,7 +54,7 @@ public class SourceFileTemplateProvider implements SourceFileProvider {
   }
 
   private final String template;
-  private String cachedValue = null;
+  private volatile String cachedValue = null;
 
   private SourceFileTemplateProvider(String template) {
     this.template = template;
@@ -62,11 +63,15 @@ public class SourceFileTemplateProvider implements SourceFileProvider {
   @Override
   public String get(SourceFileEnvironment environment) {
     if (cachedValue == null) {
-      cachedValue = template;
-      HANDLERS.forEach(
-          (variable, getter) -> {
-            cachedValue = cachedValue.replace(variable, getter.get(environment));
-          });
+      synchronized (this) {
+        if (cachedValue == null) {
+          String temp = template;
+          for (Entry<String, SourceFileProvider> entry : HANDLERS.entrySet()) {
+            temp = temp.replace(entry.getKey(), entry.getValue().get(environment));
+          }
+          cachedValue = temp;
+        }
+      }
     }
     return cachedValue;
   }

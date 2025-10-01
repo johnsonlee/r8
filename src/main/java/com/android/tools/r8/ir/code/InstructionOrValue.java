@@ -29,5 +29,14 @@ public interface InstructionOrValue {
     return null;
   }
 
-  BasicBlock getBlock();
+  default boolean hasBlock() {
+    return getBlockOrNull() != null;
+  }
+
+  default BasicBlock getBlock() {
+    assert hasBlock();
+    return getBlockOrNull();
+  }
+
+  BasicBlock getBlockOrNull();
 }
