@@ -49,10 +49,8 @@ public class CanonicalizeInstanceGetBeforeInstancePutTest extends TestBase {
     MethodSubject mainMethodSubject = inspector.clazz(Main.class).mainMethod();
     assertThat(mainMethodSubject, isPresent());
 
-    // We expect two instance-get instructions when compiling to CF since we only run
-    // canonicalization when compiling to DEX.
     assertEquals(
-        parameters.isCfRuntime() ? 2 : 1,
+        1,
         mainMethodSubject.streamInstructions().filter(InstructionSubject::isInstanceGet).count());
   }
 
