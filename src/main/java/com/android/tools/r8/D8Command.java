@@ -439,10 +439,8 @@ public final class D8Command extends BaseCompilerCommand {
 
     /** Add proguard rules for automatic main-dex-list calculation. */
     public Builder addMainDexRules(List<String> lines, Origin origin) {
-      guard(
-          () ->
-              mainDexRules.add(
-                  new ProguardConfigurationSourceStrings(lines, Paths.get("."), origin)));
+      String config = String.join(System.lineSeparator(), lines);
+      mainDexRules.add(new ProguardConfigurationSourceStrings(config, Paths.get("."), origin));
       return self();
     }
 

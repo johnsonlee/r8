@@ -74,7 +74,6 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -247,10 +246,8 @@ public final class R8Command extends BaseCompilerCommand {
 
     /** Add proguard rules for automatic main-dex-list calculation. */
     public Builder addMainDexRules(List<String> lines, Origin origin) {
-      guard(
-          () ->
-              mainDexRules.add(
-                  new ProguardConfigurationSourceStrings(lines, Paths.get("."), origin)));
+      String config = String.join(System.lineSeparator(), lines);
+      mainDexRules.add(new ProguardConfigurationSourceStrings(config, Paths.get("."), origin));
       return self();
     }
 
@@ -320,8 +317,8 @@ public final class R8Command extends BaseCompilerCommand {
 
     /** Add proguard configuration. */
     public Builder addProguardConfiguration(List<String> lines, Origin origin) {
-      guard(() -> proguardConfigs.add(
-          new ProguardConfigurationSourceStrings(lines, Paths.get("."), origin)));
+      String config = String.join(System.lineSeparator(), lines);
+      proguardConfigs.add(new ProguardConfigurationSourceStrings(config, Paths.get("."), origin));
       return self();
     }
 
@@ -1051,7 +1048,7 @@ public final class R8Command extends BaseCompilerCommand {
                         rule -> {
                           ProguardConfigurationSourceStrings source =
                               new ProguardConfigurationSourceStrings(
-                                  Collections.singletonList(rule), null, resource.getOrigin());
+                                  rule, null, resource.getOrigin());
                           parser.parse(source);
                         });
                 declarations.forEach(extractor::extract);

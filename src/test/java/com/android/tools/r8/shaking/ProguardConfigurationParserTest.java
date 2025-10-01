@@ -46,7 +46,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -225,7 +224,7 @@ public class ProguardConfigurationParserTest extends TestBase {
 
     // Parse from strings.
 
-    List<String> lines = FileUtils.readAllLines(Paths.get(PROGUARD_SPEC_FILE));
+    String lines = FileUtils.readTextFile(Paths.get(PROGUARD_SPEC_FILE));
     parser.parse(createConfigurationForTesting(lines));
     rules = builder.build().getRules();
     assertEquals(24, rules.size());
@@ -261,7 +260,7 @@ public class ProguardConfigurationParserTest extends TestBase {
             "  -NameWithDash- -field-;",
             "  p-.-OtherNameWithDash- -method-(-p.-WithDash-, -package-.-ClassNameWithDash-[]); ",
             "}"));
-    parser.parse(createConfigurationForTesting(ImmutableList.of(nonJavaIdentifiers)));
+    parser.parse(createConfigurationForTesting(nonJavaIdentifiers));
     verifyParserEndsCleanly();
     List<ProguardConfigurationRule> rules = builder.build().getRules();
     assertEquals(1, rules.size());
@@ -296,7 +295,7 @@ public class ProguardConfigurationParserTest extends TestBase {
   private void testDontXXX(
       String xxx, Function<ProguardConfiguration, Predicate<DexType>> matcherFactory) {
     String configuration = "-dont" + xxx + " !foobar,*bar";
-    parser.parse(createConfigurationForTesting(ImmutableList.of(configuration)));
+    parser.parse(createConfigurationForTesting(configuration));
     verifyParserEndsCleanly();
     ProguardConfiguration config = builder.build();
     Predicate<DexType> matcher = matcherFactory.apply(config);
@@ -314,9 +313,9 @@ public class ProguardConfigurationParserTest extends TestBase {
   private void testDontXXXMultiple(
       String xxx, Function<ProguardConfiguration, Predicate<DexType>> matcherFactory) {
     DexItemFactory dexItemFactory = new DexItemFactory();
-    List<String> configuration1 = ImmutableList.of("-dont" + xxx + " foo.**, bar.**");
-    List<String> configuration2 = ImmutableList.of("-dont" + xxx + " foo.**", "-dontwarn bar.**");
-    for (List<String> configuration : ImmutableList.of(configuration1, configuration2)) {
+    String configuration1 = StringUtils.lines("-dont" + xxx + " foo.**, bar.**");
+    String configuration2 = StringUtils.lines("-dont" + xxx + " foo.**", "-dontwarn bar.**");
+    for (String configuration : ImmutableList.of(configuration1, configuration2)) {
       parser.parse(createConfigurationForTesting(configuration));
       verifyParserEndsCleanly();
       ProguardConfiguration config = builder.build();
@@ -337,7 +336,7 @@ public class ProguardConfigurationParserTest extends TestBase {
       String xxx, Function<ProguardConfiguration, Predicate<DexType>> matcherFactory) {
     DexItemFactory dexItemFactory = new DexItemFactory();
     String dontwarnAll = "-dont" + xxx + " *";
-    parser.parse(createConfigurationForTesting(ImmutableList.of(dontwarnAll)));
+    parser.parse(createConfigurationForTesting(dontwarnAll));
     verifyParserEndsCleanly();
     ProguardConfiguration config = builder.build();
     Predicate<DexType> matcher = matcherFactory.apply(config);
@@ -357,7 +356,7 @@ public class ProguardConfigurationParserTest extends TestBase {
     DexItemFactory dexItemFactory = new DexItemFactory();
     String dontwarnAll = "-dont" + xxx;
     String otherOption = "-keep class *";
-    parser.parse(createConfigurationForTesting(ImmutableList.of(dontwarnAll, otherOption)));
+    parser.parse(createConfigurationForTesting(StringUtils.lines(dontwarnAll, otherOption)));
     ProguardConfiguration config = builder.build();
     Predicate<DexType> matcher = matcherFactory.apply(config);
     assertTrue(matcher.test(dexItemFactory.createType("Lboobaz;")));
@@ -612,7 +611,7 @@ public class ProguardConfigurationParserTest extends TestBase {
   @Test
   public void testAdaptClassStrings() {
     String adaptClassStrings = "-adaptclassstrings !foobar,*bar";
-    parser.parse(createConfigurationForTesting(ImmutableList.of(adaptClassStrings)));
+    parser.parse(createConfigurationForTesting(adaptClassStrings));
     verifyParserEndsCleanly();
     ProguardConfiguration config = builder.build();
     assertFalse(
@@ -625,10 +624,10 @@ public class ProguardConfigurationParserTest extends TestBase {
 
   @Test
   public void testAdaptClassStringsMultiple() {
-    List<String> configuration1 = ImmutableList.of("-adaptclassstrings foo.**, bar.**");
-    List<String> configuration2 =
-        ImmutableList.of("-adaptclassstrings foo.**", "-adaptclassstrings bar.**");
-    for (List<String> configuration : ImmutableList.of(configuration1, configuration2)) {
+    String configuration1 = "-adaptclassstrings foo.**, bar.**";
+    String configuration2 =
+        StringUtils.lines("-adaptclassstrings foo.**", "-adaptclassstrings bar.**");
+    for (String configuration : ImmutableList.of(configuration1, configuration2)) {
       parser.parse(createConfigurationForTesting(configuration));
       verifyParserEndsCleanly();
       ProguardConfiguration config = builder.build();
@@ -644,7 +643,7 @@ public class ProguardConfigurationParserTest extends TestBase {
   @Test
   public void testAdaptClassStringsAllExplicitly() {
     String adaptAll = "-adaptclassstrings *";
-    parser.parse(createConfigurationForTesting(ImmutableList.of(adaptAll)));
+    parser.parse(createConfigurationForTesting(adaptAll));
     verifyParserEndsCleanly();
     ProguardConfiguration config = builder.build();
     assertTrue(
@@ -658,7 +657,7 @@ public class ProguardConfigurationParserTest extends TestBase {
   @Test
   public void testAdaptClassStringsAllImplicitly() {
     String adaptAll = "-adaptclassstrings";
-    parser.parse(createConfigurationForTesting(ImmutableList.of(adaptAll)));
+    parser.parse(createConfigurationForTesting(adaptAll));
     verifyParserEndsCleanly();
     ProguardConfiguration config = builder.build();
     assertTrue(
@@ -683,7 +682,7 @@ public class ProguardConfigurationParserTest extends TestBase {
         "-identifiernamestring class * {\n"
             + "  @my.annotations.IdentifierNameString *;\n"
             + "}";
-    parser.parse(createConfigurationForTesting(ImmutableList.of(config1, config2, config3)));
+    parser.parse(createConfigurationForTesting(StringUtils.lines(config1, config2, config3)));
     verifyParserEndsCleanly();
     ProguardConfiguration config = builder.build();
     List<ProguardConfigurationRule> identifierNameStrings = config.getRules();
@@ -736,7 +735,7 @@ public class ProguardConfigurationParserTest extends TestBase {
             null,
             builder);
     String rule = "-convertchecknotnull class C { ** m(**, ...); }";
-    parser.parse(createConfigurationForTesting(ImmutableList.of(rule)));
+    parser.parse(createConfigurationForTesting(rule));
     verifyParserEndsCleanly();
     ProguardConfiguration config = builder.build();
     assertEquals(1, config.getRules().size());
@@ -758,7 +757,7 @@ public class ProguardConfigurationParserTest extends TestBase {
             null,
             builder);
     String rule = "-convertchecknotnull class C { void m(**, ...); }";
-    parser.parse(createConfigurationForTesting(ImmutableList.of(rule)));
+    parser.parse(createConfigurationForTesting(rule));
     verifyParserEndsCleanly();
     ProguardConfiguration config = builder.build();
     assertEquals(1, config.getRules().size());
@@ -918,9 +917,7 @@ public class ProguardConfigurationParserTest extends TestBase {
   @Test
   public void parseInvalidFilePattern() {
     try {
-      parser.parse(
-          createConfigurationForTesting(
-              Collections.singletonList("-injars abc.jar(*.zip;*.class)")));
+      parser.parse(createConfigurationForTesting("-injars abc.jar(*.zip;*.class)"));
       fail();
     } catch (RuntimeException e) {
       assertEquals(1, handler.errors.size());
@@ -933,29 +930,28 @@ public class ProguardConfigurationParserTest extends TestBase {
       for (String after : whiteSpace) {
         reset();
         parseAndVerifyParserEndsCleanly(
-            ImmutableList.of(
-                "-keep"
-                    + before
-                    + ","
-                    + after
-                    + "includedescriptorclasses"
-                    + before
-                    + ","
-                    + after
-                    + "allowaccessmodification"
-                    + before
-                    + ","
-                    + after
-                    + "allowshrinking"
-                    + before
-                    + ","
-                    + after
-                    + "allowobfuscation"
-                    + before
-                    + ","
-                    + after
-                    + "allowoptimization "
-                    + "class A { *; }"));
+            "-keep"
+                + before
+                + ","
+                + after
+                + "includedescriptorclasses"
+                + before
+                + ","
+                + after
+                + "allowaccessmodification"
+                + before
+                + ","
+                + after
+                + "allowshrinking"
+                + before
+                + ","
+                + after
+                + "allowobfuscation"
+                + before
+                + ","
+                + after
+                + "allowoptimization "
+                + "class A { *; }");
       }
     }
   }
@@ -964,18 +960,16 @@ public class ProguardConfigurationParserTest extends TestBase {
   public void parseKeepAnnotation() {
     for (String space : whiteSpace) {
       reset();
-      parseAndVerifyParserEndsCleanly(ImmutableList.of(
-          "-keep @" + space + "interface A"
-      ));
+      parseAndVerifyParserEndsCleanly("-keep @" + space + "interface A");
     }
   }
 
   @Test
   public void regress78442725() {
-    parseAndVerifyParserEndsCleanly(ImmutableList.of(
-        "-keep, includedescriptorclasses class in.uncod.android.bypass.Document { *; }",
-        "-keep, includedescriptorclasses class in.uncod.android.bypass.Element { *; }"
-    ));
+    parseAndVerifyParserEndsCleanly(
+        StringUtils.lines(
+            "-keep, includedescriptorclasses class in.uncod.android.bypass.Document { *; }",
+            "-keep, includedescriptorclasses class in.uncod.android.bypass.Element { *; }"));
   }
 
   @Test
@@ -1086,7 +1080,7 @@ public class ProguardConfigurationParserTest extends TestBase {
   private void testUnsupportedOption(String option) {
     try {
       reset();
-      parser.parse(createConfigurationForTesting(ImmutableList.of(option)));
+      parser.parse(createConfigurationForTesting(option));
       fail("Expect to fail due to unsupported option.");
     } catch (RuntimeException e) {
       checkDiagnostics(handler.errors, null, 1, 1, "Unsupported option", option);
@@ -1101,7 +1095,7 @@ public class ProguardConfigurationParserTest extends TestBase {
 
   @Test
   public void parse_printconfiguration_noArguments() {
-    parser.parse(createConfigurationForTesting(ImmutableList.of("-printconfiguration")));
+    parser.parse(createConfigurationForTesting("-printconfiguration"));
     verifyParserEndsCleanly();
     ProguardConfiguration config = builder.build();
     assertTrue(config.isPrintConfiguration());
@@ -1110,7 +1104,7 @@ public class ProguardConfigurationParserTest extends TestBase {
 
   @Test
   public void parse_printconfiguration_argument() {
-    parser.parse(createConfigurationForTesting(ImmutableList.of("-printconfiguration file_name")));
+    parser.parse(createConfigurationForTesting("-printconfiguration file_name"));
     verifyParserEndsCleanly();
     ProguardConfiguration config = builder.build();
     assertTrue(config.isPrintConfiguration());
@@ -1359,7 +1353,7 @@ public class ProguardConfigurationParserTest extends TestBase {
   }
 
   private void testKeepattributes(List<String> expected, String config) {
-    parser.parse(createConfigurationForTesting(ImmutableList.of(config)));
+    parser.parse(createConfigurationForTesting(config));
     verifyParserEndsCleanly();
     assertEquals(
         ProguardKeepAttributes.fromPatterns(expected), builder.buildRaw().getKeepAttributes());
@@ -1402,7 +1396,7 @@ public class ProguardConfigurationParserTest extends TestBase {
   }
 
   private void testKeeppackagenames(String config) {
-    parser.parse(createConfigurationForTesting(ImmutableList.of(config)));
+    parser.parse(createConfigurationForTesting(config));
     verifyParserEndsCleanly();
   }
 
@@ -1429,7 +1423,7 @@ public class ProguardConfigurationParserTest extends TestBase {
   @Test
   public void parseInvalidKeepattributes_brokenList() {
     try {
-      parser.parse(createConfigurationForTesting(ImmutableList.of("-keepattributes xxx,")));
+      parser.parse(createConfigurationForTesting("-keepattributes xxx,"));
       fail();
     } catch (RuntimeException e) {
       assertTrue(
@@ -1448,14 +1442,14 @@ public class ProguardConfigurationParserTest extends TestBase {
   @Test
   public void parseKeepParameterNamesWithoutMinification() {
     parser.parse(
-        createConfigurationForTesting(ImmutableList.of("-keepparameternames", "-dontobfuscate")));
+        createConfigurationForTesting(StringUtils.lines("-keepparameternames", "-dontobfuscate")));
     verifyParserEndsCleanly();
     ProguardConfiguration config = builder.build();
     assertTrue(config.isKeepParameterNames());
 
-    parser.parse(createConfigurationForTesting(ImmutableList.of("-keepparameternames")));
+    parser.parse(createConfigurationForTesting("-keepparameternames"));
     verifyParserEndsCleanly();
-    parser.parse(createConfigurationForTesting(ImmutableList.of("-dontobfuscate")));
+    parser.parse(createConfigurationForTesting("-dontobfuscate"));
     verifyParserEndsCleanly();
     config = builder.build();
     assertTrue(config.isKeepParameterNames());
@@ -1464,7 +1458,7 @@ public class ProguardConfigurationParserTest extends TestBase {
   @Test
   public void parseShortLine() {
     try {
-      parser.parse(createConfigurationForTesting(Collections.singletonList("-")));
+      parser.parse(createConfigurationForTesting("-"));
       fail();
     } catch (AbortException e) {
       assertEquals(1, handler.errors.size());
@@ -1475,7 +1469,7 @@ public class ProguardConfigurationParserTest extends TestBase {
   @Test
   public void parseNoLocals() {
     try {
-      parser.parse(createConfigurationForTesting(Collections.singletonList("--no-locals")));
+      parser.parse(createConfigurationForTesting("--no-locals"));
       fail();
     } catch (AbortException e) {
       assertEquals(1, handler.errors.size());
@@ -1491,11 +1485,10 @@ public class ProguardConfigurationParserTest extends TestBase {
 
   @Test
   public void parse_adaptresourcexxx_keepdirectories_noArguments1() {
-    ProguardConfiguration config = parseAndVerifyParserEndsCleanly(ImmutableList.of(
-        "-adaptresourcefilenames",
-        "-adaptresourcefilecontents",
-        "-keepdirectories"
-    ));
+    ProguardConfiguration config =
+        parseAndVerifyParserEndsCleanly(
+            StringUtils.lines(
+                "-adaptresourcefilenames", "-adaptresourcefilecontents", "-keepdirectories"));
     checkFileFilterMatchAnything(config.getAdaptResourceFilenames());
     checkFileFilterMatchAnything(config.getAdaptResourceFileContents());
     checkFileFilterMatchAnything(config.getKeepDirectories());
@@ -1503,11 +1496,10 @@ public class ProguardConfigurationParserTest extends TestBase {
 
   @Test
   public void parse_adaptresourcexxx_keepdirectories_noArguments2() {
-    ProguardConfiguration config = parseAndVerifyParserEndsCleanly(ImmutableList.of(
-        "-keepdirectories",
-        "-adaptresourcefilenames",
-        "-adaptresourcefilecontents"
-    ));
+    ProguardConfiguration config =
+        parseAndVerifyParserEndsCleanly(
+            StringUtils.lines(
+                "-keepdirectories", "-adaptresourcefilenames", "-adaptresourcefilecontents"));
     checkFileFilterMatchAnything(config.getAdaptResourceFilenames());
     checkFileFilterMatchAnything(config.getAdaptResourceFileContents());
     checkFileFilterMatchAnything(config.getKeepDirectories());
@@ -1515,11 +1507,10 @@ public class ProguardConfigurationParserTest extends TestBase {
 
   @Test
   public void parse_adaptresourcexxx_keepdirectories_noArguments3() {
-    ProguardConfiguration config = parseAndVerifyParserEndsCleanly(ImmutableList.of(
-        "-adaptresourcefilecontents",
-        "-keepdirectories",
-        "-adaptresourcefilenames"
-    ));
+    ProguardConfiguration config =
+        parseAndVerifyParserEndsCleanly(
+            StringUtils.lines(
+                "-adaptresourcefilecontents", "-keepdirectories", "-adaptresourcefilenames"));
     checkFileFilterMatchAnything(config.getAdaptResourceFilenames());
     checkFileFilterMatchAnything(config.getAdaptResourceFileContents());
     checkFileFilterMatchAnything(config.getKeepDirectories());
@@ -1536,18 +1527,16 @@ public class ProguardConfigurationParserTest extends TestBase {
 
   @Test
   public void parse_adaptresourcexxx_keepdirectories_singleArgument() {
-    ProguardConfiguration config = parseAndVerifyParserEndsCleanly(ImmutableList.of(
-        "-adaptresourcefilenames " + FILE_FILTER_SINGLE,
-        "-adaptresourcefilecontents " + FILE_FILTER_SINGLE,
-        "-keepdirectories " + FILE_FILTER_SINGLE
-    ));
+    ProguardConfiguration config =
+        parseAndVerifyParserEndsCleanly(
+            StringUtils.lines(
+                "-adaptresourcefilenames " + FILE_FILTER_SINGLE,
+                "-adaptresourcefilecontents " + FILE_FILTER_SINGLE,
+                "-keepdirectories " + FILE_FILTER_SINGLE));
     checkFileFilterSingle(config.getAdaptResourceFilenames());
     checkFileFilterSingle(config.getAdaptResourceFileContents());
     checkFileFilterSingle(config.getKeepDirectories());
   }
-
-  private String FILE_FILTER_MULTIPLE =
-      "xxx/*, !**.gif  ,images/**  ,  com/myapp/**/*.xml,com/mylib/*/*.xml";
 
   private void checkFileFilterMultiple(ProguardPathFilter filter) {
     assertTrue(filter.matches("xxx/x"));
@@ -1568,11 +1557,14 @@ public class ProguardConfigurationParserTest extends TestBase {
 
   @Test
   public void parse_adaptresourcexxx_keepdirectories_multipleArgument() {
-    ProguardConfiguration config = parseAndVerifyParserEndsCleanly(ImmutableList.of(
-        "-adaptresourcefilenames " + FILE_FILTER_MULTIPLE,
-        "-adaptresourcefilecontents " + FILE_FILTER_MULTIPLE,
-        "-keepdirectories " + FILE_FILTER_MULTIPLE
-    ));
+    String FILE_FILTER_MULTIPLE =
+        "xxx/*, !**.gif  ,images/**  ,  com/myapp/**/*.xml,com/mylib/*/*.xml";
+    ProguardConfiguration config =
+        parseAndVerifyParserEndsCleanly(
+            StringUtils.lines(
+                "-adaptresourcefilenames " + FILE_FILTER_MULTIPLE,
+                "-adaptresourcefilecontents " + FILE_FILTER_MULTIPLE,
+                "-keepdirectories " + FILE_FILTER_MULTIPLE));
     checkFileFilterMultiple(config.getAdaptResourceFilenames());
     checkFileFilterMultiple(config.getAdaptResourceFileContents());
     checkFileFilterMultiple(config.getKeepDirectories());
@@ -1585,7 +1577,7 @@ public class ProguardConfigurationParserTest extends TestBase {
     for (String option : options) {
       try {
         reset();
-        parser.parse(createConfigurationForTesting(ImmutableList.of(option + " ,")));
+        parser.parse(createConfigurationForTesting(option + " ,"));
         fail("Expect to fail due to the lack of path filter.");
       } catch (RuntimeException e) {
         checkDiagnostics(handler.errors, null, 1, option.length() + 2, "Path filter expected");
@@ -1600,7 +1592,7 @@ public class ProguardConfigurationParserTest extends TestBase {
     for (String option : options) {
       try {
         reset();
-        parser.parse(createConfigurationForTesting(ImmutableList.of(option + " xxx,,yyy")));
+        parser.parse(createConfigurationForTesting(option + " xxx,,yyy"));
         fail("Expect to fail due to the lack of path filter.");
       } catch (RuntimeException e) {
         checkDiagnostics(handler.errors, null, 1, option.length() + 6, "Path filter expected");
@@ -1615,7 +1607,7 @@ public class ProguardConfigurationParserTest extends TestBase {
     for (String option : options) {
       try {
         reset();
-        parser.parse(createConfigurationForTesting(ImmutableList.of(option + " xxx,")));
+        parser.parse(createConfigurationForTesting(option + " xxx,"));
         fail("Expect to fail due to the lack of path filter.");
       } catch (RuntimeException e) {
         checkDiagnostics(handler.errors, null, 1, option.length() + 6, "Path filter expected");
@@ -1629,7 +1621,7 @@ public class ProguardConfigurationParserTest extends TestBase {
     for (String option : options) {
       try {
         reset();
-        parser.parse(createConfigurationForTesting(ImmutableList.of(option + " class A { *; }")));
+        parser.parse(createConfigurationForTesting(option + " class A { *; }"));
         fail("Expect to fail due to testing option being turned off.");
       } catch (AbortException e) {
         assertEquals(1, handler.errors.size());
@@ -2193,12 +2185,11 @@ public class ProguardConfigurationParserTest extends TestBase {
     assertEquals(0, handler.warnings.size());
   }
 
-  private void checkRulesSourceSnippet(List<String> sourceRules) {
-    checkRulesSourceSnippet(sourceRules, sourceRules, false);
+  private void checkRulesSourceSnippet(String sourceRule) {
+    checkRulesSourceSnippet(sourceRule, ImmutableList.of(sourceRule), false);
   }
 
-  private void checkRulesSourceSnippet(
-      List<String> sourceRules, List<String> expected, boolean trim) {
+  private void checkRulesSourceSnippet(String sourceRules, List<String> expected, boolean trim) {
     reset();
     parser.parse(createConfigurationForTesting(sourceRules));
     verifyParserEndsCleanly();
@@ -2211,18 +2202,17 @@ public class ProguardConfigurationParserTest extends TestBase {
 
   @Test
   public void accurateSourceSnippet() {
-    String rule1 = String.join(System.lineSeparator(), ImmutableList.of("-keep class A  {  *;  }"));
+    String rule1 = "-keep class A  {  *;  }";
     String rule2 =
         String.join(System.lineSeparator(), ImmutableList.of("-keep class A  ", "{  *;  ", "}"));
     String rule3 =
         String.join(
             System.lineSeparator(), ImmutableList.of("-checkdiscard class A  ", "{  *;  ", "}"));
-
-    checkRulesSourceSnippet(ImmutableList.of(rule1));
-    checkRulesSourceSnippet(ImmutableList.of(rule2));
-    checkRulesSourceSnippet(ImmutableList.of(rule3));
+    checkRulesSourceSnippet(rule1);
+    checkRulesSourceSnippet(rule2);
+    checkRulesSourceSnippet(rule3);
     checkRulesSourceSnippet(
-        ImmutableList.of(rule1, rule2, rule3), ImmutableList.of(rule1, rule3), false);
+        StringUtils.lines(rule1, rule2, rule3), ImmutableList.of(rule1, rule3), false);
   }
 
   @Test
@@ -2238,17 +2228,17 @@ public class ProguardConfigurationParserTest extends TestBase {
                   System.lineSeparator(), ImmutableList.of("-keep class A  ", "{  *;  ", "}", ""))
               .replaceAll(" {2}", space);
 
-      checkRulesSourceSnippet(ImmutableList.of(rule1), ImmutableList.of(rule1), true);
+      checkRulesSourceSnippet(rule1, ImmutableList.of(rule1), true);
       checkRulesSourceSnippet(
-          ImmutableList.of("#Test comment ", "", rule1), ImmutableList.of(rule1), true);
+          StringUtils.lines("#Test comment ", "", rule1), ImmutableList.of(rule1), true);
       checkRulesSourceSnippet(
-          ImmutableList.of("#Test comment ", "", rule1, "", "#Test comment ", ""),
+          StringUtils.lines("#Test comment ", "", rule1, "", "#Test comment ", ""),
           ImmutableList.of(rule1),
           true);
-      checkRulesSourceSnippet(ImmutableList.of(rule2), ImmutableList.of(rule2), true);
-      checkRulesSourceSnippet(ImmutableList.of(rule1, rule2), ImmutableList.of(rule1), true);
+      checkRulesSourceSnippet(rule2, ImmutableList.of(rule2), true);
+      checkRulesSourceSnippet(StringUtils.lines(rule1, rule2), ImmutableList.of(rule1), true);
       checkRulesSourceSnippet(
-          ImmutableList.of(
+          StringUtils.lines(
               "#Test comment ", "", rule1, " ", "#Test comment ", "", rule2, "#Test comment ", ""),
           ImmutableList.of(rule1),
           true);
@@ -2280,7 +2270,7 @@ public class ProguardConfigurationParserTest extends TestBase {
       BiConsumer<String, String> check) {
     for (String value : values) {
       reset();
-      parser.parse(createConfigurationForTesting(ImmutableList.of(flag + " " + value)));
+      parser.parse(createConfigurationForTesting(flag + " " + value));
       verifyParserEndsCleanly();
       ProguardConfiguration config = builder.build();
       check.accept(value, extractPath.apply(config).toString());
@@ -2354,7 +2344,7 @@ public class ProguardConfigurationParserTest extends TestBase {
       BiConsumer<String, String> check) {
     for (String value : values) {
       reset();
-      parser.parse(createConfigurationForTesting(ImmutableList.of(flag + " " + value)));
+      parser.parse(createConfigurationForTesting(flag + " " + value));
       verifyParserEndsCleanly();
       ProguardConfiguration config = builder.build();
       Path path = extractPath.apply(config);
@@ -2413,7 +2403,7 @@ public class ProguardConfigurationParserTest extends TestBase {
   @Test
   public void pasteFlagWithFilenamesWithSystemProperty_empty() {
     try {
-      parser.parse(createConfigurationForTesting(ImmutableList.of("-printusage <>")));
+      parser.parse(createConfigurationForTesting("-printusage <>"));
       fail("Expect to fail due to the lack of file name.");
     } catch (RuntimeException e) {
       checkDiagnostics(handler.errors, null, 1, 15, "Value of system property '' not found");
@@ -2429,8 +2419,7 @@ public class ProguardConfigurationParserTest extends TestBase {
     }
 
     try {
-      parser.parse(
-          createConfigurationForTesting(ImmutableList.of("-printusage <" + property + ">")));
+      parser.parse(createConfigurationForTesting("-printusage <" + property + ">"));
       fail("Expect to fail due to the lack of file name.");
     } catch (RuntimeException e) {
       checkDiagnostics(
@@ -2441,7 +2430,7 @@ public class ProguardConfigurationParserTest extends TestBase {
   private void testFlagWithQuotedValue(
       String flag, String value, BiConsumer<PackageObfuscationMode, String> checker) {
     reset();
-    parser.parse(createConfigurationForTesting(ImmutableList.of(flag + " " + value)));
+    parser.parse(createConfigurationForTesting(flag + " " + value));
     verifyParserEndsCleanly();
     ProguardConfiguration config = builder.build();
     checker.accept(config.getPackageObfuscationMode(), config.getPackagePrefix());
@@ -2451,7 +2440,7 @@ public class ProguardConfigurationParserTest extends TestBase {
       String flag, String value, Supplier<Void> checker) {
     try {
       reset();
-      parser.parse(createConfigurationForTesting(ImmutableList.of(flag + " " + value)));
+      parser.parse(createConfigurationForTesting(flag + " " + value));
       fail("Expect to fail due to un-closed quote.");
     } catch (RuntimeException e) {
       checker.get();
@@ -2514,7 +2503,7 @@ public class ProguardConfigurationParserTest extends TestBase {
     });
   }
 
-  private ProguardConfiguration parseAndVerifyParserEndsCleanly(List<String> config) {
+  private ProguardConfiguration parseAndVerifyParserEndsCleanly(String config) {
     parser.parse(createConfigurationForTesting(config));
     verifyParserEndsCleanly();
     return builder.build();
@@ -2537,7 +2526,7 @@ public class ProguardConfigurationParserTest extends TestBase {
     // Test spaces and quotes in class name list.
     parser.parse(
         createConfigurationForTesting(
-            ImmutableList.of(
+            StringUtils.lines(
                 "-keepclassmembers class \"a.b.c.**\" ,"
                     + " !**d , '!**e' , \"!**f\" , g , 'h' , \"i\" { ",
                 "<fields>;",
@@ -2560,7 +2549,7 @@ public class ProguardConfigurationParserTest extends TestBase {
               ? "-flattenpackagehierarchy"
               : "-repackageclasses";
 
-      parser.parse(createConfigurationForTesting(ImmutableList.of(directive + " -keep class *")));
+      parser.parse(createConfigurationForTesting(directive + " -keep class *"));
       ProguardConfiguration configuration = builder.build();
       assertEquals(packageObfuscationMode, configuration.getPackageObfuscationMode());
       assertEquals("", configuration.getPackagePrefix());
@@ -2585,9 +2574,7 @@ public class ProguardConfigurationParserTest extends TestBase {
               ? "-flattenpackagehierarchy"
               : "-repackageclasses";
 
-      parser.parse(
-          createConfigurationForTesting(
-              ImmutableList.of(directive + " @" + includeFile.toAbsolutePath())));
+      parser.parse(createConfigurationForTesting(directive + " @" + includeFile.toAbsolutePath()));
       ProguardConfiguration configuration = builder.build();
       assertEquals(packageObfuscationMode, configuration.getPackageObfuscationMode());
       assertEquals("", configuration.getPackagePrefix());
@@ -2720,7 +2707,7 @@ public class ProguardConfigurationParserTest extends TestBase {
   @Test
   public void backReferenceElimination() {
     String configuration = StringUtils.lines("-if class *.*.*", "-keep class <1>.<2>$<3>");
-    parser.parse(createConfigurationForTesting(ImmutableList.of(configuration)));
+    parser.parse(createConfigurationForTesting(configuration));
     verifyParserEndsCleanly();
 
     ProguardConfiguration config = builder.build();
@@ -2783,7 +2770,7 @@ public class ProguardConfigurationParserTest extends TestBase {
             "-keep @Foo @Bar public final class *");
     for (String configurationContent : configurationContents) {
       reset();
-      parser.parse(createConfigurationForTesting(ImmutableList.of(configurationContent)));
+      parser.parse(createConfigurationForTesting(configurationContent));
       verifyParserEndsCleanly();
 
       ProguardConfiguration configuration = builder.build();
@@ -2856,7 +2843,7 @@ public class ProguardConfigurationParserTest extends TestBase {
         (configurationContent, expectedExceptionClass) -> {
           reset();
           try {
-            parser.parse(createConfigurationForTesting(ImmutableList.of(configurationContent)));
+            parser.parse(createConfigurationForTesting(configurationContent));
             assertFalse(expectedExceptionClass.isPresent());
           } catch (Throwable e) {
             assertTrue(expectedExceptionClass.isPresent());
@@ -2945,7 +2932,7 @@ public class ProguardConfigurationParserTest extends TestBase {
         (configurationContent, expectedExceptionClass) -> {
           reset();
           try {
-            parser.parse(createConfigurationForTesting(ImmutableList.of(configurationContent)));
+            parser.parse(createConfigurationForTesting(configurationContent));
             assertFalse(expectedExceptionClass.isPresent());
           } catch (Throwable e) {
             assertTrue(expectedExceptionClass.isPresent());
@@ -2995,8 +2982,7 @@ public class ProguardConfigurationParserTest extends TestBase {
                     ? rule.substring(0, rule.length() - 1)
                     : rule)
                 + modifier;
-        parser.parse(
-            createConfigurationForTesting(ImmutableList.of(ruleWithModifier + " class A")));
+        parser.parse(createConfigurationForTesting(ruleWithModifier + " class A"));
         verifyParserEndsCleanly();
 
         ProguardConfiguration configuration = builder.build();
@@ -3014,7 +3000,7 @@ public class ProguardConfigurationParserTest extends TestBase {
   @Test
   public void parseMaximumRemovedAndroidLogLevelWithoutClassSpecification() {
     String configuration = StringUtils.lines("-maximumremovedandroidloglevel 2");
-    parser.parse(createConfigurationForTesting(ImmutableList.of(configuration)));
+    parser.parse(createConfigurationForTesting(configuration));
     verifyParserEndsCleanly();
 
     ProguardConfiguration config = builder.build();
@@ -3031,7 +3017,7 @@ public class ProguardConfigurationParserTest extends TestBase {
         }) {
       reset();
       String configuration = StringUtils.lines(input);
-      parser.parse(createConfigurationForTesting(ImmutableList.of(configuration)));
+      parser.parse(createConfigurationForTesting(configuration));
       verifyParserEndsCleanly();
 
       ProguardConfiguration config = builder.build();

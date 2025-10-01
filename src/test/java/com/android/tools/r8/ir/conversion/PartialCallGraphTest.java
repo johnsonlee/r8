@@ -28,7 +28,6 @@ import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.android.tools.r8.utils.timing.Timing;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -54,8 +53,7 @@ public class PartialCallGraphTest extends CallGraphTestBase {
               ProguardConfigurationParser parser =
                   new ProguardConfigurationParser(factory, reporter, configurationBuilder);
               parser.parse(
-                  createConfigurationForTesting(
-                      ImmutableList.of("-keep class ** { void m1(); void m5(); }")));
+                  createConfigurationForTesting("-keep class ** { void m1(); void m5(); }"));
               return configurationBuilder.build();
             });
     this.options = appView.options();
