@@ -5,6 +5,8 @@ package com.android.tools.r8.shaking;
 
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
+import com.android.tools.r8.position.TextPosition;
+import com.android.tools.r8.shaking.ProguardConfigurationParser.ProguardConfigurationSourceParser;
 import com.android.tools.r8.utils.InternalOptions.PackageObfuscationMode;
 import java.nio.file.Path;
 import java.util.List;
@@ -15,7 +17,12 @@ public interface ProguardConfigurationParserConsumer {
 
   void addRule(ProguardConfigurationRule rule);
 
-  void addKeepAttributePatterns(List<String> attributesPatterns, Origin origin, Position position);
+  void addKeepAttributePatterns(
+      List<String> attributesPatterns,
+      Origin origin,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart);
 
   void setRenameSourceFileAttribute(String s, Origin origin, Position position);
 
@@ -88,4 +95,6 @@ public interface ProguardConfigurationParserConsumer {
   void enableRepackageClasses(Origin origin, Position position);
 
   void enableFlattenPackageHierarchy(Origin origin, Position position);
+
+  default void addWhitespace(ProguardConfigurationSourceParser parser, TextPosition position) {}
 }

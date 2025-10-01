@@ -5,8 +5,10 @@ package com.android.tools.r8.processkeeprules;
 
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
+import com.android.tools.r8.position.TextPosition;
 import com.android.tools.r8.shaking.FilteredClassPath;
 import com.android.tools.r8.shaking.ProguardClassNameList;
+import com.android.tools.r8.shaking.ProguardConfigurationParser.ProguardConfigurationSourceParser;
 import com.android.tools.r8.shaking.ProguardConfigurationParserConsumer;
 import com.android.tools.r8.shaking.ProguardConfigurationRule;
 import com.android.tools.r8.shaking.ProguardKeepAttributes;
@@ -75,7 +77,11 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
 
   @Override
   public void addKeepAttributePatterns(
-      List<String> attributesPatterns, Origin origin, Position position) {
+      List<String> attributesPatterns,
+      Origin origin,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
     // TODO(b/270289387): Add support for more attributes.
     ProguardKeepAttributes keepAttributes = ProguardKeepAttributes.fromPatterns(attributesPatterns);
     if (keepAttributes.lineNumberTable) {

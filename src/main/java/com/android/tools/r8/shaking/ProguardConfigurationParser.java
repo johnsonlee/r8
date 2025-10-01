@@ -222,7 +222,7 @@ public class ProguardConfigurationParser {
     ANY
   }
 
-  private class ProguardConfigurationSourceParser {
+  public class ProguardConfigurationSourceParser {
     private final String name;
     private final String contents;
     private int position = 0;
@@ -240,9 +240,16 @@ public class ProguardConfigurationParser {
       this.origin = source.getOrigin();
     }
 
+    public String getContentSince(TextPosition start) {
+      return contents.substring(start.getOffsetAsInt(), position);
+    }
+
     public void parse() throws ProguardRuleParserException {
       do {
-        skipWhitespace();
+        TextPosition whitespaceStart = getPosition();
+        if (skipWhitespace()) {
+          configurationConsumer.addWhitespace(this, whitespaceStart);
+        }
       } while (parseOption());
       // This may be unknown, but we want to always ensure that we don't attribute lines to the
       // wrong configuration.
@@ -287,11 +294,15 @@ public class ProguardConfigurationParser {
         configurationConsumer.addKeepAttributePatterns(
             Collections.singletonList(RUNTIME_VISIBLE_ANNOTATIONS),
             origin,
-            getPosition(optionStart));
+            this,
+            getPosition(optionStart),
+            optionStart);
         configurationConsumer.addKeepAttributePatterns(
             Collections.singletonList(RUNTIME_INVISIBLE_ANNOTATIONS),
             origin,
-            getPosition(optionStart));
+            this,
+            getPosition(optionStart),
+            optionStart);
       } else if (acceptString("renamesourcefileattribute")) {
         skipWhitespace();
         String renameSourceFileAttribute =
@@ -299,7 +310,7 @@ public class ProguardConfigurationParser {
         configurationConsumer.setRenameSourceFileAttribute(
             renameSourceFileAttribute, origin, getPosition(optionStart));
       } else if (acceptString("keepattributes")) {
-        parseKeepAttributes(getPosition(optionStart));
+        parseKeepAttributes(optionStart);
       } else if (acceptString("keeppackagenames")) {
         parseClassFilter(configurationConsumer::addKeepPackageNamesPattern);
       } else if (acceptString("keepparameternames")) {
@@ -747,7 +758,7 @@ public class ProguardConfigurationParser {
       return true;
     }
 
-    private void parseKeepAttributes(Position position) throws ProguardRuleParserException {
+    private void parseKeepAttributes(TextPosition start) throws ProguardRuleParserException {
       List<String> attributesPatterns = acceptKeepAttributesPatternList();
       if (attributesPatterns.isEmpty()) {
         throw parseError("Expected attribute pattern list");
@@ -765,7 +776,8 @@ public class ProguardConfigurationParser {
                       + ")"));
         }
       }
-      configurationConsumer.addKeepAttributePatterns(attributesPatterns, origin, position);
+      configurationConsumer.addKeepAttributePatterns(
+          attributesPatterns, origin, this, getPosition(start), start);
     }
 
     private boolean skipFlag(String name) {
@@ -1698,27 +1710,31 @@ public class ProguardConfigurationParser {
       return builder.build();
     }
 
-    private void skipWhitespace() {
+    private boolean skipWhitespace() {
+      boolean skipped = false;
       while (!eof() && StringUtils.isWhitespace(peekChar())) {
         if (peekChar() == '\n') {
           line++;
           lineStartPosition = position + 1;
         }
         position++;
+        skipped = true;
       }
-      skipComment();
+      if (skipComment()) {
+        skipped = true;
+      }
+      return skipped;
     }
 
-    private void skipComment() {
-      if (eof()) {
-        return;
+    private boolean skipComment() {
+      if (eof() || peekChar() != '#') {
+        return false;
       }
-      if (peekChar() == '#') {
-        while (!eof() && peekChar() != '\n') {
-          position++;
-        }
-        skipWhitespace();
+      while (!eof() && peekChar() != '\n') {
+        position++;
       }
+      skipWhitespace();
+      return true;
     }
 
     private boolean eof() {

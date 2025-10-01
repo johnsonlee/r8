@@ -8,6 +8,8 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.naming.DictionaryReader;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
+import com.android.tools.r8.position.TextPosition;
+import com.android.tools.r8.shaking.ProguardConfigurationParser.ProguardConfigurationSourceParser;
 import com.android.tools.r8.utils.InternalOptions.PackageObfuscationMode;
 import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.StringUtils;
@@ -203,7 +205,11 @@ public class ProguardConfiguration {
 
     @Override
     public void addKeepAttributePatterns(
-        List<String> keepAttributePatterns, Origin origin, Position position) {
+        List<String> keepAttributePatterns,
+        Origin origin,
+        ProguardConfigurationSourceParser parser,
+        Position position,
+        TextPosition positionStart) {
       this.keepAttributePatterns.addAll(keepAttributePatterns);
     }
 
