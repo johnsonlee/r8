@@ -67,7 +67,7 @@ import java.util.stream.Collectors;
 public class ApplicationReader {
 
   private final InternalOptions options;
-  private final DexItemFactory itemFactory;
+  private final DexItemFactory factory;
   private final Timing timing;
   private final AndroidApp inputApp;
 
@@ -79,7 +79,7 @@ public class ApplicationReader {
 
   public ApplicationReader(AndroidApp inputApp, InternalOptions options, Timing timing) {
     this.options = options;
-    itemFactory = options.itemFactory;
+    factory = options.itemFactory;
     this.timing = timing;
     this.inputApp = inputApp;
   }
@@ -127,7 +127,7 @@ public class ApplicationReader {
 
     timing.begin("DexApplication.read");
     LazyLoadedDexApplication.Builder builder = DexApplication.builder(options, timing);
-    TaskCollection<?> tasks = new TaskCollection<>(options, executorService);
+    TaskCollection<?> tasks = createReaderTaskCollection(executorService);
     try {
       // Still preload some of the classes, primarily for two reasons:
       // (a) class lazy loading is not supported for DEX files
@@ -140,7 +140,7 @@ public class ApplicationReader {
       ClassReader classReader = new ClassReader(tasks);
       classReader.initializeLazyClassCollection(builder);
       classReader.readSources();
-      timing.time("Await read", () -> tasks.await());
+      awaitReaderTaskCollection(tasks);
       flags = classReader.getDexApplicationReadFlags();
       return builder
           .addDataResourceProviders(inputApp.getProgramResourceProviders())
@@ -178,7 +178,7 @@ public class ApplicationReader {
     timing.begin("DexApplication.readDirect");
     DirectMappedDexApplication.Builder builder =
         DirectMappedDexApplication.directBuilder(options, timing);
-    TaskCollection<?> tasks = new TaskCollection<>(options, executorService);
+    TaskCollection<?> tasks = createReaderTaskCollection(executorService);
     try {
       readProguardMap(inputApp.getProguardMapInputData(), builder, tasks);
       ClassReader classReader = new ClassReader(tasks);
@@ -187,7 +187,7 @@ public class ApplicationReader {
           allClassesBuilder::setClasspathClasses, allClassesBuilder::setLibraryClasses);
       allClassesBuilder.forceLoadNonProgramClassCollections(options, tasks, timing);
       classReader.readSources();
-      timing.time("Await read", () -> tasks.await());
+      awaitReaderTaskCollection(tasks);
       allClassesBuilder.setProgramClasses(
           ProgramClassCollection.resolveConflicts(classReader.programClasses, options));
       AllClasses allClasses = allClassesBuilder.build(options, timing);
@@ -207,6 +207,18 @@ public class ApplicationReader {
     } finally {
       timing.end();
     }
+  }
+
+  private TaskCollection<?> createReaderTaskCollection(ExecutorService executorService) {
+    // Commit all statically known types before starting to read (e.g., java.lang.Object).
+    factory.commitPendingItems();
+    return new TaskCollection<>(options, executorService);
+  }
+
+  private void awaitReaderTaskCollection(TaskCollection<?> tasks) throws ExecutionException {
+    timing.time("Await read", () -> tasks.await());
+    // Commit all references corresponding to program definitions.
+    factory.commitPendingItems();
   }
 
   public final void dump(DumpInputFlags dumpInputFlags) {
@@ -250,7 +262,7 @@ public class ApplicationReader {
         if (emitDeprecatedDiagnostics) {
           options.reporter.error(new UnsupportedMainDexListUsageDiagnostic(resource.getOrigin()));
         }
-        addToMainDexClasses(app, builder, MainDexListParser.parseList(resource, itemFactory));
+        addToMainDexClasses(app, builder, MainDexListParser.parseList(resource, factory));
       }
       if (!inputApp.getMainDexClasses().isEmpty()) {
         if (emitDeprecatedDiagnostics) {
@@ -260,7 +272,7 @@ public class ApplicationReader {
             app,
             builder,
             inputApp.getMainDexClasses().stream()
-                .map(clazz -> itemFactory.createType(DescriptorUtils.javaTypeToDescriptor(clazz)))
+                .map(clazz -> factory.createType(DescriptorUtils.javaTypeToDescriptor(clazz)))
                 .collect(Collectors.toList()));
       }
     }
@@ -435,7 +447,7 @@ public class ApplicationReader {
         return true;
       }
       DexAnnotation retentionAnnotation =
-          clazz.annotations().getFirstMatching(itemFactory.retentionType);
+          clazz.annotations().getFirstMatching(factory.retentionType);
       // Default is CLASS retention, read if retained.
       if (retentionAnnotation == null) {
         return DexAnnotation.retainCompileTimeAnnotation(clazz.getType(), application.options);
