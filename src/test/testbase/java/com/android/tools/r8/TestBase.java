@@ -1990,6 +1990,30 @@ public class TestBase {
     return extractor.getClassFileVersion();
   }
 
+  protected static String extractSourceFile(byte[] classFileBytes) {
+    class SourceFileExtractor extends ClassVisitor {
+      private String source;
+
+      private SourceFileExtractor() {
+        super(ASM_VERSION);
+      }
+
+      @Override
+      public void visitSource(String source, String debug) {
+        this.source = source;
+      }
+
+      String getSourceFile() {
+        return source;
+      }
+    }
+
+    ClassReader reader = new ClassReader(classFileBytes);
+    SourceFileExtractor extractor = new SourceFileExtractor();
+    reader.accept(extractor, ClassReader.SKIP_CODE | ClassReader.SKIP_FRAMES);
+    return extractor.getSourceFile();
+  }
+
   public static void verifyAllInfoFromGenericSignatureTypeParameterValidation(
       TestCompileResult<?, ?> compileResult) {
     compileResult.assertAtLeastOneInfoMessage();
