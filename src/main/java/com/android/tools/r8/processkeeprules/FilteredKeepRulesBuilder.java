@@ -15,6 +15,7 @@ import com.android.tools.r8.shaking.ProguardConfigurationRule;
 import com.android.tools.r8.shaking.ProguardPathList;
 import com.android.tools.r8.utils.InternalOptions.PackageObfuscationMode;
 import com.android.tools.r8.utils.Reporter;
+import com.android.tools.r8.utils.StringUtils;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -25,9 +26,37 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   private final StringConsumer consumer;
   private final Reporter reporter;
 
+  private boolean isInComment;
+
   FilteredKeepRulesBuilder(StringConsumer consumer, Reporter reporter) {
     this.consumer = consumer;
     this.reporter = reporter;
+  }
+
+  private void appendToCurrentLine(String string) {
+    assert string.indexOf('\n') < 0;
+    consumer.accept(string, reporter);
+    if (!isInComment && string.indexOf('#') >= 0) {
+      isInComment = true;
+    }
+  }
+
+  private void ensureComment() {
+    if (!isInComment) {
+      appendToCurrentLine("#");
+      isInComment = true;
+    }
+  }
+
+  private void ensureNewlineAfterComment() {
+    if (isInComment) {
+      exitComment();
+      consumer.accept(StringUtils.UNIX_LINE_SEPARATOR, reporter);
+    }
+  }
+
+  private void exitComment() {
+    isInComment = false;
   }
 
   private void write(ProguardConfigurationSourceParser parser, TextPosition positionStart) {
@@ -35,7 +64,19 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   }
 
   private void write(String string) {
-    consumer.accept(string, reporter);
+    int lastNewlineIndex = string.lastIndexOf('\n');
+    if (lastNewlineIndex < 0) {
+      appendToCurrentLine(string);
+    } else {
+      // Write the lines leading up to the last line.
+      String untilNewlineInclusive = string.substring(0, lastNewlineIndex + 1);
+      consumer.accept(untilNewlineInclusive, reporter);
+      // Due to the newline character we are no longer inside a comment.
+      exitComment();
+      // Emit everything after the newline character.
+      String fromNewlineExclusive = string.substring(lastNewlineIndex + 1);
+      appendToCurrentLine(fromNewlineExclusive);
+    }
   }
 
   @Override
@@ -45,11 +86,13 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
+    ensureNewlineAfterComment();
     write(parser, positionStart);
   }
 
   @Override
   public void addRule(ProguardConfigurationRule rule) {
+    ensureNewlineAfterComment();
     write(rule.getSource());
   }
 
@@ -60,16 +103,19 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
 
   @Override
   public void disableObfuscation(Origin origin, Position position) {
+    ensureComment();
     write("-dontobfuscate");
   }
 
   @Override
   public void disableOptimization(Origin origin, Position position) {
+    ensureComment();
     write("-dontoptimize");
   }
 
   @Override
   public void disableShrinking(Origin origin, Position position) {
+    ensureComment();
     write("-dontshrink");
   }
 

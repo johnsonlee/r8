@@ -35,11 +35,12 @@ public class ProcessKeepRulesFilteringTest extends TestBase {
     TestDiagnosticMessagesImpl diagnostics = new TestDiagnosticMessagesImpl();
     String keepRules =
         StringUtils.lines(
-            " -dontobfuscate -dontoptimize -dontshrink # remove",
+            " -dontobfuscate -dontoptimize -dontshrink -keep class com.example.MainActivity # keep",
             "# Keep all attributes",
             "-keepattributes *",
             "# Keep all",
-            "-keep  class **");
+            "-keep  class **",
+            "# End");
     FilteredKeepRules filteredKeepRules = new FilteredKeepRules();
     ProcessKeepRulesCommand command =
         ProcessKeepRulesCommand.builder(diagnostics)
@@ -47,7 +48,16 @@ public class ProcessKeepRulesFilteringTest extends TestBase {
             .setFilteredKeepRulesConsumer(filteredKeepRules)
             .build();
     ProcessKeepRules.run(command);
-    assertEquals(keepRules, filteredKeepRules.get());
+    assertEquals(
+        StringUtils.lines(
+            " #-dontobfuscate -dontoptimize -dontshrink ",
+            "-keep class com.example.MainActivity # keep",
+            "# Keep all attributes",
+            "-keepattributes *",
+            "# Keep all",
+            "-keep  class **",
+            "# End"),
+        filteredKeepRules.get());
     diagnostics.assertNoMessages();
   }
 
