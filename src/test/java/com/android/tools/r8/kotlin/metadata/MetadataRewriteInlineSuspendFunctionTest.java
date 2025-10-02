@@ -8,11 +8,12 @@ import com.android.tools.r8.KotlinCompileMemoizer;
 import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.StringUtils;
 import java.nio.file.Path;
 import java.util.Collection;
-import org.junit.Assert;
+import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -24,9 +25,13 @@ public class MetadataRewriteInlineSuspendFunctionTest extends KotlinMetadataTest
   private static final String PKG_LIB = PKG + ".inline_suspend_lib";
   private static final String PKG_APP = PKG + ".inline_suspend_app";
 
-  @Parameterized.Parameters(name = "{0}, {1}")
+  private final boolean keepOnlyPublic;
+  private final TestParameters parameters;
+
+  @Parameterized.Parameters(name = "{1}, {2}, keepOnlyPublic: {0}")
   public static Collection<Object[]> data() {
     return buildParameters(
+        BooleanUtils.values(),
         getTestParameters().withCfRuntimes().build(),
         getKotlinTestParameters()
             .withOldCompilers()
@@ -37,8 +42,9 @@ public class MetadataRewriteInlineSuspendFunctionTest extends KotlinMetadataTest
   }
 
   public MetadataRewriteInlineSuspendFunctionTest(
-      TestParameters parameters, KotlinTestParameters kotlinParameters) {
+      boolean keepOnlyPublic, TestParameters parameters, KotlinTestParameters kotlinParameters) {
     super(kotlinParameters);
+    this.keepOnlyPublic = keepOnlyPublic;
     this.parameters = parameters;
   }
 
@@ -47,10 +53,11 @@ public class MetadataRewriteInlineSuspendFunctionTest extends KotlinMetadataTest
               getKotlinFileInTest(DescriptorUtils.getBinaryNameFromJavaType(PKG_LIB), "lib"))
           .configure(
               tool -> tool.addClasspathFiles(tool.getCompiler().getKotlinxCoroutinesCoreJar()));
-  private final TestParameters parameters;
 
   @Test
   public void smokeTest() throws Exception {
+    // no reason to run the smoke test in both configs
+    Assume.assumeFalse(keepOnlyPublic);
     Path libJar = libJars.getForConfiguration(kotlinParameters);
     Path output =
         kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion, lambdaGeneration)
@@ -76,27 +83,26 @@ public class MetadataRewriteInlineSuspendFunctionTest extends KotlinMetadataTest
                 kotlinc.getKotlinStdlibJar(),
                 kotlinc.getKotlinAnnotationJar(),
                 kotlinc.getKotlinxCoroutinesCoreJar())
-            .addKeepAllClassesRule()
+            .applyIf(
+                keepOnlyPublic,
+                builder -> builder.addKeepRules("-keep class * { public <methods>; }"),
+                builder -> builder.addKeepAllClassesRule())
             .addKeepAllAttributes()
             .compile()
             .writeToZip();
-    Assert.assertThrows(
-        AssertionError.class,
-        () -> {
-          Path output =
-              kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion, lambdaGeneration)
-                  .addClasspathFiles(libJar)
-                  .addSourceFiles(
-                      getKotlinFileInTest(
-                          DescriptorUtils.getBinaryNameFromJavaType(PKG_APP), "main"))
-                  .setOutputPath(temp.newFolder().toPath())
-                  .compile();
-          testForJvm(parameters)
-              .addRunClasspathFiles(
-                  kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinxCoroutinesCoreJar(), libJar)
-              .addClasspath(output)
-              .run(parameters.getRuntime(), PKG_APP + ".MainKt")
-              .assertSuccessWithOutput(EXPECTED);
-        });
+    Path output =
+        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion, lambdaGeneration)
+            .addClasspathFiles(libJar)
+            .addSourceFiles(
+                getKotlinFileInTest(DescriptorUtils.getBinaryNameFromJavaType(PKG_APP), "main"))
+            .setOutputPath(temp.newFolder().toPath())
+            .compile();
+    testForJvm(parameters)
+        .addRunClasspathFiles(
+            kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinxCoroutinesCoreJar(), libJar)
+        .addClasspath(output)
+        .run(parameters.getRuntime(), PKG_APP + ".MainKt")
+        .assertFailureWithErrorThatThrowsIf(keepOnlyPublic, VerifyError.class)
+        .assertSuccessWithOutputIf(!keepOnlyPublic, EXPECTED);
   }
 }

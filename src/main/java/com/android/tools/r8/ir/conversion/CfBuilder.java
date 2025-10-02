@@ -441,7 +441,6 @@ public class CfBuilder {
     return instruction.isArgument()
         || instruction.isMoveException()
         || instruction.isDebugLocalsChange()
-        || instruction.isMoveException()
         || (instruction.isGoto() && instruction.asGoto().getTarget() == nextBlock);
   }
 
