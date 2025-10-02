@@ -107,6 +107,7 @@ import com.android.tools.r8.ir.optimize.info.MutableFieldOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.MutableMethodOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedback.OptimizationInfoFixer;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackDelayed;
+import com.android.tools.r8.shaking.AnnotationFixer;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.KeepInfoCollection;
 import com.android.tools.r8.utils.Reporter;
@@ -721,6 +722,11 @@ public class EnumUnboxerImpl extends EnumUnboxer {
                 appView, checkNotNullMethods, enumDataMap, enumClassesToUnbox, utilityClasses)
             .fixupTypeReferences(converter, executorService, timing);
     EnumUnboxingLens enumUnboxingLens = treeFixerResult.getLens();
+
+    // Run annotation fixer so that enum field references in @AnnotationDefault annotations are
+    // correctly rewritten.
+    new AnnotationFixer(appView, enumUnboxingLens)
+        .run(appView.appInfo().classes(), executorService);
 
     // Enqueue the (lens rewritten) methods that require reprocessing.
     //

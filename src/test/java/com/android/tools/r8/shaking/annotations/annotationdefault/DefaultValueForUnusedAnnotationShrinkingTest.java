@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.shaking.annotations.annotationdefault;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -50,17 +51,16 @@ public class DefaultValueForUnusedAnnotationShrinkingTest extends TestBase {
             compileResult -> {
               CodeInspector inspector = compileResult.inspector();
 
-              // MyAnnotation has a @Retention annotation and an @AnnotationDefault annotation.
-              // TODO(b/191741002): MyAnnotation.value() is unused, thus there is no need to retain
-              // the @AnnotationDefault annotation.
+              // MyAnnotation has a @Retention annotation. The @AnnotationDefault annotation has
+              // been removed since MyAnnotation.value() is unused.
               ClassSubject annotationClassSubject = inspector.clazz(MyAnnotation.class);
               assertThat(annotationClassSubject, isPresent());
               assertThat(
                   annotationClassSubject.annotation(Retention.class.getTypeName()), isPresent());
               assertThat(
                   annotationClassSubject.annotation("dalvik.annotation.AnnotationDefault"),
-                  isPresent());
-              assertEquals(2, annotationClassSubject.getDexProgramClass().annotations().size());
+                  isAbsent());
+              assertEquals(1, annotationClassSubject.annotations().size());
 
               compileResult
                   .run(parameters.getRuntime(), Main.class)
