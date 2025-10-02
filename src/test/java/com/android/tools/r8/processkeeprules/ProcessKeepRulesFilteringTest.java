@@ -34,7 +34,7 @@ public class ProcessKeepRulesFilteringTest extends TestBase {
   public void test() throws Exception {
     TestDiagnosticMessagesImpl diagnostics = new TestDiagnosticMessagesImpl();
     String keepRules =
-        StringUtils.lines(
+        StringUtils.unixLines(
             " -dontobfuscate -dontoptimize -dontshrink -keep class com.example.MainActivity # keep",
             "# Keep all attributes",
             "-keepattributes *",
@@ -49,7 +49,7 @@ public class ProcessKeepRulesFilteringTest extends TestBase {
             .build();
     ProcessKeepRules.run(command);
     assertEquals(
-        StringUtils.lines(
+        StringUtils.unixLines(
             " #-dontobfuscate -dontoptimize -dontshrink ",
             "-keep class com.example.MainActivity # keep",
             "# Keep all attributes",
