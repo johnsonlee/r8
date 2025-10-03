@@ -14,13 +14,11 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
 
 public class PrunedItems {
 
   private final DexApplication prunedApp;
   private final Set<DexReference> additionalPinnedItems;
-  private final Map<DexMethod, ProgramMethod> fullyInlinedMethods;
   private final Set<DexType> removedClasses;
   private final Set<DexField> removedFields;
   private final Set<DexMethod> removedMethods;
@@ -28,13 +26,11 @@ public class PrunedItems {
   private PrunedItems(
       DexApplication prunedApp,
       Set<DexReference> additionalPinnedItems,
-      Map<DexMethod, ProgramMethod> fullyInlinedMethods,
       Set<DexType> removedClasses,
       Set<DexField> removedFields,
       Set<DexMethod> removedMethods) {
     this.prunedApp = prunedApp;
     this.additionalPinnedItems = additionalPinnedItems;
-    this.fullyInlinedMethods = fullyInlinedMethods;
     this.removedClasses = removedClasses;
     this.removedFields = removedFields;
     this.removedMethods = removedMethods;
@@ -58,19 +54,9 @@ public class PrunedItems {
 
   public boolean isEmpty() {
     return additionalPinnedItems.isEmpty()
-        && fullyInlinedMethods.isEmpty()
         && removedClasses.isEmpty()
         && removedFields.isEmpty()
         && removedMethods.isEmpty();
-  }
-
-  public boolean isFullyInlined(DexMethod method) {
-    return fullyInlinedMethods.containsKey(method);
-  }
-
-  public void forEachFullyInlinedMethodCaller(DexMethod method, Consumer<ProgramMethod> consumer) {
-    assert isFullyInlined(method);
-    consumer.accept(fullyInlinedMethods.get(method));
   }
 
   public boolean isRemoved(DexField field) {
@@ -95,10 +81,6 @@ public class PrunedItems {
 
   public Set<? extends DexReference> getAdditionalPinnedItems() {
     return additionalPinnedItems;
-  }
-
-  public Map<DexMethod, ProgramMethod> getFullyInlinedMethods() {
-    return fullyInlinedMethods;
   }
 
   public boolean hasRemovedClasses() {
@@ -149,7 +131,6 @@ public class PrunedItems {
 
     Builder(PrunedItems prunedItems) {
       this();
-      assert prunedItems.getFullyInlinedMethods().isEmpty();
       additionalPinnedItems.addAll(prunedItems.getAdditionalPinnedItems());
       prunedApp = prunedItems.getPrunedApp();
       removedClasses.addAll(prunedItems.getRemovedClasses());
@@ -246,7 +227,6 @@ public class PrunedItems {
       return new PrunedItems(
           prunedApp,
           additionalPinnedItems,
-          fullyInlinedMethods,
           removedClasses,
           removedFields,
           removedMethods);
