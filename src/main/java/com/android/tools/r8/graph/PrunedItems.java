@@ -4,14 +4,11 @@
 
 package com.android.tools.r8.graph;
 
-import com.android.tools.r8.utils.DequeUtils;
 import com.android.tools.r8.utils.SetUtils;
 import com.google.common.collect.Sets;
 import java.util.Collection;
-import java.util.Deque;
 import java.util.IdentityHashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -221,47 +218,12 @@ public class PrunedItems {
     }
 
     public PrunedItems build() {
-      if (hasFullyInlinedMethods()) {
-        compressInliningPaths();
-      }
       return new PrunedItems(
           prunedApp,
           additionalPinnedItems,
           removedClasses,
           removedFields,
           removedMethods);
-    }
-
-    private void compressInliningPaths() {
-      Map<DexMethod, ProgramMethod> fullyInlinedMethodsUpdate = new IdentityHashMap<>();
-      for (Entry<DexMethod, ProgramMethod> entry : fullyInlinedMethods.entrySet()) {
-        DexMethod innermostCallee = entry.getKey();
-        if (fullyInlinedMethodsUpdate.containsKey(innermostCallee)) {
-          // Already processed as a result of previously processing a callee of the current callee.
-          continue;
-        }
-        ProgramMethod innermostCaller = entry.getValue();
-        ProgramMethod outermostCaller = fullyInlinedMethods.get(innermostCaller.getReference());
-        if (outermostCaller == null) {
-          continue;
-        }
-        Deque<DexMethod> fullyInlinedMethodChain =
-            DequeUtils.newArrayDeque(innermostCallee, innermostCaller.getReference());
-        while (true) {
-          DexMethod currentCallee = outermostCaller.getReference();
-          ProgramMethod currentCaller = fullyInlinedMethods.get(currentCallee);
-          if (currentCaller == null) {
-            break;
-          }
-          fullyInlinedMethodChain.addLast(currentCallee);
-          outermostCaller = currentCaller;
-        }
-        assert !removedMethods.contains(outermostCaller.getReference());
-        for (DexMethod callee : fullyInlinedMethodChain) {
-          fullyInlinedMethodsUpdate.put(callee, outermostCaller);
-        }
-      }
-      fullyInlinedMethods.putAll(fullyInlinedMethodsUpdate);
     }
   }
 
