@@ -50,7 +50,6 @@ public class EnumUnboxingLens extends NestedGraphLensWithCustomLensCodeRewriter 
   private final AbstractValueFactory abstractValueFactory;
   private final Map<DexMethod, RewrittenPrototypeDescription> prototypeChangesPerMethod;
   private final EnumDataMap unboxedEnums;
-  private final Set<DexMethod> dispatchMethods;
 
   EnumUnboxingLens(
       AppView<?> appView,
@@ -58,14 +57,12 @@ public class EnumUnboxingLens extends NestedGraphLensWithCustomLensCodeRewriter 
       BidirectionalOneToManyRepresentativeMap<DexMethod, DexMethod> renamedSignatures,
       BidirectionalManyToOneRepresentativeMap<DexType, DexType> typeMap,
       Map<DexMethod, DexMethod> methodMap,
-      Map<DexMethod, RewrittenPrototypeDescription> prototypeChangesPerMethod,
-      Set<DexMethod> dispatchMethods) {
+      Map<DexMethod, RewrittenPrototypeDescription> prototypeChangesPerMethod) {
     super(appView, fieldMap, methodMap, typeMap, renamedSignatures);
     assert !appView.unboxedEnums().isEmpty();
     this.abstractValueFactory = appView.abstractValueFactory();
     this.prototypeChangesPerMethod = prototypeChangesPerMethod;
     this.unboxedEnums = appView.unboxedEnums();
-    this.dispatchMethods = dispatchMethods;
   }
 
   @Override
@@ -108,15 +105,12 @@ public class EnumUnboxingLens extends NestedGraphLensWithCustomLensCodeRewriter 
 
   public DexMethod lookupRefinedDispatchMethod(
       DexMethod method,
-      DexMethod context,
-      InvokeType type,
-      GraphLens codeLens,
       AbstractValue unboxedEnumValue,
       DexType enumType) {
-    assert codeLens == getPrevious();
-    DexMethod reference = lookupMethod(method, context, type, codeLens).getReference();
-    if (!dispatchMethods.contains(reference) || !unboxedEnumValue.isSingleNumberValue()) {
-      return null;
+    DexMethod enumMethod = method.withHolder(enumType, dexItemFactory());
+    DexMethod rewrittenEnumMethod = newMethodSignatures.getRepresentativeValue(enumMethod);
+    if (!unboxedEnumValue.isSingleNumberValue()) {
+      return rewrittenEnumMethod;
     }
     // We know the exact type of enum, so there is no need to go for the dispatch method. Instead,
     // we compute the exact target from the enum instance.
@@ -126,11 +120,12 @@ public class EnumUnboxingLens extends NestedGraphLensWithCustomLensCodeRewriter 
             .get(enumType)
             .valuesTypes
             .getOrDefault(unboxedIntToOrdinal(unboxedEnum), enumType);
+    if (instanceType.isIdenticalTo(enumType)) {
+      return rewrittenEnumMethod;
+    }
     DexMethod specializedMethod = method.withHolder(instanceType, dexItemFactory());
-    DexMethod superEnumMethod = method.withHolder(enumType, dexItemFactory());
     DexMethod refined =
-        newMethodSignatures.getRepresentativeValueOrDefault(
-            specializedMethod, newMethodSignatures.getRepresentativeValue(superEnumMethod));
+        newMethodSignatures.getRepresentativeValueOrDefault(specializedMethod, rewrittenEnumMethod);
     assert refined != null;
     return refined;
   }
@@ -408,8 +403,7 @@ public class EnumUnboxingLens extends NestedGraphLensWithCustomLensCodeRewriter 
           originalCheckNotNullMethodSignature, checkNotNullMethod.getReference());
     }
 
-    public EnumUnboxingLens build(
-        AppView<AppInfoWithLiveness> appView, Set<DexMethod> dispatchMethods) {
+    public EnumUnboxingLens build(AppView<AppInfoWithLiveness> appView) {
       assert !typeMap.isEmpty();
       return new EnumUnboxingLens(
           appView,
@@ -417,8 +411,7 @@ public class EnumUnboxingLens extends NestedGraphLensWithCustomLensCodeRewriter 
           newMethodSignatures,
           typeMap,
           methodMap,
-          ImmutableMap.copyOf(prototypeChangesPerMethod),
-          dispatchMethods);
+          ImmutableMap.copyOf(prototypeChangesPerMethod));
     }
   }
 }

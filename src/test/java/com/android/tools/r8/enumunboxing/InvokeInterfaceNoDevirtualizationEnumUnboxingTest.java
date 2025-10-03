@@ -3,10 +3,15 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.enumunboxing;
 
+import static org.junit.Assume.assumeFalse;
+import static org.junit.Assume.assumeTrue;
+
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NoAccessModification;
 import com.android.tools.r8.NoVerticalClassMerging;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.utils.codeinspector.AssertUtils;
+import com.google.common.collect.ImmutableList;
+import java.io.IOException;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -22,7 +27,7 @@ public class InvokeInterfaceNoDevirtualizationEnumUnboxingTest extends EnumUnbox
 
   @Parameters(name = "{0} valueOpt: {1} keep: {2}")
   public static List<Object[]> data() {
-    return enumUnboxingTestParameters();
+    return enumUnboxingTestParameters(getTestParameters().withAllRuntimesAndApiLevels().build());
   }
 
   public InvokeInterfaceNoDevirtualizationEnumUnboxingTest(
@@ -33,43 +38,66 @@ public class InvokeInterfaceNoDevirtualizationEnumUnboxingTest extends EnumUnbox
   }
 
   @Test
-  public void test() throws Exception {
-    AssertUtils.assertFailsCompilation(
-        () ->
-            testForR8(parameters)
-                .addInnerClasses(getClass())
-                .addKeepMainRule(Main.class)
-                .addKeepRules(enumKeepRules.getKeepRules())
-                // Disable devirtualization so that the enum unboxing rewriter sees the call to
-                // I#greet instead of MyEnum#greet.
-                .addOptionsModification(options -> options.enableDevirtualization = false)
-                .addOptionsModification(
-                    options -> enableEnumOptions(options, enumValueOptimization))
-                .enableInliningAnnotations()
-                .enableNoVerticalClassMergingAnnotations()
-                .compile()
-                .run(parameters.getRuntime(), Main.class)
-                .assertSuccessWithOutputLines("Hello, world!"));
+  public void testJvm() throws Exception {
+    parameters.assumeJvmTestParameters();
+    assumeFalse(enumValueOptimization);
+    assumeTrue(enumKeepRules.isNone());
+    testForJvm(parameters)
+        .addProgramClasses(I.class)
+        .addProgramClassFileData(getProgramClassFileData())
+        .run(parameters.getRuntime(), Main.class)
+        .assertSuccessWithOutputLines("Hello, world!");
+  }
+
+  @Test
+  public void testR8() throws Exception {
+    testForR8(parameters)
+        .addProgramClasses(I.class)
+        .addProgramClassFileData(getProgramClassFileData())
+        .addKeepMainRule(Main.class)
+        .addKeepRules(enumKeepRules.getKeepRules())
+        .addOptionsModification(options -> enableEnumOptions(options, enumValueOptimization))
+        .enableInliningAnnotations()
+        .enableNoAccessModificationAnnotationsForClasses()
+        .enableNoVerticalClassMergingAnnotations()
+        .compile()
+        .run(parameters.getRuntime(), Main.class)
+        .assertSuccessWithOutputLines("Hello, world!");
+  }
+
+  private static List<byte[]> getProgramClassFileData() throws IOException {
+    return ImmutableList.of(
+        transformer(Main.class)
+            .replaceClassDescriptorInMethodInstructions(
+                descriptor(MyEnumAccessor.class), "LMyEnumAccessor;")
+            .transform(),
+        transformer(MyEnum.class).setClassDescriptor("LMyEnum;").transform(),
+        transformer(MyEnumAccessor.class)
+            .setClassDescriptor("LMyEnumAccessor;")
+            .replaceClassDescriptorInMethodInstructions(descriptor(MyEnum.class), "LMyEnum;")
+            .transform());
   }
 
   static class Main {
 
     public static void main(String[] args) {
-      MyEnum e = System.currentTimeMillis() > 0 ? MyEnum.A : MyEnum.B;
-      greet(e);
+      greet(MyEnumAccessor.get());
     }
 
     static void greet(I i) {
+      // Cannot be rewritten to call MyEnum#greet since MyEnum is not public and in another package.
       i.greet();
     }
   }
 
   @NoVerticalClassMerging
-  interface I {
+  public interface I {
 
     void greet();
   }
 
+  // Moved to separate package by transformer.
+  @NoAccessModification
   enum MyEnum implements I {
     A,
     B;
@@ -78,6 +106,14 @@ public class InvokeInterfaceNoDevirtualizationEnumUnboxingTest extends EnumUnbox
     @Override
     public void greet() {
       System.out.println("Hello, world!");
+    }
+  }
+
+  // Moved to separate package by transformer.
+  public static class MyEnumAccessor {
+
+    public static I get() {
+      return System.currentTimeMillis() > 0 ? MyEnum.A : MyEnum.B;
     }
   }
 }

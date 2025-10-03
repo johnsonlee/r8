@@ -10,6 +10,7 @@ import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.enumunboxing.EnumUnboxingTestBase;
 import com.android.tools.r8.utils.StringUtils;
+import com.android.tools.r8.utils.codeinspector.EnumUnboxingInspector;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -49,25 +50,22 @@ public class AbstractMethodErrorEnumMergingTest extends EnumUnboxingTestBase {
 
   @Test
   public void testReference() throws Exception {
-    testForD8(parameters.getBackend())
+    testForD8(parameters)
         .addProgramClassFileData(inputProgram())
         .addOptionsModification(opt -> enableEnumOptions(opt, enumValueOptimization))
-        .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutput(EXPECTED_RESULT);
   }
 
   @Test
   public void testEnumUnboxing() throws Exception {
-    testForR8(parameters.getBackend())
+    testForR8(parameters)
         .addProgramClassFileData(inputProgram())
         .addKeepMainRule(Main.class)
         .addKeepRules(enumKeepRules.getKeepRules())
-        .addEnumUnboxingInspector(
-            inspector -> inspector.assertUnboxed(MyEnum2Cases.class, MyEnum1Case.class))
+        .addEnumUnboxingInspector(EnumUnboxingInspector::assertNoEnumsUnboxed)
         .enableInliningAnnotations()
         .addOptionsModification(opt -> enableEnumOptions(opt, enumValueOptimization))
-        .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutput(EXPECTED_RESULT);
   }

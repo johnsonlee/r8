@@ -158,9 +158,7 @@ class EnumUnboxingTreeFixer implements ProgramClassFixer {
         .fixupClassesConcurrentlyByConnectedProgramComponents(Timing.empty(), executorService);
 
     // Install the new graph lens before processing any checkNotZero() methods.
-    Set<DexMethod> dispatchMethodReferences = Sets.newIdentityHashSet();
-    dispatchMethods.forEach((method, code) -> dispatchMethodReferences.add(method.getReference()));
-    EnumUnboxingLens lens = lensBuilder.build(appView, dispatchMethodReferences);
+    EnumUnboxingLens lens = lensBuilder.build(appView);
     appView.rewriteWithLens(lens, executorService, timing);
 
     // Rewrite outliner with lens.
