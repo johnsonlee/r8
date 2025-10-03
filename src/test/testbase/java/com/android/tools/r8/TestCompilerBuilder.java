@@ -76,7 +76,6 @@ public abstract class TestCompilerBuilder<
             options.testing.forcePruneMetaInfManifestMf = true;
             options.horizontalClassMergerOptions().enable();
             options.horizontalClassMergerOptions().setEnableInterfaceMerging();
-            options.inlinerOptions().enableConstructorInliningWithFinalFields = true;
             options
                 .getCfCodeAnalysisOptions()
                 .setAllowUnreachableCfBlocks(false)
