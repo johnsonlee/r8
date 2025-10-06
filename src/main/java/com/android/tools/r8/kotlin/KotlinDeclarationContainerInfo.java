@@ -172,6 +172,10 @@ public class KotlinDeclarationContainerInfo implements EnqueuerMetadataTraceable
           return;
         }
       }
+      String forInlineSig = signature.getName() + "$$forInline" + signature.getDescriptor();
+      if (methodSignatureMap.containsKey(forInlineSig)) {
+        keepByteCode.accept(methodSignatureMap.get(forInlineSig));
+      }
       keepByteCode.accept(method);
     }
   }

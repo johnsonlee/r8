@@ -233,6 +233,12 @@ public class KotlinCompilerTool {
       return annotationJar;
     }
 
+    public Path getKotlinxCoroutinesCoreJar() {
+      Path kotlinxCoroutinesCoreJar = getFolder().resolve("kotlinx-coroutines-core-jvm.jar");
+      assert Files.exists(kotlinxCoroutinesCoreJar) : "Expected kotlinx-coroutines-core jar";
+      return kotlinxCoroutinesCoreJar;
+    }
+
     public void checkClasspath() throws IOException {
       try (ZipFile zipFile = new ZipFile(compiler.toFile(), UTF_8)) {
         Manifest manifest =

@@ -19,6 +19,7 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.Version;
 import com.android.tools.r8.naming.ClassNameMapper;
 import com.android.tools.r8.utils.BooleanBox;
 import com.android.tools.r8.utils.CfUtils;
@@ -83,8 +84,16 @@ public class SanityCheck extends TestBase {
                 if (!r8AssistantRuntime.contains(sourceFile)) {
                   if (mapping != null) {
                     assertNotNull(sourceFile);
-                    assertTrue(sourceFile, sourceFile.startsWith("R8_"));
-                    assertEquals(sourceFile.contains("+excldeps") ? 117 : 108, sourceFile.length());
+                    if (Version.isMainVersion()) {
+                      assertTrue(sourceFile, sourceFile.startsWith("R8_"));
+                      assertEquals(
+                          sourceFile.contains("+excldeps") ? 117 : 108, sourceFile.length());
+                    } else {
+                      assertTrue(sourceFile, sourceFile.startsWith("R8_" + Version.LABEL));
+                      assertEquals(
+                          68 + Version.LABEL.length() + (sourceFile.contains("+excldeps") ? 9 : 0),
+                          sourceFile.length());
+                    }
                   } else {
                     // Some class files from third party libraries does not have a SourceFile
                     // attribute.

@@ -20,8 +20,10 @@ import com.android.tools.r8.graph.DexValue.DexItemBasedValueString;
 import com.android.tools.r8.graph.DexValue.DexValueAnnotation;
 import com.android.tools.r8.graph.DexValue.DexValueArray;
 import com.android.tools.r8.graph.DexValue.DexValueEnum;
+import com.android.tools.r8.graph.DexValue.DexValueInt;
 import com.android.tools.r8.graph.DexValue.DexValueType;
 import com.android.tools.r8.graph.lens.GraphLens;
+import com.android.tools.r8.ir.optimize.enums.EnumDataMap;
 import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import java.util.Collection;
@@ -116,6 +118,12 @@ public class AnnotationFixer {
       }
     } else if (value.isDexValueEnum()) {
       DexField original = value.asDexValueEnum().value;
+      if (lens.isEnumUnboxerLens()) {
+        EnumDataMap unboxedEnums = lens.asEnumUnboxerLens().getUnboxedEnums();
+        if (unboxedEnums.hasUnboxedValueFor(original)) {
+          return DexValueInt.create(unboxedEnums.getUnboxedValue(original));
+        }
+      }
       DexField rewritten = lens.lookupField(original, annotationLens);
       if (original != rewritten) {
         return new DexValueEnum(rewritten);

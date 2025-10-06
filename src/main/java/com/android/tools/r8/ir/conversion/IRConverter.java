@@ -550,7 +550,7 @@ public class IRConverter {
     assert code.isConsistentSSA(appView);
 
     if (shouldPassThrough(context)) {
-      // If the code is pass trough, do not finalize by overwriting the existing code.
+      // If the code is pass through, do not finalize by overwriting the existing code.
       assert appView.enableWholeProgramOptimizations();
       timing.begin("Collect optimization info");
       collectOptimizationInfo(

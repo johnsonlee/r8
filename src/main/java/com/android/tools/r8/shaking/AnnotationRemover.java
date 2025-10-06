@@ -13,10 +13,13 @@ import com.android.tools.r8.graph.DexAnnotationElement;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexDefinition;
 import com.android.tools.r8.graph.DexEncodedAnnotation;
+import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexValue;
+import com.android.tools.r8.graph.DexValue.DexValueAnnotation;
 import com.android.tools.r8.graph.EnclosingMethodAttribute;
 import com.android.tools.r8.graph.InnerClassAttribute;
 import com.android.tools.r8.graph.ProgramDefinition;
@@ -25,6 +28,7 @@ import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.kotlin.KotlinMemberLevelInfo;
 import com.android.tools.r8.kotlin.KotlinPropertyInfo;
 import com.android.tools.r8.shaking.Enqueuer.Mode;
+import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.google.common.collect.ImmutableList;
@@ -274,35 +278,64 @@ public class AnnotationRemover {
     // Check if we should keep this annotation first.
     if (filterAnnotations(holder, original, kind, keepInfo)) {
       // Then, filter out values that refer to dead definitions.
-      return original.rewrite(this::rewriteEncodedAnnotation);
+      return original.rewrite(annotation -> rewriteEncodedAnnotation(annotation, holder));
     }
     return null;
   }
 
-  private DexEncodedAnnotation rewriteEncodedAnnotation(DexEncodedAnnotation original) {
+  private DexEncodedAnnotation rewriteEncodedAnnotation(
+      DexEncodedAnnotation original, ProgramDefinition holder) {
     GraphLens graphLens = appView.graphLens();
     DexType annotationType = original.type.getBaseType();
     DexType rewrittenType = graphLens.lookupType(annotationType);
     DexEncodedAnnotation rewrite =
         original.rewrite(
-            graphLens::lookupType, element -> rewriteAnnotationElement(rewrittenType, element));
+            graphLens::lookupType,
+            element -> rewriteAnnotationElement(rewrittenType, element, holder));
     assert rewrite != null;
-    DexClass annotationClass = appView.appInfo().definitionFor(rewrittenType);
-    assert annotationClass == null
+    assert appView.appInfo().definitionFor(rewrittenType) == null
         || appView.appInfo().isNonProgramTypeOrLiveProgramType(rewrittenType);
+    if (rewrite.getType().isIdenticalTo(appView.dexItemFactory().annotationDefault)
+        && rewrite.getNumberOfElements() == 0) {
+      return null;
+    }
     return rewrite;
   }
 
-  @SuppressWarnings("ReferenceEquality")
   private DexAnnotationElement rewriteAnnotationElement(
-      DexType annotationType, DexAnnotationElement original) {
+      DexType annotationType, DexAnnotationElement original, ProgramDefinition holder) {
     // The dalvik.annotation.AnnotationDefault is typically not on bootclasspath. However, if it
     // is present, the definition does not define the 'value' getter but that is the spec:
     // https://source.android.com/devices/tech/dalvik/dex-format#dalvik-annotation-default
-    // If the annotation matches the structural requirement keep it.
-    if (appView.dexItemFactory().annotationDefault.equals(annotationType)
-        && appView.dexItemFactory().valueString.equals(original.name)) {
-      return original;
+    // If the annotation matches the structural requirement keep it, but prune the default values
+    // that no longer match a method on the annotation class. If no default values remain after
+    // pruning, then remove the AnnotationDefault altogether.
+    DexString name = original.getName();
+    if (appView.dexItemFactory().annotationDefault.isIdenticalTo(annotationType)
+        && appView.dexItemFactory().valueString.isIdenticalTo(name)) {
+      DexEncodedAnnotation annotationValue = original.getValue().asDexValueAnnotation().getValue();
+      DexAnnotationElement[] elements = annotationValue.elements;
+      DexAnnotationElement[] rewrittenElements =
+          ArrayUtils.map(
+              elements,
+              element -> {
+                DexString innerName = element.getName();
+                DexEncodedMethod method =
+                    holder
+                        .getContextClass()
+                        .lookupMethod(m -> m.getName().isIdenticalTo(innerName));
+                return method != null ? element : null;
+              },
+              DexAnnotationElement.EMPTY_ARRAY);
+      if (rewrittenElements == elements) {
+        return original;
+      }
+      return ArrayUtils.isEmpty(rewrittenElements)
+          ? null
+          : new DexAnnotationElement(
+              name,
+              new DexValueAnnotation(
+                  new DexEncodedAnnotation(annotationValue.getType(), rewrittenElements)));
     }
     // We cannot strip annotations where we cannot look up the definition, because this will break
     // apps that rely on the annotation to exist. See b/134766810 for more information.
@@ -314,7 +347,7 @@ public class AnnotationRemover {
     boolean liveGetter =
         definition
             .getMethodCollection()
-            .hasVirtualMethods(method -> method.getReference().name == original.name);
+            .hasVirtualMethods(method -> method.getName().isIdenticalTo(name));
     return liveGetter ? original : null;
   }
 
