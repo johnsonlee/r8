@@ -6,18 +6,22 @@ package com.android.tools.r8.graph;
 import static com.android.tools.r8.ir.optimize.info.OptimizationFeedback.getSimpleFeedback;
 
 import com.android.tools.r8.dex.IndexedItemCollection;
+import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.NumberGenerator;
 import com.android.tools.r8.ir.code.Position;
+import com.android.tools.r8.ir.conversion.IRFinalizer;
 import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
+import com.android.tools.r8.ir.optimize.DeadCodeRemover;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.kotlin.KotlinMethodLevelInfo;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.timing.Timing;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 
 /** Type representing a method definition in the programs compilation unit and its holder. */
@@ -209,6 +213,13 @@ public final class ProgramMethod extends DexClassAndMethod
       parameterInfo = code.collectParameterInfo(getDefinition(), appView);
     }
     getDefinition().setCode(newCode, parameterInfo);
+  }
+
+  public void setCode(
+      IRCode newCode, AppView<?> appView, DeadCodeRemover deadCodeRemover, Timing timing) {
+    IRFinalizer<?> finalizer =
+        newCode.getConversionOptions().getFinalizer(deadCodeRemover, appView);
+    setCode(finalizer.finalizeCode(newCode, BytecodeMetadataProvider.empty(), timing), appView);
   }
 
   public boolean keepLocals(AppView<?> appView) {

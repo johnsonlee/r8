@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize.outliner.exceptions;
 
-import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.utils.SystemPropertyUtils;
 import java.util.Collection;
@@ -37,9 +36,6 @@ public class ThrowBlockOutlinerOptions {
     }
     if (appView.options().debug && !forceDebug) {
       return false;
-    }
-    if (appView.enableWholeProgramOptimizations()) {
-      throw new Unimplemented();
     }
     return true;
   }

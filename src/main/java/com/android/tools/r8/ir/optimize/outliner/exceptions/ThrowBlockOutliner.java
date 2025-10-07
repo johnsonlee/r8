@@ -4,6 +4,7 @@
 package com.android.tools.r8.ir.optimize.outliner.exceptions;
 
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
+import static com.google.common.base.Predicates.alwaysTrue;
 
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.contexts.CompilationContext.ProcessorContext;
@@ -12,20 +13,25 @@ import com.android.tools.r8.dex.code.DexConstWide16;
 import com.android.tools.r8.dex.code.DexInvokeStatic;
 import com.android.tools.r8.dex.code.DexReturn;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.IRCode;
+import com.android.tools.r8.ir.optimize.DeadCodeRemover;
 import com.android.tools.r8.lightir.LirCode;
 import com.android.tools.r8.lightir.LirConstant;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.collections.ProgramMethodMap;
+import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -53,6 +59,40 @@ public class ThrowBlockOutliner {
     return appView.options().getThrowBlockOutlinerOptions().isEnabled(appView)
         ? new ThrowBlockOutliner(appView)
         : null;
+  }
+
+  // TODO(b/434769547): Ensure retracing works.
+  public void runForR8(ExecutorService executorService, Timing timing) throws ExecutionException {
+    timing.begin("Throw block outliner");
+    scan(executorService, timing);
+    tearDownScanner(Collections.emptyMap(), executorService);
+    // Commit pending synthetics.
+    appView.rebuildAppInfo();
+    timing.end();
+  }
+
+  public void scan(ExecutorService executorService, Timing timing) throws ExecutionException {
+    ThreadUtils.processItemsThatMatches(
+        appView.appInfo().classes(),
+        alwaysTrue(),
+        this::scan,
+        appView.options(),
+        executorService,
+        timing,
+        timing.beginMerger("Scan for throw block outlines", executorService));
+  }
+
+  private void scan(DexProgramClass clazz, Timing timing) {
+    timing.begin("Scan " + clazz.getTypeName());
+    DeadCodeRemover deadCodeRemover = new DeadCodeRemover(appView);
+    clazz.forEachProgramMethodMatching(
+        DexEncodedMethod::hasLirCode,
+        method -> {
+          IRCode code = method.buildIR(appView);
+          scan(code);
+          method.setCode(code, appView, deadCodeRemover, timing);
+        });
+    timing.end();
   }
 
   public void scan(IRCode code) {

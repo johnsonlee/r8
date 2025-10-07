@@ -617,6 +617,13 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
     }
   }
 
+  public <E extends Throwable> void withD8ThrowBlockOutliner(
+      ThrowingConsumer<ThrowBlockOutliner, E> consumer) throws E {
+    if (!enableWholeProgramOptimizations()) {
+      withThrowBlockOutliner(consumer);
+    }
+  }
+
   public LibraryMemberOptimizer libraryMethodOptimizer() {
     return libraryMemberOptimizer;
   }
