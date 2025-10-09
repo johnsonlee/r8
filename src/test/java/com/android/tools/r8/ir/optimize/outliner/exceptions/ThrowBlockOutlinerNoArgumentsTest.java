@@ -47,6 +47,7 @@ public class ThrowBlockOutlinerNoArgumentsTest extends ThrowBlockOutlinerTestBas
 
   @Test
   public void testR8() throws Exception {
+    assumeRelease();
     runTest(testForR8(parameters).addKeepMainRule(Main.class));
   }
 

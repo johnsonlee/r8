@@ -75,7 +75,9 @@ public class ThrowBlockOutlineMarkerRewriter {
         appView,
         callerPosition,
         outline.getProtoChanges(),
-        MethodConversionOptions.forD8(appView, method));
+        appView.enableWholeProgramOptimizations()
+            ? MethodConversionOptions.forLirPhase(appView)
+            : MethodConversionOptions.forD8(appView, method));
   }
 
   private void finalizeCode(ProgramMethod method, IRCode code) {

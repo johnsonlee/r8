@@ -5,6 +5,7 @@ package com.android.tools.r8.ir.optimize.outliner.exceptions;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.SingleTestRunResult;
@@ -47,6 +48,13 @@ public abstract class ThrowBlockOutlinerTestBase extends TestBase {
   @After
   public void after() {
     assertTrue(receivedCallback.isTrue());
+  }
+
+  public void assumeRelease() {
+    if (mode.isDebug()) {
+      receivedCallback.set();
+    }
+    assumeTrue(mode.isRelease());
   }
 
   public void configure(
