@@ -54,7 +54,6 @@ public class ConvertCheckNotNullTest extends TestBase {
             "-convertchecknotnull class java.util.Objects {",
             "  ** requireNonNull(**, ...);",
             "}")
-        .enableExperimentalConvertCheckNotNull()
         .setMinApi(parameters)
         .compile()
         .inspect(

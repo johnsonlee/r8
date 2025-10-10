@@ -185,7 +185,6 @@ public class ProguardConfigurationParserTest extends TestBase {
             ProguardConfigurationParserOptions.builder()
                 .setEnableLegacyFullModeForKeepRules(false)
                 .setEnableExperimentalCheckEnumUnboxed(false)
-                .setEnableExperimentalConvertCheckNotNull(false)
                 .setEnableTestingOptions(false)
                 .build(),
             null,
@@ -204,7 +203,6 @@ public class ProguardConfigurationParserTest extends TestBase {
             reporter,
             ProguardConfigurationParserOptions.builder()
                 .setEnableExperimentalCheckEnumUnboxed(false)
-                .setEnableExperimentalConvertCheckNotNull(false)
                 .setEnableTestingOptions(true)
                 .build(),
             null,
@@ -726,7 +724,6 @@ public class ProguardConfigurationParserTest extends TestBase {
             reporter,
             ProguardConfigurationParserOptions.builder()
                 .setEnableExperimentalCheckEnumUnboxed(false)
-                .setEnableExperimentalConvertCheckNotNull(true)
                 .setEnableTestingOptions(false)
                 .build(),
             null,
@@ -747,7 +744,6 @@ public class ProguardConfigurationParserTest extends TestBase {
             reporter,
             ProguardConfigurationParserOptions.builder()
                 .setEnableExperimentalCheckEnumUnboxed(false)
-                .setEnableExperimentalConvertCheckNotNull(true)
                 .setEnableTestingOptions(false)
                 .build(),
             null,
