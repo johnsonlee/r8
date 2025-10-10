@@ -866,6 +866,8 @@ public class DexItemFactory {
       createStaticallyKnownType("Ldalvik/annotation/NestHost;");
   public final DexType annotationNestMembers =
       createStaticallyKnownType("Ldalvik/annotation/NestMembers;");
+  public final DexType annotationNeverCompile =
+      createStaticallyKnownType("Ldalvik/annotation/optimization/NeverCompile;");
   public final DexType annotationPermittedSubclasses =
       createStaticallyKnownType("Ldalvik/annotation/PermittedSubclasses;");
   public final DexType annotationRecord = createStaticallyKnownType("Ldalvik/annotation/Record;");
