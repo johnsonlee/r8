@@ -823,11 +823,6 @@ public abstract class R8TestBuilder<
     return self();
   }
 
-  public T enableExperimentalWhyAreYouNotInlining() {
-    builder.setEnableExperimentalWhyAreYouNotInlining();
-    return self();
-  }
-
   public T enableExperimentalKeepAnnotations(KeepAnnotationLibrary keepAnnotationLibrary) {
     return addOptionsModification(o -> o.testing.enableEmbeddedKeepAnnotations = true)
         .addKeepAnnoLibToClasspath(keepAnnotationLibrary);

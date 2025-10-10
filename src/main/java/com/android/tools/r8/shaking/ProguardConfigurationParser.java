@@ -137,7 +137,6 @@ public class ProguardConfigurationParser {
             .setEnableLegacyFullModeForKeepRules(false)
             .setEnableExperimentalCheckEnumUnboxed(false)
             .setEnableExperimentalConvertCheckNotNull(false)
-            .setEnableExperimentalWhyAreYouNotInlining(false)
             .setEnableTestingOptions(false)
             .build(),
         null,
@@ -483,6 +482,10 @@ public class ProguardConfigurationParser {
             parseRuleWithClassSpec(optionStart, ProguardIdentifierNameStringRule.builder()));
       } else if (acceptString("if")) {
         configurationConsumer.addRule(parseIfRule(optionStart));
+      } else if (acceptString(WhyAreYouNotInliningRule.RULE_NAME)) {
+        configurationConsumer.addRule(
+            parseRuleWithClassSpec(optionStart, WhyAreYouNotInliningRule.builder()));
+        return true;
       } else if (parseMaximumRemovedAndroidLogLevelRule(optionStart)) {
         return true;
       } else {
@@ -513,13 +516,6 @@ public class ProguardConfigurationParser {
           configurationConsumer.addRule(convertCheckNotNullRule);
         }
         return true;
-      }
-      if (options.isExperimentalWhyAreYouNotInliningEnabled()) {
-        if (acceptString(WhyAreYouNotInliningRule.RULE_NAME)) {
-          configurationConsumer.addRule(
-              parseRuleWithClassSpec(optionStart, WhyAreYouNotInliningRule.builder()));
-          return true;
-        }
       }
       return false;
     }

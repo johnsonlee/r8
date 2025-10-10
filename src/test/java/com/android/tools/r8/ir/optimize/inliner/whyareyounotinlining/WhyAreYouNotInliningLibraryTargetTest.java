@@ -34,7 +34,6 @@ public class WhyAreYouNotInliningLibraryTargetTest extends TestBase {
             "-whyareyounotinlining class "
                 + System.class.getTypeName()
                 + " { long currentTimeMillis(); }")
-        .enableExperimentalWhyAreYouNotInlining()
         .setMinApi(parameters)
         .compile()
         // The Inliner is currently not reporting -whyareyounotinlining for library calls.

@@ -12,7 +12,6 @@ public class ProguardConfigurationParserOptions {
   private final boolean enableLegacyFullModeForKeepRulesWarnings;
   private final boolean enableExperimentalCheckEnumUnboxed;
   private final boolean enableExperimentalConvertCheckNotNull;
-  private final boolean enableExperimentalWhyAreYouNotInlining;
   private final boolean enableKeepRuntimeInvisibleAnnotations;
   private final boolean enableTestingOptions;
   private final boolean forceProguardCompatibility;
@@ -22,13 +21,11 @@ public class ProguardConfigurationParserOptions {
       boolean enableLegacyFullModeForKeepRulesWarnings,
       boolean enableExperimentalCheckEnumUnboxed,
       boolean enableExperimentalConvertCheckNotNull,
-      boolean enableExperimentalWhyAreYouNotInlining,
       boolean enableKeepRuntimeInvisibleAnnotations,
       boolean enableTestingOptions,
       boolean forceProguardCompatibility) {
     this.enableExperimentalCheckEnumUnboxed = enableExperimentalCheckEnumUnboxed;
     this.enableExperimentalConvertCheckNotNull = enableExperimentalConvertCheckNotNull;
-    this.enableExperimentalWhyAreYouNotInlining = enableExperimentalWhyAreYouNotInlining;
     this.enableKeepRuntimeInvisibleAnnotations = enableKeepRuntimeInvisibleAnnotations;
     this.enableTestingOptions = enableTestingOptions;
     this.enableLegacyFullModeForKeepRules = enableLegacyFullModeForKeepRules;
@@ -56,10 +53,6 @@ public class ProguardConfigurationParserOptions {
 
   public boolean isExperimentalConvertCheckNotNullEnabled() {
     return enableExperimentalConvertCheckNotNull;
-  }
-
-  public boolean isExperimentalWhyAreYouNotInliningEnabled() {
-    return enableExperimentalWhyAreYouNotInlining;
   }
 
   public boolean isKeepRuntimeInvisibleAnnotationsEnabled() {
@@ -94,9 +87,6 @@ public class ProguardConfigurationParserOptions {
       enableExperimentalConvertCheckNotNull =
           parseSystemPropertyOrDefault(
               "com.android.tools.r8.experimental.enableconvertchecknotnull", false);
-      enableExperimentalWhyAreYouNotInlining =
-          parseSystemPropertyOrDefault(
-              "com.android.tools.r8.experimental.enablewhyareyounotinlining", false);
       enableKeepRuntimeInvisibleAnnotations =
           parseSystemPropertyOrDefault(
               "com.android.tools.r8.enableKeepRuntimeInvisibleAnnotations", true);
@@ -128,12 +118,6 @@ public class ProguardConfigurationParserOptions {
       return this;
     }
 
-    public Builder setEnableExperimentalWhyAreYouNotInlining(
-        boolean enableExperimentalWhyAreYouNotInlining) {
-      this.enableExperimentalWhyAreYouNotInlining = enableExperimentalWhyAreYouNotInlining;
-      return this;
-    }
-
     public Builder setEnableTestingOptions(boolean enableTestingOptions) {
       this.enableTestingOptions = enableTestingOptions;
       return this;
@@ -150,7 +134,6 @@ public class ProguardConfigurationParserOptions {
           enableLegacyFullModeForKeepRulesWarnings,
           enableExperimentalCheckEnumUnboxed,
           enableExperimentalConvertCheckNotNull,
-          enableExperimentalWhyAreYouNotInlining,
           enableKeepRuntimeInvisibleAnnotations,
           enableTestingOptions,
           forceProguardCompatibility);

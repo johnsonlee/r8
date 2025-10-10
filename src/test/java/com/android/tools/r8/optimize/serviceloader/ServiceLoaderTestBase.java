@@ -138,7 +138,6 @@ public class ServiceLoaderTestBase extends TestBase {
                   o.enableServiceLoaderRewriting = enableRewriting;
                 })
             // Enables ServiceLoader optimization failure diagnostics.
-            .enableExperimentalWhyAreYouNotInlining()
             .addKeepRules("-whyareyounotinlining class java.util.ServiceLoader { *** load(...); }");
     if (implClasses.length > 0) {
       String implLines =
