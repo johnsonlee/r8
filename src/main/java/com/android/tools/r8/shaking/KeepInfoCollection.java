@@ -284,7 +284,9 @@ public abstract class KeepInfoCollection {
   // Mutation interface for building up the keep info.
   public static class MutableKeepInfoCollection extends KeepInfoCollection {
 
+    private final AppView<?> appView;
     private final DexItemFactory factory;
+    private final Enqueuer.Mode mode;
 
     // These are typed at signatures but the interface should make sure never to allow access
     // directly with a signature. See the comment in KeepInfoCollection.
@@ -304,9 +306,10 @@ public abstract class KeepInfoCollection {
 
     private final KeepInfoCanonicalizer canonicalizer;
 
-    MutableKeepInfoCollection(InternalOptions options) {
+    MutableKeepInfoCollection(AppView<?> appView, Enqueuer enqueuer) {
       this(
-          options,
+          appView,
+          enqueuer.getMode(),
           new IdentityHashMap<>(),
           new IdentityHashMap<>(),
           new IdentityHashMap<>(),
@@ -314,13 +317,14 @@ public abstract class KeepInfoCollection {
           new IdentityHashMap<>(),
           new IdentityHashMap<>(),
           MaterializedRules.empty(),
-          options.testing.enableKeepInfoCanonicalizer
+          appView.testing().enableKeepInfoCanonicalizer
               ? KeepInfoCanonicalizer.newCanonicalizer()
               : KeepInfoCanonicalizer.newNopCanonicalizer());
     }
 
     private MutableKeepInfoCollection(
-        InternalOptions options,
+        AppView<?> appView,
+        Enqueuer.Mode mode,
         Map<DexType, KeepClassInfo> keepClassInfo,
         Map<DexMethod, KeepMethodInfo> keepMethodInfo,
         Map<DexField, KeepFieldInfo> keepFieldInfo,
@@ -329,7 +333,9 @@ public abstract class KeepInfoCollection {
         Map<DexMethod, KeepMethodInfo.Joiner> methodRuleInstances,
         MaterializedRules materializedRules,
         KeepInfoCanonicalizer keepInfoCanonicalizer) {
-      this.factory = options.dexItemFactory();
+      this.appView = appView;
+      this.factory = appView.dexItemFactory();
+      this.mode = mode;
       this.keepClassInfo = keepClassInfo;
       this.keepMethodInfo = keepMethodInfo;
       this.keepFieldInfo = keepFieldInfo;
@@ -388,7 +394,8 @@ public abstract class KeepInfoCollection {
       Map<DexField, KeepFieldInfo> newFieldInfo = rewriteFieldInfo(lens, options, timing);
       MutableKeepInfoCollection result =
           new MutableKeepInfoCollection(
-              options,
+              appView,
+              mode,
               newClassInfo,
               newMethodInfo,
               newFieldInfo,
@@ -610,10 +617,12 @@ public abstract class KeepInfoCollection {
       KeepClassInfo.Joiner joiner = info.joiner();
       fn.accept(joiner);
       KeepClassInfo joined = joiner.join();
-      if (!info.equals(joined)) {
-        keepClassInfo.put(clazz.type, canonicalizer.canonicalizeKeepClassInfo(joined));
-        maybeDisallowKotlinMetadataRemoval(clazz, info, joined, joiner);
+      if (info.equals(joined)) {
+        return;
       }
+      keepClassInfo.put(clazz.type, canonicalizer.canonicalizeKeepClassInfo(joined));
+      maybeDisallowKotlinMetadataRemoval(clazz, info, joined, joiner);
+      reportWhyAreYouNotObfuscating(clazz, info, joined, joiner);
     }
 
     private void maybeDisallowKotlinMetadataRemoval(
@@ -639,6 +648,54 @@ public abstract class KeepInfoCollection {
       allowKotlinMetadataRemoval = false;
     }
 
+    private void reportWhyAreYouNotObfuscating(
+        ProgramDefinition definition,
+        KeepInfo<?, ?> previousKeepInfo,
+        KeepInfo<?, ?> joinedKeepInfo,
+        KeepInfo.Joiner<?, ?, ?> joiner) {
+      InternalOptions options = appView.options();
+      if (!mode.isFinalTreeShaking()
+          || options.getProguardConfiguration() == null
+          || !options.getProguardConfiguration().hasWhyAreYouNotObfuscatingRule()
+          || !previousKeepInfo.internalIsMinificationAllowed()
+          || joiner.isMinificationAllowed()) {
+        return;
+      }
+      MinimumKeepInfoCollection minimumKeepInfoCollection =
+          appView
+              .rootSet()
+              .getDependentMinimumKeepInfo()
+              .getUnconditionalMinimumKeepInfoOrDefault(MinimumKeepInfoCollection.empty());
+      if (!minimumKeepInfoCollection.hasMinimumKeepInfoThatMatches(
+          definition.getReference(), KeepInfo.Joiner::isWhyAreYouNotObfuscatingEnabled)) {
+        return;
+      }
+      assert !joinedKeepInfo.internalIsMinificationAllowed();
+      boolean foundRule = false;
+      for (ProguardKeepRuleBase rule : joiner.getRules()) {
+        if (!rule.getModifiers().allowsObfuscation) {
+          appView
+              .reporter()
+              .warning(
+                  definition.getReference().toSourceString() + " is not obfuscated due to " + rule);
+          foundRule = true;
+        }
+      }
+      if (!foundRule) {
+        boolean foundReason = false;
+        for (KeepReason reason : joiner.getReasons()) {
+          appView
+              .reporter()
+              .warning(
+                  definition.getReference().toSourceString()
+                      + " is not obfuscated due to "
+                      + reason);
+          foundReason = true;
+        }
+        assert foundReason;
+      }
+    }
+
     public void keepClass(DexProgramClass clazz) {
       joinClass(clazz, KeepInfo.Joiner::top);
     }
@@ -652,9 +709,11 @@ public abstract class KeepInfoCollection {
       KeepMethodInfo.Joiner joiner = info.joiner();
       fn.accept(joiner);
       KeepMethodInfo joined = joiner.join();
-      if (!info.equals(joined)) {
-        keepMethodInfo.put(method.getReference(), canonicalizer.canonicalizeKeepMethodInfo(joined));
+      if (info.equals(joined)) {
+        return;
       }
+      keepMethodInfo.put(method.getReference(), canonicalizer.canonicalizeKeepMethodInfo(joined));
+      reportWhyAreYouNotObfuscating(method, info, joined, joiner);
     }
 
     public void keepMethod(ProgramMethod method) {
@@ -670,9 +729,11 @@ public abstract class KeepInfoCollection {
       Joiner joiner = info.joiner();
       fn.accept(joiner);
       KeepFieldInfo joined = joiner.join();
-      if (!info.equals(joined)) {
-        keepFieldInfo.put(field.getReference(), canonicalizer.canonicalizeKeepFieldInfo(joined));
+      if (info.equals(joined)) {
+        return;
       }
+      keepFieldInfo.put(field.getReference(), canonicalizer.canonicalizeKeepFieldInfo(joined));
+      reportWhyAreYouNotObfuscating(field, info, joined, joiner);
     }
 
     public void keepField(ProgramField field) {

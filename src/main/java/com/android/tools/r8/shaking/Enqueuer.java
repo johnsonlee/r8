@@ -506,7 +506,7 @@ public class Enqueuer {
     this.options = options;
     this.taskCollection =
         new EnqueuerTaskCollection(this, options.getThreadingModule(), executorService);
-    this.keepInfo = new MutableKeepInfoCollection(options);
+    this.keepInfo = new MutableKeepInfoCollection(appView, this);
     this.reflectiveIdentification = new EnqueuerReflectiveIdentification(appView, this);
     this.useRegistryFactory = createUseRegistryFactory();
     this.worklist = EnqueuerWorklist.createWorklist(this, options.getThreadingModule());
@@ -4746,7 +4746,6 @@ public class Enqueuer {
             getKeepInfo(),
             rootSet.mayHaveSideEffects,
             amendWithCompanionMethods(rootSet.alwaysInline),
-            amendWithCompanionMethods(rootSet.whyAreYouNotInlining),
             amendWithCompanionMethods(rootSet.reprocess),
             rootSet.alwaysClassInline,
             new IdentifierNameStringCollection(

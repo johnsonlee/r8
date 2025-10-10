@@ -1,4 +1,4 @@
-// Copyright (c) 2019, the R8 project authors. Please see the AUTHORS file
+// Copyright (c) 2025, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.shaking;
@@ -7,13 +7,13 @@ import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
 import java.util.List;
 
-public class WhyAreYouNotInliningRule extends ProguardConfigurationRule {
+public class WhyAreYouNotObfuscatingRule extends ProguardConfigurationRule {
 
-  public static final String RULE_NAME = "whyareyounotinlining";
+  public static final String RULE_NAME = "whyareyounotobfuscating";
 
   @SuppressWarnings("NonCanonicalType")
   public static class Builder
-      extends ProguardConfigurationRule.Builder<WhyAreYouNotInliningRule, Builder> {
+      extends ProguardConfigurationRule.Builder<WhyAreYouNotObfuscatingRule, Builder> {
 
     private Builder() {
       super();
@@ -25,8 +25,8 @@ public class WhyAreYouNotInliningRule extends ProguardConfigurationRule {
     }
 
     @Override
-    public WhyAreYouNotInliningRule build() {
-      return new WhyAreYouNotInliningRule(
+    public WhyAreYouNotObfuscatingRule build() {
+      return new WhyAreYouNotObfuscatingRule(
           origin,
           getPosition(),
           source,
@@ -43,7 +43,7 @@ public class WhyAreYouNotInliningRule extends ProguardConfigurationRule {
     }
   }
 
-  private WhyAreYouNotInliningRule(
+  private WhyAreYouNotObfuscatingRule(
       Origin origin,
       Position position,
       String source,
@@ -75,13 +75,6 @@ public class WhyAreYouNotInliningRule extends ProguardConfigurationRule {
 
   public static Builder builder() {
     return new Builder();
-  }
-
-  // The ServiceLoader rewriter emits debug information if -whyareyounotinlining matches
-  // ServiceLoader.load.
-  @Override
-  public boolean isApplicableToLibraryClasses() {
-    return true;
   }
 
   @Override

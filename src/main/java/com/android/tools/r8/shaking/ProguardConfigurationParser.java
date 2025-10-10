@@ -484,6 +484,10 @@ public class ProguardConfigurationParser {
       } else if (acceptString(ConvertCheckNotNullRule.RULE_NAME)) {
         configurationConsumer.addRule(parseConvertCheckNotNullRule(optionStart));
         return true;
+      } else if (acceptString(WhyAreYouNotObfuscatingRule.RULE_NAME)) {
+        configurationConsumer.addRule(
+            parseRuleWithClassSpec(optionStart, WhyAreYouNotObfuscatingRule.builder()));
+        return true;
       } else if (acceptString(WhyAreYouNotInliningRule.RULE_NAME)) {
         configurationConsumer.addRule(
             parseRuleWithClassSpec(optionStart, WhyAreYouNotInliningRule.builder()));

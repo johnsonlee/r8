@@ -14,6 +14,7 @@ import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.optimize.Inliner;
 import com.android.tools.r8.ir.optimize.Inliner.Reason;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import java.util.Set;
 
@@ -21,7 +22,7 @@ public abstract class WhyAreYouNotInliningReporter {
 
   public static WhyAreYouNotInliningReporter createFor(
       ProgramMethod callee, AppView<AppInfoWithLiveness> appView, ProgramMethod context) {
-    if (appView.appInfo().isWhyAreYouNotInliningMethod(callee.getReference())) {
+    if (appView.getKeepInfo(callee).isWhyAreYouNotInliningEnabled()) {
       return new WhyAreYouNotInliningReporterImpl(appView, callee, context);
     }
     return NopWhyAreYouNotInliningReporter.getInstance();
@@ -32,7 +33,9 @@ public abstract class WhyAreYouNotInliningReporter {
       InvokeMethod invoke,
       AppView<AppInfoWithLiveness> appView,
       ProgramMethod context) {
-    if (appView.appInfo().hasNoWhyAreYouNotInliningMethods()) {
+    InternalOptions options = appView.options();
+    if (!options.hasProguardConfiguration()
+        || !options.getProguardConfiguration().hasWhyAreYouNotInliningRule()) {
       return;
     }
 

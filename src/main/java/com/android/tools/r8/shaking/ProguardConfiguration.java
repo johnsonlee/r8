@@ -471,6 +471,8 @@ public class ProguardConfiguration {
   private final ProguardPathFilter keepDirectories;
   private final boolean protoShrinking;
   private final int maxRemovedAndroidLogLevel;
+  private final boolean hasWhyAreYouNotInliningRule;
+  private final boolean hasWhyAreYouNotObfuscatingRule;
 
   private ProguardConfiguration(
       String parsedConfiguration,
@@ -545,6 +547,10 @@ public class ProguardConfiguration {
     this.keepDirectories = keepDirectories;
     this.protoShrinking = protoShrinking;
     this.maxRemovedAndroidLogLevel = maxRemovedAndroidLogLevel;
+    this.hasWhyAreYouNotInliningRule =
+        Iterables.any(rules, rule -> rule instanceof WhyAreYouNotInliningRule);
+    this.hasWhyAreYouNotObfuscatingRule =
+        Iterables.any(rules, rule -> rule instanceof WhyAreYouNotObfuscatingRule);
   }
 
   /**
@@ -714,6 +720,14 @@ public class ProguardConfiguration {
 
   public boolean hasMaximumRemovedAndroidLogLevelRules() {
     return Iterables.any(rules, ProguardConfigurationRule::isMaximumRemovedAndroidLogLevelRule);
+  }
+
+  public boolean hasWhyAreYouNotInliningRule() {
+    return hasWhyAreYouNotInliningRule;
+  }
+
+  public boolean hasWhyAreYouNotObfuscatingRule() {
+    return hasWhyAreYouNotObfuscatingRule;
   }
 
   @Override

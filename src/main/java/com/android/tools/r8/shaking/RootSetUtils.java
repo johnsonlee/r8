@@ -138,7 +138,6 @@ public class RootSetUtils {
         DependentMinimumKeepInfoCollection.createConcurrent();
     private final LinkedHashMap<DexReference, DexReference> reasonAsked = new LinkedHashMap<>();
     private final Set<DexMethod> alwaysInline = Sets.newIdentityHashSet();
-    private final Set<DexMethod> whyAreYouNotInlining = Sets.newIdentityHashSet();
     private final Set<DexMethod> reprocess = Sets.newIdentityHashSet();
     private final PredicateSet<DexType> alwaysClassInline = new PredicateSet<>();
     private final Map<DexType, Set<ProguardKeepRuleBase>> dependentKeepClassCompatRule =
@@ -499,9 +498,14 @@ public class RootSetUtils {
       } else if (rule instanceof ProguardIdentifierNameStringRule) {
         markMatchingFields(clazz, fieldKeepRules, rule, ifRulePreconditionMatch);
         markMatchingMethods(clazz, methodKeepRules, rule, ifRulePreconditionMatch);
-      } else {
-        assert rule instanceof ConvertCheckNotNullRule;
+      } else if (rule instanceof ConvertCheckNotNullRule) {
         markMatchingMethods(clazz, methodKeepRules, rule, ifRulePreconditionMatch);
+      } else if (rule instanceof WhyAreYouNotObfuscatingRule) {
+        markClass(clazz, rule, ifRulePreconditionMatch);
+        markMatchingFields(clazz, fieldKeepRules, rule, ifRulePreconditionMatch);
+        markMatchingMethods(clazz, methodKeepRules, rule, ifRulePreconditionMatch);
+      } else {
+        assert false : rule.getClass().getName();
       }
     }
 
@@ -658,7 +662,6 @@ public class RootSetUtils {
           dependentMinimumKeepInfo,
           ImmutableList.copyOf(reasonAsked.values()),
           alwaysInline,
-          whyAreYouNotInlining,
           reprocess,
           alwaysClassInline,
           mayHaveSideEffects,
@@ -1482,7 +1485,15 @@ public class RootSetUtils {
         if (!item.isMethod()) {
           throw new Unreachable();
         }
-        whyAreYouNotInlining.add(item.asMethod().getReference());
+        dependentMinimumKeepInfo
+            .getOrCreateUnconditionalMinimumKeepInfoFor(item.getReference())
+            .asMethodJoiner()
+            .setWhyAreYouNotInlining();
+        context.markAsUsed();
+      } else if (context instanceof WhyAreYouNotObfuscatingRule) {
+        dependentMinimumKeepInfo
+            .getOrCreateUnconditionalMinimumKeepInfoFor(item.getReference())
+            .setWhyAreYouNotObfuscating();
         context.markAsUsed();
       } else if (context.isClassInlineRule()) {
         ClassInlineRule classInlineRule = context.asClassInlineRule();
@@ -2202,7 +2213,6 @@ public class RootSetUtils {
 
     public final ImmutableList<DexReference> reasonAsked;
     public final Set<DexMethod> alwaysInline;
-    public final Set<DexMethod> whyAreYouNotInlining;
     public final Set<DexMethod> reprocess;
     public final PredicateSet<DexType> alwaysClassInline;
     public final Map<DexReference, ProguardMemberRule> mayHaveSideEffects;
@@ -2215,7 +2225,6 @@ public class RootSetUtils {
         DependentMinimumKeepInfoCollection dependentMinimumKeepInfo,
         ImmutableList<DexReference> reasonAsked,
         Set<DexMethod> alwaysInline,
-        Set<DexMethod> whyAreYouNotInlining,
         Set<DexMethod> reprocess,
         PredicateSet<DexType> alwaysClassInline,
         Map<DexReference, ProguardMemberRule> mayHaveSideEffects,
@@ -2233,7 +2242,6 @@ public class RootSetUtils {
           pendingMethodMoveInverse);
       this.reasonAsked = reasonAsked;
       this.alwaysInline = alwaysInline;
-      this.whyAreYouNotInlining = whyAreYouNotInlining;
       this.reprocess = reprocess;
       this.alwaysClassInline = alwaysClassInline;
       this.mayHaveSideEffects = mayHaveSideEffects;
@@ -2347,7 +2355,6 @@ public class RootSetUtils {
                 getDependentMinimumKeepInfo().rewrittenWithLens(graphLens, timing),
                 reasonAsked,
                 alwaysInline,
-                whyAreYouNotInlining,
                 reprocess,
                 alwaysClassInline,
                 mayHaveSideEffects,
@@ -2646,7 +2653,6 @@ public class RootSetUtils {
       super(
           dependentMinimumKeepInfo,
           reasonAsked,
-          Collections.emptySet(),
           Collections.emptySet(),
           Collections.emptySet(),
           PredicateSet.empty(),

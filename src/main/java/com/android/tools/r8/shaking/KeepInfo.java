@@ -31,6 +31,7 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
   private final boolean allowShrinking;
   private final boolean allowSignatureRemoval;
   private final boolean checkDiscarded;
+  private final boolean whyAreYouNotObfuscating;
   private final KeepAnnotationCollectionInfo annotationsInfo;
   private final KeepAnnotationCollectionInfo typeAnnotationsInfo;
 
@@ -42,6 +43,7 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
       boolean allowShrinking,
       boolean allowSignatureRemoval,
       boolean checkDiscarded,
+      boolean whyAreYouNotObfuscating,
       KeepAnnotationCollectionInfo annotationsInfo,
       KeepAnnotationCollectionInfo typeAnnotationsInfo) {
     this.allowAccessModification = allowAccessModification;
@@ -51,6 +53,7 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
     this.allowShrinking = allowShrinking;
     this.allowSignatureRemoval = allowSignatureRemoval;
     this.checkDiscarded = checkDiscarded;
+    this.whyAreYouNotObfuscating = whyAreYouNotObfuscating;
     this.annotationsInfo = annotationsInfo;
     this.typeAnnotationsInfo = typeAnnotationsInfo;
   }
@@ -64,6 +67,7 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
         builder.isShrinkingAllowed(),
         builder.isSignatureRemovalAllowed(),
         builder.isCheckDiscardedEnabled(),
+        builder.isWhyAreYouNotObfuscatingEnabled(),
         builder.getAnnotationsInfo().build(),
         builder.getTypeAnnotationsInfo().build());
   }
@@ -148,6 +152,14 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
 
   boolean internalIsCheckDiscardedEnabled() {
     return checkDiscarded;
+  }
+
+  public boolean isWhyAreYouNotObfuscatingEnabled() {
+    return internalIsWhyAreYouNotObfuscatingEnabled();
+  }
+
+  boolean internalIsWhyAreYouNotObfuscatingEnabled() {
+    return whyAreYouNotObfuscating;
   }
 
   /**
@@ -299,6 +311,7 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
         && (allowShrinking || !other.internalIsShrinkingAllowed())
         && (allowSignatureRemoval || !other.internalIsSignatureRemovalAllowed())
         && (!checkDiscarded || other.internalIsCheckDiscardedEnabled())
+        && (!whyAreYouNotObfuscating || other.internalIsWhyAreYouNotObfuscatingEnabled())
         && annotationsInfo.isLessThanOrEqualTo(other.internalAnnotationsInfo())
         && typeAnnotationsInfo.isLessThanOrEqualTo(other.internalTypeAnnotationsInfo());
   }
@@ -312,7 +325,8 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
         && allowOptimization == other.internalIsOptimizationAllowed()
         && allowShrinking == other.internalIsShrinkingAllowed()
         && allowSignatureRemoval == other.internalIsSignatureRemovalAllowed()
-        && checkDiscarded == other.internalIsCheckDiscardedEnabled();
+        && checkDiscarded == other.internalIsCheckDiscardedEnabled()
+        && whyAreYouNotObfuscating == other.internalIsWhyAreYouNotObfuscatingEnabled();
   }
 
   public boolean equalsWithAnnotations(K other) {
@@ -341,6 +355,7 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
     hash += bit(allowShrinking, index++);
     hash += bit(allowSignatureRemoval, index++);
     hash += bit(checkDiscarded, index++);
+    hash += bit(whyAreYouNotObfuscating, index++);
     hash += bit(annotationsInfo.isTop(), index++);
     hash += bit(typeAnnotationsInfo.isTop(), index);
     return hash;
@@ -369,6 +384,9 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
       case "checkDiscarded":
         builder.setCheckDiscarded(Boolean.parseBoolean(value));
         return true;
+      case "whyAreYouNotObfuscating":
+        builder.setWhyAreYouNotObfuscating(Boolean.parseBoolean(value));
+        return true;
       case "annotationsInfo":
         builder.setAnnotationInfo(KeepAnnotationCollectionInfoExported.parse(value));
         return true;
@@ -389,6 +407,7 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
     lines.add("allowShrinking: " + allowShrinking);
     lines.add("allowSignatureRemoval: " + allowSignatureRemoval);
     lines.add("checkDiscarded: " + checkDiscarded);
+    lines.add("whyAreYouNotObfuscating: " + whyAreYouNotObfuscating);
     lines.add("annotationsInfo: " + annotationsInfo);
     lines.add("typeAnnotationsInfo: " + typeAnnotationsInfo);
     return lines;
@@ -423,6 +442,7 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
     private boolean allowShrinking;
     private boolean allowSignatureRemoval;
     private boolean checkDiscarded;
+    private boolean whyAreYouNotObfuscating;
     private KeepAnnotationCollectionInfo.Builder annotationsInfo;
     private KeepAnnotationCollectionInfo.Builder typeAnnotationsInfo;
 
@@ -439,6 +459,7 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
       allowShrinking = original.internalIsShrinkingAllowed();
       allowSignatureRemoval = original.internalIsSignatureRemovalAllowed();
       checkDiscarded = original.internalIsCheckDiscardedEnabled();
+      whyAreYouNotObfuscating = original.internalIsWhyAreYouNotObfuscatingEnabled();
       annotationsInfo = original.internalAnnotationsInfo().toBuilder();
       typeAnnotationsInfo = original.internalTypeAnnotationsInfo().toBuilder();
     }
@@ -453,6 +474,7 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
       setAllowShrinking(false);
       setAllowSignatureRemoval(false);
       setCheckDiscarded(false);
+      setWhyAreYouNotObfuscating(false);
       return self();
     }
 
@@ -466,6 +488,7 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
       setAllowShrinking(true);
       setAllowSignatureRemoval(true);
       setCheckDiscarded(false);
+      setWhyAreYouNotObfuscating(false);
       return self();
     }
 
@@ -493,6 +516,7 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
           && isShrinkingAllowed() == other.internalIsShrinkingAllowed()
           && isSignatureRemovalAllowed() == other.internalIsSignatureRemovalAllowed()
           && isCheckDiscardedEnabled() == other.internalIsCheckDiscardedEnabled()
+          && isWhyAreYouNotObfuscatingEnabled() == other.internalIsWhyAreYouNotObfuscatingEnabled()
           && annotationsInfo.isEqualTo(other.internalAnnotationsInfo())
           && typeAnnotationsInfo.isEqualTo(other.internalTypeAnnotationsInfo());
     }
@@ -503,6 +527,15 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
 
     public B setCheckDiscarded(boolean checkDiscarded) {
       this.checkDiscarded = checkDiscarded;
+      return self();
+    }
+
+    public boolean isWhyAreYouNotObfuscatingEnabled() {
+      return whyAreYouNotObfuscating;
+    }
+
+    public B setWhyAreYouNotObfuscating(boolean whyAreYouNotObfuscating) {
+      this.whyAreYouNotObfuscating = whyAreYouNotObfuscating;
       return self();
     }
 
@@ -654,6 +687,10 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
       return builder.isCheckDiscardedEnabled();
     }
 
+    public boolean isWhyAreYouNotObfuscatingEnabled() {
+      return builder.isWhyAreYouNotObfuscatingEnabled();
+    }
+
     public boolean isMinificationAllowed() {
       return builder.isMinificationAllowed();
     }
@@ -735,6 +772,11 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
       return self();
     }
 
+    public J setWhyAreYouNotObfuscating() {
+      builder.setWhyAreYouNotObfuscating(true);
+      return self();
+    }
+
     public J merge(J joiner) {
       Builder<B, K> otherBuilder = joiner.builder;
       applyIf(!otherBuilder.isAccessModificationAllowed(), Joiner::disallowAccessModification);
@@ -746,6 +788,7 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
       applyIf(!otherBuilder.isShrinkingAllowed(), Joiner::disallowShrinking);
       applyIf(!otherBuilder.isSignatureRemovalAllowed(), Joiner::disallowSignatureRemoval);
       applyIf(otherBuilder.isCheckDiscardedEnabled(), Joiner::setCheckDiscarded);
+      applyIf(otherBuilder.isWhyAreYouNotObfuscatingEnabled(), Joiner::setWhyAreYouNotObfuscating);
       builder.getAnnotationsInfo().destructiveJoin(otherBuilder.getAnnotationsInfo());
       builder.getTypeAnnotationsInfo().destructiveJoin(otherBuilder.getTypeAnnotationsInfo());
       reasons.addAll(joiner.reasons);

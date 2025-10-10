@@ -37,6 +37,8 @@ import com.android.tools.r8.ir.conversion.passes.CodeRewriterPass;
 import com.android.tools.r8.ir.conversion.passes.result.CodeRewriterResult;
 import com.android.tools.r8.ir.desugar.ServiceLoaderSourceCode;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.shaking.KeepInfo;
+import com.android.tools.r8.shaking.MinimumKeepInfoCollection;
 import com.android.tools.r8.utils.ConsumerUtils;
 import com.android.tools.r8.utils.DominatorChecker;
 import com.android.tools.r8.utils.ListUtils;
@@ -47,6 +49,7 @@ import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 /**
  * ServiceLoaderRewriter will attempt to rewrite calls on the form of: ServiceLoader.load(X.class,
@@ -107,9 +110,15 @@ public class ServiceLoaderRewriter extends CodeRewriterPass<AppInfoWithLiveness>
   }
 
   private boolean shouldReportWhyAreYouNotInliningServiceLoaderLoad() {
-    AppInfoWithLiveness appInfo = appView().appInfo();
-    return appInfo.isWhyAreYouNotInliningMethod(serviceLoaderMethods.load)
-        || appInfo.isWhyAreYouNotInliningMethod(serviceLoaderMethods.loadWithClassLoader);
+    MinimumKeepInfoCollection keepInfo =
+        appView
+            .rootSet()
+            .getDependentMinimumKeepInfo()
+            .getUnconditionalMinimumKeepInfoOrDefault(MinimumKeepInfoCollection.empty());
+    Predicate<KeepInfo.Joiner<?, ?, ?>> test =
+        joiner -> joiner.asMethodJoiner().isWhyAreYouNotInliningEnabled();
+    return keepInfo.hasMinimumKeepInfoThatMatches(serviceLoaderMethods.load, test)
+        || keepInfo.hasMinimumKeepInfoThatMatches(serviceLoaderMethods.loadWithClassLoader, test);
   }
 
   @Override
