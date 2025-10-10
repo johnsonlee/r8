@@ -68,6 +68,7 @@ public class ThrowBlockOutliner {
     tearDownScanner(Collections.emptyMap(), executorService);
     // Commit pending synthetics.
     appView.rebuildAppInfo();
+    appView.getTypeElementFactory().clearTypeElementsCache();
     timing.end();
   }
 

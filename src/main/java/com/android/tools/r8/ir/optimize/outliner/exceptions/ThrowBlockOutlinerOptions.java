@@ -37,6 +37,9 @@ public class ThrowBlockOutlinerOptions {
     if (appView.options().debug && !forceDebug) {
       return false;
     }
+    if (appView.options().partialSubCompilationConfiguration != null) {
+      return false;
+    }
     return true;
   }
 }

@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize.outliner.exceptions;
 
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
@@ -63,8 +62,7 @@ public abstract class ThrowBlockOutlinerTestBase extends TestBase {
         .addOptionsModification(
             options -> {
               ThrowBlockOutlinerOptions outlinerOptions = options.getThrowBlockOutlinerOptions();
-              assertFalse(outlinerOptions.enable);
-              outlinerOptions.enable = true;
+              assertTrue(outlinerOptions.enable);
               outlinerOptions.forceDebug = true;
               outlinerOptions.outlineConsumerForTesting =
                   outlines -> {
