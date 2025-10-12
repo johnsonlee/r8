@@ -10,9 +10,12 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import com.android.tools.r8.SingleTestRunResult;
 import com.android.tools.r8.TestCompileResult;
+import com.android.tools.r8.TestCompilerBuilder;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
+import com.android.tools.r8.ir.optimize.outliner.exceptions.ThrowBlockOutlinerArrayUseTypeTest.Main;
 import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
@@ -25,9 +28,21 @@ import org.junit.Test;
 public class ThrowBlockOutlinerSharedStringBuilderTest extends ThrowBlockOutlinerTestBase {
 
   @Test
-  public void test() throws Exception {
+  public void testD8() throws Exception {
+    runTest(testForD8(parameters));
+  }
+
+  @Test
+  public void testR8() throws Exception {
+    assumeRelease();
+    runTest(testForR8(parameters).addKeepMainRule(Main.class));
+  }
+
+  private void runTest(
+      TestCompilerBuilder<?, ?, ?, ? extends SingleTestRunResult<?>, ?> testBuilder)
+      throws Exception {
     TestCompileResult<?, ?> compileResult =
-        testForD8(parameters)
+        testBuilder
             .addInnerClasses(getClass())
             .apply(this::configure)
             .compile()

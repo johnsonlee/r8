@@ -816,7 +816,7 @@ public class IRConverter {
     assert code.verifyNoNullabilityBottomTypes();
     assert code.verifyTypes(appView);
 
-    appView.withThrowBlockOutliner(outliner -> outliner.scan(code));
+    appView.withD8ThrowBlockOutliner(outliner -> outliner.scan(code));
 
     previous = printMethod(code, "Optimized IR (SSA)", previous);
     timing.begin("Finalize IR");

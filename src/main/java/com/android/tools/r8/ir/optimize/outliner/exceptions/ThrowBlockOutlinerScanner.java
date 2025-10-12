@@ -70,13 +70,17 @@ public class ThrowBlockOutlinerScanner {
 
   private final AppView<?> appView;
   private final DexItemFactory factory;
-  private final AbstractValueFactory valueFactory = new AbstractValueFactory();
+  private final AbstractValueFactory valueFactory;
 
   private final Map<Wrapper<LirCode<?>>, ThrowBlockOutline> outlines = new ConcurrentHashMap<>();
 
   ThrowBlockOutlinerScanner(AppView<?> appView) {
     this.appView = appView;
     this.factory = appView.dexItemFactory();
+    this.valueFactory =
+        appView.enableWholeProgramOptimizations()
+            ? appView.abstractValueFactory()
+            : new AbstractValueFactory();
   }
 
   public void run(IRCode code) {
@@ -85,16 +89,18 @@ public class ThrowBlockOutlinerScanner {
       new ThrowBlockOutlinerScannerForBlock(code, block).processThrowBlock();
     }
     if (code.metadata().mayHaveThrowBlockOutlineMarker()) {
-      assert code.getConversionOptions().isGeneratingDex();
-      code.mutateConversionOptions(MutableMethodConversionOptions::setIsGeneratingLir);
+      if (appView.enableWholeProgramOptimizations()) {
+        assert code.getConversionOptions().isGeneratingLir();
+      } else {
+        assert code.getConversionOptions().isGeneratingDex();
+        code.mutateConversionOptions(MutableMethodConversionOptions::setIsGeneratingLir);
+      }
     } else {
       assert code.streamInstructions().noneMatch(Instruction::isThrowBlockOutlineMarker);
     }
   }
 
   public AbstractValueFactory getAbstractValueFactory() {
-    // If/when extending this to R8, use the R8 AbstractValueFactory from AppView.
-    assert !appView.enableWholeProgramOptimizations();
     return valueFactory;
   }
 

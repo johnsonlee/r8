@@ -17,7 +17,6 @@ import static com.android.tools.r8.ir.code.Opcodes.INVOKE_VIRTUAL;
 import static com.android.tools.r8.ir.code.Opcodes.RETURN;
 import static com.android.tools.r8.ir.code.Opcodes.STATIC_PUT;
 
-import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexField;
@@ -71,24 +70,15 @@ public class TypeUtils {
    * value must have in order for the program to type check.
    */
   public static TypeElement computeUseType(AppView<?> appView, DexType returnType, Value value) {
-    if (appView.hasClassHierarchy()) {
-      return computeUseType(appView, returnType, value, (s, t) -> s.join(t, appView));
-    } else {
-      AppView<AppInfo> appViewWithoutClassHierarchy = appView.withoutClassHierarchy();
-      AppInfoWithClassHierarchy appInfo = appView.appInfoForDesugaring();
-      return computeUseType(
-          appView,
-          returnType,
-          value,
-          (s, t) -> joinWithoutClassHierarchy(s, t, appViewWithoutClassHierarchy, appInfo));
-    }
+    AppInfoWithClassHierarchy appInfo = appView.appInfoForDesugaring();
+    return computeUseType(appView, returnType, value, (s, t) -> meet(s, t, appView, appInfo));
   }
 
   private static TypeElement computeUseType(
       AppView<?> appView,
       DexType returnType,
       Value value,
-      BiFunction<TypeElement, TypeElement, TypeElement> joiner) {
+      BiFunction<TypeElement, TypeElement, TypeElement> meet) {
     TypeElement staticType = value.getType();
     TypeElement useType = TypeElement.getBottom();
     WorkList<UserAndValuePair> users = WorkList.newEqualityWorkList();
@@ -101,9 +91,8 @@ public class TypeUtils {
       } else {
         Instruction instruction = user.asInstruction();
         TypeElement instructionUseType =
-            computeUseTypeForInstruction(
-                appView, returnType, instruction, item.value, joiner, users);
-        useType = joiner.apply(useType, instructionUseType);
+            computeUseTypeForInstruction(appView, returnType, instruction, item.value, meet, users);
+        useType = meet.apply(useType, instructionUseType);
         if (useType.isTop() || useType.equalUpToNullability(staticType)) {
           // Bail-out.
           return staticType;
@@ -127,7 +116,7 @@ public class TypeUtils {
       DexType returnType,
       Instruction instruction,
       Value value,
-      BiFunction<TypeElement, TypeElement, TypeElement> joiner,
+      BiFunction<TypeElement, TypeElement, TypeElement> meet,
       WorkList<UserAndValuePair> users) {
     switch (instruction.opcode()) {
       case ASSUME:
@@ -138,13 +127,13 @@ public class TypeUtils {
       case INSTANCE_GET:
         return computeUseTypeForInstanceGet(appView, instruction.asInstanceGet());
       case INSTANCE_PUT:
-        return computeUseTypeForInstancePut(appView, instruction.asInstancePut(), value, joiner);
+        return computeUseTypeForInstancePut(appView, instruction.asInstancePut(), value, meet);
       case INVOKE_DIRECT:
       case INVOKE_INTERFACE:
       case INVOKE_STATIC:
       case INVOKE_SUPER:
       case INVOKE_VIRTUAL:
-        return computeUseTypeForInvoke(appView, instruction.asInvokeMethod(), value, joiner);
+        return computeUseTypeForInvoke(appView, instruction.asInvokeMethod(), value, meet);
       case RETURN:
         return computeUseTypeForReturn(appView, returnType);
       case STATIC_PUT:
@@ -170,14 +159,14 @@ public class TypeUtils {
       AppView<?> appView,
       InstancePut instancePut,
       Value value,
-      BiFunction<TypeElement, TypeElement, TypeElement> joiner) {
+      BiFunction<TypeElement, TypeElement, TypeElement> meet) {
     DexField field = instancePut.getField();
     TypeElement useType = TypeElement.getBottom();
     if (instancePut.object() == value) {
-      useType = joiner.apply(useType, field.getHolderType().toTypeElement(appView));
+      useType = meet.apply(useType, field.getHolderType().toTypeElement(appView));
     }
     if (instancePut.value() == value) {
-      useType = joiner.apply(useType, field.getType().toTypeElement(appView));
+      useType = meet.apply(useType, field.getType().toTypeElement(appView));
     }
     return useType;
   }
@@ -186,7 +175,7 @@ public class TypeUtils {
       AppView<?> appView,
       InvokeMethod invoke,
       Value value,
-      BiFunction<TypeElement, TypeElement, TypeElement> joiner) {
+      BiFunction<TypeElement, TypeElement, TypeElement> meet) {
     TypeElement useType = TypeElement.getBottom();
     for (int argumentIndex = 0; argumentIndex < invoke.arguments().size(); argumentIndex++) {
       Value argument = invoke.getArgument(argumentIndex);
@@ -198,7 +187,7 @@ public class TypeUtils {
               .getInvokedMethod()
               .getArgumentType(argumentIndex, invoke.isInvokeStatic())
               .toTypeElement(appView);
-      useType = joiner.apply(useType, useTypeForArgument);
+      useType = meet.apply(useType, useTypeForArgument);
     }
     assert !useType.isBottom();
     return useType;
@@ -212,19 +201,24 @@ public class TypeUtils {
     return staticPut.getField().getType().toTypeElement(appView);
   }
 
-  private static TypeElement joinWithoutClassHierarchy(
-      TypeElement type,
-      TypeElement other,
-      AppView<AppInfo> appView,
-      AppInfoWithClassHierarchy appInfo) {
-    assert !other.isBottom();
+  private static TypeElement meet(
+      TypeElement type, TypeElement other, AppView<?> appView, AppInfoWithClassHierarchy appInfo) {
+    if (other.isBottom()) {
+      return type;
+    }
     if (type.isBottom()) {
       return other;
     }
     if (type.isTop() || other.isTop()) {
       return TypeElement.getTop();
     }
-    if (type.equals(other)) {
+    if (type.equalUpToNullability(other)) {
+      if (type.isReferenceType()) {
+        if (!type.nullability().equals(other.nullability())) {
+          return type.asReferenceType()
+              .getOrCreateVariant(type.nullability().meet(other.nullability()));
+        }
+      }
       return type;
     }
     if (type.isPrimitiveType()) {
@@ -242,11 +236,16 @@ public class TypeUtils {
     DexType classType = type.asClassType().getClassType();
     DexType otherClassType = other.asClassType().getClassType();
     if (appInfo.isSubtype(classType, otherClassType)) {
-      return ClassTypeElement.createForD8(classType, type.nullability().join(other.nullability()));
+      if (type.nullability().equals(other.nullability())) {
+        return type;
+      }
+      return type.asClassType().getOrCreateVariant(type.nullability().meet(other.nullability()));
     }
     if (appInfo.isSubtype(otherClassType, classType)) {
-      return ClassTypeElement.createForD8(
-          otherClassType, type.nullability().join(other.nullability()));
+      if (type.nullability().equals(other.nullability())) {
+        return other;
+      }
+      return other.asClassType().getOrCreateVariant(type.nullability().meet(other.nullability()));
     }
     return TypeElement.getTop();
   }

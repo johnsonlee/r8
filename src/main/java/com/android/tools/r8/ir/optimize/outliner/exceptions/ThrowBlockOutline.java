@@ -253,6 +253,10 @@ public class ThrowBlockOutline implements LirConstant {
             builder ->
                 builder
                     .setAccessFlags(MethodAccessFlags.createPublicStaticSynthetic())
+                    // TODO(b/434769547): The API level of the code may be higher than the min-api.
+                    //   This currently doesn't matter since outlining runs after API outlining.
+                    .setApiLevelForCode(
+                        appView.apiLevelCompute().computeInitialMinApiLevel(appView.options()))
                     .setCode(methodSig -> lirCode)
                     .setProto(getOptimizedProto(appView.dexItemFactory())));
   }

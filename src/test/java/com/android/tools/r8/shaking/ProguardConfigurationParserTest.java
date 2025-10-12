@@ -185,8 +185,6 @@ public class ProguardConfigurationParserTest extends TestBase {
             ProguardConfigurationParserOptions.builder()
                 .setEnableLegacyFullModeForKeepRules(false)
                 .setEnableExperimentalCheckEnumUnboxed(false)
-                .setEnableExperimentalConvertCheckNotNull(false)
-                .setEnableExperimentalWhyAreYouNotInlining(false)
                 .setEnableTestingOptions(false)
                 .build(),
             null,
@@ -205,8 +203,6 @@ public class ProguardConfigurationParserTest extends TestBase {
             reporter,
             ProguardConfigurationParserOptions.builder()
                 .setEnableExperimentalCheckEnumUnboxed(false)
-                .setEnableExperimentalConvertCheckNotNull(false)
-                .setEnableExperimentalWhyAreYouNotInlining(false)
                 .setEnableTestingOptions(true)
                 .build(),
             null,
@@ -728,8 +724,6 @@ public class ProguardConfigurationParserTest extends TestBase {
             reporter,
             ProguardConfigurationParserOptions.builder()
                 .setEnableExperimentalCheckEnumUnboxed(false)
-                .setEnableExperimentalConvertCheckNotNull(true)
-                .setEnableExperimentalWhyAreYouNotInlining(false)
                 .setEnableTestingOptions(false)
                 .build(),
             null,
@@ -750,8 +744,6 @@ public class ProguardConfigurationParserTest extends TestBase {
             reporter,
             ProguardConfigurationParserOptions.builder()
                 .setEnableExperimentalCheckEnumUnboxed(false)
-                .setEnableExperimentalConvertCheckNotNull(true)
-                .setEnableExperimentalWhyAreYouNotInlining(false)
                 .setEnableTestingOptions(false)
                 .build(),
             null,

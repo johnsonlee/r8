@@ -200,6 +200,7 @@ public class EnumUnboxingRewriter implements CustomLensCodeRewriter {
           rewriteInvokeMethodWithReceiver(
               code,
               eventConsumer,
+              affectedPhis,
               convertedEnums,
               blocks,
               block,
@@ -438,6 +439,7 @@ public class EnumUnboxingRewriter implements CustomLensCodeRewriter {
   private void rewriteInvokeMethodWithReceiver(
       IRCode code,
       EnumUnboxerMethodProcessorEventConsumer eventConsumer,
+      Set<Phi> affectedPhis,
       Map<Instruction, DexType> convertedEnums,
       BasicBlockIterator blocks,
       BasicBlock block,
@@ -499,18 +501,23 @@ public class EnumUnboxingRewriter implements CustomLensCodeRewriter {
       } else if (invoke.isInvokeVirtual() || invoke.isInvokeInterface()) {
         DexMethod refinedDispatchMethodReference =
             enumUnboxingLens.lookupRefinedDispatchMethod(
-                invokedMethod,
-                context.getReference(),
-                invoke.getType(),
-                enumUnboxingLens.getPrevious(),
-                invoke.getArgument(0).getAbstractValue(appView, context),
-                enumType);
+                invokedMethod, invoke.getReceiver().getAbstractValue(appView, context), enumType);
         if (refinedDispatchMethodReference != null) {
           DexClassAndMethod refinedDispatchMethod =
               appView.definitionFor(refinedDispatchMethodReference);
           assert refinedDispatchMethod != null;
           assert refinedDispatchMethod.isProgramMethod();
-          replaceEnumInvoke(iterator, invoke, refinedDispatchMethod.asProgramMethod());
+          InvokeStatic replacement =
+              replaceEnumInvoke(iterator, invoke, refinedDispatchMethod.asProgramMethod());
+          if (replacement.hasOutValue()
+              && refinedDispatchMethodReference.getReturnType().isIntType()
+              && !invokedMethod.getReturnType().isIntType()) {
+            Value rewrittenOutValue = code.createValue(TypeElement.getInt());
+            replacement.outValue().replaceUsers(rewrittenOutValue);
+            replacement.setOutValue(rewrittenOutValue);
+            affectedPhis.addAll(rewrittenOutValue.uniquePhiUsers());
+            convertedEnums.put(replacement, enumType);
+          }
         }
       }
     } else if (invokedMethod == factory.stringBuilderMethods.appendObject
@@ -859,12 +866,12 @@ public class EnumUnboxingRewriter implements CustomLensCodeRewriter {
         .ensureGetInstanceFieldMethod(appView, field, context, eventConsumer);
   }
 
-  private void replaceEnumInvoke(
+  private InvokeStatic replaceEnumInvoke(
       InstructionListIterator iterator, InvokeMethod invoke, ProgramMethod method) {
-    replaceEnumInvoke(iterator, invoke, method, invoke.arguments());
+    return replaceEnumInvoke(iterator, invoke, method, invoke.arguments());
   }
 
-  private void replaceEnumInvoke(
+  private InvokeStatic replaceEnumInvoke(
       InstructionListIterator iterator,
       InvokeMethod invoke,
       ProgramMethod method,
@@ -877,6 +884,7 @@ public class EnumUnboxingRewriter implements CustomLensCodeRewriter {
     assert !replacement.hasOutValue()
         || !replacement.getInvokedMethod().getReturnType().isVoidType();
     iterator.replaceCurrentInstruction(replacement);
+    return replacement;
   }
 
   private boolean validateArrayAccess(ArrayAccess arrayAccess) {

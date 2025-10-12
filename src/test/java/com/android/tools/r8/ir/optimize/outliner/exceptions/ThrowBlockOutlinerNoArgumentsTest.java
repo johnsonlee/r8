@@ -10,7 +10,9 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.CompilationMode;
+import com.android.tools.r8.SingleTestRunResult;
 import com.android.tools.r8.TestCompileResult;
+import com.android.tools.r8.TestCompilerBuilder;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.BooleanUtils;
@@ -39,9 +41,21 @@ public class ThrowBlockOutlinerNoArgumentsTest extends ThrowBlockOutlinerTestBas
   }
 
   @Test
-  public void test() throws Exception {
+  public void testD8() throws Exception {
+    runTest(testForD8(parameters));
+  }
+
+  @Test
+  public void testR8() throws Exception {
+    assumeRelease();
+    runTest(testForR8(parameters).addKeepMainRule(Main.class));
+  }
+
+  private void runTest(
+      TestCompilerBuilder<?, ?, ?, ? extends SingleTestRunResult<?>, ?> testBuilder)
+      throws Exception {
     TestCompileResult<?, ?> compileResult =
-        testForD8(parameters)
+        testBuilder
             .addInnerClasses(getClass())
             .apply(this::configure)
             .addOptionsModification(

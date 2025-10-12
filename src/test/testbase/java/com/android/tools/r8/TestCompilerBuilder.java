@@ -64,6 +64,7 @@ public abstract class TestCompilerBuilder<
   public static final Consumer<InternalOptions> DEFAULT_OPTIONS =
       options -> {
         options.testing.enableTestAssertions = true;
+        options.getThrowBlockOutlinerOptions().enable = true;
       };
 
   public static final Consumer<InternalOptions> DEFAULT_D8_OPTIONS = DEFAULT_OPTIONS;
@@ -76,7 +77,6 @@ public abstract class TestCompilerBuilder<
             options.testing.forcePruneMetaInfManifestMf = true;
             options.horizontalClassMergerOptions().enable();
             options.horizontalClassMergerOptions().setEnableInterfaceMerging();
-            options.inlinerOptions().enableConstructorInliningWithFinalFields = true;
             options
                 .getCfCodeAnalysisOptions()
                 .setAllowUnreachableCfBlocks(false)

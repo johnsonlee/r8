@@ -11,8 +11,6 @@ public class ProguardConfigurationParserOptions {
   private final boolean enableLegacyFullModeForKeepRules;
   private final boolean enableLegacyFullModeForKeepRulesWarnings;
   private final boolean enableExperimentalCheckEnumUnboxed;
-  private final boolean enableExperimentalConvertCheckNotNull;
-  private final boolean enableExperimentalWhyAreYouNotInlining;
   private final boolean enableKeepRuntimeInvisibleAnnotations;
   private final boolean enableTestingOptions;
   private final boolean forceProguardCompatibility;
@@ -21,14 +19,10 @@ public class ProguardConfigurationParserOptions {
       boolean enableLegacyFullModeForKeepRules,
       boolean enableLegacyFullModeForKeepRulesWarnings,
       boolean enableExperimentalCheckEnumUnboxed,
-      boolean enableExperimentalConvertCheckNotNull,
-      boolean enableExperimentalWhyAreYouNotInlining,
       boolean enableKeepRuntimeInvisibleAnnotations,
       boolean enableTestingOptions,
       boolean forceProguardCompatibility) {
     this.enableExperimentalCheckEnumUnboxed = enableExperimentalCheckEnumUnboxed;
-    this.enableExperimentalConvertCheckNotNull = enableExperimentalConvertCheckNotNull;
-    this.enableExperimentalWhyAreYouNotInlining = enableExperimentalWhyAreYouNotInlining;
     this.enableKeepRuntimeInvisibleAnnotations = enableKeepRuntimeInvisibleAnnotations;
     this.enableTestingOptions = enableTestingOptions;
     this.enableLegacyFullModeForKeepRules = enableLegacyFullModeForKeepRules;
@@ -54,14 +48,6 @@ public class ProguardConfigurationParserOptions {
     return enableExperimentalCheckEnumUnboxed;
   }
 
-  public boolean isExperimentalConvertCheckNotNullEnabled() {
-    return enableExperimentalConvertCheckNotNull;
-  }
-
-  public boolean isExperimentalWhyAreYouNotInliningEnabled() {
-    return enableExperimentalWhyAreYouNotInlining;
-  }
-
   public boolean isKeepRuntimeInvisibleAnnotationsEnabled() {
     return enableKeepRuntimeInvisibleAnnotations;
   }
@@ -75,8 +61,6 @@ public class ProguardConfigurationParserOptions {
     private boolean enableLegacyFullModeForKeepRules = true;
     private boolean enableLegacyFullModeForKeepRulesWarnings = false;
     private boolean enableExperimentalCheckEnumUnboxed;
-    private boolean enableExperimentalConvertCheckNotNull;
-    private boolean enableExperimentalWhyAreYouNotInlining;
     private boolean enableKeepRuntimeInvisibleAnnotations = true;
     private boolean enableTestingOptions;
     private boolean forceProguardCompatibility = false;
@@ -91,12 +75,6 @@ public class ProguardConfigurationParserOptions {
       enableExperimentalCheckEnumUnboxed =
           parseSystemPropertyOrDefault(
               "com.android.tools.r8.experimental.enablecheckenumunboxed", false);
-      enableExperimentalConvertCheckNotNull =
-          parseSystemPropertyOrDefault(
-              "com.android.tools.r8.experimental.enableconvertchecknotnull", false);
-      enableExperimentalWhyAreYouNotInlining =
-          parseSystemPropertyOrDefault(
-              "com.android.tools.r8.experimental.enablewhyareyounotinlining", false);
       enableKeepRuntimeInvisibleAnnotations =
           parseSystemPropertyOrDefault(
               "com.android.tools.r8.enableKeepRuntimeInvisibleAnnotations", true);
@@ -122,18 +100,6 @@ public class ProguardConfigurationParserOptions {
       return this;
     }
 
-    public Builder setEnableExperimentalConvertCheckNotNull(
-        boolean enableExperimentalConvertCheckNotNull) {
-      this.enableExperimentalConvertCheckNotNull = enableExperimentalConvertCheckNotNull;
-      return this;
-    }
-
-    public Builder setEnableExperimentalWhyAreYouNotInlining(
-        boolean enableExperimentalWhyAreYouNotInlining) {
-      this.enableExperimentalWhyAreYouNotInlining = enableExperimentalWhyAreYouNotInlining;
-      return this;
-    }
-
     public Builder setEnableTestingOptions(boolean enableTestingOptions) {
       this.enableTestingOptions = enableTestingOptions;
       return this;
@@ -149,8 +115,6 @@ public class ProguardConfigurationParserOptions {
           enableLegacyFullModeForKeepRules,
           enableLegacyFullModeForKeepRulesWarnings,
           enableExperimentalCheckEnumUnboxed,
-          enableExperimentalConvertCheckNotNull,
-          enableExperimentalWhyAreYouNotInlining,
           enableKeepRuntimeInvisibleAnnotations,
           enableTestingOptions,
           forceProguardCompatibility);

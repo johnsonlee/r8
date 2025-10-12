@@ -6,8 +6,11 @@ package com.android.tools.r8.ir.optimize.outliner.exceptions;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assert.assertEquals;
 
+import com.android.tools.r8.SingleTestRunResult;
 import com.android.tools.r8.TestCompileResult;
+import com.android.tools.r8.TestCompilerBuilder;
 import com.android.tools.r8.graph.DexItemFactory;
+import com.android.tools.r8.ir.optimize.outliner.exceptions.ThrowBlockOutlinerArrayUseTypeTest.Main;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import java.util.Collection;
 import org.junit.Test;
@@ -15,9 +18,21 @@ import org.junit.Test;
 public class ThrowBlockOutlinerInterfaceMethodDesugaringTest extends ThrowBlockOutlinerTestBase {
 
   @Test
-  public void test() throws Exception {
+  public void testD8() throws Exception {
+    runTest(testForD8(parameters));
+  }
+
+  @Test
+  public void testR8() throws Exception {
+    assumeRelease();
+    runTest(testForR8(parameters).addKeepMainRule(Main.class));
+  }
+
+  private void runTest(
+      TestCompilerBuilder<?, ?, ?, ? extends SingleTestRunResult<?>, ?> testBuilder)
+      throws Exception {
     TestCompileResult<?, ?> compileResult =
-        testForD8(parameters)
+        testBuilder
             .addProgramClasses(Main.class, A.class)
             .addProgramClassFileData(
                 transformer(I.class)
@@ -25,7 +40,7 @@ public class ThrowBlockOutlinerInterfaceMethodDesugaringTest extends ThrowBlockO
                     .transform())
             .apply(this::configure)
             .compile()
-            .inspect(this::inspectOutput);
+            .inspect(inspector -> inspectOutput(inspector, testBuilder));
     compileResult
         .run(parameters.getRuntime(), Main.class, "default")
         .assertFailureWithErrorThatThrows(RuntimeException.class)
@@ -49,7 +64,12 @@ public class ThrowBlockOutlinerInterfaceMethodDesugaringTest extends ThrowBlockO
     assertEquals(3, outline.getNumberOfUsers());
   }
 
-  private void inspectOutput(CodeInspector inspector) {
+  private void inspectOutput(
+      CodeInspector inspector,
+      TestCompilerBuilder<?, ?, ?, ? extends SingleTestRunResult<?>, ?> testBuilder) {
+    if (testBuilder.isR8TestBuilder()) {
+      return;
+    }
     // Main, I, I$-CC, A and the synthetic outline class.
     assertEquals(
         parameters.canUseDefaultAndStaticInterfaceMethods() ? 4 : 5, inspector.allClasses().size());

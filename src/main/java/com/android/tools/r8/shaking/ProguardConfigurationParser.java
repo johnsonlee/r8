@@ -136,8 +136,6 @@ public class ProguardConfigurationParser {
         ProguardConfigurationParserOptions.builder()
             .setEnableLegacyFullModeForKeepRules(false)
             .setEnableExperimentalCheckEnumUnboxed(false)
-            .setEnableExperimentalConvertCheckNotNull(false)
-            .setEnableExperimentalWhyAreYouNotInlining(false)
             .setEnableTestingOptions(false)
             .build(),
         null,
@@ -483,6 +481,13 @@ public class ProguardConfigurationParser {
             parseRuleWithClassSpec(optionStart, ProguardIdentifierNameStringRule.builder()));
       } else if (acceptString("if")) {
         configurationConsumer.addRule(parseIfRule(optionStart));
+      } else if (acceptString(ConvertCheckNotNullRule.RULE_NAME)) {
+        configurationConsumer.addRule(parseConvertCheckNotNullRule(optionStart));
+        return true;
+      } else if (acceptString(WhyAreYouNotInliningRule.RULE_NAME)) {
+        configurationConsumer.addRule(
+            parseRuleWithClassSpec(optionStart, WhyAreYouNotInliningRule.builder()));
+        return true;
       } else if (parseMaximumRemovedAndroidLogLevelRule(optionStart)) {
         return true;
       } else {
@@ -506,20 +511,6 @@ public class ProguardConfigurationParser {
           configurationConsumer.addRule(checkEnumUnboxedRule);
         }
         return true;
-      }
-      if (acceptString(ConvertCheckNotNullRule.RULE_NAME)) {
-        ConvertCheckNotNullRule convertCheckNotNullRule = parseConvertCheckNotNullRule(optionStart);
-        if (options.isExperimentalConvertCheckNotNullEnabled()) {
-          configurationConsumer.addRule(convertCheckNotNullRule);
-        }
-        return true;
-      }
-      if (options.isExperimentalWhyAreYouNotInliningEnabled()) {
-        if (acceptString(WhyAreYouNotInliningRule.RULE_NAME)) {
-          configurationConsumer.addRule(
-              parseRuleWithClassSpec(optionStart, WhyAreYouNotInliningRule.builder()));
-          return true;
-        }
       }
       return false;
     }

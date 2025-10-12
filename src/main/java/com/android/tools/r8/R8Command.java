@@ -1086,14 +1086,6 @@ public final class R8Command extends BaseCompilerCommand {
       parserOptionsBuilder.setEnableExperimentalCheckEnumUnboxed(true);
     }
 
-    void setEnableExperimentalConvertCheckNotNull() {
-      parserOptionsBuilder.setEnableExperimentalConvertCheckNotNull(true);
-    }
-
-    void setEnableExperimentalWhyAreYouNotInlining() {
-      parserOptionsBuilder.setEnableExperimentalWhyAreYouNotInlining(true);
-    }
-
     // Internal for-testing method to allow proguard options only available for testing.
     void setEnableTestProguardOptions() {
       parserOptionsBuilder.setEnableTestingOptions(true);

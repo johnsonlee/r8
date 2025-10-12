@@ -75,12 +75,16 @@ public class ThrowBlockOutlineMarkerRewriter {
         appView,
         callerPosition,
         outline.getProtoChanges(),
-        MethodConversionOptions.forD8(appView, method));
+        appView.enableWholeProgramOptimizations()
+            ? MethodConversionOptions.forLirPhase(appView)
+            : MethodConversionOptions.forD8(appView, method));
   }
 
   private void finalizeCode(ProgramMethod method, IRCode code) {
     // Convert to DEX.
-    assert code.getConversionOptions().isGeneratingDex();
+    assert appView.enableWholeProgramOptimizations()
+        ? code.getConversionOptions().isGeneratingLir()
+        : code.getConversionOptions().isGeneratingDex();
     IRFinalizer<?> finalizer = code.getConversionOptions().getFinalizer(deadCodeRemover, appView);
     Code dexCode = finalizer.finalizeCode(code, BytecodeMetadataProvider.empty(), Timing.empty());
     method.setCode(dexCode, appView);

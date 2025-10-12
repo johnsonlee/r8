@@ -102,6 +102,7 @@ public class MetadataRewriteInlineSuspendFunctionTest extends KotlinMetadataTest
             kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinxCoroutinesCoreJar(), libJar)
         .addClasspath(output)
         .run(parameters.getRuntime(), PKG_APP + ".MainKt")
+        // TODO(b/449961100): R8 should keep $$forInline functions if original is kept.
         .assertFailureWithErrorThatThrowsIf(keepOnlyPublic, VerifyError.class)
         .assertSuccessWithOutputIf(!keepOnlyPublic, EXPECTED);
   }

@@ -1407,6 +1407,9 @@ public class EnumUnboxerImpl extends EnumUnboxer {
       // Check if this is a checkNotNull() user. In this case, we can create a copy of the method
       // that takes an int instead of java.lang.Object and call that method instead.
       if (singleTarget != null) {
+        if (singleTarget.getAccessFlags().isAbstract()) {
+          return Reason.INVALID_INVOKE;
+        }
         EnumUnboxerMethodClassification classification =
             singleTarget.getOptimizationInfo().getEnumUnboxerMethodClassification();
         if (classification.isCheckNotNullClassification()) {
