@@ -60,6 +60,14 @@ public abstract class ReflectiveEvent {
     return null;
   }
 
+  public boolean isProxyNewProxyInstance() {
+    return false;
+  }
+
+  public ProxyNewProxyInstance asProxyNewProxyInstance() {
+    return null;
+  }
+
   public boolean isClassGetMember() {
     return false;
   }
@@ -137,7 +145,7 @@ public abstract class ReflectiveEvent {
       case SERVICE_LOADER_LOAD:
         return new ServiceLoaderLoad(eventType, stack, args, factory);
       case PROXY_NEW_PROXY_INSTANCE:
-        break;
+        return new ProxyNewProxyInstance(eventType, stack, args, factory);
     }
     return new ReflectiveEvent(eventType, stack) {
       @Override
