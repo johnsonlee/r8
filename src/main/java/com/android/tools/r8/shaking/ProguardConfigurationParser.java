@@ -400,13 +400,13 @@ public class ProguardConfigurationParser {
         configurationConsumer.enablePrintConfiguration(origin, getPosition(optionStart));
         skipWhitespace();
         if (isOptionalArgumentGiven()) {
-          configurationConsumer.setPrintConfigurationFile(parseFileName(false));
+          configurationConsumer.setPrintConfigurationFile(parseFileName());
         }
       } else if (acceptString("printmapping")) {
         configurationConsumer.enablePrintMapping(origin, getPosition(optionStart));
         skipWhitespace();
         if (isOptionalArgumentGiven()) {
-          configurationConsumer.setPrintMappingFile(parseFileName(false));
+          configurationConsumer.setPrintMappingFile(parseFileName());
         }
       } else if (acceptString("applymapping")) {
         configurationConsumer.setApplyMappingFile(
@@ -428,7 +428,7 @@ public class ProguardConfigurationParser {
         positionAfterInclude = position;
       } else if (acceptString("basedirectory")) {
         skipWhitespace();
-        baseDirectory = parseFileName(false);
+        baseDirectory = parseFileName();
       } else if (acceptString("injars")) {
         configurationConsumer.addInjars(
             parseClassPath(inputDependencyConsumer::acceptProguardInJars),
@@ -443,7 +443,7 @@ public class ProguardConfigurationParser {
         configurationConsumer.setPrintSeeds(true, origin, getPosition(optionStart));
         skipWhitespace();
         if (isOptionalArgumentGiven()) {
-          configurationConsumer.setSeedFile(parseFileName(false));
+          configurationConsumer.setSeedFile(parseFileName());
         }
       } else if (acceptString("obfuscationdictionary")) {
         configurationConsumer.setObfuscationDictionary(
@@ -1551,16 +1551,16 @@ public class ProguardConfigurationParser {
           }
         }
       }
-
-      if (copied == 0) return fileName;
-
-      result.append(fileName.substring(copied, fileName.length()));
+      if (copied == 0) {
+        return fileName;
+      }
+      result.append(fileName.substring(copied));
       return result.toString();
     }
 
     private Path parseFileInputDependency(BiConsumer<Origin, Path> dependencyConsumer)
         throws ProguardRuleParserException {
-      Path file = parseFileName(false);
+      Path file = parseFileName();
       dependencyConsumer.accept(origin, file);
       return file;
     }
