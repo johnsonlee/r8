@@ -22,7 +22,10 @@ public interface ProguardConfigurationParserConsumer {
       Position position,
       TextPosition positionStart);
 
-  void addKeepPackageNamesPattern(ProguardClassNameList proguardClassNameList);
+  void addKeepPackageNamesPattern(
+      ProguardClassNameList proguardClassNameList,
+      ProguardConfigurationSourceParser parser,
+      TextPosition positionStart);
 
   void setKeepParameterNames(ProguardConfigurationSourceParser parser, Position position);
 
@@ -71,9 +74,15 @@ public interface ProguardConfigurationParserConsumer {
 
   void setIgnoreWarnings(ProguardConfigurationSourceParser parser, TextPosition positionStart);
 
-  void addDontWarnPattern(ProguardClassNameList pattern);
+  void addDontWarnPattern(
+      ProguardClassNameList pattern,
+      ProguardConfigurationSourceParser parser,
+      TextPosition positionStart);
 
-  void addDontNotePattern(ProguardClassNameList pattern);
+  void addDontNotePattern(
+      ProguardClassNameList pattern,
+      ProguardConfigurationSourceParser parser,
+      TextPosition positionStart);
 
   void enableAllowAccessModification(
       ProguardConfigurationSourceParser parser, Position position, TextPosition positionStart);
@@ -99,7 +108,10 @@ public interface ProguardConfigurationParserConsumer {
   void setPackageObfuscationDictionary(
       Path path, ProguardConfigurationSourceParser parser, Position position);
 
-  void addAdaptClassStringsPattern(ProguardClassNameList pattern);
+  void addAdaptClassStringsPattern(
+      ProguardClassNameList pattern,
+      ProguardConfigurationSourceParser parser,
+      TextPosition positionStart);
 
   void addAdaptResourceFileContents(ProguardPathList pattern);
 

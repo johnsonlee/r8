@@ -79,10 +79,46 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   }
 
   @Override
+  public void addAdaptClassStringsPattern(
+      ProguardClassNameList pattern,
+      ProguardConfigurationSourceParser parser,
+      TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
+
+  @Override
+  public void addDontNotePattern(
+      ProguardClassNameList pattern,
+      ProguardConfigurationSourceParser parser,
+      TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
+
+  @Override
+  public void addDontWarnPattern(
+      ProguardClassNameList pattern,
+      ProguardConfigurationSourceParser parser,
+      TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
+
+  @Override
   public void addKeepAttributePatterns(
       List<String> attributesPatterns,
       ProguardConfigurationSourceParser parser,
       Position position,
+      TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
+
+  @Override
+  public void addKeepPackageNamesPattern(
+      ProguardClassNameList proguardClassNameList,
+      ProguardConfigurationSourceParser parser,
       TextPosition positionStart) {
     ensureNewlineAfterComment();
     write(parser, positionStart);
@@ -198,19 +234,10 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   }
 
   @Override
-  public void addKeepPackageNamesPattern(ProguardClassNameList proguardClassNameList) {}
-
-  @Override
   public void setKeepParameterNames(ProguardConfigurationSourceParser parser, Position position) {}
 
   @Override
   public void addParsedConfiguration(String s) {}
-
-  @Override
-  public void addDontWarnPattern(ProguardClassNameList pattern) {}
-
-  @Override
-  public void addDontNotePattern(ProguardClassNameList pattern) {}
 
   @Override
   public void setApplyMappingFile(
@@ -239,9 +266,6 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   @Override
   public void setPackageObfuscationDictionary(
       Path path, ProguardConfigurationSourceParser parser, Position position) {}
-
-  @Override
-  public void addAdaptClassStringsPattern(ProguardClassNameList pattern) {}
 
   @Override
   public void addAdaptResourceFileContents(ProguardPathList pattern) {}

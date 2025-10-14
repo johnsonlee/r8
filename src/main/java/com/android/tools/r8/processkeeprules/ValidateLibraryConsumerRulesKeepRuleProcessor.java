@@ -111,7 +111,10 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
   }
 
   @Override
-  public void addKeepPackageNamesPattern(ProguardClassNameList proguardClassNameList) {}
+  public void addKeepPackageNamesPattern(
+      ProguardClassNameList proguardClassNameList,
+      ProguardConfigurationSourceParser parser,
+      TextPosition positionStart) {}
 
   @Override
   public void setKeepParameterNames(ProguardConfigurationSourceParser parser, Position position) {}
@@ -131,10 +134,16 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
       ProguardConfigurationSourceParser parser, TextPosition positionStart) {}
 
   @Override
-  public void addDontWarnPattern(ProguardClassNameList pattern) {}
+  public void addDontWarnPattern(
+      ProguardClassNameList pattern,
+      ProguardConfigurationSourceParser parser,
+      TextPosition positionStart) {}
 
   @Override
-  public void addDontNotePattern(ProguardClassNameList pattern) {}
+  public void addDontNotePattern(
+      ProguardClassNameList pattern,
+      ProguardConfigurationSourceParser parser,
+      TextPosition positionStart) {}
 
   @Override
   public void enablePrintConfiguration(
@@ -213,7 +222,10 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
   }
 
   @Override
-  public void addAdaptClassStringsPattern(ProguardClassNameList pattern) {}
+  public void addAdaptClassStringsPattern(
+      ProguardClassNameList pattern,
+      ProguardConfigurationSourceParser parser,
+      TextPosition positionStart) {}
 
   @Override
   public void addAdaptResourceFileContents(ProguardPathList pattern) {}

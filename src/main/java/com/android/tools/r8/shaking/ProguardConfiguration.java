@@ -221,7 +221,10 @@ public class ProguardConfiguration {
     }
 
     @Override
-    public void addKeepPackageNamesPattern(ProguardClassNameList pattern) {
+    public void addKeepPackageNamesPattern(
+        ProguardClassNameList pattern,
+        ProguardConfigurationSourceParser parser,
+        TextPosition positionStart) {
       keepPackageNamesPatterns.addPattern(pattern);
     }
 
@@ -270,12 +273,18 @@ public class ProguardConfiguration {
     }
 
     @Override
-    public void addDontWarnPattern(ProguardClassNameList pattern) {
+    public void addDontWarnPattern(
+        ProguardClassNameList pattern,
+        ProguardConfigurationSourceParser parser,
+        TextPosition positionStart) {
       dontWarnPatterns.addPattern(pattern);
     }
 
     @Override
-    public void addDontNotePattern(ProguardClassNameList pattern) {
+    public void addDontNotePattern(
+        ProguardClassNameList pattern,
+        ProguardConfigurationSourceParser parser,
+        TextPosition positionStart) {
       dontNotePatterns.addPattern(pattern);
     }
 
@@ -319,7 +328,10 @@ public class ProguardConfiguration {
     }
 
     @Override
-    public void addAdaptClassStringsPattern(ProguardClassNameList pattern) {
+    public void addAdaptClassStringsPattern(
+        ProguardClassNameList pattern,
+        ProguardConfigurationSourceParser parser,
+        TextPosition positionStart) {
       adaptClassStrings.addPattern(pattern);
     }
 

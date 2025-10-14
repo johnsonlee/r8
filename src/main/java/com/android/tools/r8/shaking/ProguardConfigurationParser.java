@@ -312,7 +312,9 @@ public class ProguardConfigurationParser {
       } else if (acceptString("keepattributes")) {
         parseKeepAttributes(optionStart);
       } else if (acceptString("keeppackagenames")) {
-        parseClassFilter(configurationConsumer::addKeepPackageNamesPattern);
+        ProguardClassNameList keepPackageNamePatterns = parseOptionalClassFilter();
+        configurationConsumer.addKeepPackageNamesPattern(
+            keepPackageNamePatterns, this, optionStart);
       } else if (acceptString("keepparameternames")) {
         configurationConsumer.setKeepParameterNames(this, getPosition(optionStart));
       } else if (acceptString("checkdiscard")) {
@@ -355,9 +357,11 @@ public class ProguardConfigurationParser {
       } else if (acceptString("ignorewarnings")) {
         configurationConsumer.setIgnoreWarnings(this, optionStart);
       } else if (acceptString("dontwarn")) {
-        parseClassFilter(configurationConsumer::addDontWarnPattern);
+        ProguardClassNameList dontWarnPattern = parseOptionalClassFilter();
+        configurationConsumer.addDontWarnPattern(dontWarnPattern, this, optionStart);
       } else if (acceptString("dontnote")) {
-        parseClassFilter(configurationConsumer::addDontNotePattern);
+        ProguardClassNameList dontNotePattern = parseOptionalClassFilter();
+        configurationConsumer.addDontNotePattern(dontNotePattern, this, optionStart);
       } else if (acceptString(REPACKAGE_CLASSES)) {
         if (configurationConsumer.getPackageObfuscationMode() == PackageObfuscationMode.FLATTEN) {
           warnOverridingOptions(REPACKAGE_CLASSES, FLATTEN_PACKAGE_HIERARCHY, optionStart);
@@ -466,7 +470,9 @@ public class ProguardConfigurationParser {
                 optionStart, InlineRule.builder().setType(InlineRuleType.ALWAYS));
         configurationConsumer.addRule(rule);
       } else if (acceptString("adaptclassstrings")) {
-        parseClassFilter(configurationConsumer::addAdaptClassStringsPattern);
+        ProguardClassNameList adaptClassStringsPattern = parseOptionalClassFilter();
+        configurationConsumer.addAdaptClassStringsPattern(
+            adaptClassStringsPattern, this, optionStart);
       } else if (acceptString("adaptresourcefilenames")) {
         parsePathFilter(configurationConsumer::addAdaptResourceFilenames);
       } else if (acceptString("adaptresourcefilecontents")) {
@@ -2093,15 +2099,11 @@ public class ProguardConfigurationParser {
       }
     }
 
-    private void parseClassFilter(Consumer<ProguardClassNameList> consumer)
-        throws ProguardRuleParserException {
+    private ProguardClassNameList parseOptionalClassFilter() throws ProguardRuleParserException {
       skipWhitespace();
-      if (isOptionalArgumentGiven()) {
-        consumer.accept(parseClassNames());
-      } else {
-        consumer.accept(
-            ProguardClassNameList.singletonList(ProguardTypeMatcher.defaultAllMatcher()));
-      }
+      return isOptionalArgumentGiven()
+          ? parseClassNames()
+          : ProguardClassNameList.singletonList(ProguardTypeMatcher.defaultAllMatcher());
     }
 
     private void parseClassNameAddToBuilder(ProguardClassNameList.Builder builder)
@@ -2153,12 +2155,7 @@ public class ProguardConfigurationParser {
 
     private void parsePathFilter(Consumer<ProguardPathList> consumer)
         throws ProguardRuleParserException {
-      skipWhitespace();
-      if (isOptionalArgumentGiven()) {
-        consumer.accept(parsePathFilter());
-      } else {
-        consumer.accept(ProguardPathList.emptyList());
-      }
+      consumer.accept(parseOptionalPathFilter());
     }
 
     private ProguardPathList parsePathFilter() throws ProguardRuleParserException {
