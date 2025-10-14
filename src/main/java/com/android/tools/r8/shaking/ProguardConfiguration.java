@@ -153,14 +153,14 @@ public class ProguardConfiguration {
     }
 
     @Override
-    public void enablePrintConfiguration(Origin origin, Position position) {
+    public void enablePrintConfiguration(
+        Path printConfigurationFile,
+        Origin origin,
+        ProguardConfigurationSourceParser parser,
+        Position position,
+        TextPosition positionStart) {
       this.printConfiguration = true;
-    }
-
-    @Override
-    public void setPrintConfigurationFile(Path file) {
-      assert printConfiguration;
-      this.printConfigurationFile = file;
+      this.printConfigurationFile = printConfigurationFile;
     }
 
     @Override
@@ -171,14 +171,14 @@ public class ProguardConfiguration {
     }
 
     @Override
-    public void enablePrintMapping(Origin origin, Position position) {
+    public void enablePrintMapping(
+        Path printMappingFile,
+        Origin origin,
+        ProguardConfigurationSourceParser parser,
+        Position position,
+        TextPosition positionStart) {
       this.printMapping = true;
-    }
-
-    @Override
-    public void setPrintMappingFile(Path file) {
-      assert printMapping;
-      this.printMappingFile = file;
+      this.printMappingFile = printMappingFile;
     }
 
     @Override

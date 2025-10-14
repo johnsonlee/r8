@@ -397,17 +397,13 @@ public class ProguardConfigurationParser {
       } else if (acceptString("allowaccessmodification")) {
         configurationConsumer.enableAllowAccessModification(origin, getPosition(optionStart));
       } else if (acceptString("printconfiguration")) {
-        configurationConsumer.enablePrintConfiguration(origin, getPosition(optionStart));
         skipWhitespace();
-        if (isOptionalArgumentGiven()) {
-          configurationConsumer.setPrintConfigurationFile(parseFileName());
-        }
+        configurationConsumer.enablePrintConfiguration(
+            parseOptionalFileName(), origin, this, getPosition(optionStart), optionStart);
       } else if (acceptString("printmapping")) {
-        configurationConsumer.enablePrintMapping(origin, getPosition(optionStart));
         skipWhitespace();
-        if (isOptionalArgumentGiven()) {
-          configurationConsumer.setPrintMappingFile(parseFileName());
-        }
+        configurationConsumer.enablePrintMapping(
+            parseOptionalFileName(), origin, this, getPosition(optionStart), optionStart);
       } else if (acceptString("applymapping")) {
         configurationConsumer.setApplyMappingFile(
             parseFileInputDependency(inputDependencyConsumer::acceptProguardApplyMapping),

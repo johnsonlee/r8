@@ -137,20 +137,24 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
   public void addDontNotePattern(ProguardClassNameList pattern) {}
 
   @Override
-  public void enablePrintConfiguration(Origin origin, Position position) {
+  public void enablePrintConfiguration(
+      Path printConfigurationFile,
+      Origin origin,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
     handleGlobalRule(origin, position, "-printconfiguration");
   }
 
   @Override
-  public void setPrintConfigurationFile(Path path) {}
-
-  @Override
-  public void enablePrintMapping(Origin origin, Position position) {
+  public void enablePrintMapping(
+      Path printMappingFile,
+      Origin origin,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
     handleGlobalRule(origin, position, "-printmapping");
   }
-
-  @Override
-  public void setPrintMappingFile(Path path) {}
 
   @Override
   public void setApplyMappingFile(Path path, Origin origin, Position position) {

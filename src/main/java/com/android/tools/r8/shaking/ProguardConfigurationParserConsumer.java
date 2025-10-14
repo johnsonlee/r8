@@ -37,6 +37,20 @@ public interface ProguardConfigurationParserConsumer {
 
   void enableKeepDirectories();
 
+  void enablePrintConfiguration(
+      Path printConfigurationFile,
+      Origin origin,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart);
+
+  void enablePrintMapping(
+      Path printMappingFile,
+      Origin origin,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart);
+
   void enablePrintUsage(
       Path printUsageFile, ProguardConfigurationSourceParser parser, TextPosition positionStart);
 
@@ -57,14 +71,6 @@ public interface ProguardConfigurationParserConsumer {
   void addDontNotePattern(ProguardClassNameList pattern);
 
   void enableAllowAccessModification(Origin origin, Position position);
-
-  void enablePrintConfiguration(Origin origin, Position position);
-
-  void setPrintConfigurationFile(Path path);
-
-  void enablePrintMapping(Origin origin, Position position);
-
-  void setPrintMappingFile(Path path);
 
   void setApplyMappingFile(Path path, Origin origin, Position position);
 

@@ -120,6 +120,28 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   }
 
   @Override
+  public void enablePrintConfiguration(
+      Path printConfigurationFile,
+      Origin origin,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
+
+  @Override
+  public void enablePrintMapping(
+      Path printMappingFile,
+      Origin origin,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
+
+  @Override
   public void enablePrintUsage(
       Path printUsageFile, ProguardConfigurationSourceParser parser, TextPosition positionStart) {
     ensureNewlineAfterComment();
@@ -166,18 +188,6 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
 
   @Override
   public void enableAllowAccessModification(Origin origin, Position position) {}
-
-  @Override
-  public void enablePrintConfiguration(Origin origin, Position position) {}
-
-  @Override
-  public void setPrintConfigurationFile(Path path) {}
-
-  @Override
-  public void enablePrintMapping(Origin origin, Position position) {}
-
-  @Override
-  public void setPrintMappingFile(Path path) {}
 
   @Override
   public void setApplyMappingFile(Path path, Origin origin, Position position) {}
