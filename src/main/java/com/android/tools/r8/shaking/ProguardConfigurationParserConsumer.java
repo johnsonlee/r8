@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.shaking;
 
-import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
 import com.android.tools.r8.position.TextPosition;
 import com.android.tools.r8.shaking.ProguardConfigurationParser.ProguardConfigurationSourceParser;
@@ -19,18 +18,16 @@ public interface ProguardConfigurationParserConsumer {
 
   void addKeepAttributePatterns(
       List<String> attributesPatterns,
-      Origin origin,
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart);
 
   void addKeepPackageNamesPattern(ProguardClassNameList proguardClassNameList);
 
-  void setKeepParameterNames(boolean b, Origin origin, Position position);
+  void setKeepParameterNames(ProguardConfigurationSourceParser parser, Position position);
 
   void setRenameSourceFileAttribute(
       String s,
-      Origin origin,
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart);
@@ -39,61 +36,66 @@ public interface ProguardConfigurationParserConsumer {
 
   void enablePrintConfiguration(
       Path printConfigurationFile,
-      Origin origin,
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart);
 
   void enablePrintMapping(
       Path printMappingFile,
-      Origin origin,
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart);
 
   void enablePrintSeeds(
       Path printSeedsFile,
-      Origin origin,
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart);
 
   void enablePrintUsage(
       Path printUsageFile,
-      Origin origin,
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart);
 
   void addKeepDirectories(ProguardPathList proguardPathList);
 
-  void disableOptimization(Origin origin, Position position);
+  void disableOptimization(ProguardConfigurationSourceParser parser, Position position);
 
-  void disableObfuscation(Origin origin, Position position);
+  void disableObfuscation(ProguardConfigurationSourceParser parser, Position position);
 
-  void disableShrinking(Origin origin, Position position);
+  void disableShrinking(ProguardConfigurationSourceParser parser, Position position);
 
   void enableProtoShrinking();
 
-  void setIgnoreWarnings(boolean b);
+  void setIgnoreWarnings();
 
   void addDontWarnPattern(ProguardClassNameList pattern);
 
   void addDontNotePattern(ProguardClassNameList pattern);
 
-  void enableAllowAccessModification(Origin origin, Position position);
+  void enableAllowAccessModification(ProguardConfigurationSourceParser parser, Position position);
 
-  void setApplyMappingFile(Path path, Origin origin, Position position);
+  void setApplyMappingFile(Path path, ProguardConfigurationSourceParser parser, Position position);
 
-  void addInjars(List<FilteredClassPath> filteredClassPaths, Origin origin, Position position);
+  void addInjars(
+      List<FilteredClassPath> filteredClassPaths,
+      ProguardConfigurationSourceParser parser,
+      Position position);
 
-  void addLibraryJars(List<FilteredClassPath> filteredClassPaths, Origin origin, Position position);
+  void addLibraryJars(
+      List<FilteredClassPath> filteredClassPaths,
+      ProguardConfigurationSourceParser parser,
+      Position position);
 
-  void setObfuscationDictionary(Path path, Origin origin, Position position);
+  void setObfuscationDictionary(
+      Path path, ProguardConfigurationSourceParser parser, Position position);
 
-  void setClassObfuscationDictionary(Path path, Origin origin, Position position);
+  void setClassObfuscationDictionary(
+      Path path, ProguardConfigurationSourceParser parser, Position position);
 
-  void setPackageObfuscationDictionary(Path path, Origin origin, Position position);
+  void setPackageObfuscationDictionary(
+      Path path, ProguardConfigurationSourceParser parser, Position position);
 
   void addAdaptClassStringsPattern(ProguardClassNameList pattern);
 
@@ -109,9 +111,9 @@ public interface ProguardConfigurationParserConsumer {
 
   void setFlattenPackagePrefix(String s);
 
-  void enableRepackageClasses(Origin origin, Position position);
+  void enableRepackageClasses(ProguardConfigurationSourceParser parser, Position position);
 
-  void enableFlattenPackageHierarchy(Origin origin, Position position);
+  void enableFlattenPackageHierarchy(ProguardConfigurationSourceParser parser, Position position);
 
   default void addWhitespace(ProguardConfigurationSourceParser parser, TextPosition position) {}
 }

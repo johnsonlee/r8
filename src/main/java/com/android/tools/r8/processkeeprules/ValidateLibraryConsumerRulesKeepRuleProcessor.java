@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.processkeeprules;
 
-import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
 import com.android.tools.r8.position.TextPosition;
 import com.android.tools.r8.shaking.FilteredClassPath;
@@ -26,52 +25,56 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
     this.reporter = reporter;
   }
 
-  private void handleGlobalRule(Origin origin, Position position, String rule) {
-    reporter.error(new GlobalLibraryConsumerRuleDiagnostic(origin, position, rule));
+  private void handleGlobalRule(
+      ProguardConfigurationSourceParser parser, Position position, String rule) {
+    reporter.error(new GlobalLibraryConsumerRuleDiagnostic(parser.getOrigin(), position, rule));
   }
 
-  private void handleKeepAttribute(Origin origin, Position position, String attribute) {
-    reporter.error(new KeepAttributeLibraryConsumerRuleDiagnostic(origin, position, attribute));
-  }
-
-  @Override
-  public void disableOptimization(Origin origin, Position position) {
-    handleGlobalRule(origin, position, "-dontoptimize");
-  }
-
-  @Override
-  public void disableObfuscation(Origin origin, Position position) {
-    handleGlobalRule(origin, position, "-dontobfuscate");
+  private void handleKeepAttribute(
+      ProguardConfigurationSourceParser parser, Position position, String attribute) {
+    reporter.error(
+        new KeepAttributeLibraryConsumerRuleDiagnostic(parser.getOrigin(), position, attribute));
   }
 
   @Override
-  public void disableShrinking(Origin origin, Position position) {
-    handleGlobalRule(origin, position, "-dontshrink");
+  public void disableOptimization(ProguardConfigurationSourceParser parser, Position position) {
+    handleGlobalRule(parser, position, "-dontoptimize");
   }
 
   @Override
-  public void enableRepackageClasses(Origin origin, Position position) {
-    handleGlobalRule(origin, position, "-repackageclasses");
+  public void disableObfuscation(ProguardConfigurationSourceParser parser, Position position) {
+    handleGlobalRule(parser, position, "-dontobfuscate");
   }
 
   @Override
-  public void enableFlattenPackageHierarchy(Origin origin, Position position) {
-    handleGlobalRule(origin, position, "-flattenpackagehierarchy");
+  public void disableShrinking(ProguardConfigurationSourceParser parser, Position position) {
+    handleGlobalRule(parser, position, "-dontshrink");
   }
 
   @Override
-  public void enableAllowAccessModification(Origin origin, Position position) {
-    handleGlobalRule(origin, position, "-allowaccessmodification");
+  public void enableRepackageClasses(ProguardConfigurationSourceParser parser, Position position) {
+    handleGlobalRule(parser, position, "-repackageclasses");
+  }
+
+  @Override
+  public void enableFlattenPackageHierarchy(
+      ProguardConfigurationSourceParser parser, Position position) {
+    handleGlobalRule(parser, position, "-flattenpackagehierarchy");
+  }
+
+  @Override
+  public void enableAllowAccessModification(
+      ProguardConfigurationSourceParser parser, Position position) {
+    handleGlobalRule(parser, position, "-allowaccessmodification");
   }
 
   @Override
   public void setRenameSourceFileAttribute(
       String s,
-      Origin origin,
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
-    handleGlobalRule(origin, position, "-renamesourcefileattribute");
+    handleGlobalRule(parser, position, "-renamesourcefileattribute");
   }
 
   @Override
@@ -83,28 +86,27 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
   @Override
   public void addKeepAttributePatterns(
       List<String> attributesPatterns,
-      Origin origin,
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
     // TODO(b/270289387): Add support for more attributes.
     ProguardKeepAttributes keepAttributes = ProguardKeepAttributes.fromPatterns(attributesPatterns);
     if (keepAttributes.lineNumberTable) {
-      handleKeepAttribute(origin, position, ProguardKeepAttributes.LINE_NUMBER_TABLE);
+      handleKeepAttribute(parser, position, ProguardKeepAttributes.LINE_NUMBER_TABLE);
     }
     if (keepAttributes.runtimeInvisibleAnnotations) {
-      handleKeepAttribute(origin, position, ProguardKeepAttributes.RUNTIME_INVISIBLE_ANNOTATIONS);
+      handleKeepAttribute(parser, position, ProguardKeepAttributes.RUNTIME_INVISIBLE_ANNOTATIONS);
     }
     if (keepAttributes.runtimeInvisibleTypeAnnotations) {
       handleKeepAttribute(
-          origin, position, ProguardKeepAttributes.RUNTIME_INVISIBLE_TYPE_ANNOTATIONS);
+          parser, position, ProguardKeepAttributes.RUNTIME_INVISIBLE_TYPE_ANNOTATIONS);
     }
     if (keepAttributes.runtimeInvisibleParameterAnnotations) {
       handleKeepAttribute(
-          origin, position, ProguardKeepAttributes.RUNTIME_INVISIBLE_PARAMETER_ANNOTATIONS);
+          parser, position, ProguardKeepAttributes.RUNTIME_INVISIBLE_PARAMETER_ANNOTATIONS);
     }
     if (keepAttributes.sourceFile) {
-      handleKeepAttribute(origin, position, ProguardKeepAttributes.SOURCE_FILE);
+      handleKeepAttribute(parser, position, ProguardKeepAttributes.SOURCE_FILE);
     }
   }
 
@@ -112,7 +114,7 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
   public void addKeepPackageNamesPattern(ProguardClassNameList proguardClassNameList) {}
 
   @Override
-  public void setKeepParameterNames(boolean b, Origin origin, Position position) {}
+  public void setKeepParameterNames(ProguardConfigurationSourceParser parser, Position position) {}
 
   @Override
   public void enableKeepDirectories() {}
@@ -124,7 +126,7 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
   public void enableProtoShrinking() {}
 
   @Override
-  public void setIgnoreWarnings(boolean b) {}
+  public void setIgnoreWarnings() {}
 
   @Override
   public void addDontWarnPattern(ProguardClassNameList pattern) {}
@@ -135,73 +137,77 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
   @Override
   public void enablePrintConfiguration(
       Path printConfigurationFile,
-      Origin origin,
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
-    handleGlobalRule(origin, position, "-printconfiguration");
+    handleGlobalRule(parser, position, "-printconfiguration");
   }
 
   @Override
   public void enablePrintMapping(
       Path printMappingFile,
-      Origin origin,
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
-    handleGlobalRule(origin, position, "-printmapping");
+    handleGlobalRule(parser, position, "-printmapping");
   }
 
   @Override
   public void enablePrintSeeds(
       Path printSeedsFile,
-      Origin origin,
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
-    handleGlobalRule(origin, position, "-printseeds");
+    handleGlobalRule(parser, position, "-printseeds");
   }
 
   @Override
   public void enablePrintUsage(
       Path printUsageFile,
-      Origin origin,
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
-    handleGlobalRule(origin, position, "-printusage");
+    handleGlobalRule(parser, position, "-printusage");
   }
 
   @Override
-  public void setApplyMappingFile(Path path, Origin origin, Position position) {
-    handleGlobalRule(origin, position, "-applymapping");
+  public void setApplyMappingFile(
+      Path path, ProguardConfigurationSourceParser parser, Position position) {
+    handleGlobalRule(parser, position, "-applymapping");
   }
 
   @Override
   public void addInjars(
-      List<FilteredClassPath> filteredClassPaths, Origin origin, Position position) {
-    handleGlobalRule(origin, position, "-injars");
+      List<FilteredClassPath> filteredClassPaths,
+      ProguardConfigurationSourceParser parser,
+      Position position) {
+    handleGlobalRule(parser, position, "-injars");
   }
 
   @Override
   public void addLibraryJars(
-      List<FilteredClassPath> filteredClassPaths, Origin origin, Position position) {
-    handleGlobalRule(origin, position, "-libraryjars");
+      List<FilteredClassPath> filteredClassPaths,
+      ProguardConfigurationSourceParser parser,
+      Position position) {
+    handleGlobalRule(parser, position, "-libraryjars");
   }
 
   @Override
-  public void setObfuscationDictionary(Path path, Origin origin, Position position) {
-    handleGlobalRule(origin, position, "-obfuscationdictionary");
+  public void setObfuscationDictionary(
+      Path path, ProguardConfigurationSourceParser parser, Position position) {
+    handleGlobalRule(parser, position, "-obfuscationdictionary");
   }
 
   @Override
-  public void setClassObfuscationDictionary(Path path, Origin origin, Position position) {
-    handleGlobalRule(origin, position, "-classobfuscationdictionary");
+  public void setClassObfuscationDictionary(
+      Path path, ProguardConfigurationSourceParser parser, Position position) {
+    handleGlobalRule(parser, position, "-classobfuscationdictionary");
   }
 
   @Override
-  public void setPackageObfuscationDictionary(Path path, Origin origin, Position position) {
-    handleGlobalRule(origin, position, "-packageobfuscationdictionary");
+  public void setPackageObfuscationDictionary(
+      Path path, ProguardConfigurationSourceParser parser, Position position) {
+    handleGlobalRule(parser, position, "-packageobfuscationdictionary");
   }
 
   @Override

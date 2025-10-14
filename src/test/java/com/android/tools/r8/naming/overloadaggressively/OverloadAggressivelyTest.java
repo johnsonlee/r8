@@ -49,7 +49,7 @@ public class OverloadAggressivelyTest extends TestBase {
                 ToolHelper.prepareR8CommandBuilder(app),
                 pgConfig -> {
                   Path printMappingFile = out.resolve(ToolHelper.DEFAULT_PROGUARD_MAP_FILE);
-                  pgConfig.enablePrintMapping(printMappingFile, null, null, null, null);
+                  pgConfig.enablePrintMapping(printMappingFile, null, null, null);
                 })
             .addProguardConfiguration(
                 ImmutableList.of(

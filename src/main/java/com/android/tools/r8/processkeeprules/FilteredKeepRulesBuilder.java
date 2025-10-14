@@ -4,7 +4,6 @@
 package com.android.tools.r8.processkeeprules;
 
 import com.android.tools.r8.StringConsumer;
-import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
 import com.android.tools.r8.position.TextPosition;
 import com.android.tools.r8.shaking.FilteredClassPath;
@@ -82,7 +81,6 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   @Override
   public void addKeepAttributePatterns(
       List<String> attributesPatterns,
-      Origin origin,
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
@@ -102,19 +100,19 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   }
 
   @Override
-  public void disableObfuscation(Origin origin, Position position) {
+  public void disableObfuscation(ProguardConfigurationSourceParser parser, Position position) {
     ensureComment();
     write("-dontobfuscate");
   }
 
   @Override
-  public void disableOptimization(Origin origin, Position position) {
+  public void disableOptimization(ProguardConfigurationSourceParser parser, Position position) {
     ensureComment();
     write("-dontoptimize");
   }
 
   @Override
-  public void disableShrinking(Origin origin, Position position) {
+  public void disableShrinking(ProguardConfigurationSourceParser parser, Position position) {
     ensureComment();
     write("-dontshrink");
   }
@@ -122,7 +120,6 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   @Override
   public void enablePrintConfiguration(
       Path printConfigurationFile,
-      Origin origin,
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
@@ -133,7 +130,6 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   @Override
   public void enablePrintMapping(
       Path printMappingFile,
-      Origin origin,
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
@@ -144,7 +140,6 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   @Override
   public void enablePrintSeeds(
       Path printSeedsFile,
-      Origin origin,
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
@@ -155,7 +150,6 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   @Override
   public void enablePrintUsage(
       Path printUsageFile,
-      Origin origin,
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
@@ -166,7 +160,6 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   @Override
   public void setRenameSourceFileAttribute(
       String s,
-      Origin origin,
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
@@ -178,7 +171,7 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   public void addKeepPackageNamesPattern(ProguardClassNameList proguardClassNameList) {}
 
   @Override
-  public void setKeepParameterNames(boolean b, Origin origin, Position position) {}
+  public void setKeepParameterNames(ProguardConfigurationSourceParser parser, Position position) {}
 
   @Override
   public void enableKeepDirectories() {}
@@ -193,7 +186,7 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   public void enableProtoShrinking() {}
 
   @Override
-  public void setIgnoreWarnings(boolean b) {}
+  public void setIgnoreWarnings() {}
 
   @Override
   public void addDontWarnPattern(ProguardClassNameList pattern) {}
@@ -202,27 +195,36 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   public void addDontNotePattern(ProguardClassNameList pattern) {}
 
   @Override
-  public void enableAllowAccessModification(Origin origin, Position position) {}
+  public void enableAllowAccessModification(
+      ProguardConfigurationSourceParser parser, Position position) {}
 
   @Override
-  public void setApplyMappingFile(Path path, Origin origin, Position position) {}
+  public void setApplyMappingFile(
+      Path path, ProguardConfigurationSourceParser parser, Position position) {}
 
   @Override
   public void addInjars(
-      List<FilteredClassPath> filteredClassPaths, Origin origin, Position position) {}
+      List<FilteredClassPath> filteredClassPaths,
+      ProguardConfigurationSourceParser parser,
+      Position position) {}
 
   @Override
   public void addLibraryJars(
-      List<FilteredClassPath> filteredClassPaths, Origin origin, Position position) {}
+      List<FilteredClassPath> filteredClassPaths,
+      ProguardConfigurationSourceParser parser,
+      Position position) {}
 
   @Override
-  public void setObfuscationDictionary(Path path, Origin origin, Position position) {}
+  public void setObfuscationDictionary(
+      Path path, ProguardConfigurationSourceParser parser, Position position) {}
 
   @Override
-  public void setClassObfuscationDictionary(Path path, Origin origin, Position position) {}
+  public void setClassObfuscationDictionary(
+      Path path, ProguardConfigurationSourceParser parser, Position position) {}
 
   @Override
-  public void setPackageObfuscationDictionary(Path path, Origin origin, Position position) {}
+  public void setPackageObfuscationDictionary(
+      Path path, ProguardConfigurationSourceParser parser, Position position) {}
 
   @Override
   public void addAdaptClassStringsPattern(ProguardClassNameList pattern) {}
@@ -248,8 +250,9 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   public void setFlattenPackagePrefix(String s) {}
 
   @Override
-  public void enableRepackageClasses(Origin origin, Position position) {}
+  public void enableRepackageClasses(ProguardConfigurationSourceParser parser, Position position) {}
 
   @Override
-  public void enableFlattenPackageHierarchy(Origin origin, Position position) {}
+  public void enableFlattenPackageHierarchy(
+      ProguardConfigurationSourceParser parser, Position position) {}
 }

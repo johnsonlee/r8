@@ -6,7 +6,6 @@ package com.android.tools.r8.shaking;
 import com.android.tools.r8.errors.dontwarn.DontWarnConfiguration;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.naming.DictionaryReader;
-import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
 import com.android.tools.r8.position.TextPosition;
 import com.android.tools.r8.shaking.ProguardConfigurationParser.ProguardConfigurationSourceParser;
@@ -88,38 +87,44 @@ public class ProguardConfiguration {
     }
 
     @Override
-    public void addInjars(List<FilteredClassPath> injars, Origin origin, Position position) {
+    public void addInjars(
+        List<FilteredClassPath> injars,
+        ProguardConfigurationSourceParser parser,
+        Position position) {
       this.injars.addAll(injars);
     }
 
     @Override
     public void addLibraryJars(
-        List<FilteredClassPath> libraryJars, Origin origin, Position position) {
+        List<FilteredClassPath> libraryJars,
+        ProguardConfigurationSourceParser parser,
+        Position position) {
       this.libraryJars.addAll(libraryJars);
     }
 
     @Override
-    public void enableAllowAccessModification(Origin origin, Position position) {
+    public void enableAllowAccessModification(
+        ProguardConfigurationSourceParser parser, Position position) {
       this.allowAccessModification = true;
     }
 
     @Override
-    public void setIgnoreWarnings(boolean ignoreWarnings) {
+    public void setIgnoreWarnings() {
       this.ignoreWarnings = ignoreWarnings;
     }
 
     @Override
-    public void disableOptimization(Origin origin, Position position) {
+    public void disableOptimization(ProguardConfigurationSourceParser parser, Position position) {
       this.optimizing = false;
     }
 
     @Override
-    public void disableObfuscation(Origin origin, Position position) {
+    public void disableObfuscation(ProguardConfigurationSourceParser parser, Position position) {
       this.obfuscating = false;
     }
 
     @Override
-    public void disableShrinking(Origin origin, Position position) {
+    public void disableShrinking(ProguardConfigurationSourceParser parser, Position position) {
       this.shrinking = false;
     }
 
@@ -153,7 +158,6 @@ public class ProguardConfiguration {
     @Override
     public void enablePrintConfiguration(
         Path printConfigurationFile,
-        Origin origin,
         ProguardConfigurationSourceParser parser,
         Position position,
         TextPosition positionStart) {
@@ -164,7 +168,6 @@ public class ProguardConfiguration {
     @Override
     public void enablePrintUsage(
         Path printUsageFile,
-        Origin origin,
         ProguardConfigurationSourceParser parser,
         Position position,
         TextPosition positionStart) {
@@ -175,7 +178,6 @@ public class ProguardConfiguration {
     @Override
     public void enablePrintMapping(
         Path printMappingFile,
-        Origin origin,
         ProguardConfigurationSourceParser parser,
         Position position,
         TextPosition positionStart) {
@@ -184,14 +186,14 @@ public class ProguardConfiguration {
     }
 
     @Override
-    public void setApplyMappingFile(Path file, Origin origin, Position position) {
+    public void setApplyMappingFile(
+        Path file, ProguardConfigurationSourceParser parser, Position position) {
       this.applyMappingFile = file;
     }
 
     @Override
     public void setRenameSourceFileAttribute(
         String renameSourceFileAttribute,
-        Origin origin,
         ProguardConfigurationSourceParser parser,
         Position position,
         TextPosition positionStart) {
@@ -201,7 +203,6 @@ public class ProguardConfiguration {
     @Override
     public void addKeepAttributePatterns(
         List<String> keepAttributePatterns,
-        Origin origin,
         ProguardConfigurationSourceParser parser,
         Position position,
         TextPosition positionStart) {
@@ -256,12 +257,14 @@ public class ProguardConfiguration {
     }
 
     @Override
-    public void enableFlattenPackageHierarchy(Origin origin, Position position) {
+    public void enableFlattenPackageHierarchy(
+        ProguardConfigurationSourceParser parser, Position position) {
       packageObfuscationMode = PackageObfuscationMode.FLATTEN;
     }
 
     @Override
-    public void enableRepackageClasses(Origin origin, Position position) {
+    public void enableRepackageClasses(
+        ProguardConfigurationSourceParser parser, Position position) {
       packageObfuscationMode = PackageObfuscationMode.REPACKAGE;
     }
 
@@ -278,7 +281,6 @@ public class ProguardConfiguration {
     @Override
     public void enablePrintSeeds(
         Path printSeedsFile,
-        Origin origin,
         ProguardConfigurationSourceParser parser,
         Position position,
         TextPosition positionStart) {
@@ -288,25 +290,29 @@ public class ProguardConfiguration {
 
     @Override
     public void setObfuscationDictionary(
-        Path obfuscationDictionary, Origin origin, Position position) {
+        Path obfuscationDictionary, ProguardConfigurationSourceParser parser, Position position) {
       this.obfuscationDictionary = obfuscationDictionary;
     }
 
     @Override
     public void setClassObfuscationDictionary(
-        Path classObfuscationDictionary, Origin origin, Position position) {
+        Path classObfuscationDictionary,
+        ProguardConfigurationSourceParser parser,
+        Position position) {
       this.classObfuscationDictionary = classObfuscationDictionary;
     }
 
     @Override
     public void setPackageObfuscationDictionary(
-        Path packageObfuscationDictionary, Origin origin, Position position) {
+        Path packageObfuscationDictionary,
+        ProguardConfigurationSourceParser parser,
+        Position position) {
       this.packageObfuscationDictionary = packageObfuscationDictionary;
     }
 
     @Override
     public void setKeepParameterNames(
-        boolean keepParameterNames, Origin optionOrigin, Position optionPosition) {
+        ProguardConfigurationSourceParser optionOrigin, Position optionPosition) {
       assert optionOrigin != null || !keepParameterNames;
       this.keepParameterNames = keepParameterNames;
     }

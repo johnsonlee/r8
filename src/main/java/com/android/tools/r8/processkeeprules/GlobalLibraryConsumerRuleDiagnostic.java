@@ -9,9 +9,10 @@ import com.android.tools.r8.position.Position;
 
 @KeepForApi
 public class GlobalLibraryConsumerRuleDiagnostic extends ConsumerRuleDiagnostic {
+
   private final String rule;
 
-  public GlobalLibraryConsumerRuleDiagnostic(Origin origin, Position position, String rule) {
+  GlobalLibraryConsumerRuleDiagnostic(Origin origin, Position position, String rule) {
     super(origin, position);
     this.rule = rule;
   }
