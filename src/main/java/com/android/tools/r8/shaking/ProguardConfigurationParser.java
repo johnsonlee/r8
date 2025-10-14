@@ -316,7 +316,7 @@ public class ProguardConfigurationParser {
         configurationConsumer.addKeepPackageNamesPattern(
             keepPackageNamePatterns, this, optionStart);
       } else if (acceptString("keepparameternames")) {
-        configurationConsumer.setKeepParameterNames(this, getPosition(optionStart));
+        configurationConsumer.setKeepParameterNames(this, getPosition(optionStart), optionStart);
       } else if (acceptString("checkdiscard")) {
         ProguardCheckDiscardRule rule =
             parseRuleWithClassSpec(optionStart, ProguardCheckDiscardRule.builder());
@@ -413,10 +413,10 @@ public class ProguardConfigurationParser {
         configurationConsumer.enablePrintMapping(
             parseOptionalFileName(), this, getPosition(optionStart), optionStart);
       } else if (acceptString("applymapping")) {
+        Path applyMappingFile =
+            parseFileInputDependency(inputDependencyConsumer::acceptProguardApplyMapping);
         configurationConsumer.setApplyMappingFile(
-            parseFileInputDependency(inputDependencyConsumer::acceptProguardApplyMapping),
-            this,
-            getPosition(optionStart));
+            applyMappingFile, this, getPosition(optionStart), optionStart);
       } else if (acceptString("assumenosideeffects")) {
         ProguardAssumeNoSideEffectRule rule = parseAssumeNoSideEffectsRule(optionStart);
         configurationConsumer.addRule(rule);
@@ -448,22 +448,22 @@ public class ProguardConfigurationParser {
         configurationConsumer.enablePrintSeeds(
             parseOptionalFileName(), this, getPosition(optionStart), optionStart);
       } else if (acceptString("obfuscationdictionary")) {
+        Path obfuscationDictionary =
+            parseFileInputDependency(inputDependencyConsumer::acceptProguardObfuscationDictionary);
         configurationConsumer.setObfuscationDictionary(
-            parseFileInputDependency(inputDependencyConsumer::acceptProguardObfuscationDictionary),
-            this,
-            getPosition(optionStart));
+            obfuscationDictionary, this, getPosition(optionStart), optionStart);
       } else if (acceptString("classobfuscationdictionary")) {
+        Path classObfuscationDictionary =
+            parseFileInputDependency(
+                inputDependencyConsumer::acceptProguardClassObfuscationDictionary);
         configurationConsumer.setClassObfuscationDictionary(
-            parseFileInputDependency(
-                inputDependencyConsumer::acceptProguardClassObfuscationDictionary),
-            this,
-            getPosition(optionStart));
+            classObfuscationDictionary, this, getPosition(optionStart), optionStart);
       } else if (acceptString("packageobfuscationdictionary")) {
-        configurationConsumer.setPackageObfuscationDictionary(
+        Path packageObfuscationDictionary =
             parseFileInputDependency(
-                inputDependencyConsumer::acceptProguardPackageObfuscationDictionary),
-            this,
-            getPosition(optionStart));
+                inputDependencyConsumer::acceptProguardPackageObfuscationDictionary);
+        configurationConsumer.setPackageObfuscationDictionary(
+            packageObfuscationDictionary, this, getPosition(optionStart), optionStart);
       } else if (acceptString("alwaysinline")) {
         InlineRule rule =
             parseRuleWithClassSpec(

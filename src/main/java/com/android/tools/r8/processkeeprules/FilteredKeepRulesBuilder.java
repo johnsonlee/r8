@@ -217,8 +217,55 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   }
 
   @Override
+  public void setApplyMappingFile(
+      Path applyMappingFile,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
+
+  @Override
   public void setIgnoreWarnings(
       ProguardConfigurationSourceParser parser, TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
+
+  @Override
+  public void setClassObfuscationDictionary(
+      Path path,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
+
+  @Override
+  public void setKeepParameterNames(
+      ProguardConfigurationSourceParser parser, Position position, TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
+
+  @Override
+  public void setObfuscationDictionary(
+      Path path,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
+
+  @Override
+  public void setPackageObfuscationDictionary(
+      Path path,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
     ensureNewlineAfterComment();
     write(parser, positionStart);
   }
@@ -234,14 +281,7 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   }
 
   @Override
-  public void setKeepParameterNames(ProguardConfigurationSourceParser parser, Position position) {}
-
-  @Override
   public void addParsedConfiguration(String s) {}
-
-  @Override
-  public void setApplyMappingFile(
-      Path path, ProguardConfigurationSourceParser parser, Position position) {}
 
   @Override
   public void addInjars(
@@ -254,18 +294,6 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
       List<FilteredClassPath> filteredClassPaths,
       ProguardConfigurationSourceParser parser,
       Position position) {}
-
-  @Override
-  public void setObfuscationDictionary(
-      Path path, ProguardConfigurationSourceParser parser, Position position) {}
-
-  @Override
-  public void setClassObfuscationDictionary(
-      Path path, ProguardConfigurationSourceParser parser, Position position) {}
-
-  @Override
-  public void setPackageObfuscationDictionary(
-      Path path, ProguardConfigurationSourceParser parser, Position position) {}
 
   @Override
   public void addAdaptResourceFileContents(ProguardPathList pattern) {}

@@ -117,7 +117,8 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
       TextPosition positionStart) {}
 
   @Override
-  public void setKeepParameterNames(ProguardConfigurationSourceParser parser, Position position) {}
+  public void setKeepParameterNames(
+      ProguardConfigurationSourceParser parser, Position position, TextPosition positionStart) {}
 
   @Override
   public void enableKeepDirectories(
@@ -183,7 +184,10 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
 
   @Override
   public void setApplyMappingFile(
-      Path path, ProguardConfigurationSourceParser parser, Position position) {
+      Path applyMappingFile,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
     handleGlobalRule(parser, position, "-applymapping");
   }
 
@@ -205,19 +209,28 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
 
   @Override
   public void setObfuscationDictionary(
-      Path path, ProguardConfigurationSourceParser parser, Position position) {
+      Path path,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
     handleGlobalRule(parser, position, "-obfuscationdictionary");
   }
 
   @Override
   public void setClassObfuscationDictionary(
-      Path path, ProguardConfigurationSourceParser parser, Position position) {
+      Path path,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
     handleGlobalRule(parser, position, "-classobfuscationdictionary");
   }
 
   @Override
   public void setPackageObfuscationDictionary(
-      Path path, ProguardConfigurationSourceParser parser, Position position) {
+      Path path,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
     handleGlobalRule(parser, position, "-packageobfuscationdictionary");
   }
 

@@ -27,7 +27,8 @@ public interface ProguardConfigurationParserConsumer {
       ProguardConfigurationSourceParser parser,
       TextPosition positionStart);
 
-  void setKeepParameterNames(ProguardConfigurationSourceParser parser, Position position);
+  void setKeepParameterNames(
+      ProguardConfigurationSourceParser parser, Position position, TextPosition positionStart);
 
   void setRenameSourceFileAttribute(
       String s,
@@ -87,7 +88,11 @@ public interface ProguardConfigurationParserConsumer {
   void enableAllowAccessModification(
       ProguardConfigurationSourceParser parser, Position position, TextPosition positionStart);
 
-  void setApplyMappingFile(Path path, ProguardConfigurationSourceParser parser, Position position);
+  void setApplyMappingFile(
+      Path applyMappingFile,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart);
 
   void addInjars(
       List<FilteredClassPath> filteredClassPaths,
@@ -100,13 +105,22 @@ public interface ProguardConfigurationParserConsumer {
       Position position);
 
   void setObfuscationDictionary(
-      Path path, ProguardConfigurationSourceParser parser, Position position);
+      Path path,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart);
 
   void setClassObfuscationDictionary(
-      Path path, ProguardConfigurationSourceParser parser, Position position);
+      Path path,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart);
 
   void setPackageObfuscationDictionary(
-      Path path, ProguardConfigurationSourceParser parser, Position position);
+      Path path,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart);
 
   void addAdaptClassStringsPattern(
       ProguardClassNameList pattern,

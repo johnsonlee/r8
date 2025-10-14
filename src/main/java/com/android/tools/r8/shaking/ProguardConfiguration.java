@@ -188,8 +188,11 @@ public class ProguardConfiguration {
 
     @Override
     public void setApplyMappingFile(
-        Path file, ProguardConfigurationSourceParser parser, Position position) {
-      this.applyMappingFile = file;
+        Path applyMappingFile,
+        ProguardConfigurationSourceParser parser,
+        Position position,
+        TextPosition positionStart) {
+      this.applyMappingFile = applyMappingFile;
     }
 
     @Override
@@ -300,7 +303,10 @@ public class ProguardConfiguration {
 
     @Override
     public void setObfuscationDictionary(
-        Path obfuscationDictionary, ProguardConfigurationSourceParser parser, Position position) {
+        Path obfuscationDictionary,
+        ProguardConfigurationSourceParser parser,
+        Position position,
+        TextPosition positionStart) {
       this.obfuscationDictionary = obfuscationDictionary;
     }
 
@@ -308,7 +314,8 @@ public class ProguardConfiguration {
     public void setClassObfuscationDictionary(
         Path classObfuscationDictionary,
         ProguardConfigurationSourceParser parser,
-        Position position) {
+        Position position,
+        TextPosition positionStart) {
       this.classObfuscationDictionary = classObfuscationDictionary;
     }
 
@@ -316,13 +323,16 @@ public class ProguardConfiguration {
     public void setPackageObfuscationDictionary(
         Path packageObfuscationDictionary,
         ProguardConfigurationSourceParser parser,
-        Position position) {
+        Position position,
+        TextPosition positionStart) {
       this.packageObfuscationDictionary = packageObfuscationDictionary;
     }
 
     @Override
     public void setKeepParameterNames(
-        ProguardConfigurationSourceParser optionOrigin, Position optionPosition) {
+        ProguardConfigurationSourceParser optionOrigin,
+        Position optionPosition,
+        TextPosition positionStart) {
       assert optionOrigin != null || !keepParameterNames;
       this.keepParameterNames = true;
     }
