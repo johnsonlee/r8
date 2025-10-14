@@ -120,7 +120,22 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   }
 
   @Override
-  public void setRenameSourceFileAttribute(String s, Origin origin, Position position) {}
+  public void enablePrintUsage(
+      Path printUsageFile, ProguardConfigurationSourceParser parser, TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
+
+  @Override
+  public void setRenameSourceFileAttribute(
+      String s,
+      Origin origin,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
 
   @Override
   public void addKeepPackageNamesPattern(ProguardClassNameList proguardClassNameList) {}
@@ -136,12 +151,6 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
 
   @Override
   public void addParsedConfiguration(String s) {}
-
-  @Override
-  public void setPrintUsage(boolean b) {}
-
-  @Override
-  public void setPrintUsageFile(Path path) {}
 
   @Override
   public void enableProtoShrinking() {}

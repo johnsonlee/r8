@@ -135,10 +135,6 @@ public class ProguardConfiguration {
       return this;
     }
 
-    boolean isAccessModificationEnabled() {
-      return allowAccessModification;
-    }
-
     boolean isObfuscating() {
       return obfuscating;
     }
@@ -168,12 +164,9 @@ public class ProguardConfiguration {
     }
 
     @Override
-    public void setPrintUsage(boolean printUsage) {
-      this.printUsage = printUsage;
-    }
-
-    @Override
-    public void setPrintUsageFile(Path printUsageFile) {
+    public void enablePrintUsage(
+        Path printUsageFile, ProguardConfigurationSourceParser parser, TextPosition positionStart) {
+      this.printUsage = true;
       this.printUsageFile = printUsageFile;
     }
 
@@ -193,13 +186,13 @@ public class ProguardConfiguration {
       this.applyMappingFile = file;
     }
 
-    public boolean hasApplyMappingFile() {
-      return applyMappingFile != null;
-    }
-
     @Override
     public void setRenameSourceFileAttribute(
-        String renameSourceFileAttribute, Origin origin, Position position) {
+        String renameSourceFileAttribute,
+        Origin origin,
+        ProguardConfigurationSourceParser parser,
+        Position position,
+        TextPosition positionStart) {
       this.renameSourceFileAttribute = renameSourceFileAttribute;
     }
 
@@ -315,18 +308,6 @@ public class ProguardConfiguration {
       this.keepParameterNames = keepParameterNames;
       this.keepParameterNamesOptionOrigin = optionOrigin;
       this.keepParameterNamesOptionPosition = optionPosition;
-    }
-
-    boolean isKeepParameterNames() {
-      return keepParameterNames;
-    }
-
-    Origin getKeepParameterNamesOptionOrigin() {
-      return keepParameterNamesOptionOrigin;
-    }
-
-    Position getKeepParameterNamesOptionPosition() {
-      return keepParameterNamesOptionPosition;
     }
 
     @Override

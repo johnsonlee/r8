@@ -24,13 +24,21 @@ public interface ProguardConfigurationParserConsumer {
       Position position,
       TextPosition positionStart);
 
-  void setRenameSourceFileAttribute(String s, Origin origin, Position position);
-
   void addKeepPackageNamesPattern(ProguardClassNameList proguardClassNameList);
 
   void setKeepParameterNames(boolean b, Origin origin, Position position);
 
+  void setRenameSourceFileAttribute(
+      String s,
+      Origin origin,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart);
+
   void enableKeepDirectories();
+
+  void enablePrintUsage(
+      Path printUsageFile, ProguardConfigurationSourceParser parser, TextPosition positionStart);
 
   void addKeepDirectories(ProguardPathList proguardPathList);
 
@@ -39,10 +47,6 @@ public interface ProguardConfigurationParserConsumer {
   void disableObfuscation(Origin origin, Position position);
 
   void disableShrinking(Origin origin, Position position);
-
-  void setPrintUsage(boolean b);
-
-  void setPrintUsageFile(Path path);
 
   void enableProtoShrinking();
 

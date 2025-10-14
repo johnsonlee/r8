@@ -306,7 +306,7 @@ public class ProguardConfigurationParser {
         String renameSourceFileAttribute =
             isOptionalArgumentGiven() ? acceptQuotedOrUnquotedString() : "";
         configurationConsumer.setRenameSourceFileAttribute(
-            renameSourceFileAttribute, origin, getPosition(optionStart));
+            renameSourceFileAttribute, origin, this, getPosition(optionStart), optionStart);
       } else if (acceptString("keepattributes")) {
         parseKeepAttributes(optionStart);
       } else if (acceptString("keeppackagenames")) {
@@ -345,11 +345,8 @@ public class ProguardConfigurationParser {
       } else if (acceptString("dontshrink")) {
         configurationConsumer.disableShrinking(origin, getPosition(optionStart));
       } else if (acceptString("printusage")) {
-        configurationConsumer.setPrintUsage(true);
         skipWhitespace();
-        if (isOptionalArgumentGiven()) {
-          configurationConsumer.setPrintUsageFile(parseFileName(false));
-        }
+        configurationConsumer.enablePrintUsage(parseOptionalFileName(), this, optionStart);
       } else if (acceptString("shrinkunusedprotofields")) {
         configurationConsumer.enableProtoShrinking();
       } else if (acceptString("ignorewarnings")) {
@@ -1566,6 +1563,14 @@ public class ProguardConfigurationParser {
       Path file = parseFileName(false);
       dependencyConsumer.accept(origin, file);
       return file;
+    }
+
+    private Path parseOptionalFileName() throws ProguardRuleParserException {
+      return isOptionalArgumentGiven() ? parseFileName() : null;
+    }
+
+    private Path parseFileName() throws ProguardRuleParserException {
+      return parseFileName(false);
     }
 
     private Path parseFileName(boolean stopAfterPathSeparator) throws ProguardRuleParserException {

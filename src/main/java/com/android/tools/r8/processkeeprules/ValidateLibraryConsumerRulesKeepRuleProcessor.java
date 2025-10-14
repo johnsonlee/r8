@@ -65,7 +65,12 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
   }
 
   @Override
-  public void setRenameSourceFileAttribute(String s, Origin origin, Position position) {
+  public void setRenameSourceFileAttribute(
+      String s,
+      Origin origin,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
     handleGlobalRule(origin, position, "-renamesourcefileattribute");
   }
 
@@ -116,10 +121,8 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
   public void addKeepDirectories(ProguardPathList proguardPathList) {}
 
   @Override
-  public void setPrintUsage(boolean b) {}
-
-  @Override
-  public void setPrintUsageFile(Path path) {}
+  public void enablePrintUsage(
+      Path printUsageFile, ProguardConfigurationSourceParser parser, TextPosition positionStart) {}
 
   @Override
   public void enableProtoShrinking() {}
