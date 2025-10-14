@@ -104,12 +104,13 @@ public class ProguardConfiguration {
 
     @Override
     public void enableAllowAccessModification(
-        ProguardConfigurationSourceParser parser, Position position) {
+        ProguardConfigurationSourceParser parser, Position position, TextPosition positionStart) {
       this.allowAccessModification = true;
     }
 
     @Override
-    public void setIgnoreWarnings() {
+    public void setIgnoreWarnings(
+        ProguardConfigurationSourceParser parser, TextPosition positionStart) {
       this.ignoreWarnings = true;
     }
 
@@ -356,7 +357,8 @@ public class ProguardConfiguration {
     }
 
     @Override
-    public void enableProtoShrinking() {
+    public void enableProtoShrinking(
+        ProguardConfigurationSourceParser parser, TextPosition positionStart) {
       protoShrinking = true;
     }
 

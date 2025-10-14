@@ -121,7 +121,7 @@ public abstract class CompilationTestBase extends DesugaredLibraryTestBase {
           builder,
           pgConfig -> {
             pgConfig.enablePrintSeeds(null, null, null, null);
-            pgConfig.setIgnoreWarnings();
+            pgConfig.setIgnoreWarnings(null, null);
           });
       outputApp = new AndroidAppConsumers(builder);
       ToolHelper.runR8(builder.build(), optionsConsumer);

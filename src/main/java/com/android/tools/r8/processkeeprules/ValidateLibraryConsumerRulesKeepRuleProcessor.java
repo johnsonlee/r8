@@ -64,7 +64,7 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
 
   @Override
   public void enableAllowAccessModification(
-      ProguardConfigurationSourceParser parser, Position position) {
+      ProguardConfigurationSourceParser parser, Position position, TextPosition positionStart) {
     handleGlobalRule(parser, position, "-allowaccessmodification");
   }
 
@@ -123,10 +123,12 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
       TextPosition positionStart) {}
 
   @Override
-  public void enableProtoShrinking() {}
+  public void enableProtoShrinking(
+      ProguardConfigurationSourceParser parser, TextPosition positionStart) {}
 
   @Override
-  public void setIgnoreWarnings() {}
+  public void setIgnoreWarnings(
+      ProguardConfigurationSourceParser parser, TextPosition positionStart) {}
 
   @Override
   public void addDontWarnPattern(ProguardClassNameList pattern) {}

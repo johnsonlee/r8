@@ -67,15 +67,16 @@ public interface ProguardConfigurationParserConsumer {
 
   void disableShrinking(ProguardConfigurationSourceParser parser, Position position);
 
-  void enableProtoShrinking();
+  void enableProtoShrinking(ProguardConfigurationSourceParser parser, TextPosition positionStart);
 
-  void setIgnoreWarnings();
+  void setIgnoreWarnings(ProguardConfigurationSourceParser parser, TextPosition positionStart);
 
   void addDontWarnPattern(ProguardClassNameList pattern);
 
   void addDontNotePattern(ProguardClassNameList pattern);
 
-  void enableAllowAccessModification(ProguardConfigurationSourceParser parser, Position position);
+  void enableAllowAccessModification(
+      ProguardConfigurationSourceParser parser, Position position, TextPosition positionStart);
 
   void setApplyMappingFile(Path path, ProguardConfigurationSourceParser parser, Position position);
 

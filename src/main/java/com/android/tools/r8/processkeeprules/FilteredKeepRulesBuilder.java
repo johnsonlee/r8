@@ -118,6 +118,13 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   }
 
   @Override
+  public void enableAllowAccessModification(
+      ProguardConfigurationSourceParser parser, Position position, TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
+
+  @Override
   public void enableKeepDirectories(
       ProguardPathList keepDirectoryPatterns,
       ProguardConfigurationSourceParser parser,
@@ -167,6 +174,20 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   }
 
   @Override
+  public void enableProtoShrinking(
+      ProguardConfigurationSourceParser parser, TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
+
+  @Override
+  public void setIgnoreWarnings(
+      ProguardConfigurationSourceParser parser, TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
+
+  @Override
   public void setRenameSourceFileAttribute(
       String s,
       ProguardConfigurationSourceParser parser,
@@ -186,20 +207,10 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   public void addParsedConfiguration(String s) {}
 
   @Override
-  public void enableProtoShrinking() {}
-
-  @Override
-  public void setIgnoreWarnings() {}
-
-  @Override
   public void addDontWarnPattern(ProguardClassNameList pattern) {}
 
   @Override
   public void addDontNotePattern(ProguardClassNameList pattern) {}
-
-  @Override
-  public void enableAllowAccessModification(
-      ProguardConfigurationSourceParser parser, Position position) {}
 
   @Override
   public void setApplyMappingFile(

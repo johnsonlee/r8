@@ -351,9 +351,9 @@ public class ProguardConfigurationParser {
         configurationConsumer.enablePrintUsage(
             parseOptionalFileName(), this, getPosition(optionStart), optionStart);
       } else if (acceptString("shrinkunusedprotofields")) {
-        configurationConsumer.enableProtoShrinking();
+        configurationConsumer.enableProtoShrinking(this, optionStart);
       } else if (acceptString("ignorewarnings")) {
-        configurationConsumer.setIgnoreWarnings();
+        configurationConsumer.setIgnoreWarnings(this, optionStart);
       } else if (acceptString("dontwarn")) {
         parseClassFilter(configurationConsumer::addDontWarnPattern);
       } else if (acceptString("dontnote")) {
@@ -398,7 +398,8 @@ public class ProguardConfigurationParser {
           configurationConsumer.enableFlattenPackageHierarchy(this, getPosition(optionStart));
         }
       } else if (acceptString("allowaccessmodification")) {
-        configurationConsumer.enableAllowAccessModification(this, getPosition(optionStart));
+        configurationConsumer.enableAllowAccessModification(
+            this, getPosition(optionStart), optionStart);
       } else if (acceptString("printconfiguration")) {
         skipWhitespace();
         configurationConsumer.enablePrintConfiguration(
