@@ -84,6 +84,14 @@ public abstract class ReflectiveEvent {
     return null;
   }
 
+  public boolean isClassFlagEvent() {
+    return false;
+  }
+
+  public ClassFlagEvent asClassFlagEvent() {
+    return null;
+  }
+
   public boolean isClassGetMembers() {
     return false;
   }
@@ -139,7 +147,7 @@ public abstract class ReflectiveEvent {
       case CLASS_CAST:
         break;
       case CLASS_FLAG:
-        break;
+        return new ClassFlagEvent(eventType, stack, args, factory);
       case ATOMIC_FIELD_UPDATER_NEW_UPDATER:
         return new AtomicFieldUpdaterNewUpdater(eventType, stack, args, factory);
       case SERVICE_LOADER_LOAD:
