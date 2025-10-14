@@ -129,9 +129,15 @@ public interface ProguardConfigurationParserConsumer {
       ProguardConfigurationSourceParser parser,
       TextPosition positionStart);
 
-  void addAdaptResourceFileContents(ProguardPathList pattern);
+  void addAdaptResourceFileContents(
+      ProguardPathList pattern,
+      ProguardConfigurationSourceParser parser,
+      TextPosition positionStart);
 
-  void addAdaptResourceFilenames(ProguardPathList pattern);
+  void addAdaptResourceFilenames(
+      ProguardPathList pattern,
+      ProguardConfigurationSourceParser parser,
+      TextPosition positionStart);
 
   void joinMaxRemovedAndroidLogLevel(int maxRemovedAndroidLogLevel);
 

@@ -88,6 +88,24 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   }
 
   @Override
+  public void addAdaptResourceFileContents(
+      ProguardPathList pattern,
+      ProguardConfigurationSourceParser parser,
+      TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
+
+  @Override
+  public void addAdaptResourceFilenames(
+      ProguardPathList pattern,
+      ProguardConfigurationSourceParser parser,
+      TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
+
+  @Override
   public void addDontNotePattern(
       ProguardClassNameList pattern,
       ProguardConfigurationSourceParser parser,
@@ -322,12 +340,6 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
 
   @Override
   public void addParsedConfiguration(String s) {}
-
-  @Override
-  public void addAdaptResourceFileContents(ProguardPathList pattern) {}
-
-  @Override
-  public void addAdaptResourceFilenames(ProguardPathList pattern) {}
 
   @Override
   public void joinMaxRemovedAndroidLogLevel(int maxRemovedAndroidLogLevel) {}

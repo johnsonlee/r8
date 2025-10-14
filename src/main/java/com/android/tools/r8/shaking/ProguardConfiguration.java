@@ -346,7 +346,10 @@ public class ProguardConfiguration {
     }
 
     @Override
-    public void addAdaptResourceFilenames(ProguardPathList pattern) {
+    public void addAdaptResourceFilenames(
+        ProguardPathList pattern,
+        ProguardConfigurationSourceParser parser,
+        TextPosition positionStart) {
       adaptResourceFilenames.addPattern(pattern);
     }
 
@@ -357,7 +360,10 @@ public class ProguardConfiguration {
     }
 
     @Override
-    public void addAdaptResourceFileContents(ProguardPathList pattern) {
+    public void addAdaptResourceFileContents(
+        ProguardPathList pattern,
+        ProguardConfigurationSourceParser parser,
+        TextPosition positionStart) {
       adaptResourceFileContents.addPattern(pattern);
     }
 

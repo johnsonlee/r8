@@ -476,9 +476,11 @@ public class ProguardConfigurationParser {
         configurationConsumer.addAdaptClassStringsPattern(
             adaptClassStringsPattern, this, optionStart);
       } else if (acceptString("adaptresourcefilenames")) {
-        parsePathFilter(configurationConsumer::addAdaptResourceFilenames);
+        ProguardPathList pattern = parseOptionalPathFilter();
+        configurationConsumer.addAdaptResourceFilenames(pattern, this, optionStart);
       } else if (acceptString("adaptresourcefilecontents")) {
-        parsePathFilter(configurationConsumer::addAdaptResourceFileContents);
+        ProguardPathList pattern = parseOptionalPathFilter();
+        configurationConsumer.addAdaptResourceFileContents(pattern, this, optionStart);
       } else if (acceptString("identifiernamestring")) {
         configurationConsumer.addRule(
             parseRuleWithClassSpec(optionStart, ProguardIdentifierNameStringRule.builder()));

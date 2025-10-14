@@ -250,10 +250,16 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
       TextPosition positionStart) {}
 
   @Override
-  public void addAdaptResourceFileContents(ProguardPathList pattern) {}
+  public void addAdaptResourceFileContents(
+      ProguardPathList pattern,
+      ProguardConfigurationSourceParser parser,
+      TextPosition positionStart) {}
 
   @Override
-  public void addAdaptResourceFilenames(ProguardPathList pattern) {}
+  public void addAdaptResourceFilenames(
+      ProguardPathList pattern,
+      ProguardConfigurationSourceParser parser,
+      TextPosition positionStart) {}
 
   @Override
   public void joinMaxRemovedAndroidLogLevel(int maxRemovedAndroidLogLevel) {}
