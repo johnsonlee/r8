@@ -110,7 +110,7 @@ public class ProguardConfiguration {
 
     @Override
     public void setIgnoreWarnings() {
-      this.ignoreWarnings = ignoreWarnings;
+      this.ignoreWarnings = true;
     }
 
     @Override
@@ -314,7 +314,7 @@ public class ProguardConfiguration {
     public void setKeepParameterNames(
         ProguardConfigurationSourceParser optionOrigin, Position optionPosition) {
       assert optionOrigin != null || !keepParameterNames;
-      this.keepParameterNames = keepParameterNames;
+      this.keepParameterNames = true;
     }
 
     @Override
