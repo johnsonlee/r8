@@ -90,7 +90,8 @@ public class ProguardConfiguration {
     public void addInjars(
         List<FilteredClassPath> injars,
         ProguardConfigurationSourceParser parser,
-        Position position) {
+        Position position,
+        TextPosition positionStart) {
       this.injars.addAll(injars);
     }
 
@@ -98,7 +99,8 @@ public class ProguardConfiguration {
     public void addLibraryJars(
         List<FilteredClassPath> libraryJars,
         ProguardConfigurationSourceParser parser,
-        Position position) {
+        Position position,
+        TextPosition positionStart) {
       this.libraryJars.addAll(libraryJars);
     }
 
@@ -254,25 +256,23 @@ public class ProguardConfiguration {
     }
 
     @Override
-    public void setPackagePrefix(String packagePrefix) {
-      this.packagePrefix = packagePrefix;
-    }
-
-    @Override
-    public void setFlattenPackagePrefix(String packagePrefix) {
-      this.packagePrefix = packagePrefix;
-    }
-
-    @Override
     public void enableFlattenPackageHierarchy(
-        ProguardConfigurationSourceParser parser, Position position) {
+        String packagePrefix,
+        ProguardConfigurationSourceParser parser,
+        Position position,
+        TextPosition positionStart) {
       packageObfuscationMode = PackageObfuscationMode.FLATTEN;
+      this.packagePrefix = packagePrefix;
     }
 
     @Override
     public void enableRepackageClasses(
-        ProguardConfigurationSourceParser parser, Position position) {
+        String packagePrefix,
+        ProguardConfigurationSourceParser parser,
+        Position position,
+        TextPosition positionStart) {
       packageObfuscationMode = PackageObfuscationMode.REPACKAGE;
+      this.packagePrefix = packagePrefix;
     }
 
     @Override

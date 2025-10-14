@@ -97,12 +97,14 @@ public interface ProguardConfigurationParserConsumer {
   void addInjars(
       List<FilteredClassPath> filteredClassPaths,
       ProguardConfigurationSourceParser parser,
-      Position position);
+      Position position,
+      TextPosition positionStart);
 
   void addLibraryJars(
       List<FilteredClassPath> filteredClassPaths,
       ProguardConfigurationSourceParser parser,
-      Position position);
+      Position position,
+      TextPosition positionStart);
 
   void setObfuscationDictionary(
       Path path,
@@ -135,13 +137,17 @@ public interface ProguardConfigurationParserConsumer {
 
   PackageObfuscationMode getPackageObfuscationMode();
 
-  void setPackagePrefix(String s);
+  void enableRepackageClasses(
+      String packagePrefix,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart);
 
-  void setFlattenPackagePrefix(String s);
-
-  void enableRepackageClasses(ProguardConfigurationSourceParser parser, Position position);
-
-  void enableFlattenPackageHierarchy(ProguardConfigurationSourceParser parser, Position position);
+  void enableFlattenPackageHierarchy(
+      String packagePrefix,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart);
 
   default void addWhitespace(ProguardConfigurationSourceParser parser, TextPosition position) {}
 }

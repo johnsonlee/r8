@@ -106,6 +106,16 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   }
 
   @Override
+  public void addInjars(
+      List<FilteredClassPath> filteredClassPaths,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
+
+  @Override
   public void addKeepAttributePatterns(
       List<String> attributesPatterns,
       ProguardConfigurationSourceParser parser,
@@ -119,6 +129,16 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   public void addKeepPackageNamesPattern(
       ProguardClassNameList proguardClassNameList,
       ProguardConfigurationSourceParser parser,
+      TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
+
+  @Override
+  public void addLibraryJars(
+      List<FilteredClassPath> filteredClassPaths,
+      ProguardConfigurationSourceParser parser,
+      Position position,
       TextPosition positionStart) {
     ensureNewlineAfterComment();
     write(parser, positionStart);
@@ -156,6 +176,16 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   @Override
   public void enableAllowAccessModification(
       ProguardConfigurationSourceParser parser, Position position, TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
+
+  @Override
+  public void enableFlattenPackageHierarchy(
+      String packagePrefix,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
     ensureNewlineAfterComment();
     write(parser, positionStart);
   }
@@ -212,6 +242,16 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   @Override
   public void enableProtoShrinking(
       ProguardConfigurationSourceParser parser, TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
+
+  @Override
+  public void enableRepackageClasses(
+      String packagePrefix,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
     ensureNewlineAfterComment();
     write(parser, positionStart);
   }
@@ -284,18 +324,6 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   public void addParsedConfiguration(String s) {}
 
   @Override
-  public void addInjars(
-      List<FilteredClassPath> filteredClassPaths,
-      ProguardConfigurationSourceParser parser,
-      Position position) {}
-
-  @Override
-  public void addLibraryJars(
-      List<FilteredClassPath> filteredClassPaths,
-      ProguardConfigurationSourceParser parser,
-      Position position) {}
-
-  @Override
   public void addAdaptResourceFileContents(ProguardPathList pattern) {}
 
   @Override
@@ -308,17 +336,4 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   public PackageObfuscationMode getPackageObfuscationMode() {
     return null;
   }
-
-  @Override
-  public void setPackagePrefix(String s) {}
-
-  @Override
-  public void setFlattenPackagePrefix(String s) {}
-
-  @Override
-  public void enableRepackageClasses(ProguardConfigurationSourceParser parser, Position position) {}
-
-  @Override
-  public void enableFlattenPackageHierarchy(
-      ProguardConfigurationSourceParser parser, Position position) {}
 }

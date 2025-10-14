@@ -52,13 +52,20 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
   }
 
   @Override
-  public void enableRepackageClasses(ProguardConfigurationSourceParser parser, Position position) {
+  public void enableRepackageClasses(
+      String packagePrefix,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
     handleGlobalRule(parser, position, "-repackageclasses");
   }
 
   @Override
   public void enableFlattenPackageHierarchy(
-      ProguardConfigurationSourceParser parser, Position position) {
+      String packagePrefix,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
     handleGlobalRule(parser, position, "-flattenpackagehierarchy");
   }
 
@@ -195,7 +202,8 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
   public void addInjars(
       List<FilteredClassPath> filteredClassPaths,
       ProguardConfigurationSourceParser parser,
-      Position position) {
+      Position position,
+      TextPosition positionStart) {
     handleGlobalRule(parser, position, "-injars");
   }
 
@@ -203,7 +211,8 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
   public void addLibraryJars(
       List<FilteredClassPath> filteredClassPaths,
       ProguardConfigurationSourceParser parser,
-      Position position) {
+      Position position,
+      TextPosition positionStart) {
     handleGlobalRule(parser, position, "-libraryjars");
   }
 
@@ -253,10 +262,4 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
   public PackageObfuscationMode getPackageObfuscationMode() {
     return null;
   }
-
-  @Override
-  public void setPackagePrefix(String s) {}
-
-  @Override
-  public void setFlattenPackagePrefix(String s) {}
 }

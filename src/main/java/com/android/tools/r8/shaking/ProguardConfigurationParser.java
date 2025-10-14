@@ -368,17 +368,17 @@ public class ProguardConfigurationParser {
         }
         skipWhitespace();
         char quote = acceptQuoteIfPresent();
+        String packagePrefix;
         if (isQuote(quote)) {
-          configurationConsumer.setPackagePrefix(parsePackageNameOrEmptyString());
+          packagePrefix = parsePackageNameOrEmptyString();
           expectClosingQuote(quote);
+        } else if (hasNextChar('-')) {
+          packagePrefix = "";
         } else {
-          if (hasNextChar('-')) {
-            configurationConsumer.setPackagePrefix("");
-          } else {
-            configurationConsumer.setPackagePrefix(parsePackageNameOrEmptyString());
-          }
+          packagePrefix = parsePackageNameOrEmptyString();
         }
-        configurationConsumer.enableRepackageClasses(this, getPosition(optionStart));
+        configurationConsumer.enableRepackageClasses(
+            packagePrefix, this, getPosition(optionStart), optionStart);
       } else if (acceptString(FLATTEN_PACKAGE_HIERARCHY)) {
         if (configurationConsumer.getPackageObfuscationMode() == PackageObfuscationMode.REPACKAGE) {
           warnOverridingOptions(REPACKAGE_CLASSES, FLATTEN_PACKAGE_HIERARCHY, optionStart);
@@ -389,17 +389,17 @@ public class ProguardConfigurationParser {
         } else {
           skipWhitespace();
           char quote = acceptQuoteIfPresent();
+          String packagePrefix;
           if (isQuote(quote)) {
-            configurationConsumer.setFlattenPackagePrefix(parsePackageNameOrEmptyString());
+            packagePrefix = parsePackageNameOrEmptyString();
             expectClosingQuote(quote);
+          } else if (hasNextChar('-')) {
+            packagePrefix = "";
           } else {
-            if (hasNextChar('-')) {
-              configurationConsumer.setFlattenPackagePrefix("");
-            } else {
-              configurationConsumer.setFlattenPackagePrefix(parsePackageNameOrEmptyString());
-            }
+            packagePrefix = parsePackageNameOrEmptyString();
           }
-          configurationConsumer.enableFlattenPackageHierarchy(this, getPosition(optionStart));
+          configurationConsumer.enableFlattenPackageHierarchy(
+              packagePrefix, this, getPosition(optionStart), optionStart);
         }
       } else if (acceptString("allowaccessmodification")) {
         configurationConsumer.enableAllowAccessModification(
@@ -437,12 +437,14 @@ public class ProguardConfigurationParser {
         configurationConsumer.addInjars(
             parseClassPath(inputDependencyConsumer::acceptProguardInJars),
             this,
-            getPosition(optionStart));
+            getPosition(optionStart),
+            optionStart);
       } else if (acceptString("libraryjars")) {
         configurationConsumer.addLibraryJars(
             parseClassPath(inputDependencyConsumer::acceptProguardLibraryJars),
             this,
-            getPosition(optionStart));
+            getPosition(optionStart),
+            optionStart);
       } else if (acceptString("printseeds")) {
         skipWhitespace();
         configurationConsumer.enablePrintSeeds(
