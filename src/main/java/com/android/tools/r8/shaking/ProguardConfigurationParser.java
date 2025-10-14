@@ -323,8 +323,8 @@ public class ProguardConfigurationParser {
         // Not supported, ignore.
         parseRuleWithClassSpec(optionStart, ProguardCheckDiscardRule.builder());
       } else if (acceptString("keepdirectories")) {
-        configurationConsumer.enableKeepDirectories();
-        parsePathFilter(configurationConsumer::addKeepDirectories);
+        ProguardPathList keepDirectoryPatterns = parseOptionalPathFilter();
+        configurationConsumer.enableKeepDirectories(keepDirectoryPatterns, this, optionStart);
       } else if (acceptString("keep")) {
         ProguardKeepRule rule = parseKeepRule(optionStart);
         configurationConsumer.addRule(rule);
@@ -2143,6 +2143,11 @@ public class ProguardConfigurationParser {
 
     private boolean pathFilterMatcher(Integer character) {
       return character != ',' && !Character.isWhitespace(character);
+    }
+
+    private ProguardPathList parseOptionalPathFilter() throws ProguardRuleParserException {
+      skipWhitespace();
+      return isOptionalArgumentGiven() ? parsePathFilter() : ProguardPathList.emptyList();
     }
 
     private void parsePathFilter(Consumer<ProguardPathList> consumer)

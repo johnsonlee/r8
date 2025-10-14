@@ -32,7 +32,10 @@ public interface ProguardConfigurationParserConsumer {
       Position position,
       TextPosition positionStart);
 
-  void enableKeepDirectories();
+  void enableKeepDirectories(
+      ProguardPathList keepDirectoryPatterns,
+      ProguardConfigurationSourceParser parser,
+      TextPosition positionStart);
 
   void enablePrintConfiguration(
       Path printConfigurationFile,
@@ -57,8 +60,6 @@ public interface ProguardConfigurationParserConsumer {
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart);
-
-  void addKeepDirectories(ProguardPathList proguardPathList);
 
   void disableOptimization(ProguardConfigurationSourceParser parser, Position position);
 

@@ -117,10 +117,10 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
   public void setKeepParameterNames(ProguardConfigurationSourceParser parser, Position position) {}
 
   @Override
-  public void enableKeepDirectories() {}
-
-  @Override
-  public void addKeepDirectories(ProguardPathList proguardPathList) {}
+  public void enableKeepDirectories(
+      ProguardPathList keepDirectoryPatterns,
+      ProguardConfigurationSourceParser parser,
+      TextPosition positionStart) {}
 
   @Override
   public void enableProtoShrinking() {}

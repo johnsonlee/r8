@@ -118,6 +118,15 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   }
 
   @Override
+  public void enableKeepDirectories(
+      ProguardPathList keepDirectoryPatterns,
+      ProguardConfigurationSourceParser parser,
+      TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
+
+  @Override
   public void enablePrintConfiguration(
       Path printConfigurationFile,
       ProguardConfigurationSourceParser parser,
@@ -172,12 +181,6 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
 
   @Override
   public void setKeepParameterNames(ProguardConfigurationSourceParser parser, Position position) {}
-
-  @Override
-  public void enableKeepDirectories() {}
-
-  @Override
-  public void addKeepDirectories(ProguardPathList proguardPathList) {}
 
   @Override
   public void addParsedConfiguration(String s) {}

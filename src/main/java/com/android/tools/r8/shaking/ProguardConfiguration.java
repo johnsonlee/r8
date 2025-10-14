@@ -339,13 +339,11 @@ public class ProguardConfiguration {
     }
 
     @Override
-    public void enableKeepDirectories() {
-      keepDirectories.enable();
-    }
-
-    @Override
-    public void addKeepDirectories(ProguardPathList pattern) {
-      keepDirectories.addPattern(pattern);
+    public void enableKeepDirectories(
+        ProguardPathList keepDirectoryPatterns,
+        ProguardConfigurationSourceParser parser,
+        TextPosition positionStart) {
+      keepDirectories.enable().addPattern(keepDirectoryPatterns);
     }
 
     public boolean isForceProguardCompatibility() {
