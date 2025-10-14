@@ -142,8 +142,23 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   }
 
   @Override
+  public void enablePrintSeeds(
+      Path printSeedsFile,
+      Origin origin,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
+
+  @Override
   public void enablePrintUsage(
-      Path printUsageFile, ProguardConfigurationSourceParser parser, TextPosition positionStart) {
+      Path printUsageFile,
+      Origin origin,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
     ensureNewlineAfterComment();
     write(parser, positionStart);
   }
@@ -199,12 +214,6 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   @Override
   public void addLibraryJars(
       List<FilteredClassPath> filteredClassPaths, Origin origin, Position position) {}
-
-  @Override
-  public void setPrintSeeds(boolean b, Origin origin, Position position) {}
-
-  @Override
-  public void setSeedFile(Path path) {}
 
   @Override
   public void setObfuscationDictionary(Path path, Origin origin, Position position) {}

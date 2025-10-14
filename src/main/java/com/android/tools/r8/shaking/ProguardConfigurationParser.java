@@ -346,7 +346,8 @@ public class ProguardConfigurationParser {
         configurationConsumer.disableShrinking(origin, getPosition(optionStart));
       } else if (acceptString("printusage")) {
         skipWhitespace();
-        configurationConsumer.enablePrintUsage(parseOptionalFileName(), this, optionStart);
+        configurationConsumer.enablePrintUsage(
+            parseOptionalFileName(), origin, this, getPosition(optionStart), optionStart);
       } else if (acceptString("shrinkunusedprotofields")) {
         configurationConsumer.enableProtoShrinking();
       } else if (acceptString("ignorewarnings")) {
@@ -436,11 +437,9 @@ public class ProguardConfigurationParser {
             origin,
             getPosition(optionStart));
       } else if (acceptString("printseeds")) {
-        configurationConsumer.setPrintSeeds(true, origin, getPosition(optionStart));
         skipWhitespace();
-        if (isOptionalArgumentGiven()) {
-          configurationConsumer.setSeedFile(parseFileName());
-        }
+        configurationConsumer.enablePrintSeeds(
+            parseOptionalFileName(), origin, this, getPosition(optionStart), optionStart);
       } else if (acceptString("obfuscationdictionary")) {
         configurationConsumer.setObfuscationDictionary(
             parseFileInputDependency(inputDependencyConsumer::acceptProguardObfuscationDictionary),

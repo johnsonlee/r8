@@ -51,8 +51,19 @@ public interface ProguardConfigurationParserConsumer {
       Position position,
       TextPosition positionStart);
 
+  void enablePrintSeeds(
+      Path printSeedsFile,
+      Origin origin,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart);
+
   void enablePrintUsage(
-      Path printUsageFile, ProguardConfigurationSourceParser parser, TextPosition positionStart);
+      Path printUsageFile,
+      Origin origin,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart);
 
   void addKeepDirectories(ProguardPathList proguardPathList);
 
@@ -77,10 +88,6 @@ public interface ProguardConfigurationParserConsumer {
   void addInjars(List<FilteredClassPath> filteredClassPaths, Origin origin, Position position);
 
   void addLibraryJars(List<FilteredClassPath> filteredClassPaths, Origin origin, Position position);
-
-  void setPrintSeeds(boolean b, Origin origin, Position position);
-
-  void setSeedFile(Path path);
 
   void setObfuscationDictionary(Path path, Origin origin, Position position);
 

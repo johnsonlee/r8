@@ -121,10 +121,6 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
   public void addKeepDirectories(ProguardPathList proguardPathList) {}
 
   @Override
-  public void enablePrintUsage(
-      Path printUsageFile, ProguardConfigurationSourceParser parser, TextPosition positionStart) {}
-
-  @Override
   public void enableProtoShrinking() {}
 
   @Override
@@ -157,6 +153,26 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
   }
 
   @Override
+  public void enablePrintSeeds(
+      Path printSeedsFile,
+      Origin origin,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
+    handleGlobalRule(origin, position, "-printseeds");
+  }
+
+  @Override
+  public void enablePrintUsage(
+      Path printUsageFile,
+      Origin origin,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
+    handleGlobalRule(origin, position, "-printusage");
+  }
+
+  @Override
   public void setApplyMappingFile(Path path, Origin origin, Position position) {
     handleGlobalRule(origin, position, "-applymapping");
   }
@@ -172,14 +188,6 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
       List<FilteredClassPath> filteredClassPaths, Origin origin, Position position) {
     handleGlobalRule(origin, position, "-libraryjars");
   }
-
-  @Override
-  public void setPrintSeeds(boolean b, Origin origin, Position position) {
-    handleGlobalRule(origin, position, "-printseeds");
-  }
-
-  @Override
-  public void setSeedFile(Path path) {}
 
   @Override
   public void setObfuscationDictionary(Path path, Origin origin, Position position) {

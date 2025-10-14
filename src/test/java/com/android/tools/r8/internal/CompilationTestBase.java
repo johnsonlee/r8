@@ -120,7 +120,7 @@ public abstract class CompilationTestBase extends DesugaredLibraryTestBase {
       ToolHelper.addProguardConfigurationConsumer(
           builder,
           pgConfig -> {
-            pgConfig.setPrintSeeds(false, null, null);
+            pgConfig.enablePrintSeeds(null, null, null, null, null);
             pgConfig.setIgnoreWarnings(true);
           });
       outputApp = new AndroidAppConsumers(builder);

@@ -53,13 +53,11 @@ public class ProguardConfiguration {
     protected final Set<ProguardConfigurationRule> rules = Sets.newLinkedHashSet();
     private final DexItemFactory dexItemFactory;
     private boolean printSeeds;
-    private Path seedFile;
+    private Path printSeedsFile;
     private Path obfuscationDictionary;
     private Path classObfuscationDictionary;
     private Path packageObfuscationDictionary;
     private boolean keepParameterNames;
-    private Origin keepParameterNamesOptionOrigin;
-    private Position keepParameterNamesOptionPosition;
     private final ProguardClassFilter.Builder adaptClassStrings = ProguardClassFilter.builder();
     private final ProguardPathFilter.Builder adaptResourceFilenames =
         ProguardPathFilter.builder()
@@ -165,7 +163,11 @@ public class ProguardConfiguration {
 
     @Override
     public void enablePrintUsage(
-        Path printUsageFile, ProguardConfigurationSourceParser parser, TextPosition positionStart) {
+        Path printUsageFile,
+        Origin origin,
+        ProguardConfigurationSourceParser parser,
+        Position position,
+        TextPosition positionStart) {
       this.printUsage = true;
       this.printUsageFile = printUsageFile;
     }
@@ -274,13 +276,14 @@ public class ProguardConfiguration {
     }
 
     @Override
-    public void setSeedFile(Path seedFile) {
-      this.seedFile = seedFile;
-    }
-
-    @Override
-    public void setPrintSeeds(boolean printSeeds, Origin origin, Position position) {
-      this.printSeeds = printSeeds;
+    public void enablePrintSeeds(
+        Path printSeedsFile,
+        Origin origin,
+        ProguardConfigurationSourceParser parser,
+        Position position,
+        TextPosition positionStart) {
+      this.printSeeds = true;
+      this.printSeedsFile = printSeedsFile;
     }
 
     @Override
@@ -306,8 +309,6 @@ public class ProguardConfiguration {
         boolean keepParameterNames, Origin optionOrigin, Position optionPosition) {
       assert optionOrigin != null || !keepParameterNames;
       this.keepParameterNames = keepParameterNames;
-      this.keepParameterNamesOptionOrigin = optionOrigin;
-      this.keepParameterNamesOptionPosition = optionPosition;
     }
 
     @Override
@@ -389,7 +390,7 @@ public class ProguardConfiguration {
               dontNotePatterns.build(),
               rules,
               printSeeds,
-              seedFile,
+              printSeedsFile,
               DictionaryReader.readAllNames(obfuscationDictionary, reporter),
               DictionaryReader.readAllNames(classObfuscationDictionary, reporter),
               DictionaryReader.readAllNames(packageObfuscationDictionary, reporter),
