@@ -154,9 +154,9 @@ def CloneDesugaredLibrary(github_account, checkout_dir, desugar_jdk_libs_hash):
 
 
 def GetJavaEnv(androidHomeTemp):
-    java_env = dict(os.environ, JAVA_HOME=jdk.GetJdk11Home())
+    java_env = dict(os.environ, JAVA_HOME=jdk.GetJdk17Home())
     java_env['PATH'] = java_env['PATH'] + os.pathsep + os.path.join(
-        jdk.GetJdk11Home(), 'bin')
+        jdk.GetJdk17Home(), 'bin')
     java_env['GRADLE_OPTS'] = '-Xmx1g'
     java_env['ANDROID_HOME'] = androidHomeTemp
     return java_env
@@ -392,7 +392,7 @@ def Main(argv):
     # Make sure bazel is extracted in third_party.
     utils.DownloadFromGoogleCloudStorage(utils.BAZEL_SHA_FILE)
     utils.DownloadFromGoogleCloudStorage(utils.JAVA8_SHA_FILE)
-    utils.DownloadFromGoogleCloudStorage(utils.JAVA11_SHA_FILE)
+    utils.DownloadFromGoogleCloudStorage(utils.JAVA17_SHA_FILE)
     utils.DownloadFromGoogleCloudStorage(utils.DESUGAR_JDK_LIBS_11_SHA_FILE)
 
     for v in options.variant:

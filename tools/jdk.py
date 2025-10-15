@@ -62,6 +62,10 @@ def GetAllJdkDirs():
     return dirs
 
 
+def GetJdk17Home():
+    return GetJdkHome('jdk-17')
+
+
 def GetJdk11Home():
     return GetJdkHome('jdk-11')
 

@@ -146,6 +146,8 @@ JAVA8_SHA_FILE = os.path.join(THIRD_PARTY, 'openjdk', 'jdk8',
                               'linux-x86.tar.gz.sha1')
 JAVA11_SHA_FILE = os.path.join(THIRD_PARTY, 'openjdk', 'jdk-11',
                                'linux.tar.gz.sha1')
+JAVA17_SHA_FILE = os.path.join(THIRD_PARTY, 'openjdk', 'jdk-17',
+                               'linux.tar.gz.sha1')
 DESUGAR_JDK_LIBS_11_SHA_FILE = os.path.join(THIRD_PARTY, 'openjdk',
                                             'desugar_jdk_libs_11.tar.gz.sha1')
 IGNORE_WARNINGS_RULES = os.path.join(REPO_ROOT, 'src', 'test',
