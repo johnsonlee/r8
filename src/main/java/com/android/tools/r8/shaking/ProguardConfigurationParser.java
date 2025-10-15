@@ -936,45 +936,46 @@ public class ProguardConfigurationParser {
           "Expecting '-keep' option after '-if' option.", origin, getPosition(optionStart)));
     }
 
-    private boolean parseMaximumRemovedAndroidLogLevelRule(Position start)
+    private boolean parseMaximumRemovedAndroidLogLevelRule(TextPosition optionStart)
         throws ProguardRuleParserException {
-      if (acceptString("maximumremovedandroidloglevel")) {
-        skipWhitespace();
-        // First parse the mandatory log level int.
-        Integer maxRemovedAndroidLogLevel = acceptInteger();
-        if (maxRemovedAndroidLogLevel == null
-            || maxRemovedAndroidLogLevel < MaximumRemovedAndroidLogLevelRule.NONE) {
-          throw parseError("Expected integer greater than or equal to 1", getPosition());
-        }
-        MaximumRemovedAndroidLogLevelRule.Builder builder =
-            MaximumRemovedAndroidLogLevelRule.builder()
-                .setMaxRemovedAndroidLogLevel(maxRemovedAndroidLogLevel)
-                .setOrigin(origin)
-                .setStart(start);
-        // Check if we can parse any class annotations or flag.
-        if (parseClassAnnotationsAndFlags(builder)) {
-          // Parse the remainder of the class specification.
-          parseClassSpecFromClassTypeInclusive(builder, false);
-        } else {
-          // Otherwise check if we can parse a class name.
-          parseClassType(
-              builder,
-              // Parse the remainder of the class specification.
-              () -> parseClassSpecFromClassNameInclusive(builder, false),
-              // In case of an error, move position back to the place we expected an (optional)
-              // class type.
-              expectedClassTypeStart -> position = expectedClassTypeStart.getOffsetAsInt());
-        }
-        if (builder.hasClassType()) {
-          Position end = getPosition();
-          configurationConsumer.addRule(
-              builder.setEnd(end).setSource(getSourceSnippet(contents, start, end)).build());
-        } else {
-          configurationConsumer.joinMaxRemovedAndroidLogLevel(maxRemovedAndroidLogLevel);
-        }
-        return true;
+      if (!acceptString("maximumremovedandroidloglevel")) {
+        return false;
       }
-      return false;
+      skipWhitespace();
+      // First parse the mandatory log level int.
+      Integer maxRemovedAndroidLogLevel = acceptInteger();
+      if (maxRemovedAndroidLogLevel == null
+          || maxRemovedAndroidLogLevel < MaximumRemovedAndroidLogLevelRule.NONE) {
+        throw parseError("Expected integer greater than or equal to 1", getPosition());
+      }
+      MaximumRemovedAndroidLogLevelRule.Builder builder =
+          MaximumRemovedAndroidLogLevelRule.builder()
+              .setMaxRemovedAndroidLogLevel(maxRemovedAndroidLogLevel)
+              .setOrigin(origin)
+              .setStart(optionStart);
+      // Check if we can parse any class annotations or flag.
+      if (parseClassAnnotationsAndFlags(builder)) {
+        // Parse the remainder of the class specification.
+        parseClassSpecFromClassTypeInclusive(builder, false);
+      } else {
+        // Otherwise check if we can parse a class name.
+        parseClassType(
+            builder,
+            // Parse the remainder of the class specification.
+            () -> parseClassSpecFromClassNameInclusive(builder, false),
+            // In case of an error, move position back to the place we expected an (optional)
+            // class type.
+            expectedClassTypeStart -> position = expectedClassTypeStart.getOffsetAsInt());
+      }
+      if (builder.hasClassType()) {
+        Position end = getPosition();
+        configurationConsumer.addRule(
+            builder.setEnd(end).setSource(getSourceSnippet(contents, optionStart, end)).build());
+      } else {
+        configurationConsumer.joinMaxRemovedAndroidLogLevel(
+            maxRemovedAndroidLogLevel, this, optionStart);
+      }
+      return true;
     }
 
     void verifyAndLinkBackReferences(Iterable<ProguardWildcard> wildcards) {

@@ -256,7 +256,10 @@ public class ProguardConfiguration {
     }
 
     @Override
-    public void joinMaxRemovedAndroidLogLevel(int maxRemovedAndroidLogLevel) {
+    public void joinMaxRemovedAndroidLogLevel(
+        int maxRemovedAndroidLogLevel,
+        ProguardConfigurationSourceParser parser,
+        TextPosition positionStart) {
       assert maxRemovedAndroidLogLevel >= MaximumRemovedAndroidLogLevelRule.NONE;
       if (this.maxRemovedAndroidLogLevel == MaximumRemovedAndroidLogLevelRule.NOT_SET) {
         this.maxRemovedAndroidLogLevel = maxRemovedAndroidLogLevel;

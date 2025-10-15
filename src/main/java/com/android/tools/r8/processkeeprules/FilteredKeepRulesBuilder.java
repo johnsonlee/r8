@@ -287,6 +287,15 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   }
 
   @Override
+  public void joinMaxRemovedAndroidLogLevel(
+      int maxRemovedAndroidLogLevel,
+      ProguardConfigurationSourceParser parser,
+      TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
+
+  @Override
   public void setApplyMappingFile(
       Path applyMappingFile,
       ProguardConfigurationSourceParser parser,
@@ -349,9 +358,6 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
     ensureNewlineAfterComment();
     write(parser, positionStart);
   }
-
-  @Override
-  public void joinMaxRemovedAndroidLogLevel(int maxRemovedAndroidLogLevel) {}
 
   @Override
   public PackageObfuscationMode getPackageObfuscationMode() {

@@ -142,7 +142,10 @@ public interface ProguardConfigurationParserConsumer {
       ProguardConfigurationSourceParser parser,
       TextPosition positionStart);
 
-  void joinMaxRemovedAndroidLogLevel(int maxRemovedAndroidLogLevel);
+  void joinMaxRemovedAndroidLogLevel(
+      int maxRemovedAndroidLogLevel,
+      ProguardConfigurationSourceParser parser,
+      TextPosition positionStart);
 
   PackageObfuscationMode getPackageObfuscationMode();
 

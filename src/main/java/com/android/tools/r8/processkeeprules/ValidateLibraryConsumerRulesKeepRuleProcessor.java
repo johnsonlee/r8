@@ -269,7 +269,10 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
       TextPosition positionStart) {}
 
   @Override
-  public void joinMaxRemovedAndroidLogLevel(int maxRemovedAndroidLogLevel) {}
+  public void joinMaxRemovedAndroidLogLevel(
+      int maxRemovedAndroidLogLevel,
+      ProguardConfigurationSourceParser parser,
+      TextPosition positionStart) {}
 
   @Override
   public PackageObfuscationMode getPackageObfuscationMode() {
