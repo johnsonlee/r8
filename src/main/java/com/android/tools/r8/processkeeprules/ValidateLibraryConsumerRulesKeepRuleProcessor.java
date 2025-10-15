@@ -18,6 +18,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigurationParserConsumer {
+
   private final Reporter reporter;
 
   public ValidateLibraryConsumerRulesKeepRuleProcessor(Reporter reporter) {
@@ -85,7 +86,7 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
   }
 
   @Override
-  public void addParsedConfiguration(String s) {}
+  public void addParsedConfiguration(ProguardConfigurationSourceParser parser) {}
 
   @Override
   public void addRule(ProguardConfigurationRule rule) {}

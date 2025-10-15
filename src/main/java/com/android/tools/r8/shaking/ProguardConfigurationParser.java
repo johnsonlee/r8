@@ -39,8 +39,11 @@ import java.io.IOException;
 import java.nio.CharBuffer;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -224,11 +227,12 @@ public class ProguardConfigurationParser {
     private final String name;
     private final String contents;
     private int position = 0;
-    private int positionAfterInclude = 0;
     private int line = 1;
     private int lineStartPosition = 0;
     private Path baseDirectory;
     private final Origin origin;
+
+    private final Deque<IncludeWorkItem> pendingIncludes = new ArrayDeque<>();
 
     ProguardConfigurationSourceParser(ProguardConfigurationSource source) throws IOException {
       // Strip any leading BOM here so it is not included in the text position.
@@ -238,12 +242,24 @@ public class ProguardConfigurationParser {
       this.origin = source.getOrigin();
     }
 
+    public String getContentAfter(int start) {
+      return getContentInRange(start, contents.length());
+    }
+
+    public String getContentInRange(int start, int end) {
+      return contents.substring(start, end);
+    }
+
     public String getContentSince(TextPosition start) {
-      return contents.substring(start.getOffsetAsInt(), position);
+      return getContentInRange(start.getOffsetAsInt(), position);
     }
 
     public Origin getOrigin() {
       return origin;
+    }
+
+    public Collection<IncludeWorkItem> getPendingIncludes() {
+      return pendingIncludes;
     }
 
     public void parse() throws ProguardRuleParserException {
@@ -253,14 +269,11 @@ public class ProguardConfigurationParser {
           configurationConsumer.addWhitespace(this, whitespaceStart);
         }
       } while (parseOption());
-      // This may be unknown, but we want to always ensure that we don't attribute lines to the
-      // wrong configuration.
-      configurationConsumer.addParsedConfiguration(
-          "# The proguard configuration file for the following section is " + origin.toString());
-
-      // Collect the parsed configuration.
-      configurationConsumer.addParsedConfiguration(contents.substring(positionAfterInclude));
-      configurationConsumer.addParsedConfiguration("# End of content from " + origin);
+      configurationConsumer.addParsedConfiguration(this);
+      while (!pendingIncludes.isEmpty()) {
+        IncludeWorkItem includeWorkItem = pendingIncludes.removeFirst();
+        parseInclude(includeWorkItem.includePath, includeWorkItem.includePositionStart);
+      }
       reporter.failIfPendingErrors();
     }
 
@@ -268,10 +281,10 @@ public class ProguardConfigurationParser {
       if (eof()) {
         return false;
       }
-      if (acceptArobaseInclude()) {
+      TextPosition optionStart = getPosition();
+      if (acceptArobaseInclude(optionStart)) {
         return true;
       }
-      TextPosition optionStart = getPosition();
       expectChar('-');
       if (parseIgnoredOption(optionStart)
           || parseIgnoredOptionAndWarn(optionStart)
@@ -424,12 +437,8 @@ public class ProguardConfigurationParser {
         ProguardAssumeValuesRule rule = parseAssumeValuesRule(optionStart);
         configurationConsumer.addRule(rule);
       } else if (acceptString("include")) {
-        // Collect the parsed configuration until the include.
-        configurationConsumer.addParsedConfiguration(
-            contents.substring(positionAfterInclude, position - ("include".length() + 1)));
         skipWhitespace();
-        parseInclude();
-        positionAfterInclude = position;
+        enqueueInclude(optionStart);
       } else if (acceptString("basedirectory")) {
         skipWhitespace();
         baseDirectory = parseFileName();
@@ -732,29 +741,33 @@ public class ProguardConfigurationParser {
           || parseOptimizationOption(optionStart);
     }
 
-    private void parseInclude() throws ProguardRuleParserException {
-      TextPosition start = getPosition();
-      Path included = parseFileInputDependency(inputDependencyConsumer::acceptProguardInclude);
+    private void enqueueInclude(TextPosition optionStart) throws ProguardRuleParserException {
+      Path includePath = parseFileInputDependency(inputDependencyConsumer::acceptProguardInclude);
+      pendingIncludes.add(new IncludeWorkItem(includePath, optionStart, position));
+    }
+
+    private void parseInclude(Path includePath, TextPosition includePositionStart)
+        throws ProguardRuleParserException {
       try {
-        new ProguardConfigurationSourceParser(new ProguardConfigurationSourceFile(included))
+        new ProguardConfigurationSourceParser(new ProguardConfigurationSourceFile(includePath))
             .parse();
       } catch (FileNotFoundException | NoSuchFileException e) {
-        throw parseError("Included file '" + included.toString() + "' not found",
-            start, e);
+        throw parseError("Included file '" + includePath + "' not found", includePositionStart, e);
       } catch (IOException e) {
-        throw parseError("Failed to read included file '" + included.toString() + "'",
-            start, e);
+        throw parseError(
+            "Failed to read included file '" + includePath + "'", includePositionStart, e);
       }
     }
 
-    private boolean acceptArobaseInclude() throws ProguardRuleParserException {
+    private boolean acceptArobaseInclude(TextPosition optionStart)
+        throws ProguardRuleParserException {
       if (remainingChars() < 2) {
         return false;
       }
       if (!acceptChar('@')) {
         return false;
       }
-      parseInclude();
+      enqueueInclude(optionStart);
       return true;
     }
 
@@ -2333,6 +2346,19 @@ public class ProguardConfigurationParser {
         String pattern, List<ProguardWildcard> wildcards, boolean negated) {
       patternWithWildcards = new IdentifierPatternWithWildcards(pattern, wildcards);
       this.negated = negated;
+    }
+  }
+
+  static class IncludeWorkItem {
+
+    final Path includePath;
+    final TextPosition includePositionStart;
+    final int includePositionEnd;
+
+    IncludeWorkItem(Path includePath, TextPosition includePositionStart, int includePositionEnd) {
+      this.includePath = includePath;
+      this.includePositionStart = includePositionStart;
+      this.includePositionEnd = includePositionEnd;
     }
   }
 }

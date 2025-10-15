@@ -163,6 +163,11 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   }
 
   @Override
+  public void addParsedConfiguration(ProguardConfigurationSourceParser parser) {
+    // Intentionally empty.
+  }
+
+  @Override
   public void addRule(ProguardConfigurationRule rule) {
     ensureNewlineAfterComment();
     write(rule.getSource());
@@ -337,9 +342,6 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
     ensureNewlineAfterComment();
     write(parser, positionStart);
   }
-
-  @Override
-  public void addParsedConfiguration(String s) {}
 
   @Override
   public void joinMaxRemovedAndroidLogLevel(int maxRemovedAndroidLogLevel) {}

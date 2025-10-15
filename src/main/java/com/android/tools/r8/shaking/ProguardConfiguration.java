@@ -8,6 +8,7 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.naming.DictionaryReader;
 import com.android.tools.r8.position.Position;
 import com.android.tools.r8.position.TextPosition;
+import com.android.tools.r8.shaking.ProguardConfigurationParser.IncludeWorkItem;
 import com.android.tools.r8.shaking.ProguardConfigurationParser.ProguardConfigurationSourceParser;
 import com.android.tools.r8.utils.InternalOptions.PackageObfuscationMode;
 import com.android.tools.r8.utils.Reporter;
@@ -25,7 +26,7 @@ public class ProguardConfiguration {
 
   public static class Builder implements ProguardConfigurationParserConsumer {
 
-    private final List<String> parsedConfiguration = new ArrayList<>();
+    private final StringBuilder parsedConfiguration = new StringBuilder();
     private final List<FilteredClassPath> injars = new ArrayList<>();
 
     private final List<FilteredClassPath> libraryJars = new ArrayList<>();
@@ -82,8 +83,22 @@ public class ProguardConfiguration {
     }
 
     @Override
-    public void addParsedConfiguration(String source) {
-      parsedConfiguration.add(source);
+    public void addParsedConfiguration(ProguardConfigurationSourceParser parser) {
+      parsedConfiguration.append(
+          "# The proguard configuration file for the following section is " + parser.getOrigin());
+      parsedConfiguration.append(System.lineSeparator());
+      int lastIncludePositionEnd = 0;
+      for (IncludeWorkItem pendingInclude : parser.getPendingIncludes()) {
+        int includePositionStart = pendingInclude.includePositionStart.getOffsetAsInt();
+        parsedConfiguration.append(
+            parser.getContentInRange(lastIncludePositionEnd, includePositionStart));
+        lastIncludePositionEnd = pendingInclude.includePositionEnd;
+      }
+      parsedConfiguration.append(parser.getContentAfter(lastIncludePositionEnd));
+      parsedConfiguration.append(System.lineSeparator());
+      parsedConfiguration.append("# End of content from ");
+      parsedConfiguration.append(parser.getOrigin());
+      parsedConfiguration.append(System.lineSeparator());
     }
 
     @Override
@@ -399,7 +414,7 @@ public class ProguardConfiguration {
       }
       ProguardConfiguration configuration =
           new ProguardConfiguration(
-              String.join(System.lineSeparator(), parsedConfiguration),
+              parsedConfiguration.toString(),
               dexItemFactory,
               injars,
               libraryJars,

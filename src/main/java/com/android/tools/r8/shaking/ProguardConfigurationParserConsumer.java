@@ -12,7 +12,7 @@ import java.util.List;
 
 public interface ProguardConfigurationParserConsumer {
 
-  void addParsedConfiguration(String s);
+  void addParsedConfiguration(ProguardConfigurationSourceParser parser);
 
   void addRule(ProguardConfigurationRule rule);
 
