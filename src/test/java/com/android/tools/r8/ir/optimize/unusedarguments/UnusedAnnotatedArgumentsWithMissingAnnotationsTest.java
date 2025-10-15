@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.ir.optimize.unusedarguments;
 
-import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -45,10 +44,6 @@ public class UnusedAnnotatedArgumentsWithMissingAnnotationsTest extends TestBase
   }
 
   private void checkClass(ClassSubject clazz, String expectedAnnotationClass) {
-    if (parameters.canUseJavaLangInvokeVarHandleStoreStoreFence()) {
-      assertThat(clazz, isAbsent());
-      return;
-    }
     assertThat(clazz, isPresent());
     MethodSubject init = clazz.init("Test", "java.lang.String");
     assertThat(init, isPresent());
