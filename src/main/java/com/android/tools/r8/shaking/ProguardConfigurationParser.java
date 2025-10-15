@@ -2157,11 +2157,6 @@ public class ProguardConfigurationParser {
       return isOptionalArgumentGiven() ? parsePathFilter() : ProguardPathList.emptyList();
     }
 
-    private void parsePathFilter(Consumer<ProguardPathList> consumer)
-        throws ProguardRuleParserException {
-      consumer.accept(parseOptionalPathFilter());
-    }
-
     private ProguardPathList parsePathFilter() throws ProguardRuleParserException {
       ProguardPathList.Builder builder = ProguardPathList.builder();
       skipWhitespace();
