@@ -83,6 +83,13 @@ public class ProguardConfiguration {
     }
 
     @Override
+    public void addInclude(
+        Path includePath, ProguardConfigurationSourceParser parser, TextPosition positionStart) {
+      IncludeWorkItem include = new IncludeWorkItem(includePath, positionStart, parser.getOffset());
+      parser.getPendingIncludes().add(include);
+    }
+
+    @Override
     public void addParsedConfiguration(ProguardConfigurationSourceParser parser) {
       parsedConfiguration.append(
           "# The proguard configuration file for the following section is " + parser.getOrigin());

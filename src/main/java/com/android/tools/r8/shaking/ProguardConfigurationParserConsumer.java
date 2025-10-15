@@ -12,6 +12,9 @@ import java.util.List;
 
 public interface ProguardConfigurationParserConsumer {
 
+  void addInclude(
+      Path includePath, ProguardConfigurationSourceParser parser, TextPosition positionStart);
+
   void addParsedConfiguration(ProguardConfigurationSourceParser parser);
 
   void addRule(ProguardConfigurationRule rule);

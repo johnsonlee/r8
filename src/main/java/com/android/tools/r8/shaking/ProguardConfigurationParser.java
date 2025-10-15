@@ -743,7 +743,7 @@ public class ProguardConfigurationParser {
 
     private void enqueueInclude(TextPosition optionStart) throws ProguardRuleParserException {
       Path includePath = parseFileInputDependency(inputDependencyConsumer::acceptProguardInclude);
-      pendingIncludes.add(new IncludeWorkItem(includePath, optionStart, position));
+      configurationConsumer.addInclude(includePath, this, optionStart);
     }
 
     private void parseInclude(Path includePath, TextPosition includePositionStart)
@@ -2253,6 +2253,10 @@ public class ProguardConfigurationParser {
     private void infoIgnoringModifier(String modifier, TextPosition start) {
       reporter.info(new StringDiagnostic(
           "Ignoring modifier: " + modifier, origin, getPosition(start)));
+    }
+
+    int getOffset() {
+      return position;
     }
 
     private Position getPosition(TextPosition start) {

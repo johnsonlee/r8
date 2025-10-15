@@ -124,6 +124,13 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   }
 
   @Override
+  public void addInclude(
+      Path includePath, ProguardConfigurationSourceParser parser, TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
+
+  @Override
   public void addInjars(
       List<FilteredClassPath> filteredClassPaths,
       ProguardConfigurationSourceParser parser,
@@ -164,7 +171,7 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
 
   @Override
   public void addParsedConfiguration(ProguardConfigurationSourceParser parser) {
-    // Intentionally empty.
+    assert parser.getPendingIncludes().isEmpty();
   }
 
   @Override

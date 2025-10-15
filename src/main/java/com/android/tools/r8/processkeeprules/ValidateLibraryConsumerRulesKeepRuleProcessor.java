@@ -86,6 +86,12 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
   }
 
   @Override
+  public void addInclude(
+      Path includePath, ProguardConfigurationSourceParser parser, TextPosition positionStart) {
+    // TODO(b/270289387): Report error.
+  }
+
+  @Override
   public void addParsedConfiguration(ProguardConfigurationSourceParser parser) {}
 
   @Override
