@@ -138,7 +138,6 @@ public class ProguardConfigurationParser {
         reporter,
         ProguardConfigurationParserOptions.builder()
             .setEnableLegacyFullModeForKeepRules(false)
-            .setEnableExperimentalCheckEnumUnboxed(false)
             .setEnableTestingOptions(false)
             .build(),
         null,
@@ -288,7 +287,6 @@ public class ProguardConfigurationParser {
       expectChar('-');
       if (parseIgnoredOption(optionStart)
           || parseIgnoredOptionAndWarn(optionStart)
-          || parseExperimentalOption(optionStart)
           || parseTestingOption(optionStart)
           || parseUnsupportedOptionAndErr(optionStart)) {
         // Intentionally left empty.
@@ -495,6 +493,9 @@ public class ProguardConfigurationParser {
             parseRuleWithClassSpec(optionStart, ProguardIdentifierNameStringRule.builder()));
       } else if (acceptString("if")) {
         configurationConsumer.addRule(parseIfRule(optionStart));
+      } else if (acceptString(CheckEnumUnboxedRule.RULE_NAME)) {
+        configurationConsumer.addRule(parseCheckEnumUnboxedRule(optionStart));
+        return true;
       } else if (acceptString(ConvertCheckNotNullRule.RULE_NAME)) {
         configurationConsumer.addRule(parseConvertCheckNotNullRule(optionStart));
         return true;
@@ -519,18 +520,6 @@ public class ProguardConfigurationParser {
         throw unknownOption(unknownOption, optionStart, devMessage);
       }
       return true;
-    }
-
-    private boolean parseExperimentalOption(TextPosition optionStart)
-        throws ProguardRuleParserException {
-      if (acceptString(CheckEnumUnboxedRule.RULE_NAME)) {
-        CheckEnumUnboxedRule checkEnumUnboxedRule = parseCheckEnumUnboxedRule(optionStart);
-        if (options.isExperimentalCheckEnumUnboxedEnabled()) {
-          configurationConsumer.addRule(checkEnumUnboxedRule);
-        }
-        return true;
-      }
-      return false;
     }
 
     private boolean parseTestingOption(TextPosition optionStart)

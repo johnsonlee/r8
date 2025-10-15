@@ -184,7 +184,6 @@ public class ProguardConfigurationParserTest extends TestBase {
             reporter,
             ProguardConfigurationParserOptions.builder()
                 .setEnableLegacyFullModeForKeepRules(false)
-                .setEnableExperimentalCheckEnumUnboxed(false)
                 .setEnableTestingOptions(false)
                 .build(),
             null,
@@ -202,7 +201,6 @@ public class ProguardConfigurationParserTest extends TestBase {
             dexItemFactory,
             reporter,
             ProguardConfigurationParserOptions.builder()
-                .setEnableExperimentalCheckEnumUnboxed(false)
                 .setEnableTestingOptions(true)
                 .build(),
             null,
@@ -723,7 +721,6 @@ public class ProguardConfigurationParserTest extends TestBase {
             dexItemFactory,
             reporter,
             ProguardConfigurationParserOptions.builder()
-                .setEnableExperimentalCheckEnumUnboxed(false)
                 .setEnableTestingOptions(false)
                 .build(),
             null,
@@ -743,7 +740,6 @@ public class ProguardConfigurationParserTest extends TestBase {
             dexItemFactory,
             reporter,
             ProguardConfigurationParserOptions.builder()
-                .setEnableExperimentalCheckEnumUnboxed(false)
                 .setEnableTestingOptions(false)
                 .build(),
             null,

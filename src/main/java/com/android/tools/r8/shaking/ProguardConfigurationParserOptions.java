@@ -10,7 +10,6 @@ public class ProguardConfigurationParserOptions {
 
   private final boolean enableLegacyFullModeForKeepRules;
   private final boolean enableLegacyFullModeForKeepRulesWarnings;
-  private final boolean enableExperimentalCheckEnumUnboxed;
   private final boolean enableKeepRuntimeInvisibleAnnotations;
   private final boolean enableTestingOptions;
   private final boolean forceProguardCompatibility;
@@ -18,11 +17,9 @@ public class ProguardConfigurationParserOptions {
   ProguardConfigurationParserOptions(
       boolean enableLegacyFullModeForKeepRules,
       boolean enableLegacyFullModeForKeepRulesWarnings,
-      boolean enableExperimentalCheckEnumUnboxed,
       boolean enableKeepRuntimeInvisibleAnnotations,
       boolean enableTestingOptions,
       boolean forceProguardCompatibility) {
-    this.enableExperimentalCheckEnumUnboxed = enableExperimentalCheckEnumUnboxed;
     this.enableKeepRuntimeInvisibleAnnotations = enableKeepRuntimeInvisibleAnnotations;
     this.enableTestingOptions = enableTestingOptions;
     this.enableLegacyFullModeForKeepRules = enableLegacyFullModeForKeepRules;
@@ -44,10 +41,6 @@ public class ProguardConfigurationParserOptions {
     return !forceProguardCompatibility && enableLegacyFullModeForKeepRulesWarnings;
   }
 
-  public boolean isExperimentalCheckEnumUnboxedEnabled() {
-    return enableExperimentalCheckEnumUnboxed;
-  }
-
   public boolean isKeepRuntimeInvisibleAnnotationsEnabled() {
     return enableKeepRuntimeInvisibleAnnotations;
   }
@@ -60,7 +53,6 @@ public class ProguardConfigurationParserOptions {
 
     private boolean enableLegacyFullModeForKeepRules = true;
     private boolean enableLegacyFullModeForKeepRulesWarnings = false;
-    private boolean enableExperimentalCheckEnumUnboxed;
     private boolean enableKeepRuntimeInvisibleAnnotations = true;
     private boolean enableTestingOptions;
     private boolean forceProguardCompatibility = false;
@@ -72,9 +64,6 @@ public class ProguardConfigurationParserOptions {
       enableLegacyFullModeForKeepRulesWarnings =
           parseSystemPropertyOrDefault(
               "com.android.tools.r8.enableLegacyFullModeForKeepRulesWarnings", false);
-      enableExperimentalCheckEnumUnboxed =
-          parseSystemPropertyOrDefault(
-              "com.android.tools.r8.experimental.enablecheckenumunboxed", false);
       enableKeepRuntimeInvisibleAnnotations =
           parseSystemPropertyOrDefault(
               "com.android.tools.r8.enableKeepRuntimeInvisibleAnnotations", true);
@@ -94,12 +83,6 @@ public class ProguardConfigurationParserOptions {
       return this;
     }
 
-    public Builder setEnableExperimentalCheckEnumUnboxed(
-        boolean enableExperimentalCheckEnumUnboxed) {
-      this.enableExperimentalCheckEnumUnboxed = enableExperimentalCheckEnumUnboxed;
-      return this;
-    }
-
     public Builder setEnableTestingOptions(boolean enableTestingOptions) {
       this.enableTestingOptions = enableTestingOptions;
       return this;
@@ -114,7 +97,6 @@ public class ProguardConfigurationParserOptions {
       return new ProguardConfigurationParserOptions(
           enableLegacyFullModeForKeepRules,
           enableLegacyFullModeForKeepRulesWarnings,
-          enableExperimentalCheckEnumUnboxed,
           enableKeepRuntimeInvisibleAnnotations,
           enableTestingOptions,
           forceProguardCompatibility);
