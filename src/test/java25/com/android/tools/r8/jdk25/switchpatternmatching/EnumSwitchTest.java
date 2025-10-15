@@ -1,7 +1,7 @@
 // Copyright (c) 2024, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-package com.android.tools.r8.jdk24.switchpatternmatching;
+package com.android.tools.r8.jdk25.switchpatternmatching;
 
 import static com.android.tools.r8.desugar.switchpatternmatching.SwitchTestHelper.desugarMatchException;
 import static com.android.tools.r8.desugar.switchpatternmatching.SwitchTestHelper.hasJdk21TypeSwitch;
@@ -35,7 +35,7 @@ public class EnumSwitchTest extends TestBase {
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters()
-        .withCfRuntimesStartingFromIncluding(CfVm.JDK24)
+        .withCfRuntimesStartingFromIncluding(CfVm.JDK25)
         .withDexRuntimes()
         .withAllApiLevelsAlsoForCf()
         .withPartialCompilation()
@@ -61,7 +61,7 @@ public class EnumSwitchTest extends TestBase {
 
   private <T extends TestBuilder<?, T>> void addModifiedProgramClasses(
       TestBuilder<?, T> testBuilder) throws Exception {
-    String d = "com/android/tools/r8/jdk24/switchpatternmatching/EnumSwitchTest$D";
+    String d = "com/android/tools/r8/jdk25/switchpatternmatching/EnumSwitchTest$D";
     testBuilder
         .addStrippedOuter(getClass())
         .addProgramClasses(FakeI.class, E.class, C.class)

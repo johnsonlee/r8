@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.jdk24;
+package com.android.tools.r8.jdk25;
 
 import static com.android.tools.r8.utils.InternalOptions.ASM_VERSION;
 import static junit.framework.TestCase.assertEquals;
@@ -24,9 +24,9 @@ import org.objectweb.asm.Attribute;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 
-// Test to validate that the tests_java_23 module is built with JDK-23.
+// Test to validate that the tests_java_25 module is built with JDK-25.
 @RunWith(Parameterized.class)
-public class Java24ValidationTest extends TestBase {
+public class Java25ValidationTest extends TestBase {
 
   static final String EXPECTED = StringUtils.lines("Hello, world");
 
@@ -37,7 +37,7 @@ public class Java24ValidationTest extends TestBase {
     return getTestParameters().withCfRuntimes().build();
   }
 
-  public Java24ValidationTest(TestParameters parameters) {
+  public Java25ValidationTest(TestParameters parameters) {
     this.parameters = parameters;
   }
 
@@ -88,7 +88,7 @@ public class Java24ValidationTest extends TestBase {
         .addInnerClasses(getClass())
         .run(parameters.getRuntime(), TestClass.class)
         .applyIf(
-            parameters.getCfRuntime().isOlderThan(CfVm.JDK24),
+            parameters.getCfRuntime().isOlderThan(CfVm.JDK25),
             r -> r.assertFailureWithErrorThatThrows(UnsupportedClassVersionError.class),
             r -> r.assertSuccessWithOutput(EXPECTED));
   }

@@ -1,11 +1,10 @@
 // Copyright (c) 2024, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-package com.android.tools.r8.jdk24.switchpatternmatching;
+package com.android.tools.r8.jdk25.switchpatternmatching;
 
 import static com.android.tools.r8.desugar.switchpatternmatching.SwitchTestHelper.hasJdk21TypeSwitch;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.JdkClassFileProvider;
 import com.android.tools.r8.TestBase;
@@ -21,47 +20,45 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
-// This is a copy of the same test from JDK-21. The reason for the copy is that from JDK-23 the
-// code generation for pattern matching switch changed (the bootstrap method signature used in the
-// invokedynamic changed).
 @RunWith(Parameterized.class)
-public class TypeSwitchTest extends TestBase {
+public class StringSwitchRegress382880986Test extends TestBase {
 
-  @Parameter public TestParameters parameters;
+  @Parameter(0)
+  public TestParameters parameters;
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters()
-        .withCfRuntimesStartingFromIncluding(CfVm.JDK24)
+        .withCfRuntimesStartingFromIncluding(CfVm.JDK25)
         .withDexRuntimes()
         .withAllApiLevelsAlsoForCf()
         .withPartialCompilation()
         .build();
   }
 
-  public static String EXPECTED_OUTPUT =
-      StringUtils.lines(
-          "null", "String", "Color: RED", "Point: [0;0]", "Array of int, length = 0", "Other");
+  private static final String EXPECTED_OUTPUT = StringUtils.lines("1", "2", "3");
 
   @Test
   public void testJvm() throws Exception {
-    assumeTrue(parameters.isCfRuntime());
-    CodeInspector inspector = new CodeInspector(ToolHelper.getClassFileForTestClass(Main.class));
-    assertTrue(
-        hasJdk21TypeSwitch(inspector.clazz(Main.class).uniqueMethodWithOriginalName("typeSwitch")));
-
     parameters.assumeJvmTestParameters();
+
+    CodeInspector inspector =
+        new CodeInspector(ToolHelper.getClassFileForTestClass(TestClass.class));
+    assertTrue(
+        hasJdk21TypeSwitch(inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m")));
+
     testForJvm(parameters)
-        .addInnerClassesAndStrippedOuter(getClass())
-        .run(parameters.getRuntime(), Main.class)
+        .addInnerClasses(getClass())
+        .run(parameters.getRuntime(), TestClass.class, "hello", "goodbye", "")
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   @Test
   public void testD8() throws Exception {
+    parameters.assumeDexRuntime();
     testForD8(parameters)
         .addInnerClassesAndStrippedOuter(getClass())
-        .run(parameters.getRuntime(), Main.class)
+        .run(parameters.getRuntime(), TestClass.class, "hello", "goodbye", "")
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
@@ -73,39 +70,28 @@ public class TypeSwitchTest extends TestBase {
         .applyIf(
             parameters.isCfRuntime(),
             b -> b.addLibraryProvider(JdkClassFileProvider.fromSystemJdk()))
-        .addKeepMainRule(Main.class)
-        .run(parameters.getRuntime(), Main.class)
+        .addKeepMainRule(TestClass.class)
+        .run(parameters.getRuntime(), TestClass.class, "hello", "goodbye", "")
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
-  record Point(int i, int j) {}
+  static class TestClass {
+    static final String hello = "hello";
 
-  enum Color {
-    RED,
-    GREEN,
-    BLUE;
-  }
-
-  static class Main {
-
-    static void typeSwitch(Object obj) {
-      switch (obj) {
-        case null -> System.out.println("null");
-        case String string -> System.out.println("String");
-        case Color color -> System.out.println("Color: " + color);
-        case Point point -> System.out.println("Point: [" + point.i + ";" + point.j + "]");
-        case int[] intArray -> System.out.println("Array of int, length = " + intArray.length);
-        default -> System.out.println("Other");
+    static void m(String s) {
+      switch (s) {
+        case hello -> System.out.println(1);
+        case "goodbye" -> {
+          System.out.println(2);
+        }
+        case null, default -> System.out.println(3);
       }
     }
 
     public static void main(String[] args) {
-      typeSwitch(null);
-      typeSwitch("s");
-      typeSwitch(Color.RED);
-      typeSwitch(new Point(0, 0));
-      typeSwitch(new int[] {});
-      typeSwitch(new Object());
+      m(args[0]);
+      m(args[1]);
+      m(args[2]);
     }
   }
 }

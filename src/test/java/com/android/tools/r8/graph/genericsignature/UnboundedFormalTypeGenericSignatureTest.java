@@ -56,7 +56,7 @@ public class UnboundedFormalTypeGenericSignatureTest extends TestBase {
                 transformer(Super.class).removeInnerClasses().transform())
             .run(parameters.getRuntime(), Main.class);
     if (parameters.isCfRuntime()) {
-      if (parameters.getCfRuntime().isNewerThanOrEqual(CfVm.JDK24)) {
+      if (parameters.getCfRuntime().isNewerThanOrEqual(CfVm.JDK25)) {
         runResult.assertSuccessWithOutputLines(
             "class java.lang.TypeNotPresentException::Type R not present",
             "R",
@@ -91,7 +91,7 @@ public class UnboundedFormalTypeGenericSignatureTest extends TestBase {
                 transformer(Super.class).removeInnerClasses().transform())
             .run(parameters.getRuntime(), Main.class);
     if (parameters.isCfRuntime()) {
-      if (parameters.getCfRuntime().isNewerThanOrEqual(CfVm.JDK24)) {
+      if (parameters.getCfRuntime().isNewerThanOrEqual(CfVm.JDK25)) {
         runResult.assertSuccessWithOutputLines(
             Super.class.getTypeName() + "<T>",
             "class java.lang.TypeNotPresentException::Type S not present",

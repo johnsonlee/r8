@@ -64,7 +64,7 @@ tasks {
     dependsOn(gradle.includedBuild("tests_java_11").task(":clean"))
     dependsOn(gradle.includedBuild("tests_java_17").task(":clean"))
     dependsOn(gradle.includedBuild("tests_java_21").task(":clean"))
-    dependsOn(gradle.includedBuild("tests_java_24").task(":clean"))
+    dependsOn(gradle.includedBuild("tests_java_25").task(":clean"))
   }
 
   val packageTests by registering(Jar::class) {

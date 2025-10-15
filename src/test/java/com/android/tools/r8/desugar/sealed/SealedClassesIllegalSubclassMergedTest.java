@@ -32,7 +32,10 @@ public class SealedClassesIllegalSubclassMergedTest extends TestBase {
   @Parameter(0)
   public TestParameters parameters;
 
-  static final Matcher<String> EXPECTED = containsString("cannot inherit from sealed class");
+  static final Matcher<String> EXPECTED_BEFORE_JDK25 =
+      containsString("cannot inherit from sealed class");
+  static final Matcher<String> EXPECTED_FROM_JDK25 =
+      containsString("Failed listed permitted subclass check");
   static final String EXPECTED_WITHOUT_PERMITTED_SUBCLASSES_ATTRIBUTE_OR_FIXED_ATTRIBUTE =
       StringUtils.lines("Sub1", "Sub2");
 
@@ -59,7 +62,10 @@ public class SealedClassesIllegalSubclassMergedTest extends TestBase {
     testForJvm(parameters)
         .apply(this::addTestClasses)
         .run(parameters.getRuntime(), TestClass.class)
-        .assertFailureWithErrorThatMatches(EXPECTED);
+        .assertFailureWithErrorThatMatches(
+            parameters.isCfRuntime() && parameters.asCfRuntime().isOlderThan(CfVm.JDK25)
+                ? EXPECTED_BEFORE_JDK25
+                : EXPECTED_FROM_JDK25);
   }
 
   private void inspect(CodeInspector inspector) {

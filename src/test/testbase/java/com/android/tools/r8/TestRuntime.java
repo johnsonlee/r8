@@ -34,15 +34,11 @@ public abstract class TestRuntime {
     JDK8("jdk8", 52),
     JDK9("jdk9", 53),
     JDK10("jdk10", 54),
+    // From JDK-11 only include LTS and latest non-LTS.
     JDK11("jdk11", 55),
     JDK17("jdk17", 61),
-    JDK18("jdk18", 62),
-    JDK20("jdk20", 64),
-    // From JDK-21 only include LTS and latest non-LTS.
     JDK21("jdk21", 65),
-    // TODO(b/383073689) Remove JDK-23 when bots test JDK-23.
-    JDK23("jdk23", 67),
-    JDK24("jdk24", 68);
+    JDK25("jdk25", 69); // Keep JDK-25 (LTS) when adding JDK-26.
 
     /** This should generally be the latest checked in CF runtime we fully support. */
     private static final CfVm DEFAULT = JDK11;
@@ -101,8 +97,7 @@ public abstract class TestRuntime {
   private static final Path JDK11_PATH = Paths.get(ToolHelper.THIRD_PARTY_DIR, "openjdk", "jdk-11");
   private static final Path JDK17_PATH = Paths.get(ToolHelper.THIRD_PARTY_DIR, "openjdk", "jdk-17");
   private static final Path JDK21_PATH = Paths.get(ToolHelper.THIRD_PARTY_DIR, "openjdk", "jdk-21");
-  private static final Path JDK23_PATH = Paths.get(ToolHelper.THIRD_PARTY_DIR, "openjdk", "jdk-23");
-  private static final Path JDK24_PATH = Paths.get(ToolHelper.THIRD_PARTY_DIR, "openjdk", "jdk-24");
+  private static final Path JDK25_PATH = Paths.get(ToolHelper.THIRD_PARTY_DIR, "openjdk", "jdk-25");
   private static final Map<CfVm, Path> jdkPaths =
       ImmutableMap.of(
           CfVm.JDK8, JDK8_PATH,
@@ -110,8 +105,7 @@ public abstract class TestRuntime {
           CfVm.JDK11, JDK11_PATH,
           CfVm.JDK17, JDK17_PATH,
           CfVm.JDK21, JDK21_PATH,
-          CfVm.JDK23, JDK23_PATH,
-          CfVm.JDK24, JDK24_PATH);
+          CfVm.JDK25, JDK25_PATH);
 
   public static CfRuntime getCheckedInJdk(CfVm vm) {
     if (vm == CfVm.JDK8) {
@@ -164,8 +158,8 @@ public abstract class TestRuntime {
     return new CfRuntime(CfVm.JDK21, getCheckedInJdkHome(CfVm.JDK21));
   }
 
-  public static CfRuntime getCheckedInJdk24() {
-    return new CfRuntime(CfVm.JDK24, getCheckedInJdkHome(CfVm.JDK24));
+  public static CfRuntime getCheckedInJdk25() {
+    return new CfRuntime(CfVm.JDK25, getCheckedInJdkHome(CfVm.JDK25));
   }
 
   public static List<CfRuntime> getCheckedInCfRuntimes() {
@@ -176,7 +170,7 @@ public abstract class TestRuntime {
           getCheckedInJdk11(),
           getCheckedInJdk17(),
           getCheckedInJdk21(),
-          getCheckedInJdk24()
+          getCheckedInJdk25()
         };
     Builder<CfRuntime> builder = ImmutableList.builder();
     for (CfRuntime jdk : jdks) {
@@ -237,8 +231,8 @@ public abstract class TestRuntime {
     if (version.equals("21") || version.startsWith("21.")) {
       return new CfRuntime(CfVm.JDK21, Paths.get(home));
     }
-    if (version.equals("24") || version.startsWith("24.")) {
-      return new CfRuntime(CfVm.JDK24, Paths.get(home));
+    if (version.equals("25") || version.startsWith("25.")) {
+      return new CfRuntime(CfVm.JDK25, Paths.get(home));
     }
     throw new Unimplemented("No support for JDK version: " + version);
   }

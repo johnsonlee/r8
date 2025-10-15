@@ -1,19 +1,14 @@
-// Copyright (c) 2024, the R8 project authors. Please see the AUTHORS file
+// Copyright (c) 2025, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-package com.android.tools.r8.jdk24.switchpatternmatching;
-
-import static com.android.tools.r8.desugar.switchpatternmatching.SwitchTestHelper.hasJdk21TypeSwitch;
-import static org.junit.Assert.assertTrue;
+package com.android.tools.r8.jdk25.switchpatternmatching;
 
 import com.android.tools.r8.JdkClassFileProvider;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfVm;
-import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.utils.StringUtils;
-import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -21,44 +16,36 @@ import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class StringSwitchRegress382880986Test extends TestBase {
+public class StringSwitchOldSyntaxTest extends TestBase {
 
-  @Parameter(0)
-  public TestParameters parameters;
+  @Parameter public TestParameters parameters;
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters()
-        .withCfRuntimesStartingFromIncluding(CfVm.JDK24)
+        .withCfRuntimesStartingFromIncluding(CfVm.JDK25)
         .withDexRuntimes()
         .withAllApiLevelsAlsoForCf()
         .withPartialCompilation()
         .build();
   }
 
-  private static final String EXPECTED_OUTPUT = StringUtils.lines("1", "2", "3");
+  public static String EXPECTED_OUTPUT = StringUtils.lines("null", "e11", "e22", "e33", "def");
 
   @Test
   public void testJvm() throws Exception {
     parameters.assumeJvmTestParameters();
-
-    CodeInspector inspector =
-        new CodeInspector(ToolHelper.getClassFileForTestClass(TestClass.class));
-    assertTrue(
-        hasJdk21TypeSwitch(inspector.clazz(TestClass.class).uniqueMethodWithOriginalName("m")));
-
     testForJvm(parameters)
-        .addInnerClasses(getClass())
-        .run(parameters.getRuntime(), TestClass.class, "hello", "goodbye", "")
+        .addInnerClassesAndStrippedOuter(getClass())
+        .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   @Test
   public void testD8() throws Exception {
-    parameters.assumeDexRuntime();
     testForD8(parameters)
         .addInnerClassesAndStrippedOuter(getClass())
-        .run(parameters.getRuntime(), TestClass.class, "hello", "goodbye", "")
+        .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
@@ -70,28 +57,43 @@ public class StringSwitchRegress382880986Test extends TestBase {
         .applyIf(
             parameters.isCfRuntime(),
             b -> b.addLibraryProvider(JdkClassFileProvider.fromSystemJdk()))
-        .addKeepMainRule(TestClass.class)
-        .run(parameters.getRuntime(), TestClass.class, "hello", "goodbye", "")
+        .addKeepMainRule(Main.class)
+        .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
-  static class TestClass {
-    static final String hello = "hello";
+  static class Main {
 
-    static void m(String s) {
+    static void stringSwitch(String s) {
       switch (s) {
-        case hello -> System.out.println(1);
-        case "goodbye" -> {
-          System.out.println(2);
-        }
-        case null, default -> System.out.println(3);
+        case "E1":
+          System.out.println("e11");
+          break;
+        case "E2":
+          System.out.println("e22");
+          break;
+        case "E3":
+          System.out.println("e33");
+          break;
+        case null:
+          System.out.println("null");
+          break;
+        default:
+          System.out.println("def");
+          break;
       }
     }
 
     public static void main(String[] args) {
-      m(args[0]);
-      m(args[1]);
-      m(args[2]);
+      try {
+        stringSwitch(null);
+      } catch (NullPointerException e) {
+        System.out.println("caught npe");
+      }
+      stringSwitch("E1");
+      stringSwitch("E2");
+      stringSwitch("E3");
+      stringSwitch("Other");
     }
   }
 }

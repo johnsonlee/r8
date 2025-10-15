@@ -45,7 +45,7 @@ BUCKET = 'r8-test-results'
 NUMBER_OF_TEST_REPORTS = 5
 REPORTS_PATH = os.path.join(utils.BUILD, 'reports')
 REPORT_INDEX = ['tests', 'test', 'index.html']
-VALID_RUNTIMES = ['none', 'jdk8', 'jdk9', 'jdk11', 'jdk17', 'jdk21', 'jdk24'
+VALID_RUNTIMES = ['none', 'jdk8', 'jdk9', 'jdk11', 'jdk17', 'jdk21', 'jdk25'
                  ] + ['dex-%s' % dexvm for dexvm in ALL_ART_VMS]
 
 

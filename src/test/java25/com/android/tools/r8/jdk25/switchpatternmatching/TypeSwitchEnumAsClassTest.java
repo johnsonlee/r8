@@ -1,7 +1,7 @@
-// Copyright (c) 2024, the R8 project authors. Please see the AUTHORS file
+// Copyright (c) 2025, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-package com.android.tools.r8.jdk24.switchpatternmatching;
+package com.android.tools.r8.jdk25.switchpatternmatching;
 
 import static com.android.tools.r8.desugar.switchpatternmatching.SwitchTestHelper.hasJdk21TypeSwitch;
 import static org.junit.Assert.assertTrue;
@@ -11,13 +11,12 @@ import com.android.tools.r8.JdkClassFileProvider;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestBuilder;
 import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRunResult;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper;
-import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
-import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -25,37 +24,19 @@ import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class TypeSwitchMissingClassTest extends TestBase {
+public class TypeSwitchEnumAsClassTest extends TestBase {
 
   @Parameter(0)
   public TestParameters parameters;
 
-  @Parameter(1)
-  public ClassHolder present;
-
-  @Parameters(name = "{0}, present: {1}")
-  public static List<Object[]> data() {
-    return buildParameters(
-        getTestParameters()
-            .withCfRuntimesStartingFromIncluding(CfVm.JDK24)
-            .withDexRuntimes()
-            .withAllApiLevelsAlsoForCf()
-            .build(),
-        List.of(new ClassHolder(C.class), new ClassHolder(Color.class)));
-  }
-
-  // ClassHolder allows to correctly print parameters in the IntelliJ test IDE with {1}.
-  private static class ClassHolder {
-    public final Class<?> clazz;
-
-    private ClassHolder(Class<?> clazz) {
-      this.clazz = clazz;
-    }
-
-    @Override
-    public String toString() {
-      return clazz.getSimpleName();
-    }
+  @Parameters(name = "{0}")
+  public static TestParametersCollection data() {
+    return getTestParameters()
+        .withCfRuntimesStartingFromIncluding(CfVm.JDK25)
+        .withDexRuntimes()
+        .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
+        .build();
   }
 
   public static String EXPECTED_OUTPUT =
@@ -76,31 +57,21 @@ public class TypeSwitchMissingClassTest extends TestBase {
   }
 
   private void assertResult(TestRunResult<?> r) {
-    if (present.clazz.equals(C.class)) {
-      if (parameters.isDexRuntime()
-          && parameters.getDexRuntimeVersion().isOlderThanOrEqual(Version.V4_4_4)) {
-        // Type switch desugaring is not supported below api 21.
-        r.assertFailureWithErrorThatThrows(VerifyError.class);
-      } else {
-        r.assertSuccessWithOutput(EXPECTED_OUTPUT);
-      }
-    } else {
-      r.assertFailureWithErrorThatThrows(NoClassDefFoundError.class);
-    }
+    r.assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   private <T extends TestBuilder<?, T>> void addModifiedProgramClasses(
       TestBuilder<?, T> testBuilder) throws Exception {
     testBuilder
         .addProgramClassFileData(transformer(Main.class).clearNest().transform())
-        .addProgramClassFileData(transformer(present.clazz).clearNest().transform());
+        .addProgramClassFileData(transformer(C.class).clearNest().transform())
+        .addProgramClassFileData(transformer(Color.class).clearEnum().clearNest().transform());
   }
 
   @Test
   public void testD8() throws Exception {
-    testForD8(parameters.getBackend())
+    testForD8(parameters)
         .apply(this::addModifiedProgramClasses)
-        .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
         .apply(this::assertResult);
   }
@@ -108,21 +79,17 @@ public class TypeSwitchMissingClassTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
-    testForR8(parameters.getBackend())
+    testForR8(parameters)
         .apply(this::addModifiedProgramClasses)
         .applyIf(
             parameters.isCfRuntime(),
             b -> b.addLibraryProvider(JdkClassFileProvider.fromSystemJdk()))
-        .addOptionsModification(opt -> opt.ignoreMissingClasses = true)
-        .addIgnoreWarnings(present.clazz.equals(Color.class))
-        .allowDiagnosticWarningMessages()
         .addKeepMainRule(Main.class)
-        .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
         .apply(this::assertResult);
   }
 
-  // Enum will be missing at runtime.
+  // Enum will be a class at runtime.
   enum Color {
     RED,
     GREEN,
