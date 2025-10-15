@@ -83,6 +83,12 @@ public class ProguardConfiguration {
     }
 
     @Override
+    public void addIgnoredOption(
+        String option, ProguardConfigurationSourceParser parser, TextPosition positionStart) {
+      // Intentionally empty.
+    }
+
+    @Override
     public void addInclude(
         Path includePath, ProguardConfigurationSourceParser parser, TextPosition positionStart) {
       IncludeWorkItem include = new IncludeWorkItem(includePath, positionStart, parser.getOffset());

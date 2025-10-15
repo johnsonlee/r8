@@ -12,6 +12,9 @@ import java.util.List;
 
 public interface ProguardConfigurationParserConsumer {
 
+  void addIgnoredOption(
+      String option, ProguardConfigurationSourceParser parser, TextPosition positionStart);
+
   void addInclude(
       Path includePath, ProguardConfigurationSourceParser parser, TextPosition positionStart);
 

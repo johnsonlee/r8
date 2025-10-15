@@ -640,18 +640,37 @@ public class ProguardConfigurationParser {
           }
         }
       }
+      configurationConsumer.addIgnoredOption(option, this, optionStart);
       warnIgnoringOptions(option, optionStart);
       return true;
     }
 
     private boolean parseIgnoredOption(TextPosition optionStart)
         throws ProguardRuleParserException {
-      return Iterables.any(IGNORED_SINGLE_ARG_OPTIONS, this::skipOptionWithSingleArg)
-          || Iterables.any(
-              IGNORED_OPTIONAL_SINGLE_ARG_OPTIONS, this::skipOptionWithOptionalSingleArg)
-          || Iterables.any(IGNORED_FLAG_OPTIONS, this::skipFlag)
-          || Iterables.any(IGNORED_CLASS_DESCRIPTOR_OPTIONS, this::skipOptionWithClassSpec)
-          || parseOptimizationOption(optionStart);
+      String option =
+          Iterables.find(IGNORED_SINGLE_ARG_OPTIONS, this::skipOptionWithSingleArg, null);
+      if (option == null) {
+        option =
+            Iterables.find(
+                IGNORED_OPTIONAL_SINGLE_ARG_OPTIONS, this::skipOptionWithOptionalSingleArg, null);
+        if (option == null) {
+          option = Iterables.find(IGNORED_FLAG_OPTIONS, this::skipFlag, null);
+          if (option == null) {
+            option =
+                Iterables.find(
+                    IGNORED_CLASS_DESCRIPTOR_OPTIONS, this::skipOptionWithClassSpec, null);
+            if (option == null) {
+              if (parseOptimizationOption(optionStart)) {
+                option = "optimizations";
+              } else {
+                return false;
+              }
+            }
+          }
+        }
+      }
+      configurationConsumer.addIgnoredOption(option, this, optionStart);
+      return true;
     }
 
     private void enqueueInclude(TextPosition optionStart) throws ProguardRuleParserException {

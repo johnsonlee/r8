@@ -124,6 +124,13 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   }
 
   @Override
+  public void addIgnoredOption(
+      String option, ProguardConfigurationSourceParser parser, TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
+
+  @Override
   public void addInclude(
       Path includePath, ProguardConfigurationSourceParser parser, TextPosition positionStart) {
     ensureNewlineAfterComment();
