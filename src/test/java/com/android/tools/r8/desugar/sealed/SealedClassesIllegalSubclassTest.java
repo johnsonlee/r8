@@ -137,7 +137,7 @@ public class SealedClassesIllegalSubclassTest extends TestBase {
                 && keepPermittedSubclassesAttribute,
             r -> r.assertFailureWithErrorThatMatches(EXPECTED_FROM_JDK25),
             parameters.isCfRuntime()
-                && parameters.asCfRuntime().isNewerThan(CfVm.JDK17)
+                && parameters.asCfRuntime().isNewerThanOrEqual(CfVm.JDK17)
                 && keepPermittedSubclassesAttribute,
             r -> r.assertFailureWithErrorThatMatches(EXPECTED_BEFORE_JDK25),
             r -> r.assertFailureWithErrorThatThrows(UnsupportedClassVersionError.class));
