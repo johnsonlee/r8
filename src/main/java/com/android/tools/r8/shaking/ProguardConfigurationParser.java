@@ -535,157 +535,81 @@ public class ProguardConfigurationParser {
 
     private boolean parseTestingOption(TextPosition optionStart)
         throws ProguardRuleParserException {
-      if (options.isTestingOptionsEnabled()) {
-        if (acceptString("assumemayhavesideeffects")) {
-          ProguardAssumeMayHaveSideEffectsRule rule =
-              parseAssumeMayHaveSideEffectsRule(optionStart);
-          configurationConsumer.addRule(rule);
-          return true;
-        }
-        if (acceptString(KeepConstantArgumentRule.RULE_NAME)) {
-          KeepConstantArgumentRule rule =
-              parseRuleWithClassSpec(optionStart, KeepConstantArgumentRule.builder());
-          configurationConsumer.addRule(rule);
-          return true;
-        }
-        if (acceptString(KeepUnusedArgumentRule.RULE_NAME)) {
-          KeepUnusedArgumentRule rule =
-              parseRuleWithClassSpec(optionStart, KeepUnusedArgumentRule.builder());
-          configurationConsumer.addRule(rule);
-          return true;
-        }
-        if (acceptString(KeepUnusedReturnValueRule.RULE_NAME)) {
-          KeepUnusedReturnValueRule rule =
-              parseRuleWithClassSpec(optionStart, KeepUnusedReturnValueRule.builder());
-          configurationConsumer.addRule(rule);
-          return true;
-        }
-        if (acceptString("alwaysclassinline")) {
-          ClassInlineRule rule =
-              parseRuleWithClassSpec(
-                  optionStart, ClassInlineRule.builder().setType(ClassInlineRule.Type.ALWAYS));
-          configurationConsumer.addRule(rule);
-          return true;
-        }
-        if (acceptString("neverclassinline")) {
-          ClassInlineRule rule =
-              parseRuleWithClassSpec(
-                  optionStart, ClassInlineRule.builder().setType(ClassInlineRule.Type.NEVER));
-          configurationConsumer.addRule(rule);
-          return true;
-        }
-        if (acceptString("neverinline")) {
-          InlineRule rule =
-              parseRuleWithClassSpec(
-                  optionStart, InlineRule.builder().setType(InlineRuleType.NEVER));
-          configurationConsumer.addRule(rule);
-          return true;
-        }
-        if (acceptString("neversinglecallerinline")) {
-          InlineRule rule =
-              parseRuleWithClassSpec(
-                  optionStart, InlineRule.builder().setType(InlineRuleType.NEVER_SINGLE_CALLER));
-          configurationConsumer.addRule(rule);
-          return true;
-        }
-        if (acceptString(NoAccessModificationRule.RULE_NAME)) {
-          NoAccessModificationRule rule =
-              parseRuleWithClassSpec(optionStart, NoAccessModificationRule.builder());
-          configurationConsumer.addRule(rule);
-          return true;
-        }
-        if (acceptString(NoFieldTypeStrengtheningRule.RULE_NAME)) {
-          NoFieldTypeStrengtheningRule rule =
-              parseRuleWithClassSpec(optionStart, NoFieldTypeStrengtheningRule.builder());
-          configurationConsumer.addRule(rule);
-          return true;
-        }
-        if (acceptString(NoUnusedInterfaceRemovalRule.RULE_NAME)) {
-          NoUnusedInterfaceRemovalRule rule =
-              parseRuleWithClassSpec(optionStart, NoUnusedInterfaceRemovalRule.builder());
-          configurationConsumer.addRule(rule);
-          return true;
-        }
-        if (acceptString(NoVerticalClassMergingRule.RULE_NAME)) {
-          NoVerticalClassMergingRule rule =
-              parseRuleWithClassSpec(optionStart, NoVerticalClassMergingRule.builder());
-          configurationConsumer.addRule(rule);
-          return true;
-        }
-        if (acceptString(NoHorizontalClassMergingRule.RULE_NAME)) {
-          NoHorizontalClassMergingRule rule =
-              parseRuleWithClassSpec(optionStart, NoHorizontalClassMergingRule.builder());
-          configurationConsumer.addRule(rule);
-          return true;
-        }
-        if (acceptString(NoMethodStaticizingRule.RULE_NAME)) {
-          NoMethodStaticizingRule rule =
-              parseRuleWithClassSpec(optionStart, NoMethodStaticizingRule.builder());
-          configurationConsumer.addRule(rule);
-          return true;
-        }
-        if (acceptString(NoParameterReorderingRule.RULE_NAME)) {
-          NoParameterReorderingRule rule =
-              parseRuleWithClassSpec(optionStart, NoParameterReorderingRule.builder());
-          configurationConsumer.addRule(rule);
-          return true;
-        }
-        if (acceptString(NoParameterTypeStrengtheningRule.RULE_NAME)) {
-          NoParameterTypeStrengtheningRule rule =
-              parseRuleWithClassSpec(optionStart, NoParameterTypeStrengtheningRule.builder());
-          configurationConsumer.addRule(rule);
-          return true;
-        }
-        if (acceptString(NoRedundantFieldLoadEliminationRule.RULE_NAME)) {
-          NoRedundantFieldLoadEliminationRule rule =
-              parseRuleWithClassSpec(optionStart, NoRedundantFieldLoadEliminationRule.builder());
-          configurationConsumer.addRule(rule);
-          return true;
-        }
-        if (acceptString(NoReturnTypeStrengtheningRule.RULE_NAME)) {
-          NoReturnTypeStrengtheningRule rule =
-              parseRuleWithClassSpec(optionStart, NoReturnTypeStrengtheningRule.builder());
-          configurationConsumer.addRule(rule);
-          return true;
-        }
-        if (acceptString("neverpropagatevalue")) {
-          NoValuePropagationRule rule =
-              parseRuleWithClassSpec(optionStart, NoValuePropagationRule.builder());
-          configurationConsumer.addRule(rule);
-          return true;
-        }
-        if (acceptString("neverreprocessclassinitializer")) {
-          configurationConsumer.addRule(
-              parseRuleWithClassSpec(
-                  optionStart,
-                  ReprocessClassInitializerRule.builder()
-                      .setType(ReprocessClassInitializerRule.Type.NEVER)));
-          return true;
-        }
-        if (acceptString("neverreprocessmethod")) {
-          configurationConsumer.addRule(
-              parseRuleWithClassSpec(
-                  optionStart,
-                  ReprocessMethodRule.builder().setType(ReprocessMethodRule.Type.NEVER)));
-          return true;
-        }
-        if (acceptString("reprocessclassinitializer")) {
-          configurationConsumer.addRule(
-              parseRuleWithClassSpec(
-                  optionStart,
-                  ReprocessClassInitializerRule.builder()
-                      .setType(ReprocessClassInitializerRule.Type.ALWAYS)));
-          return true;
-        }
-        if (acceptString("reprocessmethod")) {
-          configurationConsumer.addRule(
-              parseRuleWithClassSpec(
-                  optionStart,
-                  ReprocessMethodRule.builder().setType(ReprocessMethodRule.Type.ALWAYS)));
-          return true;
-        }
+      if (!options.isTestingOptionsEnabled()) {
+        return false;
       }
-      return false;
+      ProguardConfigurationRule rule;
+      if (acceptString("assumemayhavesideeffects")) {
+        rule = parseAssumeMayHaveSideEffectsRule(optionStart);
+      } else if (acceptString(KeepConstantArgumentRule.RULE_NAME)) {
+        rule = parseRuleWithClassSpec(optionStart, KeepConstantArgumentRule.builder());
+      } else if (acceptString(KeepUnusedArgumentRule.RULE_NAME)) {
+        rule = parseRuleWithClassSpec(optionStart, KeepUnusedArgumentRule.builder());
+      } else if (acceptString(KeepUnusedReturnValueRule.RULE_NAME)) {
+        rule = parseRuleWithClassSpec(optionStart, KeepUnusedReturnValueRule.builder());
+      } else if (acceptString("alwaysclassinline")) {
+        rule =
+            parseRuleWithClassSpec(
+                optionStart, ClassInlineRule.builder().setType(ClassInlineRule.Type.ALWAYS));
+      } else if (acceptString("neverclassinline")) {
+        rule =
+            parseRuleWithClassSpec(
+                optionStart, ClassInlineRule.builder().setType(ClassInlineRule.Type.NEVER));
+      } else if (acceptString("neverinline")) {
+        rule =
+            parseRuleWithClassSpec(optionStart, InlineRule.builder().setType(InlineRuleType.NEVER));
+      } else if (acceptString("neversinglecallerinline")) {
+        rule =
+            parseRuleWithClassSpec(
+                optionStart, InlineRule.builder().setType(InlineRuleType.NEVER_SINGLE_CALLER));
+      } else if (acceptString(NoAccessModificationRule.RULE_NAME)) {
+        rule = parseRuleWithClassSpec(optionStart, NoAccessModificationRule.builder());
+      } else if (acceptString(NoFieldTypeStrengtheningRule.RULE_NAME)) {
+        rule = parseRuleWithClassSpec(optionStart, NoFieldTypeStrengtheningRule.builder());
+      } else if (acceptString(NoUnusedInterfaceRemovalRule.RULE_NAME)) {
+        rule = parseRuleWithClassSpec(optionStart, NoUnusedInterfaceRemovalRule.builder());
+      } else if (acceptString(NoVerticalClassMergingRule.RULE_NAME)) {
+        rule = parseRuleWithClassSpec(optionStart, NoVerticalClassMergingRule.builder());
+      } else if (acceptString(NoHorizontalClassMergingRule.RULE_NAME)) {
+        rule = parseRuleWithClassSpec(optionStart, NoHorizontalClassMergingRule.builder());
+      } else if (acceptString(NoMethodStaticizingRule.RULE_NAME)) {
+        rule = parseRuleWithClassSpec(optionStart, NoMethodStaticizingRule.builder());
+      } else if (acceptString(NoParameterReorderingRule.RULE_NAME)) {
+        rule = parseRuleWithClassSpec(optionStart, NoParameterReorderingRule.builder());
+      } else if (acceptString(NoParameterTypeStrengtheningRule.RULE_NAME)) {
+        rule = parseRuleWithClassSpec(optionStart, NoParameterTypeStrengtheningRule.builder());
+      } else if (acceptString(NoRedundantFieldLoadEliminationRule.RULE_NAME)) {
+        rule = parseRuleWithClassSpec(optionStart, NoRedundantFieldLoadEliminationRule.builder());
+      } else if (acceptString(NoReturnTypeStrengtheningRule.RULE_NAME)) {
+        rule = parseRuleWithClassSpec(optionStart, NoReturnTypeStrengtheningRule.builder());
+      } else if (acceptString("neverpropagatevalue")) {
+        rule = parseRuleWithClassSpec(optionStart, NoValuePropagationRule.builder());
+      } else if (acceptString("neverreprocessclassinitializer")) {
+        rule =
+            parseRuleWithClassSpec(
+                optionStart,
+                ReprocessClassInitializerRule.builder()
+                    .setType(ReprocessClassInitializerRule.Type.NEVER));
+      } else if (acceptString("neverreprocessmethod")) {
+        rule =
+            parseRuleWithClassSpec(
+                optionStart, ReprocessMethodRule.builder().setType(ReprocessMethodRule.Type.NEVER));
+      } else if (acceptString("reprocessclassinitializer")) {
+        rule =
+            parseRuleWithClassSpec(
+                optionStart,
+                ReprocessClassInitializerRule.builder()
+                    .setType(ReprocessClassInitializerRule.Type.ALWAYS));
+      } else if (acceptString("reprocessmethod")) {
+        rule =
+            parseRuleWithClassSpec(
+                optionStart,
+                ReprocessMethodRule.builder().setType(ReprocessMethodRule.Type.ALWAYS));
+      } else {
+        return false;
+      }
+      configurationConsumer.addRule(rule);
+      return true;
     }
 
     private RuntimeException unknownOption(String unknownOption, TextPosition optionStart) {
