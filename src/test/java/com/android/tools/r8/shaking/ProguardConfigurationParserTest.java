@@ -877,7 +877,7 @@ public class ProguardConfigurationParserTest extends TestBase {
       parser.parse(path);
       fail();
     } catch (RuntimeException e) {
-      checkDiagnostics(handler.errors, path, 6, 10,"does-not-exist.flags");
+      checkDiagnostics(handler.errors, path, 6, 1, "does-not-exist.flags");
     }
   }
 
@@ -888,7 +888,7 @@ public class ProguardConfigurationParserTest extends TestBase {
       parser.parse(path);
       fail();
     } catch (RuntimeException e) {
-      checkDiagnostics(handler.errors, path, 6,2, "does-not-exist.flags");
+      checkDiagnostics(handler.errors, path, 6, 1, "does-not-exist.flags");
     }
   }
 
@@ -3041,6 +3041,7 @@ public class ProguardConfigurationParserTest extends TestBase {
     parser.parse(config);
     verifyParserEndsCleanly();
     String parsedConfiguration = builder.build().getParsedConfiguration();
+    String separator = ToolHelper.isWindows() ? "\\" : "/";
     assertEquals(
         StringUtils.lines(
             "# The proguard configuration file for the following section is config.txt",
@@ -3060,6 +3061,6 @@ public class ProguardConfigurationParserTest extends TestBase {
             "# The proguard configuration file for the following section is include2.txt",
             "# Include 2",
             "# End of content from include2.txt"),
-        StringUtils.replaceAll(parsedConfiguration, temp.getRoot().toString() + "/", ""));
+        StringUtils.replaceAll(parsedConfiguration, temp.getRoot().toString() + separator, ""));
   }
 }

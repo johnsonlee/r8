@@ -130,29 +130,30 @@ public class PrintConfigurationTest extends TestBase {
         containsString(
             "-printconfiguration "
                 + (ToolHelper.isWindows()
-                    ? ("'" + proguardConfigOutFile.toAbsolutePath().toString() + "'")
+                    ? ("'" + proguardConfigOutFile.toAbsolutePath() + "'")
                     : proguardConfigOutFile.toAbsolutePath().toString())));
   }
 
   @Test
   public void testIncludeFile() throws Exception {
-    Class mainClass = PrintConfigurationTestClass.class;
+    Class<?> mainClass = PrintConfigurationTestClass.class;
     String includeProguardConfig = keepMainProguardConfiguration(mainClass);
     Path includeFile = temp.newFile().toPath();
     FileUtils.writeTextFile(includeFile, includeProguardConfig);
     Path printConfigurationFile = temp.newFile().toPath();
-    String proguardConfig = String.join(System.lineSeparator(), ImmutableList.of(
-        "-include " + includeFile.toString(),
-        "-printconfiguration " + printConfigurationFile.toString()
-    ));
+    String proguardConfig =
+        String.join(
+            System.lineSeparator(),
+            ImmutableList.of(
+                "-include " + includeFile, "-printconfiguration " + printConfigurationFile));
 
-    String expected = String.join(System.lineSeparator(), ImmutableList.of(
-        "",  // The -include line turns into an empty line.
-        includeProguardConfig,
-        "",  // Writing to the file adds an ending line separator
-        "",  // An empty line is emitted between two parts
-        "-printconfiguration " + printConfigurationFile.toString()
-    ));
+    String expected =
+        StringUtils.joinLines(
+            "-printconfiguration " + printConfigurationFile,
+            "", // The -include line turns into an empty line.
+            includeProguardConfig,
+            "", // Writing to the file adds an ending line separator
+            ""); // An empty line is emitted between two parts
     compileWithR8(ImmutableList.of(mainClass), proguardConfig);
     assertEqualsStripOrigin(
         expected, FileUtils.readTextFile(printConfigurationFile, Charsets.UTF_8));
