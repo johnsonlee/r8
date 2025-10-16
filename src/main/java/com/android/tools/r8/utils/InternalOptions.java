@@ -2726,12 +2726,16 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   // Debug entries may be dropped only if the source file content allows being omitted from
   // stack traces, or if the VM will report the source file even with a null valued debug info.
   public boolean allowDiscardingResidualDebugInfo() {
-    // TODO(b/146565491): We can drop debug info once fixed at a known min-api.
+    if (isGeneratingDex() && hasMinApi(AndroidApiLevel.MAIN.verifyLevel(37))) {
+      return true;
+    }
     return sourceFileProvider != null && sourceFileProvider.allowDiscardingSourceFile();
   }
 
   public boolean allowDiscardingResidualDebugInfo(ProgramMethod method) {
-    // TODO(b/146565491): We can drop debug info once fixed at a known min-api.
+    if (isGeneratingDex() && hasMinApi(AndroidApiLevel.MAIN.verifyLevel(37))) {
+      return true;
+    }
     DexString sourceFile = method.getHolder().getSourceFile();
     return sourceFile == null || sourceFile.equals(itemFactory.defaultSourceFileAttribute);
   }
