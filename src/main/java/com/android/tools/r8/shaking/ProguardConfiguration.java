@@ -3,9 +3,13 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.shaking;
 
+import static com.android.tools.r8.shaking.ProguardKeepAttributes.RUNTIME_INVISIBLE_ANNOTATIONS;
+import static com.android.tools.r8.shaking.ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS;
+
 import com.android.tools.r8.errors.dontwarn.DontWarnConfiguration;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.naming.DictionaryReader;
+import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
 import com.android.tools.r8.position.TextPosition;
 import com.android.tools.r8.shaking.ProguardConfigurationParser.IncludeWorkItem;
@@ -18,6 +22,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -83,6 +88,12 @@ public class ProguardConfiguration {
     }
 
     @Override
+    public void addBaseDirectory(
+        Path baseDirectory, ProguardConfigurationSourceParser parser, TextPosition positionStart) {
+      // Intentionally empty.
+    }
+
+    @Override
     public void addIgnoredOption(
         String option, ProguardConfigurationSourceParser parser, TextPosition positionStart) {
       // Intentionally empty.
@@ -93,6 +104,11 @@ public class ProguardConfiguration {
         Path includePath, ProguardConfigurationSourceParser parser, TextPosition positionStart) {
       IncludeWorkItem include = new IncludeWorkItem(includePath, positionStart, parser.getOffset());
       parser.getPendingIncludes().add(include);
+    }
+
+    @Override
+    public void addLeadingBOM() {
+      // Intentionally empty.
     }
 
     @Override
@@ -241,6 +257,32 @@ public class ProguardConfiguration {
         Position position,
         TextPosition positionStart) {
       this.keepAttributePatterns.addAll(keepAttributePatterns);
+    }
+
+    @Override
+    public void addKeepKotlinMetadata(
+        ProguardConfigurationSourceParser parser, Position position, TextPosition positionStart) {
+      Origin origin = parser.getOrigin();
+      String source = "-keepkotlinmetadata";
+      ProguardKeepRule keepKotlinMetadata =
+          ProguardKeepRuleUtils.keepClassAndMembersRule(
+              origin, positionStart, dexItemFactory.kotlinMetadataType, source);
+      ProguardKeepRule keepKotlinJvmNameAnnotation =
+          ProguardKeepRuleUtils.keepClassAndMembersRule(
+              origin, positionStart, dexItemFactory.kotlinJvmNameType, source);
+      // Mark the rules as used to ensure we do not report any information messages if the class
+      // is not present.
+      keepKotlinMetadata.markAsUsed();
+      keepKotlinJvmNameAnnotation.markAsUsed();
+      addRule(keepKotlinMetadata);
+      addRule(keepKotlinJvmNameAnnotation);
+      addKeepAttributePatterns(
+          Collections.singletonList(RUNTIME_VISIBLE_ANNOTATIONS), parser, position, positionStart);
+      addKeepAttributePatterns(
+          Collections.singletonList(RUNTIME_INVISIBLE_ANNOTATIONS),
+          parser,
+          position,
+          positionStart);
     }
 
     public Builder addKeepAttributePatterns(List<String> keepAttributePatterns) {

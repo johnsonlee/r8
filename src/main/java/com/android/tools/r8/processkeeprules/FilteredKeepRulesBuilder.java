@@ -106,6 +106,13 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   }
 
   @Override
+  public void addBaseDirectory(
+      Path baseDirectory, ProguardConfigurationSourceParser parser, TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
+
+  @Override
   public void addDontNotePattern(
       ProguardClassNameList pattern,
       ProguardConfigurationSourceParser parser,
@@ -138,6 +145,11 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   }
 
   @Override
+  public void addLeadingBOM() {
+    appendToCurrentLine(Character.toString(StringUtils.BOM));
+  }
+
+  @Override
   public void addInjars(
       List<FilteredClassPath> filteredClassPaths,
       ProguardConfigurationSourceParser parser,
@@ -153,6 +165,13 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
+
+  @Override
+  public void addKeepKotlinMetadata(
+      ProguardConfigurationSourceParser parser, Position position, TextPosition positionStart) {
     ensureNewlineAfterComment();
     write(parser, positionStart);
   }

@@ -12,11 +12,16 @@ import java.util.List;
 
 public interface ProguardConfigurationParserConsumer {
 
+  void addBaseDirectory(
+      Path baseDirectory, ProguardConfigurationSourceParser parser, TextPosition positionStart);
+
   void addIgnoredOption(
       String option, ProguardConfigurationSourceParser parser, TextPosition positionStart);
 
   void addInclude(
       Path includePath, ProguardConfigurationSourceParser parser, TextPosition positionStart);
+
+  void addLeadingBOM();
 
   void addParsedConfiguration(ProguardConfigurationSourceParser parser);
 
@@ -27,6 +32,9 @@ public interface ProguardConfigurationParserConsumer {
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart);
+
+  void addKeepKotlinMetadata(
+      ProguardConfigurationSourceParser parser, Position position, TextPosition positionStart);
 
   void addKeepPackageNamesPattern(
       ProguardClassNameList proguardClassNameList,

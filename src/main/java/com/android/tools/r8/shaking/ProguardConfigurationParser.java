@@ -3,8 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.shaking;
 
-import static com.android.tools.r8.shaking.ProguardKeepAttributes.RUNTIME_INVISIBLE_ANNOTATIONS;
-import static com.android.tools.r8.shaking.ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS;
 import static com.android.tools.r8.utils.DescriptorUtils.javaTypeToDescriptor;
 
 import com.android.tools.r8.InputDependencyGraphConsumer;
@@ -90,7 +88,7 @@ public class ProguardConfigurationParser {
           "dontusemixedcaseclassnames");
 
   private static final List<String> IGNORED_CLASS_DESCRIPTOR_OPTIONS =
-      ImmutableList.of("isclassnamestring", "whyarenotsimple");
+      ImmutableList.of("checkenumstringsdiscarded", "isclassnamestring", "whyarenotsimple");
 
   private static final List<String> WARNED_SINGLE_ARG_OPTIONS = ImmutableList.of(
       // TODO(b/37137994): -outjars should be reported as errors, not just as warnings!
@@ -235,10 +233,16 @@ public class ProguardConfigurationParser {
 
     ProguardConfigurationSourceParser(ProguardConfigurationSource source) throws IOException {
       // Strip any leading BOM here so it is not included in the text position.
-      contents = StringUtils.stripLeadingBOM(source.get());
       baseDirectory = source.getBaseDirectory();
       name = source.getName();
       this.origin = source.getOrigin();
+      String sourceWithPossibleLeadingBOM = source.get();
+      if (StringUtils.hasLeadingBOM(sourceWithPossibleLeadingBOM)) {
+        contents = StringUtils.stripLeadingBOM(sourceWithPossibleLeadingBOM);
+        configurationConsumer.addLeadingBOM();
+      } else {
+        contents = sourceWithPossibleLeadingBOM;
+      }
     }
 
     public String getContentAfter(int start) {
@@ -291,29 +295,7 @@ public class ProguardConfigurationParser {
           || parseUnsupportedOptionAndErr(optionStart)) {
         // Intentionally left empty.
       } else if (acceptString("keepkotlinmetadata")) {
-        String source = "-keepkotlinmetadata";
-        ProguardKeepRule keepKotlinMetadata =
-            ProguardKeepRuleUtils.keepClassAndMembersRule(
-                origin, optionStart, dexItemFactory.kotlinMetadataType, source);
-        ProguardKeepRule keepKotlinJvmNameAnnotation =
-            ProguardKeepRuleUtils.keepClassAndMembersRule(
-                origin, optionStart, dexItemFactory.kotlinJvmNameType, source);
-        // Mark the rules as used to ensure we do not report any information messages if the class
-        // is not present.
-        keepKotlinMetadata.markAsUsed();
-        keepKotlinJvmNameAnnotation.markAsUsed();
-        configurationConsumer.addRule(keepKotlinMetadata);
-        configurationConsumer.addRule(keepKotlinJvmNameAnnotation);
-        configurationConsumer.addKeepAttributePatterns(
-            Collections.singletonList(RUNTIME_VISIBLE_ANNOTATIONS),
-            this,
-            getPosition(optionStart),
-            optionStart);
-        configurationConsumer.addKeepAttributePatterns(
-            Collections.singletonList(RUNTIME_INVISIBLE_ANNOTATIONS),
-            this,
-            getPosition(optionStart),
-            optionStart);
+        configurationConsumer.addKeepKotlinMetadata(this, getPosition(optionStart), optionStart);
       } else if (acceptString("renamesourcefileattribute")) {
         skipWhitespace();
         String renameSourceFileAttribute =
@@ -332,9 +314,6 @@ public class ProguardConfigurationParser {
         ProguardCheckDiscardRule rule =
             parseRuleWithClassSpec(optionStart, ProguardCheckDiscardRule.builder());
         configurationConsumer.addRule(rule);
-      } else if (acceptString("checkenumstringsdiscarded")) {
-        // Not supported, ignore.
-        parseRuleWithClassSpec(optionStart, ProguardCheckDiscardRule.builder());
       } else if (acceptString("keepdirectories")) {
         ProguardPathList keepDirectoryPatterns = parseOptionalPathFilter();
         configurationConsumer.enableKeepDirectories(keepDirectoryPatterns, this, optionStart);
@@ -354,6 +333,7 @@ public class ProguardConfigurationParser {
           throw reporter.fatalError(new StringDiagnostic(
               "Missing n of \"-optimizationpasses n\"", origin, getPosition(optionStart)));
         }
+        configurationConsumer.addIgnoredOption("optimizationpasses", this, optionStart);
         infoIgnoringOptions("optimizationpasses", optionStart);
       } else if (acceptString("dontobfuscate")) {
         configurationConsumer.disableObfuscation(this, getPosition(optionStart));
@@ -440,6 +420,7 @@ public class ProguardConfigurationParser {
       } else if (acceptString("basedirectory")) {
         skipWhitespace();
         baseDirectory = parseFileName();
+        configurationConsumer.addBaseDirectory(baseDirectory, this, optionStart);
       } else if (acceptString("injars")) {
         configurationConsumer.addInjars(
             parseClassPath(inputDependencyConsumer::acceptProguardInJars),

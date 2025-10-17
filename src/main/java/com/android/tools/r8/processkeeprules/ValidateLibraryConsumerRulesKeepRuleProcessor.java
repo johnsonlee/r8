@@ -86,6 +86,10 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
   }
 
   @Override
+  public void addBaseDirectory(
+      Path baseDirectory, ProguardConfigurationSourceParser parser, TextPosition positionStart) {}
+
+  @Override
   public void addIgnoredOption(
       String option, ProguardConfigurationSourceParser parser, TextPosition positionStart) {}
 
@@ -94,6 +98,9 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
       Path includePath, ProguardConfigurationSourceParser parser, TextPosition positionStart) {
     // TODO(b/270289387): Report error.
   }
+
+  @Override
+  public void addLeadingBOM() {}
 
   @Override
   public void addParsedConfiguration(ProguardConfigurationSourceParser parser) {}
@@ -127,6 +134,10 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
       handleKeepAttribute(parser, position, ProguardKeepAttributes.SOURCE_FILE);
     }
   }
+
+  @Override
+  public void addKeepKotlinMetadata(
+      ProguardConfigurationSourceParser parser, Position position, TextPosition positionStart) {}
 
   @Override
   public void addKeepPackageNamesPattern(
