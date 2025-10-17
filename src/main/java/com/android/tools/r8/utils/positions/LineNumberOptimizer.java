@@ -336,9 +336,8 @@ public class LineNumberOptimizer {
     return 0;
   }
 
-  // Sort by startline, then DexEncodedMethod.slowCompare.
-  // Use startLine = 0 if no debuginfo.
   public static void sortMethods(List<ProgramMethod> methods) {
+    // Sort by startline, then DexEncodedMethod.slowCompare. Use startLine = 0 if no debuginfo.
     methods.sort(
         (lhs, rhs) -> {
           int lhsStartLine = getMethodStartLine(lhs);
@@ -347,6 +346,22 @@ public class LineNumberOptimizer {
           if (startLineDiff != 0) return startLineDiff;
           return DexEncodedMethod.slowCompare(lhs.getDefinition(), rhs.getDefinition());
         });
+    // Insert the largest method first since we can use pc encoding for this method.
+    int largestIndex = -1;
+    int largestCode = -1;
+    for (int i = 0; i < methods.size(); i++) {
+      ProgramMethod method = methods.get(i);
+      if (method.getDefinition().hasCode() && method.getDefinition().getCode().isDexCode()) {
+        int codeSizeInBytes = method.getDefinition().getCode().asDexCode().codeSizeInBytes();
+        if (codeSizeInBytes > largestCode) {
+          largestIndex = i;
+          largestCode = codeSizeInBytes;
+        }
+      }
+    }
+    if (largestIndex > 0) {
+      Collections.swap(methods, 0, largestIndex);
+    }
   }
 
   public static IdentityHashMap<DexString, List<ProgramMethod>> groupMethodsByRenamedName(
