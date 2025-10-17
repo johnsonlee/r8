@@ -9,4 +9,6 @@ import com.android.tools.r8.utils.Pair;
 public interface MethodPositionRemapper {
 
   Pair<Position, Position> createRemappedPosition(Position position);
+
+  void setNextOptimizedLineNumber(int nextOptimizedLineNumber);
 }

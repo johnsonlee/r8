@@ -46,6 +46,11 @@ public interface ClassPositionRemapper {
       assert position.getOutlineCallee() == null;
       return new Pair<>(position, position);
     }
+
+    @Override
+    public void setNextOptimizedLineNumber(int nextOptimizedLineNumber) {
+      // Intentionally empty.
+    }
   }
 
   class OptimizingPositionRemapper implements AppPositionRemapper, ClassPositionRemapper {
@@ -95,6 +100,11 @@ public interface ClassPositionRemapper {
         previousSourceLine = position.getLine();
         previousMethod = position.getMethod();
         return new Pair<>(position, newPosition);
+      }
+
+      @Override
+      public void setNextOptimizedLineNumber(int nextOptimizedLineNumber) {
+        this.nextOptimizedLineNumber = nextOptimizedLineNumber;
       }
     }
   }
@@ -213,6 +223,11 @@ public interface ClassPositionRemapper {
             // mapping.
           }
           return baseRemapper.createRemappedPosition(position);
+        }
+
+        @Override
+        public void setNextOptimizedLineNumber(int nextOptimizedLineNumber) {
+          baseRemapper.setNextOptimizedLineNumber(nextOptimizedLineNumber);
         }
       }
     }

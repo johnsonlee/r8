@@ -42,10 +42,9 @@ public class DexPositionToPcMappedRangeMapper {
     timing.begin("Pc mapper");
     List<MappedPosition> mappedPositions = new ArrayList<>();
     // Do the actual processing for each method.
-    DexCode dexCode = method.getDefinition().getCode().asDexCode();
+    DexCode code = method.getDefinition().getCode().asDexCode();
     timing.begin("Convert to event based debug info");
-    EventBasedDebugInfo debugInfo =
-        getEventBasedDebugInfo(method.getDefinition(), dexCode, appView);
+    EventBasedDebugInfo debugInfo = getEventBasedDebugInfo(method.getDefinition(), code, appView);
     timing.end();
     IntBox firstDefaultEventPc = new IntBox(-1);
     Pair<Integer, Position> lastPosition = new Pair<>();
@@ -84,7 +83,7 @@ public class DexPositionToPcMappedRangeMapper {
     timing.end();
 
     timing.begin("Flush");
-    int lastInstructionPc = DebugRepresentation.getLastExecutableInstruction(dexCode).getOffset();
+    int lastInstructionPc = DebugRepresentation.getLastExecutableInstruction(code).getOffset();
     if (lastPosition.getSecond() != null) {
       remapAndAddForPc(
           pcBasedDebugInfo,
@@ -95,11 +94,15 @@ public class DexPositionToPcMappedRangeMapper {
           mappedPositions,
           timing);
     }
+    int nextOptimizedLineNumber = pcBasedDebugInfo.getPcEncoding(lastInstructionPc + 1);
+    assert mappedPositions.stream()
+        .allMatch(mappedPosition -> mappedPosition.getObfuscatedLine() < nextOptimizedLineNumber);
+    positionRemapper.setNextOptimizedLineNumber(nextOptimizedLineNumber);
     timing.end();
 
     assert !mappedPositions.isEmpty()
-        || dexCode.instructions.length == 1
-        || !dexCode.hasThrowingInstructions();
+        || code.instructions.length == 1
+        || !code.hasThrowingInstructions();
     timing.begin("Record pc mapping");
     pcBasedDebugInfo.recordPcMappingFor(method, pcEncodingCutoff);
     timing.end();
