@@ -11,6 +11,7 @@ import com.android.tools.r8.shaking.ProguardClassNameList;
 import com.android.tools.r8.shaking.ProguardConfigurationParser.ProguardConfigurationSourceParser;
 import com.android.tools.r8.shaking.ProguardConfigurationParserConsumer;
 import com.android.tools.r8.shaking.ProguardConfigurationRule;
+import com.android.tools.r8.shaking.ProguardKeepAttributes;
 import com.android.tools.r8.shaking.ProguardPathList;
 import com.android.tools.r8.utils.InternalOptions.PackageObfuscationMode;
 import com.android.tools.r8.utils.Reporter;
@@ -180,8 +181,26 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
-    ensureNewlineAfterComment();
-    write(parser, positionStart);
+    ProguardKeepAttributes keepAttributes = ProguardKeepAttributes.fromPatterns(attributesPatterns);
+    if (keepAttributes.lineNumberTable
+        || keepAttributes.runtimeInvisibleAnnotations
+        || keepAttributes.runtimeInvisibleParameterAnnotations
+        || keepAttributes.runtimeInvisibleTypeAnnotations
+        || keepAttributes.sourceFile) {
+      // Comment out the -keepattributes rule.
+      writeComment(parser, positionStart);
+      // Unset the undesired attributes and expand the rule.
+      keepAttributes.lineNumberTable = false;
+      keepAttributes.runtimeInvisibleAnnotations = false;
+      keepAttributes.runtimeInvisibleParameterAnnotations = false;
+      keepAttributes.runtimeInvisibleTypeAnnotations = false;
+      keepAttributes.sourceFile = false;
+      ensureNewlineAfterComment();
+      write(keepAttributes.toString());
+    } else {
+      ensureNewlineAfterComment();
+      write(parser, positionStart);
+    }
   }
 
   @Override

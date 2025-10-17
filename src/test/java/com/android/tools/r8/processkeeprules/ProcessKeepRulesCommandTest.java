@@ -8,7 +8,6 @@ import static com.android.tools.r8.DiagnosticsMatcher.diagnosticOrigin;
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticType;
 import static org.hamcrest.CoreMatchers.allOf;
 import static org.hamcrest.CoreMatchers.equalTo;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.android.tools.r8.CompilationFailedException;
@@ -115,20 +114,7 @@ public class ProcessKeepRulesCommandTest extends TestBase {
     }
 
     // Rerun validation after filtering. This should succeed without diagnostics.
-    String filteredRules = filter(rules, origin);
-    boolean hasKeepAttributes = rules.contains("-keepattributes");
-    try {
-      validate(
-          filteredRules,
-          origin,
-          diagnostics -> {
-            if (!hasKeepAttributes) {
-              diagnostics.assertNoMessages();
-            }
-          });
-    } catch (CompilationFailedException e) {
-      assertTrue(hasKeepAttributes);
-    }
+    validate(filter(rules, origin), origin, TestDiagnosticMessagesImpl::assertNoMessages);
   }
 
   private String filter(String rules, Origin origin) throws CompilationFailedException {

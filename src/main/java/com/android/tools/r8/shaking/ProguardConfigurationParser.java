@@ -1970,6 +1970,9 @@ public class ProguardConfigurationParser {
       if (isQuote(quote)) {
         expectClosingQuote(quote);
       }
+      int lastPatternEndLine = line;
+      int lastPatternEndLineStartPosition = lineStartPosition;
+      int lastPatternEndPosition = position;
       while (pattern != null) {
         patterns.add(pattern);
         skipWhitespace();
@@ -1981,17 +1984,24 @@ public class ProguardConfigurationParser {
           if (isQuote(quote)) {
             expectClosingQuote(quote);
           }
+          lastPatternEndLine = line;
+          lastPatternEndLineStartPosition = lineStartPosition;
+          lastPatternEndPosition = position;
           if (pattern == null) {
             throw parseError("Expected list element", start);
           }
         } else {
-          pattern = null;
+          break;
         }
       }
       skipWhitespace();
       if (!eof() && !hasNextChar('-') && !hasNextChar('@')) {
         throw parseError("Unexpected attribute");
       }
+      // Position the parser at the end of the rule before notifying the configuration consumer.
+      line = lastPatternEndLine;
+      lineStartPosition = lastPatternEndLineStartPosition;
+      position = lastPatternEndPosition;
       return patterns;
     }
 
