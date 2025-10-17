@@ -85,6 +85,8 @@ public class JavaLangClassTest extends TestBase {
             "true",
             "40",
             "class com.android.tools.r8.assistant.JavaLangClassTestClass$Bar",
+            "50",
+            "11",
             "END");
   }
 
@@ -201,7 +203,7 @@ public class JavaLangClassTest extends TestBase {
 
     @Override
     public void onClassNewInstance(Stack stack, Class<?> clazz) {
-      super.onClassNewInstance(stack, clazz);
+      printNumIfTrue(clazz.getName().endsWith("Bar"), 50);
     }
 
     @Override

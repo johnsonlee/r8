@@ -10,7 +10,7 @@ import defines
 
 JDK_DIRS = os.path.join(defines.THIRD_PARTY, 'openjdk')
 
-ALL_JDKS = ['openjdk-9.0.4', 'jdk-11', 'jdk-17', 'jdk-21', 'jdk-24']
+ALL_JDKS = ['openjdk-9.0.4', 'jdk-11', 'jdk-17', 'jdk-21', 'jdk-25']
 
 
 def GetDefaultJdkHome():
@@ -60,6 +60,10 @@ def GetAllJdkDirs():
         if os.path.exists(root + '.tar.gz.sha1'):
             dirs.append(root)
     return dirs
+
+
+def GetJdk17Home():
+    return GetJdkHome('jdk-17')
 
 
 def GetJdk11Home():

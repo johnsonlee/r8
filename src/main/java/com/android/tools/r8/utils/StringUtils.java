@@ -407,12 +407,13 @@ public class StringUtils {
     return Character.isWhitespace(codePoint) || isBOM(codePoint);
   }
 
+  public static boolean hasLeadingBOM(String s) {
+    return !s.isEmpty() && s.charAt(0) == StringUtils.BOM;
+  }
+
   public static String stripLeadingBOM(String s) {
-    if (s.length() > 0 && s.charAt(0) == StringUtils.BOM) {
-      return s.substring(1);
-    } else {
-      return s;
-    }
+    assert hasLeadingBOM(s);
+    return s.substring(1);
   }
 
   public static String trim(String s) {

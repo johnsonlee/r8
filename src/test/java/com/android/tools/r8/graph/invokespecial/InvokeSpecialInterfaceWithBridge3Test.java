@@ -13,6 +13,7 @@ import com.android.tools.r8.SingleTestRunResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
@@ -60,12 +61,18 @@ public class InvokeSpecialInterfaceWithBridge3Test extends TestBase {
       Version version = parameters.getRuntime().asDex().getVm().getVersion();
       if (version.isOlderThanOrEqual(Version.V4_4_4)) {
         return VerifyError.class;
-      }
-      if (version.isNewerThanOrEqual(Version.V7_0_0)) {
+      } else if (version.isNewerThanOrEqual(Version.V7_0_0)) {
         return AbstractMethodError.class;
+      } else {
+        return IncompatibleClassChangeError.class;
+      }
+    } else {
+      if (parameters.getRuntime().asCf().getVm().isGreaterThanOrEqualTo(CfVm.JDK25)) {
+        return VerifyError.class;
+      } else {
+        return IncompatibleClassChangeError.class;
       }
     }
-    return IncompatibleClassChangeError.class;
   }
 
   @Test

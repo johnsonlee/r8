@@ -36,10 +36,13 @@ public class ProcessKeepRulesFilteringTest extends TestBase {
     String keepRules =
         StringUtils.unixLines(
             " -dontobfuscate -dontoptimize -dontshrink -keep class com.example.MainActivity # keep",
-            "# Keep all attributes",
-            "-keepattributes *",
+            "# Keep all annotations",
+            "-keepattributes AnnotationDefault,*Annotations*",
             "# Keep all",
             "-keep  class **",
+            "# Multi line repackageclasses",
+            "-repackageclasses",
+            "    com.example.internal",
             "# End");
     FilteredKeepRules filteredKeepRules = new FilteredKeepRules();
     ProcessKeepRulesCommand command =
@@ -52,10 +55,15 @@ public class ProcessKeepRulesFilteringTest extends TestBase {
         StringUtils.unixLines(
             " #-dontobfuscate -dontoptimize -dontshrink ",
             "-keep class com.example.MainActivity # keep",
-            "# Keep all attributes",
-            "-keepattributes *",
+            "# Keep all annotations",
+            "#-keepattributes AnnotationDefault,*Annotations*",
+            "-keepattributes"
+                + " AnnotationDefault,RuntimeVisibleAnnotations,RuntimeVisibleParameterAnnotations,RuntimeVisibleTypeAnnotations",
             "# Keep all",
             "-keep  class **",
+            "# Multi line repackageclasses",
+            "#-repackageclasses",
+            "#    com.example.internal",
             "# End"),
         filteredKeepRules.get());
     diagnostics.assertNoMessages();

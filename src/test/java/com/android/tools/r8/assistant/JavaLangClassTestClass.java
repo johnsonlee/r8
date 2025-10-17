@@ -52,6 +52,13 @@ public class JavaLangClassTestClass {
       Bar cast = Bar.class.cast(o);
       System.out.println(Bar.class.isInstance(o));
       System.out.println(Bar.class.asSubclass(Foo.class));
+      Bar newBar = null;
+      try {
+        newBar = Bar.class.newInstance();
+        System.out.println(newBar.bar());
+      } catch (InstantiationException | IllegalAccessException e) {
+        throw new RuntimeException(e);
+      }
       System.out.println("END");
     } catch (ClassNotFoundException | NoSuchFieldException | NoSuchMethodException e) {
       System.out.println("EXCEPTION " + e.getMessage());

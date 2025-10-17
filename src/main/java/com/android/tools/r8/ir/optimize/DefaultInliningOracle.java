@@ -755,7 +755,8 @@ public class DefaultInliningOracle implements InliningOracle {
               && (options.canUseJavaLangVarHandleStoreStoreFence(appView)
                   || inlinerOptions.skipStoreStoreFenceInConstructorInlining)
               && methodProcessor.hasWaves()
-              && target.isProgramField()) {
+              && target.isProgramField()
+              && appView.getKeepInfo(target.asProgramField()).isOptimizationAllowed(options)) {
             actionBuilder.setShouldEnsureStoreStoreFence(target.asProgramField());
           } else {
             whyAreYouNotInliningReporter.reportUnsafeConstructorInliningDueToFinalFieldAssignment(

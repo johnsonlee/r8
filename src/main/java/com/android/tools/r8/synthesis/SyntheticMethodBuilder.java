@@ -186,7 +186,6 @@ public class SyntheticMethodBuilder {
     return method.isStatic()
         && method.isNonAbstractNonNativeMethod()
         && method.isPublic()
-        && method.annotations().isEmpty()
         && method.getParameterAnnotations().isEmpty();
   }
 

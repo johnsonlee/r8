@@ -184,7 +184,6 @@ public class ProguardConfigurationParserTest extends TestBase {
             reporter,
             ProguardConfigurationParserOptions.builder()
                 .setEnableLegacyFullModeForKeepRules(false)
-                .setEnableExperimentalCheckEnumUnboxed(false)
                 .setEnableTestingOptions(false)
                 .build(),
             null,
@@ -202,7 +201,6 @@ public class ProguardConfigurationParserTest extends TestBase {
             dexItemFactory,
             reporter,
             ProguardConfigurationParserOptions.builder()
-                .setEnableExperimentalCheckEnumUnboxed(false)
                 .setEnableTestingOptions(true)
                 .build(),
             null,
@@ -723,7 +721,6 @@ public class ProguardConfigurationParserTest extends TestBase {
             dexItemFactory,
             reporter,
             ProguardConfigurationParserOptions.builder()
-                .setEnableExperimentalCheckEnumUnboxed(false)
                 .setEnableTestingOptions(false)
                 .build(),
             null,
@@ -743,7 +740,6 @@ public class ProguardConfigurationParserTest extends TestBase {
             dexItemFactory,
             reporter,
             ProguardConfigurationParserOptions.builder()
-                .setEnableExperimentalCheckEnumUnboxed(false)
                 .setEnableTestingOptions(false)
                 .build(),
             null,
@@ -861,7 +857,7 @@ public class ProguardConfigurationParserTest extends TestBase {
     verifyParserEndsCleanly();
     ProguardConfiguration config = builder.build();
     assertEquals(
-        "-keepattributes RuntimeVisibleAnnotations,RuntimeInvisibleAnnotations",
+        "-keepattributes RuntimeInvisibleAnnotations,RuntimeVisibleAnnotations",
         config.getKeepAttributes().toString());
     assertEquals(
         StringUtils.joinLines("-keep class kotlin.Metadata {", "  *;", "}"),
@@ -881,7 +877,7 @@ public class ProguardConfigurationParserTest extends TestBase {
       parser.parse(path);
       fail();
     } catch (RuntimeException e) {
-      checkDiagnostics(handler.errors, path, 6, 10,"does-not-exist.flags");
+      checkDiagnostics(handler.errors, path, 6, 1, "does-not-exist.flags");
     }
   }
 
@@ -892,7 +888,7 @@ public class ProguardConfigurationParserTest extends TestBase {
       parser.parse(path);
       fail();
     } catch (RuntimeException e) {
-      checkDiagnostics(handler.errors, path, 6,2, "does-not-exist.flags");
+      checkDiagnostics(handler.errors, path, 6, 1, "does-not-exist.flags");
     }
   }
 
@@ -3022,5 +3018,49 @@ public class ProguardConfigurationParserTest extends TestBase {
           config.getRules().get(0).asMaximumRemovedAndroidLogLevelRule();
       assertEquals(MaximumRemovedAndroidLogLevelRule.VERBOSE, rule.getMaxRemovedAndroidLogLevel());
     }
+  }
+
+  @Test
+  public void testParsedConfigurationWithInclude() throws Exception {
+    Path config = temp.newFile("config.txt").toPath().toAbsolutePath();
+    Path include1 = temp.newFile("include1.txt").toPath().toAbsolutePath();
+    Path include11 = temp.newFile("include1_1.txt").toPath().toAbsolutePath();
+    Path include2 = temp.newFile("include2.txt").toPath().toAbsolutePath();
+    FileUtils.writeTextFile(
+        config,
+        StringUtils.joinLines(
+            "# Before Include 1",
+            "-include " + include1,
+            "# After Include 1",
+            "-include " + include2,
+            "# After Include 2"));
+    FileUtils.writeTextFile(
+        include1, StringUtils.joinLines("# Include 1", "-include " + include11));
+    FileUtils.writeTextFile(include11, "# Include 1.1");
+    FileUtils.writeTextFile(include2, "# Include 2");
+    parser.parse(config);
+    verifyParserEndsCleanly();
+    String parsedConfiguration = builder.build().getParsedConfiguration();
+    String separator = ToolHelper.isWindows() ? "\\" : "/";
+    assertEquals(
+        StringUtils.lines(
+            "# The proguard configuration file for the following section is config.txt",
+            "# Before Include 1",
+            "", // -include include1.txt
+            "# After Include 1",
+            "", // -include include2.txt
+            "# After Include 2",
+            "# End of content from config.txt",
+            "# The proguard configuration file for the following section is include1.txt",
+            "# Include 1",
+            "", // -include include1_1.txt.
+            "# End of content from include1.txt",
+            "# The proguard configuration file for the following section is include1_1.txt",
+            "# Include 1.1",
+            "# End of content from include1_1.txt",
+            "# The proguard configuration file for the following section is include2.txt",
+            "# Include 2",
+            "# End of content from include2.txt"),
+        StringUtils.replaceAll(parsedConfiguration, temp.getRoot().toString() + separator, ""));
   }
 }

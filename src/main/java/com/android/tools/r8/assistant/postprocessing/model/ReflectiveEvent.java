@@ -60,11 +60,35 @@ public abstract class ReflectiveEvent {
     return null;
   }
 
+  public boolean isProxyNewProxyInstance() {
+    return false;
+  }
+
+  public ProxyNewProxyInstance asProxyNewProxyInstance() {
+    return null;
+  }
+
   public boolean isClassGetMember() {
     return false;
   }
 
   public ClassGetMember asClassGetMember() {
+    return null;
+  }
+
+  public boolean isClassNewInstance() {
+    return false;
+  }
+
+  public ClassNewInstance asClassNewInstance() {
+    return null;
+  }
+
+  public boolean isClassFlagEvent() {
+    return false;
+  }
+
+  public ClassFlagEvent asClassFlagEvent() {
     return null;
   }
 
@@ -89,7 +113,7 @@ public abstract class ReflectiveEvent {
       ReflectiveEventType eventType, String[] stack, String[] args, DexItemFactory factory) {
     switch (eventType) {
       case CLASS_NEW_INSTANCE:
-        break;
+        return new ClassNewInstance(eventType, stack, args, factory);
       case CLASS_GET_DECLARED_METHOD:
       case CLASS_GET_DECLARED_FIELD:
       case CLASS_GET_DECLARED_CONSTRUCTOR:
@@ -123,13 +147,13 @@ public abstract class ReflectiveEvent {
       case CLASS_CAST:
         break;
       case CLASS_FLAG:
-        break;
+        return new ClassFlagEvent(eventType, stack, args, factory);
       case ATOMIC_FIELD_UPDATER_NEW_UPDATER:
         return new AtomicFieldUpdaterNewUpdater(eventType, stack, args, factory);
       case SERVICE_LOADER_LOAD:
         return new ServiceLoaderLoad(eventType, stack, args, factory);
       case PROXY_NEW_PROXY_INSTANCE:
-        break;
+        return new ProxyNewProxyInstance(eventType, stack, args, factory);
     }
     return new ReflectiveEvent(eventType, stack) {
       @Override

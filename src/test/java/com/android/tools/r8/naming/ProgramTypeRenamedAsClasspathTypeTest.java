@@ -31,7 +31,7 @@ public class ProgramTypeRenamedAsClasspathTypeTest extends TestBase {
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters()
-        .withCfRuntimesStartingFromIncluding(CfVm.JDK24)
+        .withCfRuntimesStartingFromIncluding(CfVm.JDK25)
         .withDexRuntimes()
         .withAllApiLevelsAlsoForCf()
         .withPartialCompilation()

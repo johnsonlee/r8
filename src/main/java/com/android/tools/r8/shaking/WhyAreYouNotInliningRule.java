@@ -77,6 +77,13 @@ public class WhyAreYouNotInliningRule extends ProguardConfigurationRule {
     return new Builder();
   }
 
+  // The ServiceLoader rewriter emits debug information if -whyareyounotinlining matches
+  // ServiceLoader.load.
+  @Override
+  public boolean isApplicableToLibraryClasses() {
+    return true;
+  }
+
   @Override
   String typeString() {
     return RULE_NAME;

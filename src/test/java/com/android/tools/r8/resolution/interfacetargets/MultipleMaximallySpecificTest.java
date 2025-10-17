@@ -43,8 +43,10 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class MultipleMaximallySpecificTest extends TestBase {
 
-  private static final String EXPECTED_UPTO_JDK9 = StringUtils.lines("A.foo", "Got ICCE");
-  private static final String EXPECTED_AFTER_JDK9 = StringUtils.lines("A.foo", "Got AME");
+  private static final String EXPECTED_UPTO_JDK9_AND_AFTER_25 =
+      StringUtils.lines("A.foo", "Got ICCE");
+  private static final String EXPECTED_AFTER_JDK9_AND_BEFORE_25_AND_ART =
+      StringUtils.lines("A.foo", "Got AME");
 
   private final TestParameters parameters;
 
@@ -118,22 +120,18 @@ public class MultipleMaximallySpecificTest extends TestBase {
     }
   }
 
-  private boolean isDesugaring() {
-    return parameters.isDexRuntime()
-        && parameters.getApiLevel().isLessThan(apiLevelWithDefaultInterfaceMethodsSupport());
-  }
-
-  private boolean isNewCfRuntime() {
-    return parameters.isCfRuntime() && parameters.asCfRuntime().isNewerThan(CfVm.JDK9);
-  }
-
   @Test
   public void testRuntime() throws Exception {
     testForRuntime(parameters)
         .addProgramClasses(getInputClasses())
         .addProgramClassFileData(getTransformedClasses())
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutput(isNewCfRuntime() ? EXPECTED_AFTER_JDK9 : EXPECTED_UPTO_JDK9);
+        .assertSuccessWithOutput(
+            parameters.isCfRuntime()
+                    && parameters.asCfRuntime().isNewerThan(CfVm.JDK9)
+                    && parameters.asCfRuntime().isOlderThan(CfVm.JDK25)
+                ? EXPECTED_AFTER_JDK9_AND_BEFORE_25_AND_ART
+                : EXPECTED_UPTO_JDK9_AND_AFTER_25);
   }
 
   @Test

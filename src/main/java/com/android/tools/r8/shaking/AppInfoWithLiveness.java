@@ -147,8 +147,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
   public final Map<DexReference, ProguardMemberRule> mayHaveSideEffects;
   /** All methods that should be inlined if possible due to a configuration directive. */
   private final Set<DexMethod> alwaysInline;
-  /** Items for which to print inlining decisions for (testing only). */
-  private final Set<DexMethod> whyAreYouNotInlining;
   /** All methods that must be reprocessed (testing only). */
   private final Set<DexMethod> reprocess;
   /** All types that should be inlined if possible due to a configuration directive. */
@@ -210,7 +208,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
       KeepInfoCollection keepInfo,
       Map<DexReference, ProguardMemberRule> mayHaveSideEffects,
       Set<DexMethod> alwaysInline,
-      Set<DexMethod> whyAreYouNotInlining,
       Set<DexMethod> reprocess,
       PredicateSet<DexType> alwaysClassInline,
       IdentifierNameStringCollection identifierNameStrings,
@@ -236,7 +233,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     this.mayHaveSideEffects = mayHaveSideEffects;
     this.callSites = callSites;
     this.alwaysInline = alwaysInline;
-    this.whyAreYouNotInlining = whyAreYouNotInlining;
     this.reprocess = reprocess;
     this.alwaysClassInline = alwaysClassInline;
     this.identifierNameStrings = identifierNameStrings;
@@ -270,7 +266,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         previous.keepInfo,
         previous.mayHaveSideEffects,
         previous.alwaysInline,
-        previous.whyAreYouNotInlining,
         previous.reprocess,
         previous.alwaysClassInline,
         previous.identifierNameStrings,
@@ -305,7 +300,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         extendPinnedItems(previous, prunedItems.getAdditionalPinnedItems()),
         previous.mayHaveSideEffects,
         pruneMethods(previous.alwaysInline, prunedItems, tasks),
-        pruneMethods(previous.whyAreYouNotInlining, prunedItems, tasks),
         pruneMethods(previous.reprocess, prunedItems, tasks),
         previous.alwaysClassInline,
         previous.identifierNameStrings.prune(prunedItems, tasks),
@@ -431,7 +425,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         keepInfo,
         mayHaveSideEffects,
         alwaysInline,
-        whyAreYouNotInlining,
         reprocess,
         alwaysClassInline,
         identifierNameStrings,
@@ -502,7 +495,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     this.mayHaveSideEffects = previous.mayHaveSideEffects;
     this.callSites = previous.callSites;
     this.alwaysInline = previous.alwaysInline;
-    this.whyAreYouNotInlining = previous.whyAreYouNotInlining;
     this.reprocess = previous.reprocess;
     this.alwaysClassInline = previous.alwaysClassInline;
     this.identifierNameStrings = previous.identifierNameStrings;
@@ -636,14 +628,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
 
   public boolean isAlwaysInlineMethod(DexMethod method) {
     return alwaysInline.contains(method);
-  }
-
-  public boolean isWhyAreYouNotInliningMethod(DexMethod method) {
-    return whyAreYouNotInlining.contains(method);
-  }
-
-  public boolean hasNoWhyAreYouNotInliningMethods() {
-    return whyAreYouNotInlining.isEmpty();
   }
 
   public Set<DexMethod> getReprocessMethods() {
@@ -999,7 +983,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         // Take any rule in case of collisions.
         lens.rewriteReferenceKeys(mayHaveSideEffects, (reference, rules) -> ListUtils.first(rules)),
         lens.rewriteReferences(alwaysInline),
-        lens.rewriteReferences(whyAreYouNotInlining),
         lens.rewriteReferences(reprocess),
         alwaysClassInline.rewriteItems(lens::lookupType),
         identifierNameStrings.rewrittenWithLens(lens),

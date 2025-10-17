@@ -18,7 +18,7 @@ exit -1
 
 # Now run script with fingers crossed!
 
-JDK_VERSION="24"
+JDK_VERSION="25"
 JDK_VERSION_FULL=${JDK_VERSION}
 # For ea versions the full version name has a postfix.
 # JDK_VERSION_FULL="${JDK_VERSION}-ea+33"
@@ -62,4 +62,4 @@ rm windows.tar.gz
 
 git add *.sha1
 
-echo "Update additional files, see https://r8-review.googlesource.com/c/r8/+/61909"
+echo "Update additional files, see https://r8-review.googlesource.com/c/r8/+/111040"

@@ -3,12 +3,16 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.shaking;
 
+import static com.android.tools.r8.shaking.ProguardKeepAttributes.RUNTIME_INVISIBLE_ANNOTATIONS;
+import static com.android.tools.r8.shaking.ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS;
+
 import com.android.tools.r8.errors.dontwarn.DontWarnConfiguration;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.naming.DictionaryReader;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
 import com.android.tools.r8.position.TextPosition;
+import com.android.tools.r8.shaking.ProguardConfigurationParser.IncludeWorkItem;
 import com.android.tools.r8.shaking.ProguardConfigurationParser.ProguardConfigurationSourceParser;
 import com.android.tools.r8.utils.InternalOptions.PackageObfuscationMode;
 import com.android.tools.r8.utils.Reporter;
@@ -18,6 +22,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -26,7 +31,7 @@ public class ProguardConfiguration {
 
   public static class Builder implements ProguardConfigurationParserConsumer {
 
-    private final List<String> parsedConfiguration = new ArrayList<>();
+    private final StringBuilder parsedConfiguration = new StringBuilder();
     private final List<FilteredClassPath> injars = new ArrayList<>();
 
     private final List<FilteredClassPath> libraryJars = new ArrayList<>();
@@ -53,13 +58,11 @@ public class ProguardConfiguration {
     protected final Set<ProguardConfigurationRule> rules = Sets.newLinkedHashSet();
     private final DexItemFactory dexItemFactory;
     private boolean printSeeds;
-    private Path seedFile;
+    private Path printSeedsFile;
     private Path obfuscationDictionary;
     private Path classObfuscationDictionary;
     private Path packageObfuscationDictionary;
     private boolean keepParameterNames;
-    private Origin keepParameterNamesOptionOrigin;
-    private Position keepParameterNamesOptionPosition;
     private final ProguardClassFilter.Builder adaptClassStrings = ProguardClassFilter.builder();
     private final ProguardPathFilter.Builder adaptResourceFilenames =
         ProguardPathFilter.builder()
@@ -85,43 +88,90 @@ public class ProguardConfiguration {
     }
 
     @Override
-    public void addParsedConfiguration(String source) {
-      parsedConfiguration.add(source);
+    public void addBaseDirectory(
+        Path baseDirectory, ProguardConfigurationSourceParser parser, TextPosition positionStart) {
+      // Intentionally empty.
     }
 
     @Override
-    public void addInjars(List<FilteredClassPath> injars, Origin origin, Position position) {
+    public void addIgnoredOption(
+        String option, ProguardConfigurationSourceParser parser, TextPosition positionStart) {
+      // Intentionally empty.
+    }
+
+    @Override
+    public void addInclude(
+        Path includePath, ProguardConfigurationSourceParser parser, TextPosition positionStart) {
+      IncludeWorkItem include = new IncludeWorkItem(includePath, positionStart, parser.getOffset());
+      parser.getPendingIncludes().add(include);
+    }
+
+    @Override
+    public void addLeadingBOM() {
+      // Intentionally empty.
+    }
+
+    @Override
+    public void addParsedConfiguration(ProguardConfigurationSourceParser parser) {
+      parsedConfiguration.append(
+          "# The proguard configuration file for the following section is " + parser.getOrigin());
+      parsedConfiguration.append(System.lineSeparator());
+      int lastIncludePositionEnd = 0;
+      for (IncludeWorkItem pendingInclude : parser.getPendingIncludes()) {
+        int includePositionStart = pendingInclude.includePositionStart.getOffsetAsInt();
+        parsedConfiguration.append(
+            parser.getContentInRange(lastIncludePositionEnd, includePositionStart));
+        lastIncludePositionEnd = pendingInclude.includePositionEnd;
+      }
+      parsedConfiguration.append(parser.getContentAfter(lastIncludePositionEnd));
+      parsedConfiguration.append(System.lineSeparator());
+      parsedConfiguration.append("# End of content from ");
+      parsedConfiguration.append(parser.getOrigin());
+      parsedConfiguration.append(System.lineSeparator());
+    }
+
+    @Override
+    public void addInjars(
+        List<FilteredClassPath> injars,
+        ProguardConfigurationSourceParser parser,
+        Position position,
+        TextPosition positionStart) {
       this.injars.addAll(injars);
     }
 
     @Override
     public void addLibraryJars(
-        List<FilteredClassPath> libraryJars, Origin origin, Position position) {
+        List<FilteredClassPath> libraryJars,
+        ProguardConfigurationSourceParser parser,
+        Position position,
+        TextPosition positionStart) {
       this.libraryJars.addAll(libraryJars);
     }
 
     @Override
-    public void enableAllowAccessModification(Origin origin, Position position) {
+    public void enableAllowAccessModification(
+        ProguardConfigurationSourceParser parser, Position position, TextPosition positionStart) {
       this.allowAccessModification = true;
     }
 
     @Override
-    public void setIgnoreWarnings(boolean ignoreWarnings) {
-      this.ignoreWarnings = ignoreWarnings;
+    public void setIgnoreWarnings(
+        ProguardConfigurationSourceParser parser, TextPosition positionStart) {
+      this.ignoreWarnings = true;
     }
 
     @Override
-    public void disableOptimization(Origin origin, Position position) {
+    public void disableOptimization(ProguardConfigurationSourceParser parser, Position position) {
       this.optimizing = false;
     }
 
     @Override
-    public void disableObfuscation(Origin origin, Position position) {
+    public void disableObfuscation(ProguardConfigurationSourceParser parser, Position position) {
       this.obfuscating = false;
     }
 
     @Override
-    public void disableShrinking(Origin origin, Position position) {
+    public void disableShrinking(ProguardConfigurationSourceParser parser, Position position) {
       this.shrinking = false;
     }
 
@@ -133,10 +183,6 @@ public class ProguardConfiguration {
     public Builder disableObfuscation() {
       this.obfuscating = false;
       return this;
-    }
-
-    boolean isAccessModificationEnabled() {
-      return allowAccessModification;
     }
 
     boolean isObfuscating() {
@@ -157,60 +203,86 @@ public class ProguardConfiguration {
     }
 
     @Override
-    public void enablePrintConfiguration(Origin origin, Position position) {
+    public void enablePrintConfiguration(
+        Path printConfigurationFile,
+        ProguardConfigurationSourceParser parser,
+        Position position,
+        TextPosition positionStart) {
       this.printConfiguration = true;
+      this.printConfigurationFile = printConfigurationFile;
     }
 
     @Override
-    public void setPrintConfigurationFile(Path file) {
-      assert printConfiguration;
-      this.printConfigurationFile = file;
-    }
-
-    @Override
-    public void setPrintUsage(boolean printUsage) {
-      this.printUsage = printUsage;
-    }
-
-    @Override
-    public void setPrintUsageFile(Path printUsageFile) {
+    public void enablePrintUsage(
+        Path printUsageFile,
+        ProguardConfigurationSourceParser parser,
+        Position position,
+        TextPosition positionStart) {
+      this.printUsage = true;
       this.printUsageFile = printUsageFile;
     }
 
     @Override
-    public void enablePrintMapping(Origin origin, Position position) {
+    public void enablePrintMapping(
+        Path printMappingFile,
+        ProguardConfigurationSourceParser parser,
+        Position position,
+        TextPosition positionStart) {
       this.printMapping = true;
+      this.printMappingFile = printMappingFile;
     }
 
     @Override
-    public void setPrintMappingFile(Path file) {
-      assert printMapping;
-      this.printMappingFile = file;
-    }
-
-    @Override
-    public void setApplyMappingFile(Path file, Origin origin, Position position) {
-      this.applyMappingFile = file;
-    }
-
-    public boolean hasApplyMappingFile() {
-      return applyMappingFile != null;
+    public void setApplyMappingFile(
+        Path applyMappingFile,
+        ProguardConfigurationSourceParser parser,
+        Position position,
+        TextPosition positionStart) {
+      this.applyMappingFile = applyMappingFile;
     }
 
     @Override
     public void setRenameSourceFileAttribute(
-        String renameSourceFileAttribute, Origin origin, Position position) {
+        String renameSourceFileAttribute,
+        ProguardConfigurationSourceParser parser,
+        Position position,
+        TextPosition positionStart) {
       this.renameSourceFileAttribute = renameSourceFileAttribute;
     }
 
     @Override
     public void addKeepAttributePatterns(
         List<String> keepAttributePatterns,
-        Origin origin,
         ProguardConfigurationSourceParser parser,
         Position position,
         TextPosition positionStart) {
       this.keepAttributePatterns.addAll(keepAttributePatterns);
+    }
+
+    @Override
+    public void addKeepKotlinMetadata(
+        ProguardConfigurationSourceParser parser, Position position, TextPosition positionStart) {
+      Origin origin = parser.getOrigin();
+      String source = "-keepkotlinmetadata";
+      ProguardKeepRule keepKotlinMetadata =
+          ProguardKeepRuleUtils.keepClassAndMembersRule(
+              origin, positionStart, dexItemFactory.kotlinMetadataType, source);
+      ProguardKeepRule keepKotlinJvmNameAnnotation =
+          ProguardKeepRuleUtils.keepClassAndMembersRule(
+              origin, positionStart, dexItemFactory.kotlinJvmNameType, source);
+      // Mark the rules as used to ensure we do not report any information messages if the class
+      // is not present.
+      keepKotlinMetadata.markAsUsed();
+      keepKotlinJvmNameAnnotation.markAsUsed();
+      addRule(keepKotlinMetadata, parser, positionStart);
+      addRule(keepKotlinJvmNameAnnotation, parser, positionStart);
+      addKeepAttributePatterns(
+          Collections.singletonList(RUNTIME_VISIBLE_ANNOTATIONS), parser, position, positionStart);
+      addKeepAttributePatterns(
+          Collections.singletonList(RUNTIME_INVISIBLE_ANNOTATIONS),
+          parser,
+          position,
+          positionStart);
     }
 
     public Builder addKeepAttributePatterns(List<String> keepAttributePatterns) {
@@ -219,17 +291,26 @@ public class ProguardConfiguration {
     }
 
     @Override
-    public void addRule(ProguardConfigurationRule rule) {
+    public void addRule(
+        ProguardConfigurationRule rule,
+        ProguardConfigurationSourceParser parser,
+        TextPosition positionStart) {
       this.rules.add(rule);
     }
 
     @Override
-    public void addKeepPackageNamesPattern(ProguardClassNameList pattern) {
+    public void addKeepPackageNamesPattern(
+        ProguardClassNameList pattern,
+        ProguardConfigurationSourceParser parser,
+        TextPosition positionStart) {
       keepPackageNamesPatterns.addPattern(pattern);
     }
 
     @Override
-    public void joinMaxRemovedAndroidLogLevel(int maxRemovedAndroidLogLevel) {
+    public void joinMaxRemovedAndroidLogLevel(
+        int maxRemovedAndroidLogLevel,
+        ProguardConfigurationSourceParser parser,
+        TextPosition positionStart) {
       assert maxRemovedAndroidLogLevel >= MaximumRemovedAndroidLogLevelRule.NONE;
       if (this.maxRemovedAndroidLogLevel == MaximumRemovedAndroidLogLevelRule.NOT_SET) {
         this.maxRemovedAndroidLogLevel = maxRemovedAndroidLogLevel;
@@ -251,91 +332,100 @@ public class ProguardConfiguration {
     }
 
     @Override
-    public void setPackagePrefix(String packagePrefix) {
-      this.packagePrefix = packagePrefix;
-    }
-
-    @Override
-    public void setFlattenPackagePrefix(String packagePrefix) {
-      this.packagePrefix = packagePrefix;
-    }
-
-    @Override
-    public void enableFlattenPackageHierarchy(Origin origin, Position position) {
+    public void enableFlattenPackageHierarchy(
+        String packagePrefix,
+        ProguardConfigurationSourceParser parser,
+        Position position,
+        TextPosition positionStart) {
       packageObfuscationMode = PackageObfuscationMode.FLATTEN;
+      this.packagePrefix = packagePrefix;
     }
 
     @Override
-    public void enableRepackageClasses(Origin origin, Position position) {
+    public void enableRepackageClasses(
+        String packagePrefix,
+        ProguardConfigurationSourceParser parser,
+        Position position,
+        TextPosition positionStart) {
       packageObfuscationMode = PackageObfuscationMode.REPACKAGE;
+      this.packagePrefix = packagePrefix;
     }
 
     @Override
-    public void addDontWarnPattern(ProguardClassNameList pattern) {
+    public void addDontWarnPattern(
+        ProguardClassNameList pattern,
+        ProguardConfigurationSourceParser parser,
+        TextPosition positionStart) {
       dontWarnPatterns.addPattern(pattern);
     }
 
     @Override
-    public void addDontNotePattern(ProguardClassNameList pattern) {
+    public void addDontNotePattern(
+        ProguardClassNameList pattern,
+        ProguardConfigurationSourceParser parser,
+        TextPosition positionStart) {
       dontNotePatterns.addPattern(pattern);
     }
 
     @Override
-    public void setSeedFile(Path seedFile) {
-      this.seedFile = seedFile;
-    }
-
-    @Override
-    public void setPrintSeeds(boolean printSeeds, Origin origin, Position position) {
-      this.printSeeds = printSeeds;
+    public void enablePrintSeeds(
+        Path printSeedsFile,
+        ProguardConfigurationSourceParser parser,
+        Position position,
+        TextPosition positionStart) {
+      this.printSeeds = true;
+      this.printSeedsFile = printSeedsFile;
     }
 
     @Override
     public void setObfuscationDictionary(
-        Path obfuscationDictionary, Origin origin, Position position) {
+        Path obfuscationDictionary,
+        ProguardConfigurationSourceParser parser,
+        Position position,
+        TextPosition positionStart) {
       this.obfuscationDictionary = obfuscationDictionary;
     }
 
     @Override
     public void setClassObfuscationDictionary(
-        Path classObfuscationDictionary, Origin origin, Position position) {
+        Path classObfuscationDictionary,
+        ProguardConfigurationSourceParser parser,
+        Position position,
+        TextPosition positionStart) {
       this.classObfuscationDictionary = classObfuscationDictionary;
     }
 
     @Override
     public void setPackageObfuscationDictionary(
-        Path packageObfuscationDictionary, Origin origin, Position position) {
+        Path packageObfuscationDictionary,
+        ProguardConfigurationSourceParser parser,
+        Position position,
+        TextPosition positionStart) {
       this.packageObfuscationDictionary = packageObfuscationDictionary;
     }
 
     @Override
     public void setKeepParameterNames(
-        boolean keepParameterNames, Origin optionOrigin, Position optionPosition) {
+        ProguardConfigurationSourceParser optionOrigin,
+        Position optionPosition,
+        TextPosition positionStart) {
       assert optionOrigin != null || !keepParameterNames;
-      this.keepParameterNames = keepParameterNames;
-      this.keepParameterNamesOptionOrigin = optionOrigin;
-      this.keepParameterNamesOptionPosition = optionPosition;
-    }
-
-    boolean isKeepParameterNames() {
-      return keepParameterNames;
-    }
-
-    Origin getKeepParameterNamesOptionOrigin() {
-      return keepParameterNamesOptionOrigin;
-    }
-
-    Position getKeepParameterNamesOptionPosition() {
-      return keepParameterNamesOptionPosition;
+      this.keepParameterNames = true;
     }
 
     @Override
-    public void addAdaptClassStringsPattern(ProguardClassNameList pattern) {
+    public void addAdaptClassStringsPattern(
+        ProguardClassNameList pattern,
+        ProguardConfigurationSourceParser parser,
+        TextPosition positionStart) {
       adaptClassStrings.addPattern(pattern);
     }
 
     @Override
-    public void addAdaptResourceFilenames(ProguardPathList pattern) {
+    public void addAdaptResourceFilenames(
+        ProguardPathList pattern,
+        ProguardConfigurationSourceParser parser,
+        TextPosition positionStart) {
       adaptResourceFilenames.addPattern(pattern);
     }
 
@@ -346,18 +436,19 @@ public class ProguardConfiguration {
     }
 
     @Override
-    public void addAdaptResourceFileContents(ProguardPathList pattern) {
+    public void addAdaptResourceFileContents(
+        ProguardPathList pattern,
+        ProguardConfigurationSourceParser parser,
+        TextPosition positionStart) {
       adaptResourceFileContents.addPattern(pattern);
     }
 
     @Override
-    public void enableKeepDirectories() {
-      keepDirectories.enable();
-    }
-
-    @Override
-    public void addKeepDirectories(ProguardPathList pattern) {
-      keepDirectories.addPattern(pattern);
+    public void enableKeepDirectories(
+        ProguardPathList keepDirectoryPatterns,
+        ProguardConfigurationSourceParser parser,
+        TextPosition positionStart) {
+      keepDirectories.enable().addPattern(keepDirectoryPatterns);
     }
 
     public boolean isForceProguardCompatibility() {
@@ -370,7 +461,8 @@ public class ProguardConfiguration {
     }
 
     @Override
-    public void enableProtoShrinking() {
+    public void enableProtoShrinking(
+        ProguardConfigurationSourceParser parser, TextPosition positionStart) {
       protoShrinking = true;
     }
 
@@ -383,7 +475,7 @@ public class ProguardConfiguration {
       }
       ProguardConfiguration configuration =
           new ProguardConfiguration(
-              String.join(System.lineSeparator(), parsedConfiguration),
+              parsedConfiguration.toString(),
               dexItemFactory,
               injars,
               libraryJars,
@@ -408,7 +500,7 @@ public class ProguardConfiguration {
               dontNotePatterns.build(),
               rules,
               printSeeds,
-              seedFile,
+              printSeedsFile,
               DictionaryReader.readAllNames(obfuscationDictionary, reporter),
               DictionaryReader.readAllNames(classObfuscationDictionary, reporter),
               DictionaryReader.readAllNames(packageObfuscationDictionary, reporter),
@@ -471,6 +563,8 @@ public class ProguardConfiguration {
   private final ProguardPathFilter keepDirectories;
   private final boolean protoShrinking;
   private final int maxRemovedAndroidLogLevel;
+  private final boolean hasWhyAreYouNotInliningRule;
+  private final boolean hasWhyAreYouNotObfuscatingRule;
 
   private ProguardConfiguration(
       String parsedConfiguration,
@@ -545,6 +639,10 @@ public class ProguardConfiguration {
     this.keepDirectories = keepDirectories;
     this.protoShrinking = protoShrinking;
     this.maxRemovedAndroidLogLevel = maxRemovedAndroidLogLevel;
+    this.hasWhyAreYouNotInliningRule =
+        Iterables.any(rules, rule -> rule instanceof WhyAreYouNotInliningRule);
+    this.hasWhyAreYouNotObfuscatingRule =
+        Iterables.any(rules, rule -> rule instanceof WhyAreYouNotObfuscatingRule);
   }
 
   /**
@@ -714,6 +812,14 @@ public class ProguardConfiguration {
 
   public boolean hasMaximumRemovedAndroidLogLevelRules() {
     return Iterables.any(rules, ProguardConfigurationRule::isMaximumRemovedAndroidLogLevelRule);
+  }
+
+  public boolean hasWhyAreYouNotInliningRule() {
+    return hasWhyAreYouNotInliningRule;
+  }
+
+  public boolean hasWhyAreYouNotObfuscatingRule() {
+    return hasWhyAreYouNotObfuscatingRule;
   }
 
   @Override

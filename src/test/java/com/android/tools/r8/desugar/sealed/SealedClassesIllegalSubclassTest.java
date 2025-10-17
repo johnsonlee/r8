@@ -40,7 +40,10 @@ public class SealedClassesIllegalSubclassTest extends TestBase {
   @Parameter(1)
   public boolean keepPermittedSubclassesAttribute;
 
-  static final Matcher<String> EXPECTED = containsString("cannot inherit from sealed class");
+  static final Matcher<String> EXPECTED_BEFORE_JDK25 =
+      containsString("cannot inherit from sealed class");
+  static final Matcher<String> EXPECTED_FROM_JDK25 =
+      containsString("Failed listed permitted subclass check");
   static final String EXPECTED_WITHOUT_PERMITTED_SUBCLASSES_ATTRIBUTE =
       StringUtils.lines("Sub1", "Sub2", "Sub3");
 
@@ -69,7 +72,10 @@ public class SealedClassesIllegalSubclassTest extends TestBase {
     testForJvm(parameters)
         .apply(this::addTestClasses)
         .run(parameters.getRuntime(), TestClass.class)
-        .assertFailureWithErrorThatMatches(EXPECTED);
+        .assertFailureWithErrorThatMatches(
+            parameters.isCfRuntime() && parameters.asCfRuntime().isOlderThan(CfVm.JDK25)
+                ? EXPECTED_BEFORE_JDK25
+                : EXPECTED_FROM_JDK25);
   }
 
   @Test
@@ -81,8 +87,10 @@ public class SealedClassesIllegalSubclassTest extends TestBase {
         .applyIf(
             DesugarTestConfiguration::isNotJavac,
             r -> r.assertSuccessWithOutput(EXPECTED_WITHOUT_PERMITTED_SUBCLASSES_ATTRIBUTE),
+            c -> parameters.getRuntime().asCf().isNewerThanOrEqual(CfVm.JDK25),
+            r -> r.assertFailureWithErrorThatMatches(EXPECTED_FROM_JDK25),
             c -> parameters.getRuntime().asCf().isNewerThanOrEqual(CfVm.JDK17),
-            r -> r.assertFailureWithErrorThatMatches(EXPECTED),
+            r -> r.assertFailureWithErrorThatMatches(EXPECTED_BEFORE_JDK25),
             r -> r.assertFailureWithErrorThatThrows(UnsupportedClassVersionError.class));
   }
 
@@ -125,8 +133,13 @@ public class SealedClassesIllegalSubclassTest extends TestBase {
                     && parameters.asCfRuntime().isNewerThanOrEqual(CfVm.JDK17)),
             r -> r.assertSuccessWithOutput(EXPECTED_WITHOUT_PERMITTED_SUBCLASSES_ATTRIBUTE),
             parameters.isCfRuntime()
+                && parameters.asCfRuntime().isNewerThanOrEqual(CfVm.JDK25)
                 && keepPermittedSubclassesAttribute,
-            r -> r.assertFailureWithErrorThatMatches(EXPECTED),
+            r -> r.assertFailureWithErrorThatMatches(EXPECTED_FROM_JDK25),
+            parameters.isCfRuntime()
+                && parameters.asCfRuntime().isNewerThanOrEqual(CfVm.JDK17)
+                && keepPermittedSubclassesAttribute,
+            r -> r.assertFailureWithErrorThatMatches(EXPECTED_BEFORE_JDK25),
             r -> r.assertFailureWithErrorThatThrows(UnsupportedClassVersionError.class));
   }
 

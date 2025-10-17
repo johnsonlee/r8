@@ -4,7 +4,6 @@
 package com.android.tools.r8.processkeeprules;
 
 import com.android.tools.r8.StringConsumer;
-import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
 import com.android.tools.r8.position.TextPosition;
 import com.android.tools.r8.shaking.FilteredClassPath;
@@ -12,7 +11,11 @@ import com.android.tools.r8.shaking.ProguardClassNameList;
 import com.android.tools.r8.shaking.ProguardConfigurationParser.ProguardConfigurationSourceParser;
 import com.android.tools.r8.shaking.ProguardConfigurationParserConsumer;
 import com.android.tools.r8.shaking.ProguardConfigurationRule;
+import com.android.tools.r8.shaking.ProguardKeepAttributes;
 import com.android.tools.r8.shaking.ProguardPathList;
+import com.android.tools.r8.shaking.WhyAreYouKeepingRule;
+import com.android.tools.r8.shaking.WhyAreYouNotInliningRule;
+import com.android.tools.r8.shaking.WhyAreYouNotObfuscatingRule;
 import com.android.tools.r8.utils.InternalOptions.PackageObfuscationMode;
 import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.StringUtils;
@@ -64,6 +67,19 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   }
 
   private void write(String string) {
+    internalWrite(string, false);
+  }
+
+  private void writeComment(ProguardConfigurationSourceParser parser, TextPosition positionStart) {
+    writeComment(parser.getContentSince(positionStart));
+  }
+
+  private void writeComment(String string) {
+    ensureComment();
+    internalWrite(string, true);
+  }
+
+  private void internalWrite(String string, boolean beginCommentOnNewline) {
     int lastNewlineIndex = string.lastIndexOf('\n');
     if (lastNewlineIndex < 0) {
       appendToCurrentLine(string);
@@ -73,6 +89,9 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
       consumer.accept(untilNewlineInclusive, reporter);
       // Due to the newline character we are no longer inside a comment.
       exitComment();
+      if (beginCommentOnNewline) {
+        ensureComment();
+      }
       // Emit everything after the newline character.
       String fromNewlineExclusive = string.substring(lastNewlineIndex + 1);
       appendToCurrentLine(fromNewlineExclusive);
@@ -80,20 +99,156 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   }
 
   @Override
-  public void addKeepAttributePatterns(
-      List<String> attributesPatterns,
-      Origin origin,
+  public void addAdaptClassStringsPattern(
+      ProguardClassNameList pattern,
       ProguardConfigurationSourceParser parser,
-      Position position,
       TextPosition positionStart) {
     ensureNewlineAfterComment();
     write(parser, positionStart);
   }
 
   @Override
-  public void addRule(ProguardConfigurationRule rule) {
+  public void addAdaptResourceFileContents(
+      ProguardPathList pattern,
+      ProguardConfigurationSourceParser parser,
+      TextPosition positionStart) {
     ensureNewlineAfterComment();
-    write(rule.getSource());
+    write(parser, positionStart);
+  }
+
+  @Override
+  public void addAdaptResourceFilenames(
+      ProguardPathList pattern,
+      ProguardConfigurationSourceParser parser,
+      TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
+
+  @Override
+  public void addBaseDirectory(
+      Path baseDirectory, ProguardConfigurationSourceParser parser, TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
+
+  @Override
+  public void addDontNotePattern(
+      ProguardClassNameList pattern,
+      ProguardConfigurationSourceParser parser,
+      TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
+
+  @Override
+  public void addDontWarnPattern(
+      ProguardClassNameList pattern,
+      ProguardConfigurationSourceParser parser,
+      TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
+
+  @Override
+  public void addIgnoredOption(
+      String option, ProguardConfigurationSourceParser parser, TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
+
+  @Override
+  public void addInclude(
+      Path includePath, ProguardConfigurationSourceParser parser, TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
+
+  @Override
+  public void addLeadingBOM() {
+    appendToCurrentLine(Character.toString(StringUtils.BOM));
+  }
+
+  @Override
+  public void addInjars(
+      List<FilteredClassPath> filteredClassPaths,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
+    writeComment(parser, positionStart);
+  }
+
+  @Override
+  public void addKeepAttributePatterns(
+      List<String> attributesPatterns,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
+    ProguardKeepAttributes keepAttributes = ProguardKeepAttributes.fromPatterns(attributesPatterns);
+    if (keepAttributes.lineNumberTable
+        || keepAttributes.runtimeInvisibleAnnotations
+        || keepAttributes.runtimeInvisibleParameterAnnotations
+        || keepAttributes.runtimeInvisibleTypeAnnotations
+        || keepAttributes.sourceFile) {
+      // Comment out the -keepattributes rule.
+      writeComment(parser, positionStart);
+      // Unset the undesired attributes and expand the rule.
+      keepAttributes.lineNumberTable = false;
+      keepAttributes.runtimeInvisibleAnnotations = false;
+      keepAttributes.runtimeInvisibleParameterAnnotations = false;
+      keepAttributes.runtimeInvisibleTypeAnnotations = false;
+      keepAttributes.sourceFile = false;
+      ensureNewlineAfterComment();
+      write(keepAttributes.toString());
+    } else {
+      ensureNewlineAfterComment();
+      write(parser, positionStart);
+    }
+  }
+
+  @Override
+  public void addKeepKotlinMetadata(
+      ProguardConfigurationSourceParser parser, Position position, TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
+
+  @Override
+  public void addKeepPackageNamesPattern(
+      ProguardClassNameList proguardClassNameList,
+      ProguardConfigurationSourceParser parser,
+      TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
+
+  @Override
+  public void addLibraryJars(
+      List<FilteredClassPath> filteredClassPaths,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
+    writeComment(parser, positionStart);
+  }
+
+  @Override
+  public void addParsedConfiguration(ProguardConfigurationSourceParser parser) {
+    assert parser.getPendingIncludes().isEmpty();
+  }
+
+  @Override
+  public void addRule(
+      ProguardConfigurationRule rule,
+      ProguardConfigurationSourceParser parser,
+      TextPosition positionStart) {
+    if (rule instanceof WhyAreYouKeepingRule
+        || rule instanceof WhyAreYouNotInliningRule
+        || rule instanceof WhyAreYouNotObfuscatingRule) {
+      writeComment(parser, positionStart);
+    } else {
+      ensureNewlineAfterComment();
+      write(parser, positionStart);
+    }
   }
 
   @Override
@@ -102,126 +257,164 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   }
 
   @Override
-  public void disableObfuscation(Origin origin, Position position) {
-    ensureComment();
-    write("-dontobfuscate");
+  public void disableObfuscation(ProguardConfigurationSourceParser parser, Position position) {
+    writeComment("-dontobfuscate");
   }
 
   @Override
-  public void disableOptimization(Origin origin, Position position) {
-    ensureComment();
-    write("-dontoptimize");
+  public void disableOptimization(ProguardConfigurationSourceParser parser, Position position) {
+    writeComment("-dontoptimize");
   }
 
   @Override
-  public void disableShrinking(Origin origin, Position position) {
-    ensureComment();
-    write("-dontshrink");
+  public void disableShrinking(ProguardConfigurationSourceParser parser, Position position) {
+    writeComment("-dontshrink");
   }
 
   @Override
-  public void setRenameSourceFileAttribute(String s, Origin origin, Position position) {}
+  public void enableAllowAccessModification(
+      ProguardConfigurationSourceParser parser, Position position, TextPosition positionStart) {
+    writeComment(parser, positionStart);
+  }
 
   @Override
-  public void addKeepPackageNamesPattern(ProguardClassNameList proguardClassNameList) {}
+  public void enableFlattenPackageHierarchy(
+      String packagePrefix,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
+    writeComment(parser, positionStart);
+  }
 
   @Override
-  public void setKeepParameterNames(boolean b, Origin origin, Position position) {}
+  public void enableKeepDirectories(
+      ProguardPathList keepDirectoryPatterns,
+      ProguardConfigurationSourceParser parser,
+      TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
 
   @Override
-  public void enableKeepDirectories() {}
+  public void enablePrintConfiguration(
+      Path printConfigurationFile,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
+    writeComment(parser, positionStart);
+  }
 
   @Override
-  public void addKeepDirectories(ProguardPathList proguardPathList) {}
+  public void enablePrintMapping(
+      Path printMappingFile,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
+    writeComment(parser, positionStart);
+  }
 
   @Override
-  public void addParsedConfiguration(String s) {}
+  public void enablePrintSeeds(
+      Path printSeedsFile,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
+    writeComment(parser, positionStart);
+  }
 
   @Override
-  public void setPrintUsage(boolean b) {}
+  public void enablePrintUsage(
+      Path printUsageFile,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
+    writeComment(parser, positionStart);
+  }
 
   @Override
-  public void setPrintUsageFile(Path path) {}
+  public void enableProtoShrinking(
+      ProguardConfigurationSourceParser parser, TextPosition positionStart) {
+    writeComment(parser, positionStart);
+  }
 
   @Override
-  public void enableProtoShrinking() {}
+  public void enableRepackageClasses(
+      String packagePrefix,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
+    writeComment(parser, positionStart);
+  }
 
   @Override
-  public void setIgnoreWarnings(boolean b) {}
+  public void joinMaxRemovedAndroidLogLevel(
+      int maxRemovedAndroidLogLevel,
+      ProguardConfigurationSourceParser parser,
+      TextPosition positionStart) {
+    writeComment(parser, positionStart);
+  }
 
   @Override
-  public void addDontWarnPattern(ProguardClassNameList pattern) {}
+  public void setApplyMappingFile(
+      Path applyMappingFile,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
+    writeComment(parser, positionStart);
+  }
 
   @Override
-  public void addDontNotePattern(ProguardClassNameList pattern) {}
+  public void setIgnoreWarnings(
+      ProguardConfigurationSourceParser parser, TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
 
   @Override
-  public void enableAllowAccessModification(Origin origin, Position position) {}
+  public void setClassObfuscationDictionary(
+      Path path,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
+    writeComment(parser, positionStart);
+  }
 
   @Override
-  public void enablePrintConfiguration(Origin origin, Position position) {}
+  public void setKeepParameterNames(
+      ProguardConfigurationSourceParser parser, Position position, TextPosition positionStart) {
+    ensureNewlineAfterComment();
+    write(parser, positionStart);
+  }
 
   @Override
-  public void setPrintConfigurationFile(Path path) {}
+  public void setObfuscationDictionary(
+      Path path,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
+    writeComment(parser, positionStart);
+  }
 
   @Override
-  public void enablePrintMapping(Origin origin, Position position) {}
+  public void setPackageObfuscationDictionary(
+      Path path,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
+    writeComment(parser, positionStart);
+  }
 
   @Override
-  public void setPrintMappingFile(Path path) {}
-
-  @Override
-  public void setApplyMappingFile(Path path, Origin origin, Position position) {}
-
-  @Override
-  public void addInjars(
-      List<FilteredClassPath> filteredClassPaths, Origin origin, Position position) {}
-
-  @Override
-  public void addLibraryJars(
-      List<FilteredClassPath> filteredClassPaths, Origin origin, Position position) {}
-
-  @Override
-  public void setPrintSeeds(boolean b, Origin origin, Position position) {}
-
-  @Override
-  public void setSeedFile(Path path) {}
-
-  @Override
-  public void setObfuscationDictionary(Path path, Origin origin, Position position) {}
-
-  @Override
-  public void setClassObfuscationDictionary(Path path, Origin origin, Position position) {}
-
-  @Override
-  public void setPackageObfuscationDictionary(Path path, Origin origin, Position position) {}
-
-  @Override
-  public void addAdaptClassStringsPattern(ProguardClassNameList pattern) {}
-
-  @Override
-  public void addAdaptResourceFileContents(ProguardPathList pattern) {}
-
-  @Override
-  public void addAdaptResourceFilenames(ProguardPathList pattern) {}
-
-  @Override
-  public void joinMaxRemovedAndroidLogLevel(int maxRemovedAndroidLogLevel) {}
+  public void setRenameSourceFileAttribute(
+      String s,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
+    writeComment(parser, positionStart);
+  }
 
   @Override
   public PackageObfuscationMode getPackageObfuscationMode() {
     return null;
   }
-
-  @Override
-  public void setPackagePrefix(String s) {}
-
-  @Override
-  public void setFlattenPackagePrefix(String s) {}
-
-  @Override
-  public void enableRepackageClasses(Origin origin, Position position) {}
-
-  @Override
-  public void enableFlattenPackageHierarchy(Origin origin, Position position) {}
 }

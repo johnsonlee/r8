@@ -98,8 +98,10 @@ public class DefaultMethodOverrideConflictWithLibrary2Test extends DesugaredLibr
   }
 
   private void checkResult(TestRunResult<?> result) {
-    if (parameters.isCfRuntime() && parameters.getRuntime().asCf().isNewerThanOrEqual(CfVm.JDK11)) {
-      // TODO(b/145566657): For some reason JDK11+ throws AbstractMethodError.
+    if (parameters.isCfRuntime()
+        && parameters.getRuntime().asCf().isNewerThanOrEqual(CfVm.JDK11)
+        && parameters.getRuntime().asCf().isOlderThan(CfVm.JDK25)) {
+      // For some reason [JDK11,JDK25[ throws AbstractMethodError (see b/145566657).
       result.assertFailureWithErrorThatThrows(AbstractMethodError.class);
     } else {
       result.assertFailureWithErrorThatThrows(IncompatibleClassChangeError.class);

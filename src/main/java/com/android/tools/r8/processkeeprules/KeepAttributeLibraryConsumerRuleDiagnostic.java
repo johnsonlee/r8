@@ -12,8 +12,7 @@ public class KeepAttributeLibraryConsumerRuleDiagnostic extends ConsumerRuleDiag
 
   private final String attribute;
 
-  public KeepAttributeLibraryConsumerRuleDiagnostic(
-      Origin origin, Position position, String attribute) {
+  KeepAttributeLibraryConsumerRuleDiagnostic(Origin origin, Position position, String attribute) {
     super(origin, position);
     this.attribute = attribute;
   }

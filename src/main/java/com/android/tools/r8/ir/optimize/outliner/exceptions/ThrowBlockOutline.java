@@ -3,11 +3,16 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize.outliner.exceptions;
 
+import static com.android.tools.r8.graph.DexAnnotation.VISIBILITY_BUILD;
 import static com.android.tools.r8.graph.DexClassAndMethod.asProgramMethodOrNull;
 
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexAnnotation;
+import com.android.tools.r8.graph.DexAnnotationElement;
+import com.android.tools.r8.graph.DexAnnotationSet;
+import com.android.tools.r8.graph.DexEncodedAnnotation;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProto;
@@ -253,11 +258,24 @@ public class ThrowBlockOutline implements LirConstant {
             builder ->
                 builder
                     .setAccessFlags(MethodAccessFlags.createPublicStaticSynthetic())
+                    .setAnnotations(createAnnotations(appView))
                     // TODO(b/434769547): The API level of the code may be higher than the min-api.
                     //   This currently doesn't matter since outlining runs after API outlining.
                     .setApiLevelForCode(
                         appView.apiLevelCompute().computeInitialMinApiLevel(appView.options()))
                     .setCode(methodSig -> lirCode)
                     .setProto(getOptimizedProto(appView.dexItemFactory())));
+  }
+
+  private DexAnnotationSet createAnnotations(AppView<?> appView) {
+    if (appView.options().getThrowBlockOutlinerOptions().neverCompile) {
+      DexItemFactory factory = appView.dexItemFactory();
+      DexEncodedAnnotation encodedAnnotation =
+          new DexEncodedAnnotation(
+              factory.annotationNeverCompile, DexAnnotationElement.EMPTY_ARRAY);
+      DexAnnotation annotation = new DexAnnotation(VISIBILITY_BUILD, encodedAnnotation);
+      return DexAnnotationSet.create(new DexAnnotation[] {annotation});
+    }
+    return DexAnnotationSet.empty();
   }
 }

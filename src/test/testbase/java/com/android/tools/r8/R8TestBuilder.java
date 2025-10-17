@@ -622,8 +622,7 @@ public abstract class R8TestBuilder<
 
   public T enableCheckEnumUnboxedAnnotations() {
     return addCheckEnumUnboxedAnnotation()
-        .addInternalMatchInterfaceRule(CheckEnumUnboxedRule.RULE_NAME, CheckEnumUnboxed.class)
-        .enableExperimentalCheckEnumUnboxed();
+        .addInternalMatchInterfaceRule(CheckEnumUnboxedRule.RULE_NAME, CheckEnumUnboxed.class);
   }
 
   public T enableKeepUnusedReturnValueAnnotations() {
@@ -810,11 +809,6 @@ public abstract class R8TestBuilder<
           .addInternalKeepRules(
               "-keepunusedarguments class * { @com.android.tools.r8.KeepUnusedArguments *; }");
     }
-    return self();
-  }
-
-  public T enableExperimentalCheckEnumUnboxed() {
-    builder.setEnableExperimentalCheckEnumUnboxed();
     return self();
   }
 

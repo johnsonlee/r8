@@ -48,8 +48,8 @@ public class RenameSourceFileDebugTest extends DebugTestBase {
           ToolHelper.addProguardConfigurationConsumer(
                   R8Command.builder(),
                   pgConfig -> {
-                    pgConfig.addRule(ProguardKeepRule.defaultKeepAllRule(unused -> {}));
-                    pgConfig.setRenameSourceFileAttribute(TEST_FILE, null, null);
+                    pgConfig.addRule(ProguardKeepRule.defaultKeepAllRule(unused -> {}), null, null);
+                    pgConfig.setRenameSourceFileAttribute(TEST_FILE, null, null, null);
                     pgConfig.addKeepAttributePatterns(
                         ImmutableList.of("SourceFile", "LineNumberTable"));
                   })

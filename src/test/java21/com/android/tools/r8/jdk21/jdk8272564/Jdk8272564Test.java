@@ -30,7 +30,7 @@ public class Jdk8272564Test extends TestBase {
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters()
-        .withCfRuntimesStartingFromIncluding(CfVm.JDK20)
+        .withCfRuntimesStartingFromIncluding(CfVm.JDK21)
         .withDexRuntimes()
         .withAllApiLevelsAlsoForCf()
         .withPartialCompilation()

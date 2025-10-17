@@ -15,6 +15,7 @@ import com.android.tools.r8.assistant.postprocessing.ReflectiveOperationJsonPars
 import com.android.tools.r8.assistant.postprocessing.model.ClassGetMember;
 import com.android.tools.r8.assistant.postprocessing.model.ClassGetMembers;
 import com.android.tools.r8.assistant.postprocessing.model.ClassGetName;
+import com.android.tools.r8.assistant.postprocessing.model.ClassNewInstance;
 import com.android.tools.r8.assistant.postprocessing.model.ReflectiveEvent;
 import com.android.tools.r8.assistant.runtime.ReflectiveEventType;
 import com.android.tools.r8.assistant.runtime.ReflectiveOperationJsonLogger;
@@ -69,7 +70,7 @@ public class JavaLangClassJsonTest extends TestBase {
         .assertSuccess();
     List<ReflectiveEvent> reflectiveEvents =
         new ReflectiveOperationJsonParser(factoryBox.get()).parse(path);
-    Assert.assertEquals(29, reflectiveEvents.size());
+    Assert.assertEquals(30, reflectiveEvents.size());
 
     assertTrue(reflectiveEvents.get(4).isClassGetMember());
     ClassGetMember updater00 = reflectiveEvents.get(4).asClassGetMember();
@@ -163,6 +164,11 @@ public class JavaLangClassJsonTest extends TestBase {
         Reference.methodFromMethod(Bar.class.getConstructor()),
         updater24.getMember().asDexMethod().asMethodReference());
 
+    assertTrue(reflectiveEvents.get(29).isClassNewInstance());
+    ClassNewInstance updater29 = reflectiveEvents.get(29).asClassNewInstance();
+    assertEquals(ReflectiveEventType.CLASS_NEW_INSTANCE, updater29.getEventType());
+    assertEquals(Bar.class.getName(), updater29.getType().toSourceString());
+
     Box<KeepInfoCollectionExported> keepInfoBox = new Box<>();
     testForR8(parameters)
         .addProgramClasses(JavaLangClassTestClass.class, Foo.class, Bar.class)
@@ -188,6 +194,7 @@ public class JavaLangClassJsonTest extends TestBase {
             "public com.android.tools.r8.assistant.JavaLangClassTestClass$Bar()",
             "true",
             "class com.android.tools.r8.assistant.JavaLangClassTestClass$Bar",
+            "11",
             "END");
     KeepInfoCollectionExported keepInfoCollectionExported = keepInfoBox.get();
 

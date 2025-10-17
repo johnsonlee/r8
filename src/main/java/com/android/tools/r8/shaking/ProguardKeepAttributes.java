@@ -224,60 +224,58 @@ public class ProguardKeepAttributes {
 
   public StringBuilder append(StringBuilder builder) {
     List<String> attributes = new ArrayList<>();
-    if (sourceFile) {
-      attributes.add(SOURCE_FILE);
-    }
-    if (innerClasses) {
-      attributes.add(INNER_CLASSES);
+    if (annotationDefault) {
+      attributes.add(ANNOTATION_DEFAULT);
     }
     if (enclosingMethod) {
       attributes.add(ENCLOSING_METHOD);
     }
-    if (signature) {
-      attributes.add(SIGNATURE);
-    }
     if (exceptions) {
       attributes.add(EXCEPTIONS);
+    }
+    if (innerClasses) {
+      attributes.add(INNER_CLASSES);
     }
     if (methodParameters) {
       attributes.add(METHOD_PARAMETERS);
     }
-    if (sourceDebugExtension) {
-      attributes.add(SOURCE_DEBUG_EXTENSION);
-    }
-    if (runtimeVisibleAnnotations) {
-      attributes.add(RUNTIME_VISIBLE_ANNOTATIONS);
+    if (permittedSubclasses) {
+      attributes.add(PERMITTED_SUBCLASSES);
     }
     if (runtimeInvisibleAnnotations) {
       attributes.add(RUNTIME_INVISIBLE_ANNOTATIONS);
     }
-    if (runtimeVisibleParameterAnnotations) {
-      attributes.add(RUNTIME_VISIBLE_PARAMETER_ANNOTATIONS);
-    }
     if (runtimeInvisibleParameterAnnotations) {
       attributes.add(RUNTIME_INVISIBLE_PARAMETER_ANNOTATIONS);
-    }
-    if (runtimeVisibleTypeAnnotations) {
-      attributes.add(RUNTIME_VISIBLE_TYPE_ANNOTATIONS);
     }
     if (runtimeInvisibleTypeAnnotations) {
       attributes.add(RUNTIME_INVISIBLE_TYPE_ANNOTATIONS);
     }
-    if (annotationDefault) {
-      attributes.add(ANNOTATION_DEFAULT);
+    if (runtimeVisibleAnnotations) {
+      attributes.add(RUNTIME_VISIBLE_ANNOTATIONS);
+    }
+    if (runtimeVisibleParameterAnnotations) {
+      attributes.add(RUNTIME_VISIBLE_PARAMETER_ANNOTATIONS);
+    }
+    if (runtimeVisibleTypeAnnotations) {
+      attributes.add(RUNTIME_VISIBLE_TYPE_ANNOTATIONS);
+    }
+    if (signature) {
+      attributes.add(SIGNATURE);
+    }
+    if (sourceDebugExtension) {
+      attributes.add(SOURCE_DEBUG_EXTENSION);
+    }
+    if (sourceFile) {
+      attributes.add(SOURCE_FILE);
     }
     if (stackMapTable) {
       attributes.add(STACK_MAP_TABLE);
     }
-    if (permittedSubclasses) {
-      attributes.add(PERMITTED_SUBCLASSES);
-    }
-
-    if (attributes.size() > 0) {
+    if (!attributes.isEmpty()) {
       builder.append("-keepattributes ");
       builder.append(String.join(",", attributes));
     }
-
     return builder;
   }
 

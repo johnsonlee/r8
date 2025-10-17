@@ -7,13 +7,13 @@ package com.android.tools.r8.shaking;
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 
+import com.android.tools.r8.graph.Definition;
 import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
@@ -133,15 +133,11 @@ public class MinimumKeepInfoCollection {
         minimumKeepInfo,
         (reference, minimumKeepInfoForReference) -> {
           assert !minimumKeepInfoForReference.isBottom();
-          ProgramDefinition definition =
+          Definition definition =
               reference.apply(
-                  clazz -> asProgramClassOrNull(definitions.definitionFor(clazz)),
-                  field ->
-                      field.lookupOnProgramClass(
-                          asProgramClassOrNull(definitions.definitionFor(field.getHolderType()))),
-                  method ->
-                      method.lookupOnProgramClass(
-                          asProgramClassOrNull(definitions.definitionFor(method.getHolderType()))));
+                  definitions::definitionFor,
+                  definitions::definitionFor,
+                  definitions::definitionFor);
           return definition == null || !enqueuer.isReachable(definition);
         });
   }
