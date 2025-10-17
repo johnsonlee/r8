@@ -37,12 +37,13 @@ public class ProcessKeepRulesCommandTest extends TestBase {
           .put("-dontobfuscate", "-dontobfuscate not allowed in library consumer rules.")
           .put("-dontshrink", "-dontshrink not allowed in library consumer rules.")
           .put("-repackageclasses", "-repackageclasses not allowed in library consumer rules.")
-          .put("-printconfiguration", "-printconfiguration not allowed in library consumer rules.")
-          .put("-printmapping", "-printmapping not allowed in library consumer rules.")
           .put("-applymapping foo", "-applymapping not allowed in library consumer rules.")
           .put("-injars foo", "-injars not allowed in library consumer rules.")
           .put("-libraryjars foo", "-libraryjars not allowed in library consumer rules.")
+          .put("-printconfiguration", "-printconfiguration not allowed in library consumer rules.")
+          .put("-printmapping", "-printmapping not allowed in library consumer rules.")
           .put("-printseeds", "-printseeds not allowed in library consumer rules.")
+          .put("-printusage", "-printusage not allowed in library consumer rules.")
           .put(
               "-obfuscationdictionary foo",
               "-obfuscationdictionary not allowed in library consumer rules.")
@@ -77,8 +78,23 @@ public class ProcessKeepRulesCommandTest extends TestBase {
               "-keepattributes SourceFile",
               "Illegal attempt to keep the attribute 'SourceFile' in library consumer rules.")
           .put(
+              "-maximumremovedandroidloglevel 2",
+              "-maximumremovedandroidloglevel <int> not allowed in library consumer rules.")
+          .put(
               "-renamesourcefileattribute",
               "-renamesourcefileattribute not allowed in library consumer rules.")
+          .put(
+              "-shrinkunusedprotofields",
+              "-shrinkunusedprotofields not allowed in library consumer rules.")
+          .put(
+              "-whyareyoukeeping class *",
+              "-whyareyoukeeping not allowed in library consumer rules.")
+          .put(
+              "-whyareyounotobfuscating class *",
+              "-whyareyounotobfuscating not allowed in library consumer rules.")
+          .put(
+              "-whyareyounotinlining class * { *; }",
+              "-whyareyounotinlining not allowed in library consumer rules.")
           .build();
 
   @Parameter(1)
@@ -105,7 +121,7 @@ public class ProcessKeepRulesCommandTest extends TestBase {
                   allOf(
                       rules.startsWith("-keepattributes")
                           ? diagnosticType(KeepAttributeLibraryConsumerRuleDiagnostic.class)
-                          : diagnosticType(GlobalLibraryConsumerRuleDiagnostic.class),
+                          : diagnosticType(LibraryConsumerRuleDiagnostic.class),
                       diagnosticOrigin(equalTo(origin)),
                       diagnosticMessage(equalTo(configAndExpectedDiagnostic.getValue())))));
       fail("Expect the compilation to fail.");

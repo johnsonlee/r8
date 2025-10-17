@@ -25,7 +25,10 @@ public interface ProguardConfigurationParserConsumer {
 
   void addParsedConfiguration(ProguardConfigurationSourceParser parser);
 
-  void addRule(ProguardConfigurationRule rule);
+  void addRule(
+      ProguardConfigurationRule rule,
+      ProguardConfigurationSourceParser parser,
+      TextPosition positionStart);
 
   void addKeepAttributePatterns(
       List<String> attributesPatterns,

@@ -7,11 +7,11 @@ import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
 import java.util.List;
 
-public class ProguardWhyAreYouKeepingRule extends ProguardConfigurationRule {
+public class WhyAreYouKeepingRule extends ProguardConfigurationRule {
 
   @SuppressWarnings("NonCanonicalType")
   public static class Builder
-      extends ProguardConfigurationRule.Builder<ProguardWhyAreYouKeepingRule, Builder> {
+      extends ProguardConfigurationRule.Builder<WhyAreYouKeepingRule, Builder> {
 
     private Builder() {
       super();
@@ -23,8 +23,8 @@ public class ProguardWhyAreYouKeepingRule extends ProguardConfigurationRule {
     }
 
     @Override
-    public ProguardWhyAreYouKeepingRule build() {
-      return new ProguardWhyAreYouKeepingRule(
+    public WhyAreYouKeepingRule build() {
+      return new WhyAreYouKeepingRule(
           origin,
           getPosition(),
           source,
@@ -41,7 +41,7 @@ public class ProguardWhyAreYouKeepingRule extends ProguardConfigurationRule {
     }
   }
 
-  private ProguardWhyAreYouKeepingRule(
+  private WhyAreYouKeepingRule(
       Origin origin,
       Position position,
       String source,

@@ -13,6 +13,9 @@ import com.android.tools.r8.shaking.ProguardConfigurationParserConsumer;
 import com.android.tools.r8.shaking.ProguardConfigurationRule;
 import com.android.tools.r8.shaking.ProguardKeepAttributes;
 import com.android.tools.r8.shaking.ProguardPathList;
+import com.android.tools.r8.shaking.WhyAreYouKeepingRule;
+import com.android.tools.r8.shaking.WhyAreYouNotInliningRule;
+import com.android.tools.r8.shaking.WhyAreYouNotObfuscatingRule;
 import com.android.tools.r8.utils.InternalOptions.PackageObfuscationMode;
 import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.StringUtils;
@@ -234,9 +237,18 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   }
 
   @Override
-  public void addRule(ProguardConfigurationRule rule) {
-    ensureNewlineAfterComment();
-    write(rule.getSource());
+  public void addRule(
+      ProguardConfigurationRule rule,
+      ProguardConfigurationSourceParser parser,
+      TextPosition positionStart) {
+    if (rule instanceof WhyAreYouKeepingRule
+        || rule instanceof WhyAreYouNotInliningRule
+        || rule instanceof WhyAreYouNotObfuscatingRule) {
+      writeComment(parser, positionStart);
+    } else {
+      ensureNewlineAfterComment();
+      write(parser, positionStart);
+    }
   }
 
   @Override
@@ -316,15 +328,13 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
-    ensureNewlineAfterComment();
-    write(parser, positionStart);
+    writeComment(parser, positionStart);
   }
 
   @Override
   public void enableProtoShrinking(
       ProguardConfigurationSourceParser parser, TextPosition positionStart) {
-    ensureNewlineAfterComment();
-    write(parser, positionStart);
+    writeComment(parser, positionStart);
   }
 
   @Override
@@ -341,8 +351,7 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
       int maxRemovedAndroidLogLevel,
       ProguardConfigurationSourceParser parser,
       TextPosition positionStart) {
-    ensureNewlineAfterComment();
-    write(parser, positionStart);
+    writeComment(parser, positionStart);
   }
 
   @Override

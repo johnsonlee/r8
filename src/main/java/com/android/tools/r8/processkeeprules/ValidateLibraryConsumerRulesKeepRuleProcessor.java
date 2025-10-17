@@ -12,6 +12,9 @@ import com.android.tools.r8.shaking.ProguardConfigurationParserConsumer;
 import com.android.tools.r8.shaking.ProguardConfigurationRule;
 import com.android.tools.r8.shaking.ProguardKeepAttributes;
 import com.android.tools.r8.shaking.ProguardPathList;
+import com.android.tools.r8.shaking.WhyAreYouKeepingRule;
+import com.android.tools.r8.shaking.WhyAreYouNotInliningRule;
+import com.android.tools.r8.shaking.WhyAreYouNotObfuscatingRule;
 import com.android.tools.r8.utils.InternalOptions.PackageObfuscationMode;
 import com.android.tools.r8.utils.Reporter;
 import java.nio.file.Path;
@@ -26,9 +29,9 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
     this.reporter = reporter;
   }
 
-  private void handleGlobalRule(
+  private void handleRule(
       ProguardConfigurationSourceParser parser, Position position, String rule) {
-    reporter.error(new GlobalLibraryConsumerRuleDiagnostic(parser.getOrigin(), position, rule));
+    reporter.error(new LibraryConsumerRuleDiagnostic(parser.getOrigin(), position, rule));
   }
 
   private void handleKeepAttribute(
@@ -39,17 +42,17 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
 
   @Override
   public void disableOptimization(ProguardConfigurationSourceParser parser, Position position) {
-    handleGlobalRule(parser, position, "-dontoptimize");
+    handleRule(parser, position, "-dontoptimize");
   }
 
   @Override
   public void disableObfuscation(ProguardConfigurationSourceParser parser, Position position) {
-    handleGlobalRule(parser, position, "-dontobfuscate");
+    handleRule(parser, position, "-dontobfuscate");
   }
 
   @Override
   public void disableShrinking(ProguardConfigurationSourceParser parser, Position position) {
-    handleGlobalRule(parser, position, "-dontshrink");
+    handleRule(parser, position, "-dontshrink");
   }
 
   @Override
@@ -58,7 +61,7 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
-    handleGlobalRule(parser, position, "-repackageclasses");
+    handleRule(parser, position, "-repackageclasses");
   }
 
   @Override
@@ -67,13 +70,13 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
-    handleGlobalRule(parser, position, "-flattenpackagehierarchy");
+    handleRule(parser, position, "-flattenpackagehierarchy");
   }
 
   @Override
   public void enableAllowAccessModification(
       ProguardConfigurationSourceParser parser, Position position, TextPosition positionStart) {
-    handleGlobalRule(parser, position, "-allowaccessmodification");
+    handleRule(parser, position, "-allowaccessmodification");
   }
 
   @Override
@@ -82,7 +85,7 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
-    handleGlobalRule(parser, position, "-renamesourcefileattribute");
+    handleRule(parser, position, "-renamesourcefileattribute");
   }
 
   @Override
@@ -106,7 +109,18 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
   public void addParsedConfiguration(ProguardConfigurationSourceParser parser) {}
 
   @Override
-  public void addRule(ProguardConfigurationRule rule) {}
+  public void addRule(
+      ProguardConfigurationRule rule,
+      ProguardConfigurationSourceParser parser,
+      TextPosition positionStart) {
+    if (rule instanceof WhyAreYouKeepingRule) {
+      handleRule(parser, positionStart, "-whyareyoukeeping");
+    } else if (rule instanceof WhyAreYouNotInliningRule) {
+      handleRule(parser, positionStart, "-whyareyounotinlining");
+    } else if (rule instanceof WhyAreYouNotObfuscatingRule) {
+      handleRule(parser, positionStart, "-whyareyounotobfuscating");
+    }
+  }
 
   @Override
   public void addKeepAttributePatterns(
@@ -157,7 +171,9 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
 
   @Override
   public void enableProtoShrinking(
-      ProguardConfigurationSourceParser parser, TextPosition positionStart) {}
+      ProguardConfigurationSourceParser parser, TextPosition positionStart) {
+    handleRule(parser, positionStart, "-shrinkunusedprotofields");
+  }
 
   @Override
   public void setIgnoreWarnings(
@@ -181,7 +197,7 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
-    handleGlobalRule(parser, position, "-printconfiguration");
+    handleRule(parser, position, "-printconfiguration");
   }
 
   @Override
@@ -190,7 +206,7 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
-    handleGlobalRule(parser, position, "-printmapping");
+    handleRule(parser, position, "-printmapping");
   }
 
   @Override
@@ -199,7 +215,7 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
-    handleGlobalRule(parser, position, "-printseeds");
+    handleRule(parser, position, "-printseeds");
   }
 
   @Override
@@ -208,7 +224,7 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
-    handleGlobalRule(parser, position, "-printusage");
+    handleRule(parser, position, "-printusage");
   }
 
   @Override
@@ -217,7 +233,7 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
-    handleGlobalRule(parser, position, "-applymapping");
+    handleRule(parser, position, "-applymapping");
   }
 
   @Override
@@ -226,7 +242,7 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
-    handleGlobalRule(parser, position, "-injars");
+    handleRule(parser, position, "-injars");
   }
 
   @Override
@@ -235,7 +251,7 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
-    handleGlobalRule(parser, position, "-libraryjars");
+    handleRule(parser, position, "-libraryjars");
   }
 
   @Override
@@ -244,7 +260,7 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
-    handleGlobalRule(parser, position, "-obfuscationdictionary");
+    handleRule(parser, position, "-obfuscationdictionary");
   }
 
   @Override
@@ -253,7 +269,7 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
-    handleGlobalRule(parser, position, "-classobfuscationdictionary");
+    handleRule(parser, position, "-classobfuscationdictionary");
   }
 
   @Override
@@ -262,7 +278,7 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
-    handleGlobalRule(parser, position, "-packageobfuscationdictionary");
+    handleRule(parser, position, "-packageobfuscationdictionary");
   }
 
   @Override
@@ -287,7 +303,9 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
   public void joinMaxRemovedAndroidLogLevel(
       int maxRemovedAndroidLogLevel,
       ProguardConfigurationSourceParser parser,
-      TextPosition positionStart) {}
+      TextPosition positionStart) {
+    handleRule(parser, positionStart, "-maximumremovedandroidloglevel <int>");
+  }
 
   @Override
   public PackageObfuscationMode getPackageObfuscationMode() {

@@ -8,11 +8,11 @@ import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
 
 @KeepForApi
-public class GlobalLibraryConsumerRuleDiagnostic extends ConsumerRuleDiagnostic {
+public class LibraryConsumerRuleDiagnostic extends ConsumerRuleDiagnostic {
 
   private final String rule;
 
-  GlobalLibraryConsumerRuleDiagnostic(Origin origin, Position position, String rule) {
+  LibraryConsumerRuleDiagnostic(Origin origin, Position position, String rule) {
     super(origin, position);
     this.rule = rule;
   }

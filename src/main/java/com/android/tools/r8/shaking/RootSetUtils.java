@@ -443,8 +443,7 @@ public class RootSetUtils {
         evaluateCheckDiscardRule(clazz, rule.asProguardCheckDiscardRule());
       } else if (rule instanceof CheckEnumUnboxedRule) {
         evaluateCheckEnumUnboxedRule(clazz, (CheckEnumUnboxedRule) rule);
-      } else if (rule instanceof NoAccessModificationRule
-          || rule instanceof ProguardWhyAreYouKeepingRule) {
+      } else if (rule instanceof NoAccessModificationRule || rule instanceof WhyAreYouKeepingRule) {
         markClass(clazz, rule, ifRulePreconditionMatch);
         markMatchingVisibleMethods(
             clazz, methodKeepRules, rule, null, true, true, ifRulePreconditionMatch);
@@ -1444,7 +1443,7 @@ public class RootSetUtils {
         evaluateAssumeNoSideEffectsRule(item, (ProguardAssumeNoSideEffectRule) context, rule);
       } else if (context instanceof ProguardAssumeValuesRule) {
         evaluateAssumeValuesRule(item, (ProguardAssumeValuesRule) context, rule);
-      } else if (context instanceof ProguardWhyAreYouKeepingRule) {
+      } else if (context instanceof WhyAreYouKeepingRule) {
         reasonAsked.computeIfAbsent(item.getReference(), i -> i);
         context.markAsUsed();
       } else if (context.isProguardCheckDiscardRule()) {

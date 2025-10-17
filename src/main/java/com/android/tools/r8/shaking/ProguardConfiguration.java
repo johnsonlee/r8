@@ -274,8 +274,8 @@ public class ProguardConfiguration {
       // is not present.
       keepKotlinMetadata.markAsUsed();
       keepKotlinJvmNameAnnotation.markAsUsed();
-      addRule(keepKotlinMetadata);
-      addRule(keepKotlinJvmNameAnnotation);
+      addRule(keepKotlinMetadata, parser, positionStart);
+      addRule(keepKotlinJvmNameAnnotation, parser, positionStart);
       addKeepAttributePatterns(
           Collections.singletonList(RUNTIME_VISIBLE_ANNOTATIONS), parser, position, positionStart);
       addKeepAttributePatterns(
@@ -291,7 +291,10 @@ public class ProguardConfiguration {
     }
 
     @Override
-    public void addRule(ProguardConfigurationRule rule) {
+    public void addRule(
+        ProguardConfigurationRule rule,
+        ProguardConfigurationSourceParser parser,
+        TextPosition positionStart) {
       this.rules.add(rule);
     }
 

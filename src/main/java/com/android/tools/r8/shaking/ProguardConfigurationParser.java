@@ -313,17 +313,17 @@ public class ProguardConfigurationParser {
       } else if (acceptString("checkdiscard")) {
         ProguardCheckDiscardRule rule =
             parseRuleWithClassSpec(optionStart, ProguardCheckDiscardRule.builder());
-        configurationConsumer.addRule(rule);
+        configurationConsumer.addRule(rule, this, optionStart);
       } else if (acceptString("keepdirectories")) {
         ProguardPathList keepDirectoryPatterns = parseOptionalPathFilter();
         configurationConsumer.enableKeepDirectories(keepDirectoryPatterns, this, optionStart);
       } else if (acceptString("keep")) {
         ProguardKeepRule rule = parseKeepRule(optionStart);
-        configurationConsumer.addRule(rule);
+        configurationConsumer.addRule(rule, this, optionStart);
       } else if (acceptString("whyareyoukeeping")) {
-        ProguardWhyAreYouKeepingRule rule =
-            parseRuleWithClassSpec(optionStart, ProguardWhyAreYouKeepingRule.builder());
-        configurationConsumer.addRule(rule);
+        WhyAreYouKeepingRule rule =
+            parseRuleWithClassSpec(optionStart, WhyAreYouKeepingRule.builder());
+        configurationConsumer.addRule(rule, this, optionStart);
       } else if (acceptString("dontoptimize")) {
         configurationConsumer.disableOptimization(this, getPosition(optionStart));
       } else if (acceptString("optimizationpasses")) {
@@ -410,10 +410,10 @@ public class ProguardConfigurationParser {
             applyMappingFile, this, getPosition(optionStart), optionStart);
       } else if (acceptString("assumenosideeffects")) {
         ProguardAssumeNoSideEffectRule rule = parseAssumeNoSideEffectsRule(optionStart);
-        configurationConsumer.addRule(rule);
+        configurationConsumer.addRule(rule, this, optionStart);
       } else if (acceptString("assumevalues")) {
         ProguardAssumeValuesRule rule = parseAssumeValuesRule(optionStart);
-        configurationConsumer.addRule(rule);
+        configurationConsumer.addRule(rule, this, optionStart);
       } else if (acceptString("include")) {
         skipWhitespace();
         enqueueInclude(optionStart);
@@ -458,7 +458,7 @@ public class ProguardConfigurationParser {
         InlineRule rule =
             parseRuleWithClassSpec(
                 optionStart, InlineRule.builder().setType(InlineRuleType.ALWAYS));
-        configurationConsumer.addRule(rule);
+        configurationConsumer.addRule(rule, this, optionStart);
       } else if (acceptString("adaptclassstrings")) {
         ProguardClassNameList adaptClassStringsPattern = parseOptionalClassFilter();
         configurationConsumer.addAdaptClassStringsPattern(
@@ -471,22 +471,28 @@ public class ProguardConfigurationParser {
         configurationConsumer.addAdaptResourceFileContents(pattern, this, optionStart);
       } else if (acceptString("identifiernamestring")) {
         configurationConsumer.addRule(
-            parseRuleWithClassSpec(optionStart, ProguardIdentifierNameStringRule.builder()));
+            parseRuleWithClassSpec(optionStart, ProguardIdentifierNameStringRule.builder()),
+            this,
+            optionStart);
       } else if (acceptString("if")) {
-        configurationConsumer.addRule(parseIfRule(optionStart));
+        configurationConsumer.addRule(parseIfRule(optionStart), this, optionStart);
       } else if (acceptString(CheckEnumUnboxedRule.RULE_NAME)) {
-        configurationConsumer.addRule(parseCheckEnumUnboxedRule(optionStart));
+        configurationConsumer.addRule(parseCheckEnumUnboxedRule(optionStart), this, optionStart);
         return true;
       } else if (acceptString(ConvertCheckNotNullRule.RULE_NAME)) {
-        configurationConsumer.addRule(parseConvertCheckNotNullRule(optionStart));
+        configurationConsumer.addRule(parseConvertCheckNotNullRule(optionStart), this, optionStart);
         return true;
       } else if (acceptString(WhyAreYouNotObfuscatingRule.RULE_NAME)) {
         configurationConsumer.addRule(
-            parseRuleWithClassSpec(optionStart, WhyAreYouNotObfuscatingRule.builder()));
+            parseRuleWithClassSpec(optionStart, WhyAreYouNotObfuscatingRule.builder()),
+            this,
+            optionStart);
         return true;
       } else if (acceptString(WhyAreYouNotInliningRule.RULE_NAME)) {
         configurationConsumer.addRule(
-            parseRuleWithClassSpec(optionStart, WhyAreYouNotInliningRule.builder()));
+            parseRuleWithClassSpec(optionStart, WhyAreYouNotInliningRule.builder()),
+            this,
+            optionStart);
         return true;
       } else if (parseMaximumRemovedAndroidLogLevelRule(optionStart)) {
         return true;
@@ -578,7 +584,7 @@ public class ProguardConfigurationParser {
       } else {
         return false;
       }
-      configurationConsumer.addRule(rule);
+      configurationConsumer.addRule(rule, this, optionStart);
       return true;
     }
 
@@ -883,7 +889,9 @@ public class ProguardConfigurationParser {
       if (builder.hasClassType()) {
         Position end = getPosition();
         configurationConsumer.addRule(
-            builder.setEnd(end).setSource(getSourceSnippet(contents, optionStart, end)).build());
+            builder.setEnd(end).setSource(getSourceSnippet(contents, optionStart, end)).build(),
+            this,
+            optionStart);
       } else {
         configurationConsumer.joinMaxRemovedAndroidLogLevel(
             maxRemovedAndroidLogLevel, this, optionStart);

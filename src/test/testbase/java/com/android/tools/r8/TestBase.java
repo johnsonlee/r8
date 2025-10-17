@@ -948,7 +948,7 @@ public class TestBase {
           factory -> {
             ProguardConfiguration.Builder builder =
                 ProguardConfiguration.builder(factory, new Reporter());
-            builder.addRule(ProguardKeepRule.defaultKeepAllRule(unused -> {}));
+            builder.addRule(ProguardKeepRule.defaultKeepAllRule(unused -> {}), null, null);
             return builder
                 .addKeepAttributePatterns(ImmutableList.of(ProguardKeepAttributes.SIGNATURE))
                 .build();
@@ -1095,7 +1095,7 @@ public class TestBase {
   protected static ProguardConfiguration buildConfigForRules(
       DexItemFactory factory, Reporter reporter, Collection<ProguardConfigurationRule> rules) {
     ProguardConfiguration.Builder builder = ProguardConfiguration.builder(factory, reporter);
-    rules.forEach(builder::addRule);
+    rules.forEach(rule -> builder.addRule(rule, null, null));
     return builder.build();
   }
 
