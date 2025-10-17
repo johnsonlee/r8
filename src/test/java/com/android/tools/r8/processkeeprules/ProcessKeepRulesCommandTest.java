@@ -6,27 +6,28 @@ package com.android.tools.r8.processkeeprules;
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticOrigin;
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticType;
-import static com.android.tools.r8.OriginMatcher.hasPart;
 import static org.hamcrest.CoreMatchers.allOf;
 import static org.hamcrest.CoreMatchers.equalTo;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestDiagnosticMessagesImpl;
 import com.android.tools.r8.TestParameters;
-import com.google.common.collect.ImmutableList;
+import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.origin.PathOrigin;
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class ProcessKeepRulesCommandTest extends TestBase {
@@ -87,32 +88,77 @@ public class ProcessKeepRulesCommandTest extends TestBase {
   @Parameter(0)
   public Map.Entry<String, String> configAndExpectedDiagnostic;
 
-  @Parameterized.Parameters(name = "{1}, configAndExpectedDiagnostic = {0}")
+  @Parameters(name = "{1}, configAndExpectedDiagnostic = {0}")
   public static List<Object[]> data() throws IOException {
     return buildParameters(testRules.entrySet(), getTestParameters().withNoneRuntime().build());
   }
 
   @Test
   public void test() throws Exception {
-    TestDiagnosticMessagesImpl diagnostics = new TestDiagnosticMessagesImpl();
-    Path tempFile = getStaticTemp().newFile().toPath();
-    Files.write(tempFile, configAndExpectedDiagnostic.getKey().getBytes(StandardCharsets.UTF_8));
-    ProcessKeepRulesCommand command =
-        ProcessKeepRulesCommand.builder(diagnostics)
-            .addKeepRuleFiles(ImmutableList.of(tempFile))
-            .setLibraryConsumerRuleValidation(true)
-            .build();
+    String rules = configAndExpectedDiagnostic.getKey();
+    Origin origin = new PathOrigin(Paths.get("keep.txt"));
     try {
-      ProcessKeepRules.run(command);
+      validate(
+          rules,
+          origin,
+          diagnostics ->
+              diagnostics.assertErrorsMatch(
+                  allOf(
+                      rules.startsWith("-keepattributes")
+                          ? diagnosticType(KeepAttributeLibraryConsumerRuleDiagnostic.class)
+                          : diagnosticType(GlobalLibraryConsumerRuleDiagnostic.class),
+                      diagnosticOrigin(equalTo(origin)),
+                      diagnosticMessage(equalTo(configAndExpectedDiagnostic.getValue())))));
       fail("Expect the compilation to fail.");
     } catch (CompilationFailedException e) {
-      diagnostics.assertErrorsMatch(
-          allOf(
-              configAndExpectedDiagnostic.getKey().startsWith("-keepattributes")
-                  ? diagnosticType(KeepAttributeLibraryConsumerRuleDiagnostic.class)
-                  : diagnosticType(GlobalLibraryConsumerRuleDiagnostic.class),
-              diagnosticOrigin(hasPart(tempFile.toString())),
-              diagnosticMessage(equalTo(configAndExpectedDiagnostic.getValue()))));
+      // Expected.
+    }
+
+    // Rerun validation after filtering. This should succeed without diagnostics.
+    String filteredRules = filter(rules, origin);
+    boolean hasKeepAttributes = rules.contains("-keepattributes");
+    try {
+      validate(
+          filteredRules,
+          origin,
+          diagnostics -> {
+            if (!hasKeepAttributes) {
+              diagnostics.assertNoMessages();
+            }
+          });
+    } catch (CompilationFailedException e) {
+      assertTrue(hasKeepAttributes);
+    }
+  }
+
+  private String filter(String rules, Origin origin) throws CompilationFailedException {
+    TestDiagnosticMessagesImpl diagnostics = new TestDiagnosticMessagesImpl();
+    StringBuilder result = new StringBuilder();
+    ProcessKeepRulesCommand command =
+        ProcessKeepRulesCommand.builder(diagnostics)
+            .addKeepRules(rules, origin)
+            .setFilteredKeepRulesConsumer((s, h) -> result.append(s))
+            .build();
+    ProcessKeepRules.run(command);
+    diagnostics.assertNoMessages();
+    return result.toString();
+  }
+
+  private void validate(
+      String rules, Origin origin, Consumer<TestDiagnosticMessagesImpl> diagnosticsInspector)
+      throws CompilationFailedException {
+    TestDiagnosticMessagesImpl diagnostics = new TestDiagnosticMessagesImpl();
+    try {
+      ProcessKeepRulesCommand command =
+          ProcessKeepRulesCommand.builder(diagnostics)
+              .addKeepRules(rules, origin)
+              .setLibraryConsumerRuleValidation(true)
+              .build();
+      ProcessKeepRules.run(command);
+      diagnosticsInspector.accept(diagnostics);
+    } catch (CompilationFailedException e) {
+      diagnosticsInspector.accept(diagnostics);
+      throw e;
     }
   }
 }

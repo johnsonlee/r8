@@ -171,8 +171,7 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
-    ensureNewlineAfterComment();
-    write(parser, positionStart);
+    writeComment(parser, positionStart);
   }
 
   @Override
@@ -207,8 +206,7 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
-    ensureNewlineAfterComment();
-    write(parser, positionStart);
+    writeComment(parser, positionStart);
   }
 
   @Override
@@ -245,8 +243,7 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   @Override
   public void enableAllowAccessModification(
       ProguardConfigurationSourceParser parser, Position position, TextPosition positionStart) {
-    ensureNewlineAfterComment();
-    write(parser, positionStart);
+    writeComment(parser, positionStart);
   }
 
   @Override
@@ -255,8 +252,7 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
-    ensureNewlineAfterComment();
-    write(parser, positionStart);
+    writeComment(parser, positionStart);
   }
 
   @Override
@@ -274,8 +270,7 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
-    ensureNewlineAfterComment();
-    write(parser, positionStart);
+    writeComment(parser, positionStart);
   }
 
   @Override
@@ -284,8 +279,7 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
-    ensureNewlineAfterComment();
-    write(parser, positionStart);
+    writeComment(parser, positionStart);
   }
 
   @Override
@@ -294,8 +288,7 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
-    ensureNewlineAfterComment();
-    write(parser, positionStart);
+    writeComment(parser, positionStart);
   }
 
   @Override
@@ -339,8 +332,7 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
-    ensureNewlineAfterComment();
-    write(parser, positionStart);
+    writeComment(parser, positionStart);
   }
 
   @Override
@@ -356,8 +348,7 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
-    ensureNewlineAfterComment();
-    write(parser, positionStart);
+    writeComment(parser, positionStart);
   }
 
   @Override
@@ -373,8 +364,7 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
-    ensureNewlineAfterComment();
-    write(parser, positionStart);
+    writeComment(parser, positionStart);
   }
 
   @Override
@@ -383,8 +373,7 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
-    ensureNewlineAfterComment();
-    write(parser, positionStart);
+    writeComment(parser, positionStart);
   }
 
   @Override
@@ -393,8 +382,7 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
-    ensureNewlineAfterComment();
-    write(parser, positionStart);
+    writeComment(parser, positionStart);
   }
 
   @Override
