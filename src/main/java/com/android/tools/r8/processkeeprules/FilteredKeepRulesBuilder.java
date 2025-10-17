@@ -63,6 +63,19 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   }
 
   private void write(String string) {
+    internalWrite(string, false);
+  }
+
+  private void writeComment(ProguardConfigurationSourceParser parser, TextPosition positionStart) {
+    writeComment(parser.getContentSince(positionStart));
+  }
+
+  private void writeComment(String string) {
+    ensureComment();
+    internalWrite(string, true);
+  }
+
+  private void internalWrite(String string, boolean beginCommentOnNewline) {
     int lastNewlineIndex = string.lastIndexOf('\n');
     if (lastNewlineIndex < 0) {
       appendToCurrentLine(string);
@@ -72,6 +85,9 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
       consumer.accept(untilNewlineInclusive, reporter);
       // Due to the newline character we are no longer inside a comment.
       exitComment();
+      if (beginCommentOnNewline) {
+        ensureComment();
+      }
       // Emit everything after the newline character.
       String fromNewlineExclusive = string.substring(lastNewlineIndex + 1);
       appendToCurrentLine(fromNewlineExclusive);
@@ -213,20 +229,17 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
 
   @Override
   public void disableObfuscation(ProguardConfigurationSourceParser parser, Position position) {
-    ensureComment();
-    write("-dontobfuscate");
+    writeComment("-dontobfuscate");
   }
 
   @Override
   public void disableOptimization(ProguardConfigurationSourceParser parser, Position position) {
-    ensureComment();
-    write("-dontoptimize");
+    writeComment("-dontoptimize");
   }
 
   @Override
   public void disableShrinking(ProguardConfigurationSourceParser parser, Position position) {
-    ensureComment();
-    write("-dontshrink");
+    writeComment("-dontshrink");
   }
 
   @Override
@@ -308,8 +321,7 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
       ProguardConfigurationSourceParser parser,
       Position position,
       TextPosition positionStart) {
-    ensureNewlineAfterComment();
-    write(parser, positionStart);
+    writeComment(parser, positionStart);
   }
 
   @Override

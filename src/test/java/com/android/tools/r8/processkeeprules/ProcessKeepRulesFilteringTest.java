@@ -40,6 +40,9 @@ public class ProcessKeepRulesFilteringTest extends TestBase {
             "-keepattributes *",
             "# Keep all",
             "-keep  class **",
+            "# Multi line repackageclasses",
+            "-repackageclasses",
+            "    com.example.internal",
             "# End");
     FilteredKeepRules filteredKeepRules = new FilteredKeepRules();
     ProcessKeepRulesCommand command =
@@ -56,6 +59,9 @@ public class ProcessKeepRulesFilteringTest extends TestBase {
             "-keepattributes *",
             "# Keep all",
             "-keep  class **",
+            "# Multi line repackageclasses",
+            "#-repackageclasses",
+            "#    com.example.internal",
             "# End"),
         filteredKeepRules.get());
     diagnostics.assertNoMessages();
