@@ -30,6 +30,7 @@ import com.android.tools.r8.naming.mappinginformation.ResidualSignatureMappingIn
 import com.android.tools.r8.shaking.KeepInfoCollection;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.ObjectUtils;
 import com.android.tools.r8.utils.OriginalSourceFiles;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.positions.MappedPositionToClassNameMapperBuilder.MappedPositionToClassNamingBuilder;
@@ -261,7 +262,9 @@ public class LineNumberOptimizer {
     }
     try (Timing t0 = timing.begin("Get mapped positions")) {
       int pcEncodingCutoff =
-          methods.size() == 1 ? representation.getDexPcEncodingCutoff(method) : -1;
+          ObjectUtils.identical(method, methods.get(0))
+              ? representation.getDexPcEncodingCutoff(method)
+              : -1;
       boolean canUseDexPc = pcEncodingCutoff > 0;
       List<MappedPosition> mappedPositions =
           positionToMappedRangeMapper.getMappedPositions(
@@ -333,9 +336,8 @@ public class LineNumberOptimizer {
     return 0;
   }
 
-  // Sort by startline, then DexEncodedMethod.slowCompare.
-  // Use startLine = 0 if no debuginfo.
-  private static void sortMethods(List<ProgramMethod> methods) {
+  public static void sortMethods(List<ProgramMethod> methods) {
+    // Sort by startline, then DexEncodedMethod.slowCompare. Use startLine = 0 if no debuginfo.
     methods.sort(
         (lhs, rhs) -> {
           int lhsStartLine = getMethodStartLine(lhs);
@@ -344,6 +346,22 @@ public class LineNumberOptimizer {
           if (startLineDiff != 0) return startLineDiff;
           return DexEncodedMethod.slowCompare(lhs.getDefinition(), rhs.getDefinition());
         });
+    // Insert the largest method first since we can use pc encoding for this method.
+    int largestIndex = -1;
+    int largestCode = -1;
+    for (int i = 0; i < methods.size(); i++) {
+      ProgramMethod method = methods.get(i);
+      if (method.getDefinition().hasCode() && method.getDefinition().getCode().isDexCode()) {
+        int codeSizeInBytes = method.getDefinition().getCode().asDexCode().codeSizeInBytes();
+        if (codeSizeInBytes > largestCode) {
+          largestIndex = i;
+          largestCode = codeSizeInBytes;
+        }
+      }
+    }
+    if (largestIndex > 0) {
+      Collections.swap(methods, 0, largestIndex);
+    }
   }
 
   public static IdentityHashMap<DexString, List<ProgramMethod>> groupMethodsByRenamedName(

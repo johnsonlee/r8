@@ -92,6 +92,11 @@ public enum AndroidApiLevel implements Ordered<AndroidApiLevel> {
     return getAndroidApiLevel(getLevel() + 1);
   }
 
+  public AndroidApiLevel verifyLevel(int expected) {
+    assert level == expected;
+    return this;
+  }
+
   public static List<AndroidApiLevel> getAndroidApiLevelsSorted() {
     return Arrays.asList(AndroidApiLevel.values());
   }

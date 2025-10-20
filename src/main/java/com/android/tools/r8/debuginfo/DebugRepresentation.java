@@ -101,8 +101,9 @@ public class DebugRepresentation {
           LineNumberOptimizer.groupMethodsByRenamedName(appView, clazz);
       for (List<ProgramMethod> methods : overloads.values()) {
         if (methods.size() != 1) {
-          // Never use PC info for overloaded methods. They need distinct lines to disambiguate.
-          continue;
+          // Only use PC info for the first method in the set of overloaded methods.
+          // They need distinct lines to disambiguate.
+          LineNumberOptimizer.sortMethods(methods);
         }
         ProgramMethod method = methods.get(0);
         DexEncodedMethod definition = method.getDefinition();
