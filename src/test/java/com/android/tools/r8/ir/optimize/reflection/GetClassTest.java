@@ -158,6 +158,7 @@ public class GetClassTest extends ReflectionOptimizerTestBase {
 
   private void test(
       CodeInspector codeInspector,
+      boolean isR8,
       boolean expectCallPresent,
       int expectedGetClassCount,
       int expectedConstClassCount) {
@@ -177,7 +178,7 @@ public class GetClassTest extends ReflectionOptimizerTestBase {
     MethodSubject getMainClass = getterClass.uniqueMethodWithOriginalName("getMainClass");
     assertThat(getMainClass, isPresent());
     // Because of nullable argument, getClass() should remain.
-    assertEquals(1, countGetClass(getMainClass));
+    assertEquals(mode == CompilationMode.RELEASE && isR8 ? 0 : 1, countGetClass(getMainClass));
     assertEquals(0, countConstClass(getMainClass));
 
     MethodSubject call = getterClass.method("java.lang.Class", "call", ImmutableList.of());
@@ -200,7 +201,7 @@ public class GetClassTest extends ReflectionOptimizerTestBase {
         .setMinApi(parameters)
         .run(parameters.getRuntime(), MAIN)
         .assertSuccessWithOutput(JAVA_OUTPUT)
-        .inspect(inspector -> test(inspector, true, 6, 0));
+        .inspect(inspector -> test(inspector, false, true, 6, 0));
   }
 
   @Test
@@ -208,19 +209,23 @@ public class GetClassTest extends ReflectionOptimizerTestBase {
     boolean isRelease = mode == CompilationMode.RELEASE;
     boolean expectCallPresent = !isRelease;
     int expectedGetClassCount = isRelease ? 0 : 5;
-    int expectedConstClassCount = isRelease ? (parameters.isCfRuntime() ? 8 : 6) : 1;
-    testForR8(parameters.getBackend())
+    int expectedConstClassCount = isRelease ? (parameters.isCfRuntime() ? 9 : 6) : 1;
+    testForR8(parameters)
         .setMode(mode)
         .addInnerClasses(GetClassTest.class)
         .enableInliningAnnotations()
         .enableNoHorizontalClassMergingAnnotations()
         .addKeepMainRule(MAIN)
         .addDontObfuscate()
-        .setMinApi(parameters)
         .run(parameters.getRuntime(), MAIN)
         .assertSuccessWithOutput(JAVA_OUTPUT)
         .inspect(
             inspector ->
-                test(inspector, expectCallPresent, expectedGetClassCount, expectedConstClassCount));
+                test(
+                    inspector,
+                    true,
+                    expectCallPresent,
+                    expectedGetClassCount,
+                    expectedConstClassCount));
   }
 }
