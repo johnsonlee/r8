@@ -227,17 +227,19 @@ public class ThrowBlockOutliner {
 
     // Estimate the savings from this outline.
     int estimatedSavingsInBytes = 0;
-    for (Multiset.Entry<DexMethod> entry : outline.getUsers().entrySet()) {
-      // For each call we save the outlined instructions at the cost of an invoke + return.
-      int estimatedSavingsForUser = codeSizeInBytes - (DexInvokeStatic.SIZE + DexReturn.SIZE);
-      if (entry.getElement().getReturnType().isWideType()) {
-        estimatedSavingsForUser -= DexConstWide16.SIZE;
-      } else if (!entry.getElement().getReturnType().isVoidType()) {
-        estimatedSavingsForUser -= DexConst4.SIZE;
-      }
-      estimatedSavingsInBytes += estimatedSavingsForUser * entry.getCount();
-      if (estimatedSavingsInBytes > estimatedCostInBytes) {
-        return true;
+    for (ThrowBlockOutline outlineOrMergedOutline : outline.getAllOutlines()) {
+      for (Multiset.Entry<DexMethod> entry : outlineOrMergedOutline.getUsers().entrySet()) {
+        // For each call we save the outlined instructions at the cost of an invoke + return.
+        int estimatedSavingsForUser = codeSizeInBytes - (DexInvokeStatic.SIZE + DexReturn.SIZE);
+        if (entry.getElement().getReturnType().isWideType()) {
+          estimatedSavingsForUser -= DexConstWide16.SIZE;
+        } else if (!entry.getElement().getReturnType().isVoidType()) {
+          estimatedSavingsForUser -= DexConst4.SIZE;
+        }
+        estimatedSavingsInBytes += estimatedSavingsForUser * entry.getCount();
+        if (estimatedSavingsInBytes > estimatedCostInBytes) {
+          return true;
+        }
       }
     }
     return false;
@@ -269,10 +271,12 @@ public class ThrowBlockOutliner {
     ProgramMethodMap<ThrowBlockOutline> methodsToReprocess = ProgramMethodMap.create();
     Set<DexMethod> seenUsers = Sets.newIdentityHashSet();
     for (ThrowBlockOutline outline : outlines) {
-      for (DexMethod user : outline.getUsers()) {
-        if (seenUsers.add(user)) {
-          ProgramMethod methodToReprocess = appView.definitionFor(user).asProgramMethod();
-          methodsToReprocess.put(methodToReprocess, null);
+      for (ThrowBlockOutline outlineOrMergedOutline : outline.getAllOutlines()) {
+        for (DexMethod user : outlineOrMergedOutline.getUsers().elementSet()) {
+          if (seenUsers.add(user)) {
+            ProgramMethod methodToReprocess = appView.definitionFor(user).asProgramMethod();
+            methodsToReprocess.put(methodToReprocess, null);
+          }
         }
       }
       if (outline.getMaterializedOutlineMethod() != null) {

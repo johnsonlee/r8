@@ -32,6 +32,7 @@ import com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper;
 import com.android.tools.r8.lightir.LirCode;
 import com.android.tools.r8.lightir.LirConstant;
 import com.android.tools.r8.synthesis.SyntheticItems;
+import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.structural.CompareToVisitor;
 import com.android.tools.r8.utils.structural.HashingVisitor;
 import com.google.common.collect.ConcurrentHashMultiset;
@@ -51,6 +52,13 @@ public class ThrowBlockOutline implements LirConstant {
   private final LirCode<?> lirCode;
   private final DexProto proto;
   private final Multiset<DexMethod> users = ConcurrentHashMultiset.create();
+
+  // If this is an outline in base, and there are equivalent outlines in features, then the outlines
+  // from features will be removed and merged into the outline in base. This field stores the merged
+  // outlines.
+  //
+  // This is always null in D8.
+  private List<ThrowBlockOutline> children;
 
   private ProgramMethod materializedOutlineMethod;
 
@@ -102,8 +110,20 @@ public class ThrowBlockOutline implements LirConstant {
     return AbstractValue.unknown();
   }
 
+  // Returns this outline and all outlines that have been merged into this outline.
+  public Iterable<ThrowBlockOutline> getAllOutlines() {
+    if (children == null) {
+      return Collections.singletonList(this);
+    }
+    return IterableUtils.append(children, this);
+  }
+
   public List<AbstractValue> getArguments() {
     return arguments;
+  }
+
+  public List<ThrowBlockOutline> getChildren() {
+    return children != null ? children : Collections.emptyList();
   }
 
   public LirCode<?> getLirCode() {
@@ -120,7 +140,13 @@ public class ThrowBlockOutline implements LirConstant {
   }
 
   public int getNumberOfUsers() {
-    return users.size();
+    int result = users.size();
+    if (children != null) {
+      for (ThrowBlockOutline child : children) {
+        result += child.users.size();
+      }
+    }
+    return result;
   }
 
   public DexProto getProto() {
@@ -265,6 +291,9 @@ public class ThrowBlockOutline implements LirConstant {
                         appView.apiLevelCompute().computeInitialMinApiLevel(appView.options()))
                     .setCode(methodSig -> lirCode)
                     .setProto(getOptimizedProto(appView.dexItemFactory())));
+    for (ThrowBlockOutline child : getChildren()) {
+      child.materializedOutlineMethod = materializedOutlineMethod;
+    }
   }
 
   private DexAnnotationSet createAnnotations(AppView<?> appView) {
@@ -277,5 +306,17 @@ public class ThrowBlockOutline implements LirConstant {
       return DexAnnotationSet.create(new DexAnnotation[] {annotation});
     }
     return DexAnnotationSet.empty();
+  }
+
+  public void merge(ThrowBlockOutline outline) {
+    for (int i = 0; i < arguments.size(); i++) {
+      if (!arguments.get(i).equals(outline.arguments.get(i))) {
+        arguments.set(i, AbstractValue.unknown());
+      }
+    }
+    if (children == null) {
+      children = new ArrayList<>();
+    }
+    children.add(outline);
   }
 }

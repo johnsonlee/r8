@@ -52,7 +52,6 @@ import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodC
 import com.android.tools.r8.lightir.LirCode;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.timing.Timing;
-import com.google.common.base.Equivalence.Wrapper;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -61,7 +60,6 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 public class ThrowBlockOutlinerScanner {
@@ -70,13 +68,13 @@ public class ThrowBlockOutlinerScanner {
 
   private final AppView<?> appView;
   private final DexItemFactory factory;
+  private final OutlineCollection outlines;
   private final AbstractValueFactory valueFactory;
-
-  private final Map<Wrapper<LirCode<?>>, ThrowBlockOutline> outlines = new ConcurrentHashMap<>();
 
   ThrowBlockOutlinerScanner(AppView<?> appView) {
     this.appView = appView;
     this.factory = appView.dexItemFactory();
+    this.outlines = new OutlineCollection(appView);
     this.valueFactory =
         appView.enableWholeProgramOptimizations()
             ? appView.abstractValueFactory()
@@ -105,7 +103,7 @@ public class ThrowBlockOutlinerScanner {
   }
 
   public Collection<ThrowBlockOutline> getOutlines() {
-    return outlines.values();
+    return outlines.getOutlines();
   }
 
   private List<BasicBlock> getThrowBlocks(IRCode code) {
@@ -149,11 +147,7 @@ public class ThrowBlockOutlinerScanner {
               return;
             }
             LirCode<?> lirCode = outlineBuilder.buildLirCode(appView, code.context());
-            Wrapper<LirCode<?>> lirCodeWrapper =
-                ThrowBlockOutlinerLirCodeEquivalence.get().wrap(lirCode);
-            ThrowBlockOutline outline =
-                outlines.computeIfAbsent(
-                    lirCodeWrapper, w -> new ThrowBlockOutline(w.get(), proto));
+            ThrowBlockOutline outline = outlines.add(lirCode, proto, code.context());
             assert proto.isIdenticalTo(outline.getProto());
             List<Value> arguments = outlineBuilder.buildArguments();
             outline.addUser(code.reference(), arguments, getAbstractValueFactory());
