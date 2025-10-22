@@ -13,7 +13,6 @@ import static com.android.tools.r8.ir.code.Opcodes.INVOKE_STATIC;
 import static com.android.tools.r8.ir.code.Opcodes.INVOKE_VIRTUAL;
 import static com.android.tools.r8.ir.code.Opcodes.MOVE;
 import static com.android.tools.r8.ir.code.Opcodes.NEW_INSTANCE;
-import static java.util.Collections.emptyList;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexItemFactory;
@@ -50,6 +49,7 @@ import com.android.tools.r8.ir.conversion.IRToLirFinalizer;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
 import com.android.tools.r8.lightir.LirCode;
+import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.timing.Timing;
 import java.util.ArrayList;
@@ -83,8 +83,15 @@ public class ThrowBlockOutlinerScanner {
 
   public void run(IRCode code) {
     assert !code.metadata().mayHaveThrowBlockOutlineMarker();
-    for (BasicBlock block : getThrowBlocks(code)) {
-      new ThrowBlockOutlinerScannerForBlock(code, block).processThrowBlock();
+    if (IterableUtils.none(code.getBlocks(), BasicBlock::isReturnBlock)) {
+      // Don't outline from methods that unconditionally throw.
+      // They may be manually created throw block outlines.
+      return;
+    }
+    for (BasicBlock block : code.getBlocks()) {
+      if (block.exit().isThrow()) {
+        new ThrowBlockOutlinerScannerForThrow(code, block).tryBuildOutline();
+      }
     }
     if (code.metadata().mayHaveThrowBlockOutlineMarker()) {
       if (appView.enableWholeProgramOptimizations()) {
@@ -106,93 +113,19 @@ public class ThrowBlockOutlinerScanner {
     return outlines.getOutlines();
   }
 
-  private List<BasicBlock> getThrowBlocks(IRCode code) {
-    boolean seenReturn = false;
-    List<BasicBlock> throwBlocks = new ArrayList<>();
-    for (BasicBlock block : code.getBlocks()) {
-      if (block.exit().isReturn()) {
-        seenReturn = true;
-      } else if (block.exit().isThrow()) {
-        throwBlocks.add(block);
-      }
-    }
-    // Never outline from methods that always throw.
-    return seenReturn ? throwBlocks : emptyList();
-  }
+  private abstract class ThrowBlockOutlinerScannerForInstruction {
 
-  private class ThrowBlockOutlinerScannerForBlock {
-
-    private final IRCode code;
-    private final Value exceptionValue;
-    private final BasicBlock throwBlock;
-    private final Throw throwInstruction;
+    final IRCode code;
+    final BasicBlock block;
 
     private boolean hasRunPrefixer;
 
-    ThrowBlockOutlinerScannerForBlock(IRCode code, BasicBlock throwBlock) {
+    ThrowBlockOutlinerScannerForInstruction(IRCode code, BasicBlock block) {
       this.code = code;
-      this.throwBlock = throwBlock;
-      this.throwInstruction = throwBlock.exit().asThrow();
-      this.exceptionValue = throwInstruction.exception();
+      this.block = block;
     }
 
-    private void processThrowBlock() {
-      // Recursively build up the outline method. On successful outline creation, the resulting
-      // LirCode is passed to the continuation function.
-      processThrowInstruction(
-          outlineBuilder -> {
-            // On successful outline creation, store the outline for later processing.
-            DexProto proto = outlineBuilder.getProto(appView);
-            if (proto == null) {
-              return;
-            }
-            LirCode<?> lirCode = outlineBuilder.buildLirCode(appView, code.context());
-            ThrowBlockOutline outline = outlines.add(lirCode, proto, code.context());
-            assert proto.isIdenticalTo(outline.getProto());
-            List<Value> arguments = outlineBuilder.buildArguments();
-            outline.addUser(code.reference(), arguments, getAbstractValueFactory());
-
-            // Insert a synthetic marker instruction that references the outline so that we know
-            // where to materialize the outline call.
-            Instruction insertionPoint = outlineBuilder.getFirstOutlinedInstruction();
-            assert insertionPoint.getBlock() == throwBlock;
-            ThrowBlockOutlineMarker marker =
-                ThrowBlockOutlineMarker.builder()
-                    .setArguments(arguments)
-                    .setOutline(outline)
-                    .setPosition(Position.none())
-                    .build();
-            throwBlock.listIterator(insertionPoint).add(marker);
-          });
-    }
-
-    private void processThrowInstruction(Consumer<OutlineBuilder> continuation) {
-      if (!exceptionValue.isDefinedByInstructionSatisfying(
-          i -> i.isNewInstance() && i.getBlock() == throwBlock)) {
-        // Exception is not created in the throw block.
-        return;
-      }
-      assert throwInstruction.hasPrev();
-      // We always expect the constructor call corresponding to the thrown exception to be last.
-      processExceptionConstructorCall(
-          throwInstruction.getPrev(),
-          outlineBuilder -> {
-            Value outlinedExceptionValue = outlineBuilder.getOutlinedValue(exceptionValue);
-            if (outlinedExceptionValue == null) {
-              // Fail as we were unable to outline the corresponding new-instance instruction.
-              return;
-            }
-            outlineBuilder.add(
-                Throw.builder()
-                    .setExceptionValue(outlinedExceptionValue)
-                    .setPosition(Position.syntheticNone())
-                    .build());
-            continuation.accept(outlineBuilder);
-          });
-    }
-
-    private void processInstruction(
-        Instruction instruction, Consumer<OutlineBuilder> continuation) {
+    void processInstruction(Instruction instruction, Consumer<OutlineBuilder> continuation) {
       switch (instruction.opcode()) {
         case ASSUME:
           processAssume(instruction.asAssume(), continuation);
@@ -258,7 +191,7 @@ public class ThrowBlockOutlinerScanner {
       processPredecessorInstructionOrStartOutline(instruction, continuation);
     }
 
-    private void processPredecessorInstructionOrFail(
+    void processPredecessorInstructionOrFail(
         Instruction instruction, Consumer<OutlineBuilder> continuation) {
       if (instruction.hasPrev()) {
         processInstruction(instruction.getPrev(), continuation);
@@ -278,12 +211,16 @@ public class ThrowBlockOutlinerScanner {
 
     private void processNewInstanceInstruction(
         NewInstance newInstance, Consumer<OutlineBuilder> continuation) {
-      if (newInstance.outValue() != exceptionValue
-          && newInstance.getType().isNotIdenticalTo(appView.dexItemFactory().stringBuilderType)) {
+      if (newInstance.getType().isNotIdenticalTo(appView.dexItemFactory().stringBuilderType)) {
         // Unhandled instruction.
         startOutline(newInstance.getNext(), continuation);
         return;
       }
+      internalProcessNewInstanceInstruction(newInstance, continuation);
+    }
+
+    void internalProcessNewInstanceInstruction(
+        NewInstance newInstance, Consumer<OutlineBuilder> continuation) {
       processPredecessorInstructionOrStartOutline(
           newInstance,
           outlineBuilder -> {
@@ -292,8 +229,7 @@ public class ThrowBlockOutlinerScanner {
           });
     }
 
-    private void outlineNewInstanceInstruction(
-        NewInstance newInstance, OutlineBuilder outlineBuilder) {
+    void outlineNewInstanceInstruction(NewInstance newInstance, OutlineBuilder outlineBuilder) {
       NewInstance outlinedNewInstance =
           NewInstance.builder()
               .setFreshOutValue(
@@ -304,51 +240,6 @@ public class ThrowBlockOutlinerScanner {
               .build();
       outlineBuilder.add(outlinedNewInstance);
       outlineBuilder.map(newInstance.outValue(), outlinedNewInstance.outValue());
-    }
-
-    private void processExceptionConstructorCall(
-        Instruction instruction, Consumer<OutlineBuilder> continuation) {
-      InvokeDirect invoke = instruction.asInvokeConstructor(factory);
-      if (invoke == null) {
-        // Not a constructor call.
-        return;
-      }
-      assert !exceptionValue.hasDebugUsers();
-      assert !exceptionValue.hasPhiUsers();
-      if (invoke.getReceiver() != exceptionValue) {
-        // Not the constructor call corresponding to the thrown exception.
-        return;
-      }
-      // This instruction is guaranteed to have a predecessor since the handling of the throw
-      // instruction checks if the new-instance instruction is in the throw block.
-      assert instruction.hasPrev();
-      processPredecessorInstructionOrFail(
-          invoke,
-          outlineBuilder -> {
-            if (outlineBuilder.getOutlinedValue(exceptionValue) == null) {
-              // We were unable to outline the corresponding new-instance instruction. Check if we
-              // can insert it here, right before the constructor call.
-              NewInstance newInstance = exceptionValue.getDefinition().asNewInstance();
-              if (exceptionValue.uniqueUsers().size() == 2
-                  && !newInstance.instructionMayHaveSideEffects(appView, code.context())) {
-                // The exception value is only used by the constructor call and the throw.
-                // By construction, it cannot have debug users nor phi users.
-                outlineNewInstanceInstruction(newInstance, outlineBuilder);
-              } else {
-                // Fail as we were unable to outline the corresponding new-instance instruction.
-                return;
-              }
-            }
-            outlineBuilder.add(
-                InvokeDirect.builder()
-                    .setArguments(
-                        ListUtils.map(
-                            invoke.arguments(), outlineBuilder::getOutlinedValueOrCreateArgument))
-                    .setMethod(invoke.getInvokedMethod())
-                    .setPosition(Position.syntheticNone())
-                    .build());
-            continuation.accept(outlineBuilder);
-          });
     }
 
     private void processStringBuilderConstructorCall(
@@ -453,7 +344,7 @@ public class ThrowBlockOutlinerScanner {
         newFirstOutlinedInstruction = firstOutlinedInstruction;
       } else {
         newFirstOutlinedInstruction =
-            new ThrowBlockOutlinerPrefixer(factory, throwBlock)
+            new ThrowBlockOutlinerPrefixer(factory, block)
                 .tryMoveNonOutlinedStringBuilderInstructionsToOutline(firstOutlinedInstruction);
         hasRunPrefixer = true;
       }
@@ -463,6 +354,131 @@ public class ThrowBlockOutlinerScanner {
         OutlineBuilder outlineBuilder = new OutlineBuilder(firstOutlinedInstruction);
         continuation.accept(outlineBuilder);
       }
+    }
+  }
+
+  private class ThrowBlockOutlinerScannerForThrow extends ThrowBlockOutlinerScannerForInstruction {
+
+    private final Throw throwInstruction;
+
+    ThrowBlockOutlinerScannerForThrow(IRCode code, BasicBlock block) {
+      super(code, block);
+      this.throwInstruction = block.exit().asThrow();
+    }
+
+    void tryBuildOutline() {
+      // Recursively build up the outline method. On successful outline creation, the resulting
+      // LirCode is passed to the continuation function.
+      processThrowInstruction(
+          outlineBuilder -> {
+            // On successful outline creation, store the outline for later processing.
+            DexProto proto = outlineBuilder.getProto(appView, factory.voidType);
+            if (proto == null) {
+              return;
+            }
+            LirCode<?> lirCode = outlineBuilder.buildLirCode(appView, code.context());
+            ThrowBlockOutline outline = outlines.add(lirCode, proto, code.context());
+            assert proto.isIdenticalTo(outline.getProto());
+            List<Value> arguments = outlineBuilder.buildArguments();
+            outline.addUser(code.reference(), arguments, getAbstractValueFactory());
+
+            // Insert a synthetic marker instruction that references the outline so that we know
+            // where to materialize the outline call.
+            Instruction insertionPoint = outlineBuilder.getFirstOutlinedInstruction();
+            assert insertionPoint.getBlock() == block;
+            ThrowBlockOutlineMarker marker =
+                ThrowBlockOutlineMarker.builder()
+                    .setArguments(arguments)
+                    .setOutline(outline)
+                    .setPosition(Position.none())
+                    .build();
+            block.listIterator(insertionPoint).add(marker);
+          });
+    }
+
+    private void processThrowInstruction(Consumer<OutlineBuilder> continuation) {
+      Throw throwInstruction = block.exit().asThrow();
+      Value exceptionValue = throwInstruction.exception();
+      if (!exceptionValue.isDefinedByInstructionSatisfying(
+          i -> i.isNewInstance() && i.getBlock() == block)) {
+        // Exception is not created in the throw block.
+        return;
+      }
+      assert throwInstruction.hasPrev();
+      // We always expect the constructor call corresponding to the thrown exception to be last.
+      processExceptionConstructorCall(
+          throwInstruction.getPrev(),
+          outlineBuilder -> {
+            Value outlinedExceptionValue = outlineBuilder.getOutlinedValue(exceptionValue);
+            if (outlinedExceptionValue == null) {
+              // Fail as we were unable to outline the corresponding new-instance instruction.
+              return;
+            }
+            outlineBuilder.add(
+                Throw.builder()
+                    .setExceptionValue(outlinedExceptionValue)
+                    .setPosition(Position.syntheticNone())
+                    .build());
+            continuation.accept(outlineBuilder);
+          });
+    }
+
+    private void processExceptionConstructorCall(
+        Instruction instruction, Consumer<OutlineBuilder> continuation) {
+      InvokeDirect invoke = instruction.asInvokeConstructor(factory);
+      if (invoke == null) {
+        // Not a constructor call.
+        return;
+      }
+      Value exceptionValue = block.exit().asThrow().exception();
+      assert !exceptionValue.hasDebugUsers();
+      assert !exceptionValue.hasPhiUsers();
+      if (invoke.getReceiver() != exceptionValue) {
+        // Not the constructor call corresponding to the thrown exception.
+        return;
+      }
+      // This instruction is guaranteed to have a predecessor since the handling of the throw
+      // instruction checks if the new-instance instruction is in the throw block.
+      assert instruction.hasPrev();
+      processPredecessorInstructionOrFail(
+          invoke,
+          outlineBuilder -> {
+            if (outlineBuilder.getOutlinedValue(exceptionValue) == null) {
+              // We were unable to outline the corresponding new-instance instruction. Check if we
+              // can insert it here, right before the constructor call.
+              NewInstance newInstance = exceptionValue.getDefinition().asNewInstance();
+              if (exceptionValue.uniqueUsers().size() == 2
+                  && !newInstance.instructionMayHaveSideEffects(appView, code.context())) {
+                // The exception value is only used by the constructor call and the throw.
+                // By construction, it cannot have debug users nor phi users.
+                outlineNewInstanceInstruction(newInstance, outlineBuilder);
+              } else {
+                // Fail as we were unable to outline the corresponding new-instance instruction.
+                return;
+              }
+            }
+            outlineBuilder.add(
+                InvokeDirect.builder()
+                    .setArguments(
+                        ListUtils.map(
+                            invoke.arguments(), outlineBuilder::getOutlinedValueOrCreateArgument))
+                    .setMethod(invoke.getInvokedMethod())
+                    .setPosition(Position.syntheticNone())
+                    .build());
+            continuation.accept(outlineBuilder);
+          });
+    }
+
+    @Override
+    void processInstruction(Instruction instruction, Consumer<OutlineBuilder> continuation) {
+      if (instruction.isNewInstance()) {
+        NewInstance newInstance = instruction.asNewInstance();
+        if (newInstance.outValue() == throwInstruction.exception()) {
+          internalProcessNewInstanceInstruction(newInstance, continuation);
+          return;
+        }
+      }
+      super.processInstruction(instruction, continuation);
     }
   }
 
@@ -539,9 +555,8 @@ public class ThrowBlockOutlinerScanner {
       return addArgument(root).outValue();
     }
 
-    DexProto getProto(AppView<?> appView) {
+    DexProto getProto(AppView<?> appView, DexType returnType) {
       DexItemFactory factory = appView.dexItemFactory();
-      DexType returnType = factory.voidType;
       List<DexType> parameters = new ArrayList<>(outlinedArguments.size());
       for (Argument outlinedArgument : outlinedArguments) {
         TypeElement useType =

@@ -143,6 +143,15 @@ public class IterableUtils {
     return min;
   }
 
+  public static <T> boolean none(Iterable<T> iterable, Predicate<T> predicate) {
+    for (T element : iterable) {
+      if (predicate.test(element)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   @SuppressWarnings("UnusedVariable")
   public static <T> int size(Iterable<T> iterable) {
     int result = 0;
