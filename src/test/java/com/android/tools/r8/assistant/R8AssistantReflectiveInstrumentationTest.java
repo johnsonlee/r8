@@ -29,7 +29,7 @@ import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class R8AssistentReflectiveInstrumentationTest extends TestBase {
+public class R8AssistantReflectiveInstrumentationTest extends TestBase {
 
   @Parameter(0)
   public TestParameters parameters;

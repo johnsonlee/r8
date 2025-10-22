@@ -26,6 +26,9 @@ public class ReflectiveOperationLogger implements ReflectiveOperationReceiver {
   }
 
   private String printParameters(Class<?>... parameters) {
+    if (parameters == null) {
+      return "(null)";
+    }
     if (parameters.length == 0) {
       return "()";
     }
