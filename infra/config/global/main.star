@@ -445,6 +445,11 @@ r8_tester_with_default(
     ["--dex_vm=15.0.0", "--all_tests", "--command_cache_dir=/tmp/ccache"],
     release_trigger = ["branch-gitiles-8.5-forward"],
 )
+r8_tester_with_default(
+    "linux-android-16",
+    ["--dex_vm=16.0.0", "--all_tests", "--command_cache_dir=/tmp/ccache"],
+    release_trigger = ["branch-gitiles-9.0-forward"],
+)
 
 r8_tester_with_default(
     "win",
