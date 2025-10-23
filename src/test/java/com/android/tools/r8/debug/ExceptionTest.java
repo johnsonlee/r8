@@ -7,6 +7,7 @@ import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.debug.classes.Exceptions;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import org.junit.Test;
@@ -53,8 +54,10 @@ public class ExceptionTest extends DebugTestBase {
   @Test
   public void testStepOnCatchD8() throws Throwable {
     parameters.assumeDexRuntime();
-    // ART/Dalvik jumps to 'move-exception' which initializes the local variable with the pending
-    // exception. Thus it is "attached" to the line declaring the exception in the catch handler.
+    // ART/Dalvik until ART 15 jumps to 'move-exception' which initializes the local variable with
+    // the pending exception. Thus it is "attached" to the line declaring the exception in the
+    // catch handler. From ART 16 the stepping is the same as for the JVM.
+    boolean art15OrOlder = parameters.getDexRuntimeVersion().isOlderThanOrEqual(Version.V15_0_0);
     runDebugTest(
         testForD8(parameters.getBackend())
             .setMinApi(parameters)
@@ -66,9 +69,9 @@ public class ExceptionTest extends DebugTestBase {
         run(),
         checkLine(SOURCE_FILE, 11), // line of the method call throwing the exception
         stepOver(),
-        checkLine(SOURCE_FILE, 12), // line of the catch declaration
-        checkNoLocal("e"),
-        stepOver(),
+        applyIf(art15OrOlder, () -> checkLine(SOURCE_FILE, 12)), // line of the catch declaration
+        applyIf(art15OrOlder, () -> checkNoLocal("e")),
+        applyIf(art15OrOlder, this::stepOver),
         checkLine(SOURCE_FILE, 13), // first line in the catch handler
         checkLocal("e"),
         run());

@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.resolution;
 
+import static com.android.tools.r8.ToolHelper.DexVm.Version.V16_0_0;
 import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.SingleTestRunResult;
@@ -85,7 +86,12 @@ public class ObjectCloneInStaticInterfaceMethodTest extends TestBase {
   }
 
   private void checkOutput(SingleTestRunResult<?> r) {
-    r.assertFailureWithErrorThatThrows(IllegalAccessError.class);
+    if (parameters.isDexRuntimeVersion(V16_0_0)) {
+      // TODO(b/454529390): ART 16 does not enforce protected access to Object.clone.
+      r.assertSuccessWithOutputLines("0");
+    } else {
+      r.assertFailureWithErrorThatThrows(IllegalAccessError.class);
+    }
   }
 
   interface I {

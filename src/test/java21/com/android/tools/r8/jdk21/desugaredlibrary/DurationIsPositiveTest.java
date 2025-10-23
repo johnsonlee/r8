@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.jdk21.desugaredlibrary;
 
+import static com.android.tools.r8.ToolHelper.DexVm.Version.V16_0_0;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.D8_L8DEBUG;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.DEFAULT_SPECIFICATIONS;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.JDK11;
@@ -61,7 +62,8 @@ public class DurationIsPositiveTest extends DesugaredLibraryTestBase {
         .setMinApi(parameters)
         .run(parameters.getRuntime(), Executor.class)
         .applyIf(
-            parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.O),
+            parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.O)
+                || parameters.getDexRuntimeVersion().isNewerThanOrEqual(V16_0_0),
             b -> b.assertSuccessWithOutput(EXPECTED_RESULT),
             parameters.getDexRuntimeVersion().isNewerThanOrEqual(Version.V8_1_0),
             b -> b.assertFailureWithErrorThatThrows(NoSuchMethodError.class),

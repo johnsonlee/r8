@@ -107,6 +107,8 @@ public class TestParameters {
   }
 
   public boolean canUseNestBasedAccesses() {
+    // TODO(b/247047415): Update test when a DEX VM natively supporting nests is added.
+    assertFalse(getApiLevel() != null && getApiLevel().getLevel() > 36);
     assert isCfRuntime() || isDexRuntime();
     return isCfRuntime() && getRuntime().asCf().isNewerThanOrEqual(CfVm.JDK11);
   }
@@ -123,6 +125,14 @@ public class TestParameters {
 
   public boolean canUseSubTypesInFilledNewArray() {
     return isDexRuntime() && getApiLevel().isGreaterThan(AndroidApiLevel.U);
+  }
+
+  public boolean corelibWithExecutorServiceImplementingAutoClosable() {
+    return isDexRuntime() && getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.BAKLAVA);
+  }
+
+  public boolean frameworkHasBuildVersionCodesFull() {
+    return isDexRuntime() && getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.BAKLAVA);
   }
 
   public boolean isAccessModificationEnabled(boolean allowAccessModification) {

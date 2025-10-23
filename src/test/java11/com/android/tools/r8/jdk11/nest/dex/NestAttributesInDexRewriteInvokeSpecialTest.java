@@ -163,7 +163,7 @@ public class NestAttributesInDexRewriteInvokeSpecialTest extends NestAttributesI
     parameters.assumeDexRuntime();
     assumeTrue(parameters.getApiLevel().getLevel() >= 35);
     // TODO(b/247047415): Update test when a DEX VM natively supporting nests is added.
-    assertFalse(parameters.getApiLevel().getLevel() > 35);
+    assertFalse(parameters.canUseNestBasedAccesses());
     testForD8(parameters)
         .addProgramClassesAndInnerClasses(NestHierachy.class)
         .setMinApi(AndroidApiLevel.U)

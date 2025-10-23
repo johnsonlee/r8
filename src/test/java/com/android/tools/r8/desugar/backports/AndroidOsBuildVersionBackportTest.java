@@ -57,6 +57,11 @@ public class AndroidOsBuildVersionBackportTest extends AbstractBackportTest {
             .writeToZip());
   }
 
+  @Override
+  protected String[] configureD8RunArguments() {
+    return new String[] {Integer.toString(parameters.getApiLevel().getLevel())};
+  }
+
   private static byte[] getTransformedBuildVERSIONClassForRuntimeClasspath()
       throws IOException, NoSuchFieldException {
     return transformer(VERSION.class)
@@ -85,7 +90,8 @@ public class AndroidOsBuildVersionBackportTest extends AbstractBackportTest {
   public static class TestRunner extends MiniAssert {
 
     public static void main(String[] args) throws Exception {
-      assertEquals(2100_000, VERSION.SDK_INT_FULL);
+      // No desugaring use the SDK_INT_FULL from the injected android.os.Build$VERSION class.
+      assertEquals(Integer.parseInt(args[0]) < 36 ? 2100_000 : -1, VERSION.SDK_INT_FULL);
     }
   }
 }

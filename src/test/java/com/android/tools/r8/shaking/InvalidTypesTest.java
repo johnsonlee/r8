@@ -6,6 +6,7 @@ package com.android.tools.r8.shaking;
 
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticType;
+import static com.android.tools.r8.ToolHelper.DexVm.Version.V16_0_0;
 import static org.hamcrest.CoreMatchers.allOf;
 import static org.hamcrest.CoreMatchers.anyOf;
 import static org.hamcrest.CoreMatchers.containsString;
@@ -89,6 +90,7 @@ public class InvalidTypesTest extends JasminTestBase {
               case V13_0_0:
               case V14_0_0:
               case V15_0_0:
+              case V16_0_0:
                 return StringUtils.joinLines(
                     "Hello!",
                     "Unexpected outcome of checkcast",
@@ -377,7 +379,10 @@ public class InvalidTypesTest extends JasminTestBase {
     return allOf(
         containsString("java.lang.VerifyError"),
         anyOf(
-            containsString("register v0 has type Precise Reference: B but expected Reference: A"),
+            containsString(
+                "register v0 has type "
+                    + (parameters.getDexRuntimeVersion().isOlderThan(V16_0_0) ? "Precise " : "")
+                    + "Reference: B but expected Reference: A"),
             containsString("VFY: storing type 'LB;' into field type 'LA;'")));
   }
 }

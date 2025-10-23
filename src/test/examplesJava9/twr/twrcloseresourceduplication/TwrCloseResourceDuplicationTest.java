@@ -175,10 +175,12 @@ public class TwrCloseResourceDuplicationTest extends TestBase {
                               Reference.classFromTypeName(BAR), 1)
                           .getTypeName());
                 }
-                classOutputWithSynthetics.add(
-                    SyntheticItemsTestUtils.syntheticAutoCloseableDispatcherClass(
-                            Reference.classFromTypeName(BAR), 0)
-                        .getTypeName());
+                if (!parameters.corelibWithExecutorServiceImplementingAutoClosable()) {
+                  classOutputWithSynthetics.add(
+                      SyntheticItemsTestUtils.syntheticAutoCloseableDispatcherClass(
+                              Reference.classFromTypeName(BAR), 0)
+                          .getTypeName());
+                }
                 assertEquals(classOutputWithSynthetics, foundClasses);
               }
             });

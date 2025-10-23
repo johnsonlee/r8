@@ -5,6 +5,7 @@ package com.android.tools.r8.graph;
 
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticType;
+import static com.android.tools.r8.ToolHelper.DexVm.Version.V15_0_0;
 import static org.hamcrest.CoreMatchers.allOf;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assert.assertTrue;
@@ -132,7 +133,7 @@ public class InvokeSuperTest extends TestBase {
       result.assertFailureWithErrorThatThrows(VerifyError.class);
     } else if (version == Version.V5_1_1 || version == Version.V6_0_1) {
       result.assertFailure();
-    } else if (version == Version.V15_0_0) {
+    } else if (version.isNewerThanOrEqual(V15_0_0)) {
       result.assertFailureWithErrorThatThrows(VerifyError.class);
     } else {
       result.assertSuccessWithOutputThatMatches(containsString(NoSuchMethodError.class.getName()));

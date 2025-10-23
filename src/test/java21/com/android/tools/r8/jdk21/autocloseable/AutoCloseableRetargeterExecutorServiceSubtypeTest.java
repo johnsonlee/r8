@@ -5,6 +5,7 @@
 package com.android.tools.r8.jdk21.autocloseable;
 
 import static com.android.tools.r8.desugar.AutoCloseableAndroidLibraryFileData.getAutoCloseableAndroidClassData;
+import static com.android.tools.r8.utils.AndroidApiLevel.BAKLAVA;
 import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.NeverInline;
@@ -72,7 +73,7 @@ public class AutoCloseableRetargeterExecutorServiceSubtypeTest extends TestBase 
     assumeTrue(parameters.isCfRuntime());
     testForJvm(parameters)
         .addInnerClassesAndStrippedOuter(getClass())
-        .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.BAKLAVA))
+        .addLibraryFiles(ToolHelper.getAndroidJar(BAKLAVA))
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
@@ -83,7 +84,7 @@ public class AutoCloseableRetargeterExecutorServiceSubtypeTest extends TestBase 
     testForD8(parameters.getBackend())
         .addInnerClassesAndStrippedOuter(getClass())
         .setMinApi(parameters)
-        .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.BAKLAVA))
+        .addLibraryFiles(ToolHelper.getAndroidJar(BAKLAVA))
         .addLibraryClassFileData(getAutoCloseableAndroidClassData(parameters))
         .compile()
         .addRunClasspathClassFileData((getAutoCloseableAndroidClassData(parameters)))
@@ -104,8 +105,12 @@ public class AutoCloseableRetargeterExecutorServiceSubtypeTest extends TestBase 
             Executor2.class)) {
       ClassSubject subj = inspector.clazz(clazz);
       Assert.assertTrue(subj.isPresent());
-      Assert.assertTrue(subj.allMethods().stream().anyMatch(m -> m.getFinalName().equals("close")));
-      Assert.assertTrue(
+      Assert.assertEquals(
+          ImmutableList.of(PrintForkJoinPool.class, Executor2.class).contains(clazz)
+              || !parameters.corelibWithExecutorServiceImplementingAutoClosable(),
+          subj.allMethods().stream().anyMatch(m -> m.getFinalName().equals("close")));
+      Assert.assertEquals(
+          !parameters.corelibWithExecutorServiceImplementingAutoClosable(),
           subj.getDexProgramClass()
               .getInterfaces()
               .contains(inspector.getFactory().autoCloseableType));
@@ -120,7 +125,7 @@ public class AutoCloseableRetargeterExecutorServiceSubtypeTest extends TestBase 
         .addInnerClassesAndStrippedOuter(getClass())
         .addInliningAnnotations()
         .setMinApi(parameters)
-        .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.BAKLAVA))
+        .addLibraryFiles(ToolHelper.getAndroidJar(BAKLAVA))
         .addLibraryClassFileData(getAutoCloseableAndroidClassData(parameters))
         .compile()
         .addRunClasspathClassFileData((getAutoCloseableAndroidClassData(parameters)))
