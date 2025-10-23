@@ -13,10 +13,11 @@ import com.android.tools.r8.KotlinTestBase;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.references.ClassReference;
+import com.android.tools.r8.references.Reference;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
-import com.android.tools.r8.utils.codeinspector.HorizontallyMergedClassesInspector;
 import com.google.common.collect.ImmutableList;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -81,7 +82,20 @@ public class KotlinLambdaMergingCapturesKotlinStyleTest extends KotlinTestBase {
         .addProgramFiles(getProgramFiles())
         .addKeepMainRule(getMainClassName())
         .addHorizontallyMergedClassesInspector(
-            HorizontallyMergedClassesInspector::assertNoClassesMerged)
+            inspector -> {
+              if (parameters.isDexRuntime()
+                  && kotlinParameters.getLambdaGeneration().isInvokeDynamic()) {
+                inspector
+                    .assertIsCompleteMergeGroup(
+                        SyntheticItemsTestUtils.syntheticThrowBlockOutlineClass(
+                            getMainClassReference(), 0),
+                        SyntheticItemsTestUtils.syntheticThrowBlockOutlineClass(
+                            getMainClassReference(), 1))
+                    .assertNoOtherClassesMerged();
+              } else {
+                inspector.assertNoClassesMerged();
+              }
+            })
         .allowAccessModification(allowAccessModification)
         .setMinApi(parameters)
         .compile()
@@ -136,6 +150,10 @@ public class KotlinLambdaMergingCapturesKotlinStyleTest extends KotlinTestBase {
 
   private String getMainClassName() {
     return getTestName() + ".MainKt";
+  }
+
+  private ClassReference getMainClassReference() {
+    return Reference.classFromTypeName(getMainClassName());
   }
 
   private List<Path> getProgramFiles() {

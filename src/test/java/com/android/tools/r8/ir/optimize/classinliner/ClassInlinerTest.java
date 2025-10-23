@@ -322,7 +322,7 @@ public class ClassInlinerTest extends ClassInlinerTestBase {
     assertEquals(Collections.emptyList(), synthesizedJavaLambdaClasses);
 
     assertEquals(
-        Collections.singleton("java.lang.StringBuilder"),
+        Collections.emptySet(),
         collectTypes(clazz.uniqueMethodWithOriginalName("testStatelessLambda")));
 
     assertEquals(
