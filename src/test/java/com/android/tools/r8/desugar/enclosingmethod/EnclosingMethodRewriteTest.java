@@ -3,9 +3,11 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.desugar.enclosingmethod;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -17,6 +19,7 @@ import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
 interface A {
   default int def() {
@@ -59,19 +62,14 @@ public class EnclosingMethodRewriteTest extends TestBase {
         "42"
       };
 
-  private final String[] EXPECTED_CC =
-      new String[] {
-        "class " + A.class.getTypeName() + "$-CC",
-        "public static int " + A.class.getTypeName() + "$-CC.a(" + A.class.getTypeName() + ")",
-        "42"
-      };
+  private final String[] EXPECTED_CC = new String[] {"null", "null", "42"};
 
   private final String[] EXPECTED_NOUGAT =
       new String[] {
         "interface " + A.class.getTypeName(), "public int " + A.class.getTypeName() + ".def()", "42"
       };
 
-  @Parameterized.Parameters(name = "{0}")
+  @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
   }
@@ -140,15 +138,21 @@ public class EnclosingMethodRewriteTest extends TestBase {
   private void inspect(CodeInspector inspector) {
     ClassSubject cImplSubject = inspector.clazz(A.class.getTypeName() + "$1");
     assertThat(cImplSubject, isPresent());
-    ClassSubject enclosingClassSubject =
-        parameters.canUseDefaultAndStaticInterfaceMethods()
-            ? inspector.clazz(A.class.getTypeName())
-            : inspector.clazz(A.class.getTypeName()).toCompanionClass();
-    assertThat(enclosingClassSubject, isPresent());
-    EnclosingMethodAttribute enclosingMethodAttribute =
-        cImplSubject.getDexProgramClass().getEnclosingMethodAttribute();
-    assertEquals(
-        enclosingClassSubject.getDexProgramClass().getType(),
-        enclosingMethodAttribute.getEnclosingMethod().getHolderType());
+    if (parameters.canUseDefaultAndStaticInterfaceMethods()) {
+      ClassSubject enclosingClassSubject = inspector.clazz(A.class.getTypeName());
+      assertThat(enclosingClassSubject, isPresent());
+      EnclosingMethodAttribute enclosingMethodAttribute =
+          cImplSubject.getDexProgramClass().getEnclosingMethodAttribute();
+      assertEquals(
+          enclosingClassSubject.getDexProgramClass().getType(),
+          enclosingMethodAttribute.getEnclosingMethod().getHolderType());
+    } else {
+      ClassSubject enclosingClassSubject =
+          inspector.clazz(A.class.getTypeName()).toCompanionClass();
+      assertThat(enclosingClassSubject, isAbsent());
+      EnclosingMethodAttribute enclosingMethodAttribute =
+          cImplSubject.getDexProgramClass().getEnclosingMethodAttribute();
+      assertNull(enclosingMethodAttribute);
+    }
   }
 }

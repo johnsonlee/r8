@@ -4,11 +4,11 @@
 
 package com.android.tools.r8.shaking.staticinterfacemethods.defaultmethods;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndNotRenamed;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndRenamed;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isStatic;
-import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -31,22 +31,22 @@ import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class StaticInterfaceMethodsTest extends TestBase {
 
-  private final TestParameters parameters;
-  private final boolean allowObfuscation;
+  @Parameter(0)
+  public TestParameters parameters;
 
-  @Parameterized.Parameters(name = "{0}, allowObfuscation: {1}")
+  @Parameter(1)
+  public boolean allowObfuscation;
+
+  @Parameters(name = "{0}, allowObfuscation: {1}")
   public static Collection<Object[]> data() {
     return buildParameters(
         getTestParameters().withAllRuntimesAndApiLevels().build(), BooleanUtils.values());
-  }
-
-  public StaticInterfaceMethodsTest(TestParameters parameters, boolean allowObfuscation) {
-    this.parameters = parameters;
-    this.allowObfuscation = allowObfuscation;
   }
 
   private R8TestCompileResult compileTest(
@@ -113,12 +113,12 @@ public class StaticInterfaceMethodsTest extends TestBase {
     MethodSubject method = clazz.method("int", "method", ImmutableList.of());
     ClassSubject companionClass = clazz.toCompanionClass();
     if (parameters.canUseDefaultAndStaticInterfaceMethods()) {
+      assertThat(method, isPresent());
       assertThat(method, isStatic());
-      assertThat(companionClass, not(isPresent()));
+      assertThat(companionClass, isAbsent());
     } else {
-      assertThat(method, not(isPresent()));
-      assertThat(companionClass, isPresent());
-      assertThat(companionClass.uniqueMethodWithOriginalName("method"), isPresent());
+      assertThat(method, isAbsent());
+      assertThat(companionClass, isAbsent());
     }
   }
 
@@ -129,14 +129,13 @@ public class StaticInterfaceMethodsTest extends TestBase {
     if (parameters.canUseDefaultAndStaticInterfaceMethods()) {
       assertThat(clazz, allowObfuscation ? isPresentAndRenamed() : isPresentAndNotRenamed());
       assertThat(method, isStatic());
-      assertThat(companionClass, not(isPresent()));
+      assertThat(companionClass, isAbsent());
     } else {
       // When there is only a static method in the interface nothing is left on the interface itself
       // after desugaring, only the companion class is left.
-      assertThat(clazz, not(isPresent()));
-      assertThat(method, not(isPresent()));
+      assertThat(clazz, isAbsent());
       // TODO(160142903): The companion class should be present.
-      assertThat(companionClass, not(isPresent()));
+      assertThat(companionClass, isAbsent());
       // Also check that method exists on companion class.
     }
   }
@@ -161,7 +160,6 @@ public class StaticInterfaceMethodsTest extends TestBase {
   @Test
   public void testDefaultMethodKeptWithMethods() throws Exception {
     assumeTrue(!allowObfuscation); // No use of allowObfuscation.
-
     compileTest(
         ImmutableList.of(
             "-keep interface " + InterfaceWithStaticMethods.class.getTypeName() + "{",

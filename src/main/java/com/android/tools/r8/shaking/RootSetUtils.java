@@ -44,7 +44,6 @@ import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.graph.ImmediateAppSubtypingInfo;
-import com.android.tools.r8.graph.InvalidCode;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramField;
@@ -55,8 +54,6 @@ import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
-import com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper;
-import com.android.tools.r8.ir.desugar.itf.InterfaceMethodDesugaringMode;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
 import com.android.tools.r8.ir.optimize.membervaluepropagation.assume.AssumeInfo;
 import com.android.tools.r8.partial.R8PartialResourceUseCollector;
@@ -129,7 +126,6 @@ public class RootSetUtils {
 
     private final AppView<? extends AppInfoWithClassHierarchy> appView;
     private AssumeInfoCollection.Builder assumeInfoCollectionBuilder;
-    private final RootSetBuilderEventConsumer eventConsumer;
     private final ImmediateAppSubtypingInfo subtypingInfo;
     private final DirectMappedDexApplication application;
     private final Set<DexType> rootNonProgramTypes = Sets.newIdentityHashSet();
@@ -160,7 +156,6 @@ public class RootSetUtils {
 
     private final OptimizationFeedbackSimple feedback = OptimizationFeedbackSimple.getInstance();
 
-    private final InterfaceDesugaringSyntheticHelper interfaceDesugaringSyntheticHelper;
     private final ProgramMethodMap<ProgramMethod> pendingMethodMoveInverse =
         ProgramMethodMap.create();
 
@@ -172,22 +167,13 @@ public class RootSetUtils {
 
     private RootSetBuilder(
         AppView<? extends AppInfoWithClassHierarchy> appView,
-        RootSetBuilderEventConsumer eventConsumer,
         ImmediateAppSubtypingInfo subtypingInfo,
         Iterable<? extends ProguardConfigurationRule> rules) {
       this.appView = appView;
-      this.eventConsumer = eventConsumer;
       this.subtypingInfo = subtypingInfo;
       this.application = appView.appInfo().app().asDirect();
       this.rules = rules;
       this.options = appView.options();
-      interfaceDesugaringSyntheticHelper =
-          options.isInterfaceMethodDesugaringEnabled()
-              ? new InterfaceDesugaringSyntheticHelper(
-                  appView,
-                  InterfaceMethodDesugaringMode.createForInterfaceMethodDesugaringInRootSetBuilder(
-                      options))
-              : null;
       attributesConfig =
           options.getProguardConfiguration() != null
               ? options.getProguardConfiguration().getKeepAttributes()
@@ -208,11 +194,9 @@ public class RootSetUtils {
 
     private RootSetBuilder(
         AppView<? extends AppInfoWithClassHierarchy> appView,
-        Enqueuer enqueuer,
         ImmediateAppSubtypingInfo subtypingInfo) {
       this(
           appView,
-          RootSetBuilderEventConsumer.create(enqueuer.getProfileCollectionAdditions()),
           subtypingInfo,
           null);
     }
@@ -1910,35 +1894,9 @@ public class RootSetUtils {
         preconditionEvent = UnconditionalKeepInfoEvent.get();
       }
 
-      if (isInterfaceMethodNeedingDesugaring(item)) {
-        ProgramMethod method = item.asMethod();
-        ProgramMethod companion =
-            interfaceDesugaringSyntheticHelper.ensureMethodOfProgramCompanionClassStub(
-                method, eventConsumer);
-        // Add the method to the inverse map as tracing will now directly target the CC method.
-        if (InvalidCode.isInvalidCode(companion.getDefinition().getCode())) {
-          pendingMethodMoveInverse.put(companion, method);
-        }
-
-        LazyBox<Joiner<?, ?, ?>> companionJoiner =
-            new LazyBox<>(
-                () ->
-                    dependentMinimumKeepInfo.getOrCreateMinimumKeepInfoFor(
-                        preconditionEvent, companion.getReference()));
-
-        // Only shrinking and optimization are transferred for interface companion methods.
-        if (appView.options().isOptimizationEnabled() && !modifiers.allowsOptimization) {
-          companionJoiner.computeIfAbsent().disallowOptimization();
-          markAsUsed.execute();
-        }
-        if (appView.options().isShrinking() && !modifiers.allowsShrinking) {
-          companionJoiner.computeIfAbsent().addRule(whyAreYouKeepingKeepRule).disallowShrinking();
-          markAsUsed.execute();
-        }
-        if (!item.asMethod().isDefaultMethod()) {
-          // Static and private methods do not apply to the original item.
-          return;
-        }
+      if (isInterfaceMethodNeedingDesugaring(item) && !item.asMethod().isDefaultMethod()) {
+        // Static and private methods do not apply to the original item.
+        return;
       }
 
       // Memoize the joiner to avoid repeated lookups and to validate it as non-bottom if set.
@@ -2546,7 +2504,7 @@ public class RootSetUtils {
         AppView<? extends AppInfoWithClassHierarchy> appView,
         Enqueuer enqueuer,
         ImmediateAppSubtypingInfo subtypingInfo) {
-      return new RootSetBuilder(appView, enqueuer, subtypingInfo);
+      return new RootSetBuilder(appView, subtypingInfo);
     }
 
     public static RootSetBuilder builder(
@@ -2556,7 +2514,6 @@ public class RootSetUtils {
         Iterable<? extends ProguardConfigurationRule> rules) {
       return new RootSetBuilder(
           appView,
-          RootSetBuilderEventConsumer.create(profileCollectionAdditions),
           subtypingInfo,
           rules);
     }
@@ -2572,7 +2529,6 @@ public class RootSetUtils {
         ImmediateAppSubtypingInfo subtypingInfo) {
       super(
           appView,
-          RootSetBuilderEventConsumer.create(enqueuer.getProfileCollectionAdditions()),
           subtypingInfo,
           null);
       this.enqueuer = enqueuer;
@@ -2614,12 +2570,10 @@ public class RootSetUtils {
 
     private MainDexRootSetBuilder(
         AppView<? extends AppInfoWithClassHierarchy> appView,
-        ProfileCollectionAdditions profileCollectionAdditions,
         ImmediateAppSubtypingInfo subtypingInfo,
         Iterable<? extends ProguardConfigurationRule> rules) {
       super(
           appView,
-          RootSetBuilderEventConsumer.create(profileCollectionAdditions),
           subtypingInfo,
           rules);
     }
@@ -2667,10 +2621,9 @@ public class RootSetUtils {
 
     public static MainDexRootSetBuilder builder(
         AppView<? extends AppInfoWithClassHierarchy> appView,
-        ProfileCollectionAdditions profileCollectionAdditions,
         ImmediateAppSubtypingInfo subtypingInfo,
         Iterable<? extends ProguardConfigurationRule> rules) {
-      return new MainDexRootSetBuilder(appView, profileCollectionAdditions, subtypingInfo, rules);
+      return new MainDexRootSetBuilder(appView, subtypingInfo, rules);
     }
 
     @Override

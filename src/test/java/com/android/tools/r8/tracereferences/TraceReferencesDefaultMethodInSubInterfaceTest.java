@@ -208,7 +208,12 @@ public class TraceReferencesDefaultMethodInSubInterfaceTest extends TestBase {
         .addKeepMainRule(Main.class)
         .addRunClasspathFiles(r8CompiledTarget)
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutput(EXPECTED_OUTPUT);
+        .applyIf(
+            parameters.isCfRuntime() || parameters.canUseDefaultAndStaticInterfaceMethods(),
+            rr -> rr.assertSuccessWithOutput(EXPECTED_OUTPUT),
+            parameters.isDexRuntime() && parameters.getDexRuntimeVersion().isDalvik(),
+            rr -> rr.assertFailureWithErrorThatThrows(NoClassDefFoundError.class),
+            rr -> rr.assertFailureWithErrorThatThrows(ClassNotFoundException.class));
   }
 
   @Test
@@ -290,7 +295,12 @@ public class TraceReferencesDefaultMethodInSubInterfaceTest extends TestBase {
         .addProgramFiles(sourceJar)
         .addRunClasspathFiles(r8CompiledTarget)
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutput(EXPECTED_OUTPUT);
+        .applyIf(
+            parameters.canUseDefaultAndStaticInterfaceMethods(),
+            rr -> rr.assertSuccessWithOutput(EXPECTED_OUTPUT),
+            parameters.isDexRuntime() && parameters.getDexRuntimeVersion().isDalvik(),
+            rr -> rr.assertFailureWithErrorThatThrows(NoClassDefFoundError.class),
+            rr -> rr.assertFailureWithErrorThatThrows(ClassNotFoundException.class));
   }
 
   // Interfaces I and J are in the target set for trace references.

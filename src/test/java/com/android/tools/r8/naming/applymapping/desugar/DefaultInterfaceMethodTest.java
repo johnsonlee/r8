@@ -3,10 +3,13 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.naming.applymapping.desugar;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsentIf;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndRenamed;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.Assert.assertEquals;
 
+import com.android.tools.r8.D8TestCompileResult;
 import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -14,7 +17,6 @@ import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
-import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -76,17 +78,81 @@ public class DefaultInterfaceMethodTest extends TestBase {
             .addProgramClasses(LibraryInterface.class)
             .addKeepClassAndMembersRules(LibraryInterface.class)
             .setMinApi(parameters)
-            .compile();
-    CodeInspector inspector = libraryResult.inspector();
-    assertThat(inspector.clazz(LibraryInterface.class), isPresent());
-    assertThat(inspector.method(LibraryInterface.class.getMethod("foo")), isPresent());
-    if (!parameters.canUseDefaultAndStaticInterfaceMethods()) {
-      ClassSubject companion =
-          inspector.clazz(SyntheticItemsTestUtils.syntheticCompanionClass(LibraryInterface.class));
-      // Check that we included the companion class and method.
-      assertThat(companion, isPresent());
-      assertEquals(1, companion.allMethods().size());
-    }
+            .compile()
+            .inspect(
+                inspector -> {
+                  ClassSubject libraryClass = inspector.clazz(LibraryInterface.class);
+                  assertThat(libraryClass, isPresent());
+                  assertThat(libraryClass.uniqueMethodWithOriginalName("foo"), isPresent());
+                  if (!parameters.canUseDefaultAndStaticInterfaceMethods()) {
+                    // We don't expect the companion class to be present since -keep does not apply
+                    // to synthetics.
+                    ClassSubject companion =
+                        inspector.clazz(
+                            SyntheticItemsTestUtils.syntheticCompanionClass(
+                                LibraryInterface.class));
+                    assertThat(companion, isAbsent());
+                  }
+                });
+
+    testForR8(parameters.getBackend())
+        .addDontShrink()
+        .addProgramClasses(ProgramClass.class)
+        .addClasspathClasses(LibraryInterface.class)
+        .addApplyMapping(libraryResult.getProguardMap())
+        .addKeepMainRule(ProgramClass.class)
+        .setMinApi(parameters)
+        .compile()
+        .addRunClasspathFiles(libraryResult.writeToZip())
+        .run(parameters.getRuntime(), ProgramClass.class)
+        .applyIf(
+            parameters.canUseDefaultAndStaticInterfaceMethods(),
+            rr -> rr.assertSuccessWithOutput(EXPECTED),
+            parameters.isDexRuntime() && parameters.getDexRuntimeVersion().isDalvik(),
+            rr -> rr.assertFailureWithErrorThatThrows(NoClassDefFoundError.class),
+            rr -> rr.assertFailureWithErrorThatThrows(ClassNotFoundException.class));
+  }
+
+  @Test
+  public void testDesugaredLibraryLinkedWithProgram() throws Throwable {
+    parameters.assumeDexRuntime("Desugaring not required when compiling to CF");
+
+    D8TestCompileResult libraryDesugarResult =
+        testForD8(Backend.CF)
+            .addProgramClasses(LibraryInterface.class)
+            .setMinApi(parameters)
+            .compile()
+            .inspect(
+                inspector -> {
+                  ClassSubject companion =
+                      inspector.clazz(
+                          SyntheticItemsTestUtils.syntheticCompanionClass(LibraryInterface.class));
+                  assertThat(
+                      companion, isAbsentIf(parameters.canUseDefaultAndStaticInterfaceMethods()));
+                });
+
+    R8TestCompileResult libraryResult =
+        testForR8(parameters.getBackend())
+            .addProgramFiles(libraryDesugarResult.writeToZip())
+            .addKeepClassAndMembersRulesWithAllowObfuscation("*")
+            .setMinApi(parameters)
+            .compile()
+            .inspect(
+                inspector -> {
+                  ClassSubject libraryClass = inspector.clazz(LibraryInterface.class);
+                  assertThat(libraryClass, isPresent());
+                  assertThat(libraryClass.uniqueMethodWithOriginalName("foo"), isPresent());
+                  if (!parameters.canUseDefaultAndStaticInterfaceMethods()) {
+                    ClassSubject companion =
+                        inspector.clazz(
+                            SyntheticItemsTestUtils.syntheticCompanionClass(
+                                LibraryInterface.class));
+                    assertThat(companion, isPresentAndRenamed());
+                    assertThat(
+                        companion.uniqueMethodWithOriginalName("$default$foo"),
+                        isPresentAndRenamed());
+                  }
+                });
 
     testForR8(parameters.getBackend())
         .addDontShrink()

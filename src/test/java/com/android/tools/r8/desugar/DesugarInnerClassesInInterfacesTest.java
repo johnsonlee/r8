@@ -23,14 +23,20 @@ public class DesugarInnerClassesInInterfacesTest extends TestBase {
 
   private final List<String> EXPECTED_RESULT_WITHOUT_DESUGARING =
       ImmutableList.of(
-          WithAnonymousInner.class.getName(), "true", WithLocalInner.class.getName(), "true");
+          WithAnonymousInner.class.getName(),
+          WithAnonymousInner.class.getName(),
+          WithLocalInner.class.getName(),
+          WithLocalInner.class.getName());
 
   private final List<String> EXPECTED_RESULT_WITH_DESUGARING =
       ImmutableList.of(
           WithAnonymousInner.class.getName() + getCompanionClassNameSuffix(),
-          "true",
+          WithAnonymousInner.class.getName() + getCompanionClassNameSuffix(),
           WithLocalInner.class.getName() + getCompanionClassNameSuffix(),
-          "true");
+          WithLocalInner.class.getName() + getCompanionClassNameSuffix());
+
+  private final List<String> EXPECTED_RESULT_WITH_DESUGARING_R8 =
+      ImmutableList.of("null", "null", "null", "null");
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
@@ -78,7 +84,7 @@ public class DesugarInnerClassesInInterfacesTest extends TestBase {
         .applyIf(
             parameters.isCfRuntime() || parameters.canUseDefaultAndStaticInterfaceMethods(),
             result -> result.assertSuccessWithOutputLines(EXPECTED_RESULT_WITHOUT_DESUGARING),
-            result -> result.assertSuccessWithOutputLines(EXPECTED_RESULT_WITH_DESUGARING));
+            result -> result.assertSuccessWithOutputLines(EXPECTED_RESULT_WITH_DESUGARING_R8));
   }
 
   @Test
@@ -95,7 +101,7 @@ public class DesugarInnerClassesInInterfacesTest extends TestBase {
         .applyIf(
             parameters.isCfRuntime() || parameters.canUseDefaultAndStaticInterfaceMethods(),
             result -> result.assertSuccessWithOutputLines(EXPECTED_RESULT_WITHOUT_DESUGARING),
-            result -> result.assertSuccessWithOutputLines(EXPECTED_RESULT_WITH_DESUGARING));
+            result -> result.assertSuccessWithOutputLines(EXPECTED_RESULT_WITH_DESUGARING_R8));
   }
 
   interface WithAnonymousInner {
@@ -143,16 +149,14 @@ public class DesugarInnerClassesInInterfacesTest extends TestBase {
   public static class TestClass {
 
     public static void main(String[] args) throws Exception {
-      System.out.println(new WithAnonymousInner() {}.defaultOuter().call().getName());
-      System.out.println(
-          new WithAnonymousInner() {}.defaultOuter()
-              .call()
-              .equals(WithAnonymousInner.staticOuter().call()));
-      System.out.println(new WithLocalInner() {}.defaultOuter().call().getName());
-      System.out.println(
-          new WithLocalInner() {}.defaultOuter()
-              .call()
-              .equals(WithLocalInner.staticOuter().call()));
+      System.out.println(getName(new WithAnonymousInner() {}.defaultOuter().call()));
+      System.out.println(getName(WithAnonymousInner.staticOuter().call()));
+      System.out.println(getName(new WithLocalInner() {}.defaultOuter().call()));
+      System.out.println(getName(WithLocalInner.staticOuter().call()));
+    }
+
+    static String getName(Class<?> clazz) {
+      return clazz != null ? clazz.getName() : "null";
     }
   }
 }
