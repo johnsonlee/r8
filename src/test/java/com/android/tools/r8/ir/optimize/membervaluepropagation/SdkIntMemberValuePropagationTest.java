@@ -77,12 +77,11 @@ public class SdkIntMemberValuePropagationTest extends TestBase {
   @Parameterized.Parameters(name = "{0}, rule: {1}")
   public static List<Object[]> data() {
     return buildParameters(
-        getTestParameters().withAllRuntimesAndApiLevels().build(), Rule.values());
+        getTestParameters().withDexRuntimesAndAllApiLevels().build(), Rule.values());
   }
 
   @Test
   public void testD8() throws Exception {
-    parameters.assumeDexRuntime();
     assumeTrue(rule.getRule().equals(""));
     testForD8()
         .addProgramClassFileData(getTransformedMainClass())
