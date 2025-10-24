@@ -93,7 +93,21 @@ public class TypeUtils {
         TypeElement instructionUseType =
             computeUseTypeForInstruction(appView, returnType, instruction, item.value, meet, users);
         useType = meet.apply(useType, instructionUseType);
-        if (useType.isTop() || useType.equalUpToNullability(staticType)) {
+        if (useType.isTop()) {
+          // Bail-out.
+          if (staticType.isInt()
+              && appView.options().canHaveDalvikIntUsedAsNonIntPrimitiveTypeBug()) {
+            return useType;
+          }
+          return staticType;
+        }
+        if (useType.equalUpToNullability(staticType)) {
+          if (staticType.isInt()
+              && appView.options().canHaveDalvikIntUsedAsNonIntPrimitiveTypeBug()) {
+            // We need to consider all usages. We need to return TOP if we find a use typed as
+            // boolean/byte/char/short and compile to Dalvik.
+            continue;
+          }
           // Bail-out.
           return staticType;
         }
@@ -152,7 +166,7 @@ public class TypeUtils {
 
   private static TypeElement computeUseTypeForInstanceGet(
       AppView<?> appView, InstanceGet instanceGet) {
-    return instanceGet.getField().getHolderType().toTypeElement(appView);
+    return toReferenceTypeElement(instanceGet.getField().getHolderType(), appView);
   }
 
   private static TypeElement computeUseTypeForInstancePut(
@@ -163,10 +177,10 @@ public class TypeUtils {
     DexField field = instancePut.getField();
     TypeElement useType = TypeElement.getBottom();
     if (instancePut.object() == value) {
-      useType = meet.apply(useType, field.getHolderType().toTypeElement(appView));
+      useType = meet.apply(useType, toReferenceTypeElement(field.getHolderType(), appView));
     }
     if (instancePut.value() == value) {
-      useType = meet.apply(useType, field.getType().toTypeElement(appView));
+      useType = meet.apply(useType, toTypeElementOrTop(field.getType(), appView));
     }
     return useType;
   }
@@ -183,10 +197,9 @@ public class TypeUtils {
         continue;
       }
       TypeElement useTypeForArgument =
-          invoke
-              .getInvokedMethod()
-              .getArgumentType(argumentIndex, invoke.isInvokeStatic())
-              .toTypeElement(appView);
+          toTypeElementOrTop(
+              invoke.getInvokedMethod().getArgumentType(argumentIndex, invoke.isInvokeStatic()),
+              appView);
       useType = meet.apply(useType, useTypeForArgument);
     }
     assert !useType.isBottom();
@@ -194,11 +207,11 @@ public class TypeUtils {
   }
 
   private static TypeElement computeUseTypeForReturn(AppView<?> appView, DexType returnType) {
-    return returnType.toTypeElement(appView);
+    return toTypeElementOrTop(returnType, appView);
   }
 
   private static TypeElement computeUseTypeForStaticPut(AppView<?> appView, StaticPut staticPut) {
-    return staticPut.getField().getType().toTypeElement(appView);
+    return toTypeElementOrTop(staticPut.getField().getType(), appView);
   }
 
   private static TypeElement meet(
@@ -248,5 +261,25 @@ public class TypeUtils {
       return other.asClassType().getOrCreateVariant(type.nullability().meet(other.nullability()));
     }
     return TypeElement.getTop();
+  }
+
+  private static TypeElement toReferenceTypeElement(DexType type, AppView<?> appView) {
+    assert type.isReferenceType();
+    return type.toTypeElement(appView);
+  }
+
+  private static TypeElement toTypeElementOrTop(DexType type, AppView<?> appView) {
+    if (appView.options().canHaveDalvikIntUsedAsNonIntPrimitiveTypeBug()) {
+      switch (type.getDescriptor().getFirstByteAsChar()) {
+        case 'B':
+        case 'C':
+        case 'S':
+        case 'Z':
+          return TypeElement.getTop();
+        default:
+          break;
+      }
+    }
+    return type.toTypeElement(appView);
   }
 }

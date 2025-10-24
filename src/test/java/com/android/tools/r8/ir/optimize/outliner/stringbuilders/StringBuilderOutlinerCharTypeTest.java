@@ -11,10 +11,11 @@ import com.android.tools.r8.TestCompilerBuilder;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.ir.optimize.outliner.exceptions.ThrowBlockOutline;
 import com.android.tools.r8.ir.optimize.outliner.exceptions.ThrowBlockOutlinerTestBase;
+import com.android.tools.r8.utils.AndroidApiLevel;
 import java.util.Collection;
 import org.junit.Test;
 
-public class StringBuilderOutlinerIntValueTypeTest extends ThrowBlockOutlinerTestBase {
+public class StringBuilderOutlinerCharTypeTest extends ThrowBlockOutlinerTestBase {
 
   @Test
   public void testD8() throws Exception {
@@ -35,20 +36,18 @@ public class StringBuilderOutlinerIntValueTypeTest extends ThrowBlockOutlinerTes
         .apply(this::configure)
         .compile()
         .run(parameters.getRuntime(), Main.class)
-        .applyIf(
-            parameters.isDexRuntime()
-                && parameters.getDexRuntimeVersion().isDalvik()
-                && testBuilder.isD8TestBuilder(),
-            // TODO(b/434769547): Should succeed.
-            rr -> rr.assertFailureWithErrorThatThrows(VerifyError.class),
-            rr -> rr.assertSuccessWithOutputLines("a"));
+        .assertSuccessWithOutputLines("a");
   }
 
   @Override
   public void inspectOutlines(Collection<ThrowBlockOutline> outlines, DexItemFactory factory) {
-    assertEquals(1, outlines.size());
-    ThrowBlockOutline outline = outlines.iterator().next();
-    assertTrue(outline.getProto().getParameter(0).isIntType());
+    if (parameters.getApiLevel().isLessThan(AndroidApiLevel.L)) {
+      assertTrue(outlines.isEmpty());
+    } else {
+      assertEquals(1, outlines.size());
+      ThrowBlockOutline outline = outlines.iterator().next();
+      assertTrue(outline.getProto().getParameter(0).isIntType());
+    }
   }
 
   @Override

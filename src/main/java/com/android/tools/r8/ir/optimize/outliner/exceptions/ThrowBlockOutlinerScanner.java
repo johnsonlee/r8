@@ -664,6 +664,10 @@ public class ThrowBlockOutlinerScanner {
           // Instead of returning null here we could consider removing the parameter.
           return null;
         }
+        if (useType.isTop()) {
+          assert appView.options().canHaveDalvikIntUsedAsNonIntPrimitiveTypeBug();
+          return null;
+        }
         parameters.add(DexTypeUtils.toDexType(factory, useType));
       }
       return factory.createProto(returnType, parameters);
