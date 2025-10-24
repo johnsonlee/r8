@@ -295,6 +295,14 @@ public class ThrowBlockOutline implements LirConstant {
     return materializedOutlineMethod != null;
   }
 
+  public boolean isStringBuilderToStringOutline() {
+    return !isThrowOutline();
+  }
+
+  public boolean isThrowOutline() {
+    return proto.getReturnType().isVoidType();
+  }
+
   public void materialize(AppView<?> appView, MethodProcessingContext methodProcessingContext) {
     assert verifyNotMerged();
     SyntheticItems syntheticItems = appView.getSyntheticItems();

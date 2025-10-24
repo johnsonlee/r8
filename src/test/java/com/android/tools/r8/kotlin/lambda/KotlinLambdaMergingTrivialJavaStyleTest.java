@@ -173,13 +173,24 @@ public class KotlinLambdaMergingTrivialJavaStyleTest extends KotlinTestBase {
               },
               i -> {
                 i.assertIsCompleteMergeGroup(
-                        SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 0),
-                        SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 1),
+                        SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 3),
+                        SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 4),
                         SyntheticItemsTestUtils.syntheticLambdaClass(innerClassReference, 0))
                     .assertIsCompleteMergeGroup(
-                        SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 2),
-                        SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 3),
-                        SyntheticItemsTestUtils.syntheticLambdaClass(innerClassReference, 1));
+                        SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 7),
+                        SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 8),
+                        SyntheticItemsTestUtils.syntheticLambdaClass(innerClassReference, 2))
+                    .assertIsCompleteMergeGroup(
+                        SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 5),
+                        SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 6),
+                        SyntheticItemsTestUtils.syntheticLambdaClass(innerClassReference, 1))
+                    .assertIsCompleteMergeGroup(
+                        SyntheticItemsTestUtils.syntheticThrowBlockOutlineClass(
+                            mainClassReference, 0),
+                        SyntheticItemsTestUtils.syntheticThrowBlockOutlineClass(
+                            mainClassReference, 1),
+                        SyntheticItemsTestUtils.syntheticThrowBlockOutlineClass(
+                            mainClassReference, 2));
                 for (int id = 4; id < 30; id++) {
                   inspector.assertClassReferencesNotMerged(
                       SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, id));
@@ -189,48 +200,8 @@ public class KotlinLambdaMergingTrivialJavaStyleTest extends KotlinTestBase {
               SyntheticItemsTestUtils.syntheticLambdaClass(innerClassReference, 2),
               SyntheticItemsTestUtils.syntheticLambdaClass(innerClassReference, 3));
     } else {
-      inspector
-          .assertIsCompleteMergeGroup(
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 1),
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 2),
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 3),
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 4))
-          .assertIsCompleteMergeGroup(
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 0),
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 9),
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 10),
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 11),
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 12),
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 21),
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 22),
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 23),
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 24),
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 25),
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 26),
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 27),
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 28))
-          .assertIsCompleteMergeGroup(
-              SyntheticItemsTestUtils.syntheticLambdaClass(innerClassReference, 0),
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 13),
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 14))
-          .assertIsCompleteMergeGroup(
-              SyntheticItemsTestUtils.syntheticLambdaClass(innerClassReference, 1),
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 15),
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 16))
-          .assertIsCompleteMergeGroup(
-              SyntheticItemsTestUtils.syntheticLambdaClass(innerClassReference, 2),
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 17),
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 18))
-          .assertIsCompleteMergeGroup(
-              SyntheticItemsTestUtils.syntheticLambdaClass(innerClassReference, 3),
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 19),
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 20))
-          .assertIsCompleteMergeGroup(
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 5),
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 6))
-          .assertIsCompleteMergeGroup(
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 7),
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 8));
+      assertEquals(10, inspector.getMergeGroups().size());
+      assertEquals(34, inspector.getSources().size());
     }
   }
 

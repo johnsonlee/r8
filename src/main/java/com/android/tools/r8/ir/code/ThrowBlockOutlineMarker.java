@@ -37,7 +37,7 @@ public class ThrowBlockOutlineMarker extends Instruction {
         ListUtils.mapOrElse(
             inValues,
             (i, argument) -> {
-              if (outline.getParentOrSelf().isArgumentConstant(i)) {
+              if (outline.isArgumentConstant(i)) {
                 argument.removeUser(this);
                 return null;
               }
