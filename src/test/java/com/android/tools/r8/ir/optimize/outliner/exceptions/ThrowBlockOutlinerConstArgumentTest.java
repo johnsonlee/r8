@@ -22,8 +22,6 @@ import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import it.unimi.dsi.fastutil.ints.IntArraySet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.util.Collection;
-import java.util.List;
-import java.util.stream.Collectors;
 import org.junit.Test;
 
 public class ThrowBlockOutlinerConstArgumentTest extends ThrowBlockOutlinerTestBase {
@@ -64,12 +62,10 @@ public class ThrowBlockOutlinerConstArgumentTest extends ThrowBlockOutlinerTestB
 
   @Override
   public void inspectOutlines(Collection<ThrowBlockOutline> outlines, DexItemFactory factory) {
-    // Verify that we have two throw block outlines with one and three users, respectively.
-    List<ThrowBlockOutline> throwOutlines =
-        outlines.stream().filter(ThrowBlockOutline::isThrowOutline).collect(Collectors.toList());
-    assertEquals(2, throwOutlines.size());
+    // Verify that we have two outlines with one and three users, respectively.
+    assertEquals(2, outlines.size());
     IntSet numberOfUsers = new IntArraySet();
-    for (ThrowBlockOutline outline : throwOutlines) {
+    for (ThrowBlockOutline outline : outlines) {
       numberOfUsers.add(outline.getNumberOfUsers());
     }
     assertTrue(numberOfUsers.contains(1));

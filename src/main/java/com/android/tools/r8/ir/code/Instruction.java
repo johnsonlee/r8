@@ -96,17 +96,8 @@ public abstract class Instruction
     return prev;
   }
 
-  public boolean hasNext() {
-    return next != null;
-  }
-
   public Instruction getNext() {
     return next;
-  }
-
-  @SuppressWarnings("TypeParameterUnusedInFormals")
-  public <T extends Instruction> T nextUntilExclusive(Predicate<Instruction> predicate) {
-    return hasNext() ? getNext().nextUntilInclusive(predicate) : null;
   }
 
   @SuppressWarnings({"TypeParameterUnusedInFormals", "unchecked"})

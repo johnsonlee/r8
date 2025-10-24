@@ -105,10 +105,6 @@ public class SyntheticItemsTestUtils {
   }
 
   public static ClassReference syntheticThrowBlockOutlineClass(Class<?> clazz, int id) {
-    return syntheticThrowBlockOutlineClass(Reference.classFromClass(clazz), id);
-  }
-
-  public static ClassReference syntheticThrowBlockOutlineClass(ClassReference clazz, int id) {
     return syntheticClass(clazz, naming.THROW_BLOCK_OUTLINE, id);
   }
 

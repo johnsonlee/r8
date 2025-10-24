@@ -15,10 +15,6 @@ public class ThrowBlockOutlinerOptions {
       SystemPropertyUtils.parseSystemPropertyOrDefault(
           "com.android.tools.r8.throwblockoutliner.enable", false);
 
-  public boolean enableStringBuilderOutlining =
-      SystemPropertyUtils.parseSystemPropertyOrDefault(
-          "com.android.tools.r8.throwblockoutliner.enablestringbuilder", false);
-
   public final int costInBytesForTesting =
       SystemPropertyUtils.parseSystemPropertyOrDefault(
           "com.android.tools.r8.throwblockoutliner.cost", -1);

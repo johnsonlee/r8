@@ -42,7 +42,6 @@ import com.android.tools.r8.ir.code.NewInstance;
 import com.android.tools.r8.ir.code.NumberGenerator;
 import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.code.Position.SyntheticPosition;
-import com.android.tools.r8.ir.code.Return;
 import com.android.tools.r8.ir.code.Throw;
 import com.android.tools.r8.ir.code.ThrowBlockOutlineMarker;
 import com.android.tools.r8.ir.code.Value;
@@ -93,28 +92,6 @@ public class ThrowBlockOutlinerScanner {
       if (block.exit().isThrow()) {
         new ThrowBlockOutlinerScannerForThrow(code, block).tryBuildOutline();
       }
-      if (!appView.options().getThrowBlockOutlinerOptions().enableStringBuilderOutlining) {
-        continue;
-      }
-      Instruction previousOutlineEnd = null;
-      for (Instruction instruction : block.getInstructions()) {
-        // If we encounter an outline marker it is because we were able to outline the tail of the
-        // block above. Since the remainder of the block has been outlined, abort further outlining.
-        if (instruction.isThrowBlockOutlineMarker()) {
-          assert block.exit().isThrow();
-          break;
-        }
-        if (isStringBuilderToString(instruction, factory)) {
-          InvokeVirtual invoke = instruction.asInvokeVirtual();
-          ThrowBlockOutline outline =
-              new ThrowBlockOutlinerScannerForStringBuilderToString(
-                      code, block, invoke, previousOutlineEnd)
-                  .tryBuildOutline();
-          if (outline != null) {
-            previousOutlineEnd = instruction;
-          }
-        }
-      }
     }
     if (code.metadata().mayHaveThrowBlockOutlineMarker()) {
       if (appView.enableWholeProgramOptimizations()) {
@@ -136,68 +113,55 @@ public class ThrowBlockOutlinerScanner {
     return outlines.getOutlines();
   }
 
-  static boolean isStringBuilderToString(Instruction instruction, DexItemFactory factory) {
-    InvokeVirtual invoke = instruction.asInvokeVirtual();
-    return invoke != null
-        && invoke.getInvokedMethod().match(factory.objectMembers.toString)
-        && invoke.getReceiver().getType().isClassType(factory.stringBuilderType)
-        && invoke.hasOutValue();
-  }
-
   private abstract class ThrowBlockOutlinerScannerForInstruction {
 
     final IRCode code;
     final BasicBlock block;
-    final Instruction previousOutlineEnd;
 
     private boolean hasRunPrefixer;
 
-    ThrowBlockOutlinerScannerForInstruction(
-        IRCode code, BasicBlock block, Instruction previousOutlineEnd) {
+    ThrowBlockOutlinerScannerForInstruction(IRCode code, BasicBlock block) {
       this.code = code;
       this.block = block;
-      this.previousOutlineEnd = previousOutlineEnd;
     }
 
     void processInstruction(Instruction instruction, Consumer<OutlineBuilder> continuation) {
-      if (instruction != previousOutlineEnd) {
-        switch (instruction.opcode()) {
-          case ASSUME:
-            processAssume(instruction.asAssume(), continuation);
+      switch (instruction.opcode()) {
+        case ASSUME:
+          processAssume(instruction.asAssume(), continuation);
+          return;
+        case CONST_NUMBER:
+        case CONST_STRING:
+          processConstInstruction(instruction.asConstInstruction(), continuation);
+          return;
+        case DEBUG_LOCAL_READ:
+        case DEBUG_POSITION:
+          processNonMaterializingDebugInstruction(instruction, continuation);
+          return;
+        case INVOKE_DIRECT:
+          if (instruction.isInvokeConstructor(factory)) {
+            processStringBuilderConstructorCall(instruction.asInvokeDirect(), continuation);
             return;
-          case CONST_NUMBER:
-          case CONST_STRING:
-            processConstInstruction(instruction.asConstInstruction(), continuation);
+          }
+          break;
+        case INVOKE_STATIC:
+          processStringFormatOrValueOf(instruction.asInvokeStatic(), continuation);
+          return;
+        case INVOKE_VIRTUAL:
+          processStringBuilderAppendOrToString(instruction.asInvokeVirtual(), continuation);
+          return;
+        case MOVE:
+          if (instruction.isDebugLocalWrite()) {
+            processDebugLocalWrite(instruction.asDebugLocalWrite(), continuation);
             return;
-          case DEBUG_LOCAL_READ:
-          case DEBUG_POSITION:
-            processNonMaterializingDebugInstruction(instruction, continuation);
-            return;
-          case INVOKE_DIRECT:
-            if (instruction.isInvokeConstructor(factory)) {
-              processStringBuilderConstructorCall(instruction.asInvokeDirect(), continuation);
-              return;
-            }
-            break;
-          case INVOKE_STATIC:
-            processStringFormatOrValueOf(instruction.asInvokeStatic(), continuation);
-            return;
-          case INVOKE_VIRTUAL:
-            processStringBuilderAppendOrToString(instruction.asInvokeVirtual(), continuation);
-            return;
-          case MOVE:
-            if (instruction.isDebugLocalWrite()) {
-              processDebugLocalWrite(instruction.asDebugLocalWrite(), continuation);
-              return;
-            }
-            assert false;
-            break;
-          case NEW_INSTANCE:
-            processNewInstanceInstruction(instruction.asNewInstance(), continuation);
-            return;
-          default:
-            break;
-        }
+          }
+          assert false;
+          break;
+        case NEW_INSTANCE:
+          processNewInstanceInstruction(instruction.asNewInstance(), continuation);
+          return;
+        default:
+          break;
       }
       // Unhandled instruction. Start the outline at the successor instruction.
       startOutline(instruction.getNext(), continuation);
@@ -336,7 +300,7 @@ public class ThrowBlockOutlinerScanner {
           });
     }
 
-    void processStringBuilderAppendOrToString(
+    private void processStringBuilderAppendOrToString(
         InvokeVirtual invoke, Consumer<OutlineBuilder> continuation) {
       DexMethod invokedMethod = invoke.getInvokedMethod();
       if (!factory.stringBuilderMethods.isAppendMethod(invokedMethod)
@@ -393,75 +357,12 @@ public class ThrowBlockOutlinerScanner {
     }
   }
 
-  private class ThrowBlockOutlinerScannerForStringBuilderToString
-      extends ThrowBlockOutlinerScannerForInstruction {
-
-    private final InvokeVirtual stringBuilderToStringInstruction;
-
-    private ThrowBlockOutline outline;
-
-    ThrowBlockOutlinerScannerForStringBuilderToString(
-        IRCode code,
-        BasicBlock block,
-        InvokeVirtual stringBuilderToStringInstruction,
-        Instruction previousOutlineEnd) {
-      super(code, block, previousOutlineEnd);
-      this.stringBuilderToStringInstruction = stringBuilderToStringInstruction;
-    }
-
-    ThrowBlockOutline tryBuildOutline() {
-      // Recursively build up the outline method. On successful outline creation, the resulting
-      // LirCode is passed to the continuation function.
-      processStringBuilderToString(
-          outlineBuilder -> {
-            // On successful outline creation, store the outline for later processing.
-            DexProto proto = outlineBuilder.getProto(appView, factory.stringType);
-            if (proto == null) {
-              return;
-            }
-            LirCode<?> lirCode = outlineBuilder.buildLirCode(appView, code.context());
-            outline = outlines.add(lirCode, proto, code.context());
-            assert proto.isIdenticalTo(outline.getProto());
-            List<Value> arguments = outlineBuilder.buildArguments();
-            outline.addUser(code.reference(), arguments, getAbstractValueFactory());
-
-            // Insert a synthetic marker instruction that references the outline so that we know
-            // where to materialize the outline call.
-            Instruction insertionPoint = outlineBuilder.getFirstOutlinedInstruction();
-            assert insertionPoint.getBlock() == block;
-            ThrowBlockOutlineMarker marker =
-                ThrowBlockOutlineMarker.builder()
-                    .setArguments(arguments)
-                    .setOutline(outline)
-                    .setPosition(Position.none())
-                    .build();
-            block.listIterator(insertionPoint).add(marker);
-          });
-      return outline;
-    }
-
-    private void processStringBuilderToString(Consumer<OutlineBuilder> continuation) {
-      processStringBuilderAppendOrToString(
-          stringBuilderToStringInstruction,
-          outlineBuilder -> {
-            Value outlinedStringValue =
-                outlineBuilder.getOutlinedValue(stringBuilderToStringInstruction.outValue());
-            outlineBuilder.add(
-                Return.builder()
-                    .setPosition(Position.syntheticNone())
-                    .setReturnValue(outlinedStringValue)
-                    .build());
-            continuation.accept(outlineBuilder);
-          });
-    }
-  }
-
   private class ThrowBlockOutlinerScannerForThrow extends ThrowBlockOutlinerScannerForInstruction {
 
     private final Throw throwInstruction;
 
     ThrowBlockOutlinerScannerForThrow(IRCode code, BasicBlock block) {
-      super(code, block, null);
+      super(code, block);
       this.throwInstruction = block.exit().asThrow();
     }
 
