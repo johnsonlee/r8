@@ -5,6 +5,7 @@ package com.android.tools.r8.internal;
 
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.core.AnyOf.anyOf;
+import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.D8TestBuilder;
 import com.android.tools.r8.D8TestCompileResult;
@@ -78,6 +79,11 @@ public class GMSCoreV10Test extends GMSCoreCompilationTestBase {
       throws Exception {
     return testForD8()
         .addProgramFiles(base.resolve(DEPLOY_JAR))
+        .addOptionsModification(
+            options -> {
+              assertTrue(options.getThrowBlockOutlinerOptions().enable);
+              options.getThrowBlockOutlinerOptions().enable = false;
+            })
         .setMinApi(parameters)
         .apply(configuration)
         .compile();
