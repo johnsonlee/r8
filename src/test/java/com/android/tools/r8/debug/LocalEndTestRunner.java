@@ -6,6 +6,7 @@ package com.android.tools.r8.debug;
 import com.android.tools.r8.ByteDataView;
 import com.android.tools.r8.ClassFileConsumer;
 import com.android.tools.r8.ClassFileConsumer.ArchiveConsumer;
+import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.google.common.collect.ImmutableList;
 import java.nio.file.Path;
@@ -56,6 +57,9 @@ public class LocalEndTestRunner extends DebugTestBase {
     Value xInitial = Value.createInt(42);
     Value xNormal = Value.createInt(7);
     Value xExceptional = xInitial;
+    boolean cfOrArt15OrOlder =
+        config.getRuntime().isCf()
+            || config.getRuntime().asDex().getVersion().isOlderThanOrEqual(Version.V15_0_0);
     runDebugTest(
         config,
         NAME,
@@ -78,9 +82,9 @@ public class LocalEndTestRunner extends DebugTestBase {
         checkLine(FILE, 12),
         checkLocal("x", xInitial),
         stepOver(),
-        checkLine(FILE, 14),
-        checkLocal("x", xExceptional),
-        stepOver(),
+        applyIf(cfOrArt15OrOlder, () -> checkLine(FILE, 14)),
+        applyIf(cfOrArt15OrOlder, () -> checkLocal("x", xExceptional)),
+        applyIf(cfOrArt15OrOlder, () -> stepOver()),
         checkLine(FILE, 16),
         checkNoLocal("x"),
         run());
