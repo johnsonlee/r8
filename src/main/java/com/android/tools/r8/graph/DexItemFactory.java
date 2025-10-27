@@ -351,6 +351,7 @@ public class DexItemFactory {
   public final DexString thisName = createString("this");
   public final DexString javacLambdaMethodPrefix =
       createString(LambdaClass.JAVAC_EXPECTED_LAMBDA_METHOD_PREFIX);
+  public final DexString kotlinLambdaMethodIdentifier = createString("$lambda$");
 
   public final DexString enabledFieldName = createString("ENABLED");
 

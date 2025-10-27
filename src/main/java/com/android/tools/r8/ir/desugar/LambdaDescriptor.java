@@ -26,6 +26,7 @@ import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import com.android.tools.r8.utils.SetUtils;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.function.BiConsumer;
@@ -210,7 +211,34 @@ public final class LambdaDescriptor {
 
   /** If the lambda delegates to lambda$ method. */
   public boolean delegatesToLambdaImplMethod(DexItemFactory factory) {
+    return delegatesToJavaLambdaImplMethod(factory) || delegatesToKotlinLambdaImplMethod(factory);
+  }
+
+  private boolean delegatesToJavaLambdaImplMethod(DexItemFactory factory) {
     return implHandle.asMethod().getName().startsWith(factory.javacLambdaMethodPrefix);
+  }
+
+  private boolean delegatesToKotlinLambdaImplMethod(DexItemFactory factory) {
+    DexString methodName = implHandle.asMethod().getName();
+    int numberSuffixStartIndex = methodName.getNumberSuffixStartIndex();
+    if (numberSuffixStartIndex < 0) {
+      return false;
+    }
+    // Subtract the length of "$lambda$" (account for the EOF character).
+    assert factory.kotlinLambdaMethodIdentifier.content.length == 9;
+    int kotlinLambdaMethodIdentifierStartIndex = numberSuffixStartIndex - 8;
+    if (kotlinLambdaMethodIdentifierStartIndex <= 0) {
+      return false;
+    }
+    return Arrays.equals(
+        methodName.content,
+        kotlinLambdaMethodIdentifierStartIndex,
+        // To index (exclusive).
+        numberSuffixStartIndex,
+        factory.kotlinLambdaMethodIdentifier.content,
+        0,
+        // To index (exclusive). Use the index containing the EOF character as the to index.
+        8);
   }
 
   public void forEachErasedAndEnforcedTypes(BiConsumer<DexType, DexType> consumer) {

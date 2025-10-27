@@ -596,6 +596,29 @@ public class DexString extends IndexedDexItem
     return true;
   }
 
+  // Returns the index at which all remaining characters are numbers. Returns -1 if the string does
+  // not end with a number.
+  public int getNumberSuffixStartIndex() {
+    // TODO(b/146621590): This does not handle character boundaries correctly.
+    if (content.length == 1) {
+      assert isEmpty();
+      return -1;
+    }
+    int i = content.length - 2;
+    if (!isMutf8EncodedNumber(i)) {
+      return -1;
+    }
+    while (i >= 1 && isMutf8EncodedNumber(i - 1)) {
+      i--;
+    }
+    return i;
+  }
+
+  private boolean isMutf8EncodedNumber(int index) {
+    byte element = content[index];
+    return '0' <= element && element <= '9';
+  }
+
   public DexString prepend(String prefix, DexItemFactory dexItemFactory) {
     return prepend(dexItemFactory.createString(prefix), dexItemFactory);
   }
