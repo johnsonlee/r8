@@ -17,7 +17,6 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.graph.ImmediateAppSubtypingInfo;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
-import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.shaking.EnqueuerFactory;
 import com.android.tools.r8.shaking.MainDexInfo;
@@ -79,11 +78,8 @@ public class GenerateMainDexList {
     MainDexListBuilder.checkForAssumedLibraryTypes(appView.appInfo());
 
     ImmediateAppSubtypingInfo subtypingInfo = ImmediateAppSubtypingInfo.create(appView);
-
-    ProfileCollectionAdditions profileCollectionAdditions = ProfileCollectionAdditions.nop();
     MainDexRootSet mainDexRootSet =
-        MainDexRootSet.builder(
-                appView, profileCollectionAdditions, subtypingInfo, options.mainDexKeepRules)
+        MainDexRootSet.builder(appView, subtypingInfo, options.mainDexKeepRules)
             .evaluateRulesAndBuild(executor);
     appView.setMainDexRootSet(mainDexRootSet);
 

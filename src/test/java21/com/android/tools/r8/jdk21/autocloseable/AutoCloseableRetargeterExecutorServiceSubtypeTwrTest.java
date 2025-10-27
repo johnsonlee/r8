@@ -13,6 +13,8 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.jdk21.autocloseable.AutoCloseableRetargeterExecutorServiceSubtypeTest.Executor2;
+import com.android.tools.r8.jdk21.autocloseable.AutoCloseableRetargeterExecutorServiceSubtypeTest.PrintForkJoinPool;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.DeterminismChecker;
 import com.android.tools.r8.utils.StringUtils;
@@ -91,8 +93,13 @@ public class AutoCloseableRetargeterExecutorServiceSubtypeTwrTest extends TestBa
             Executor2.class)) {
       ClassSubject subj = inspector.clazz(clazz);
       Assert.assertTrue(subj.isPresent());
-      Assert.assertTrue(subj.allMethods().stream().anyMatch(m -> m.getFinalName().equals("close")));
-      Assert.assertTrue(
+      Assert.assertEquals(
+          ImmutableList.of(PrintForkJoinPool.class, Executor2.class).contains(clazz)
+              || !parameters.corelibWithExecutorServiceImplementingAutoClosable(),
+          subj.allMethods().stream().anyMatch(m -> m.getFinalName().equals("close")));
+      Assert.assertEquals(
+          clazz.toString(),
+          !parameters.corelibWithExecutorServiceImplementingAutoClosable(),
           subj.getDexProgramClass()
               .getInterfaces()
               .contains(inspector.getFactory().autoCloseableType));

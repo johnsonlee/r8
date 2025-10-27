@@ -22,20 +22,18 @@ import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class DefaultMethodsTest extends TestBase {
 
-  private final TestParameters parameters;
+  @Parameter(0)
+  public TestParameters parameters;
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
-  }
-
-  public DefaultMethodsTest(TestParameters parameters) {
-    this.parameters = parameters;
   }
 
   private void runTest(
@@ -64,23 +62,6 @@ public class DefaultMethodsTest extends TestBase {
     ClassSubject clazz = inspector.clazz(InterfaceWithDefaultMethods.class);
     assertThat(clazz, isPresent());
     assertThat(clazz.method("int", "method", ImmutableList.of()), not(isPresent()));
-  }
-
-  private void defaultMethodKept(CodeInspector inspector) {
-    ClassSubject clazz = inspector.clazz(InterfaceWithDefaultMethods.class);
-    assertThat(clazz, isPresent());
-    MethodSubject method = clazz.method("int", "method", ImmutableList.of());
-    assertThat(method, isPresent());
-    ClassSubject companionClass = clazz.toCompanionClass();
-    if (parameters.canUseDefaultAndStaticInterfaceMethods()) {
-      assertThat(method, not(isAbstract()));
-      assertThat(companionClass, not(isPresent()));
-    } else {
-      assertThat(method, isAbstract());
-      assertThat(companionClass, isPresent());
-      MethodSubject defaultMethod = method.toMethodOnCompanionClass();
-      assertThat(defaultMethod, isPresent());
-    }
   }
 
   private void defaultMethodKeptWithoutCompanionClass(CodeInspector inspector) {
@@ -117,7 +98,7 @@ public class DefaultMethodsTest extends TestBase {
             "-keep interface " + InterfaceWithDefaultMethods.class.getTypeName() + "{",
             "  <methods>;",
             "}"),
-        this::defaultMethodKept);
+        this::defaultMethodKeptWithoutCompanionClass);
   }
 
   @Test
@@ -127,7 +108,7 @@ public class DefaultMethodsTest extends TestBase {
             "-keep interface " + InterfaceWithDefaultMethods.class.getTypeName() + "{",
             "  public int method();",
             "}"),
-        this::defaultMethodKept);
+        this::defaultMethodKeptWithoutCompanionClass);
   }
 
   @Test

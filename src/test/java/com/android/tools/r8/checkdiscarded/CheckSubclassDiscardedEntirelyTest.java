@@ -121,9 +121,15 @@ public class CheckSubclassDiscardedEntirelyTest extends TestBase {
     public static void main(String[] args) {
       Public.printPublic();
       Public.printPublicAllowInlining();
-      if (!shrink()) {
+      if (!callShrink()) {
         Secret.printSecret();
       }
+    }
+
+    // Outline call to shrink() to avoid that the call to printSecret() is removed in the first
+    // round of tree shaking.
+    static boolean callShrink() {
+      return shrink();
     }
 
     static boolean shrink() {

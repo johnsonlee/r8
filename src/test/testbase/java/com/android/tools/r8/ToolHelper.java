@@ -4,6 +4,8 @@
 package com.android.tools.r8;
 
 import static com.android.tools.r8.ToolHelper.TestDataSourceSet.computeLegacyOrGradleSpecifiedLocation;
+import static com.android.tools.r8.utils.DexVersion.V39;
+import static com.android.tools.r8.utils.DexVersion.V41;
 import static com.android.tools.r8.utils.FileUtils.CLASS_EXTENSION;
 import static com.android.tools.r8.utils.FileUtils.JAVA_EXTENSION;
 import static com.android.tools.r8.utils.FileUtils.isDexFile;
@@ -357,6 +359,8 @@ public class ToolHelper {
     ART_14_0_0_HOST(Version.V14_0_0, Kind.HOST),
     ART_15_0_0_TARGET(Version.V15_0_0, Kind.TARGET),
     ART_15_0_0_HOST(Version.V15_0_0, Kind.HOST),
+    ART_16_0_0_TARGET(Version.V16_0_0, Kind.TARGET),
+    ART_16_0_0_HOST(Version.V16_0_0, Kind.HOST),
     ART_MASTER_TARGET(Version.MASTER, Kind.TARGET),
     ART_MASTER_HOST(Version.MASTER, Kind.HOST);
 
@@ -379,6 +383,7 @@ public class ToolHelper {
       V13_0_0("13.0.0"),
       V14_0_0("14.0.0"),
       V15_0_0("15.0.0"),
+      V16_0_0("16.0.0"),
       MASTER("master");
 
       /** This should generally be the latest DEX VM fully supported. */
@@ -453,7 +458,7 @@ public class ToolHelper {
       }
 
       public static Version last() {
-        return V15_0_0;
+        return V16_0_0;
       }
 
       public static Version master() {
@@ -972,6 +977,7 @@ public class ToolHelper {
       ImmutableMap.<DexVm, String>builder()
           .put(DexVm.ART_DEFAULT, "art")
           .put(DexVm.ART_MASTER_HOST, "host/art-master")
+          .put(DexVm.ART_16_0_0_HOST, "host/art-16.0.0")
           .put(DexVm.ART_15_0_0_HOST, "host/art-15.0.0-beta2")
           .put(DexVm.ART_14_0_0_HOST, "host/art-14.0.0-beta3")
           .put(DexVm.ART_13_0_0_HOST, "host/art-13.0.0")
@@ -989,6 +995,7 @@ public class ToolHelper {
       ImmutableMap.<DexVm, String>builder()
           .put(DexVm.ART_DEFAULT, "bin/art")
           .put(DexVm.ART_MASTER_HOST, "bin/art")
+          .put(DexVm.ART_16_0_0_HOST, "bin/art")
           .put(DexVm.ART_15_0_0_HOST, "bin/art")
           .put(DexVm.ART_14_0_0_HOST, "bin/art")
           .put(DexVm.ART_13_0_0_HOST, "bin/art")
@@ -1006,6 +1013,7 @@ public class ToolHelper {
   private static final Map<DexVm, String> ART_BINARY_VERSIONS_X64 =
       ImmutableMap.<DexVm, String>builder()
           .put(DexVm.ART_DEFAULT, "bin/art")
+          .put(DexVm.ART_16_0_0_HOST, "bin/art")
           .put(DexVm.ART_15_0_0_HOST, "bin/art")
           .put(DexVm.ART_14_0_0_HOST, "bin/art")
           .put(DexVm.ART_13_0_0_HOST, "bin/art")
@@ -1042,6 +1050,7 @@ public class ToolHelper {
     ImmutableMap.Builder<DexVm, List<String>> builder = ImmutableMap.builder();
     builder
         .put(DexVm.ART_DEFAULT, ART_7_TO_10_BOOT_LIBS)
+        .put(DexVm.ART_16_0_0_HOST, ART_12_PLUS_BOOT_LIBS)
         .put(DexVm.ART_15_0_0_HOST, ART_12_PLUS_BOOT_LIBS)
         .put(DexVm.ART_14_0_0_HOST, ART_12_PLUS_BOOT_LIBS)
         .put(DexVm.ART_13_0_0_HOST, ART_12_PLUS_BOOT_LIBS)
@@ -1063,6 +1072,7 @@ public class ToolHelper {
     ImmutableMap.Builder<DexVm, String> builder = ImmutableMap.builder();
     builder
         .put(DexVm.ART_DEFAULT, "angler")
+        .put(DexVm.ART_16_0_0_HOST, "akita")
         .put(DexVm.ART_15_0_0_HOST, "akita")
         .put(DexVm.ART_14_0_0_HOST, "redfin")
         .put(DexVm.ART_13_0_0_HOST, "redfin")
@@ -1098,6 +1108,7 @@ public class ToolHelper {
       case V13_0_0:
       case V14_0_0:
       case V15_0_0:
+      case V16_0_0:
       case MASTER:
         return base.resolve("host").resolve("art-" + version);
       default:
@@ -1134,6 +1145,7 @@ public class ToolHelper {
       case V13_0_0:
       case V14_0_0:
       case V15_0_0:
+      case V16_0_0:
       case MASTER:
         return "x86_64";
       default:
@@ -1406,6 +1418,8 @@ public class ToolHelper {
     switch (dexVm.version) {
       case MASTER:
         return AndroidApiLevel.MAIN;
+      case V16_0_0:
+        return AndroidApiLevel.BAKLAVA;
       case V15_0_0:
         return AndroidApiLevel.V;
       case V14_0_0:
@@ -1441,6 +1455,8 @@ public class ToolHelper {
     switch (apiLevel) {
       case MAIN:
         return DexVm.Version.MASTER;
+      case BAKLAVA:
+        return DexVm.Version.V16_0_0;
       case V:
         return DexVm.Version.V15_0_0;
       case U:
@@ -2470,6 +2486,10 @@ public class ToolHelper {
         .collect(Collectors.toList())
         .equals(SUPPORTED_DEX2OAT_VMS);
     DexVersion requiredDexFileVersion = getDexFileVersionForVm(targetVm);
+    // TODO(b/453564724): Get dex2oat supporting V41.
+    if (requiredDexFileVersion.isEqualTo(V41)) {
+      requiredDexFileVersion = V39;
+    }
     DexVm vm = null;
     for (DexVm supported : SUPPORTED_DEX2OAT_VMS) {
       DexVersion supportedDexFileVersion = getDexFileVersionForVm(supported);

@@ -379,8 +379,7 @@ public class R8 {
           assert appView.graphLens().isIdentityLens();
           // Find classes which may have code executed before secondary dex files installation.
           MainDexRootSet mainDexRootSet =
-              MainDexRootSet.builder(
-                      appView, profileCollectionAdditions, subtypingInfo, options.mainDexKeepRules)
+              MainDexRootSet.builder(appView, subtypingInfo, options.mainDexKeepRules)
                   .evaluateRulesAndBuild(executorService);
           appView.setMainDexRootSet(mainDexRootSet);
           appView.appInfo().unsetObsolete();

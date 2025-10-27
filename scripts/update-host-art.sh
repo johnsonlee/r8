@@ -180,8 +180,7 @@ fi
 if [ -f $DEST/product/$ANDROID_PRODUCT/system/framework/boot.vdex ]; then
   for VDEXFILE in $DEST/product/$ANDROID_PRODUCT/system/framework/*.vdex; do
     VDEXNAME=$(basename ${VDEXFILE});
-    # Maybe remove arm here.
-    for ARCH in arm arm64; do
+    for ARCH in arm64; do
       rm $DEST/product/$ANDROID_PRODUCT/system/framework/$ARCH/${VDEXNAME};
       # This relative link command will create a symbolic link of the form
       # ../${VDEXNAME} for each architecture.
@@ -204,5 +203,5 @@ strip $DEST/framework/x86/* 2> /dev/null
 strip $DEST/framework/x86_64/* 2> /dev/null
 
 echo "Now run"
-echo "(cd $DEST_ROOT; upload_to_google_storage.py -a --bucket r8-deps $ART_DIR)"
+echo "(cd $DEST_ROOT/host; upload_to_google_storage.py -a --bucket r8-deps $ART_DIR)"
 echo "NOTE; If $ART_DIR has several directory elements adjust accordingly."

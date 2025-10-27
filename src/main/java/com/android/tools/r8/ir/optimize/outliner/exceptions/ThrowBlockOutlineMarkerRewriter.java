@@ -5,6 +5,7 @@ package com.android.tools.r8.ir.optimize.outliner.exceptions;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.Code;
+import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
@@ -18,7 +19,6 @@ import com.android.tools.r8.ir.code.NumberGenerator;
 import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.code.Return;
-import com.android.tools.r8.ir.code.Throw;
 import com.android.tools.r8.ir.code.ThrowBlockOutlineMarker;
 import com.android.tools.r8.ir.code.UnusedArgument;
 import com.android.tools.r8.ir.code.Value;
@@ -41,10 +41,12 @@ public class ThrowBlockOutlineMarkerRewriter {
 
   private final AppView<?> appView;
   private final DeadCodeRemover deadCodeRemover;
+  private final DexItemFactory factory;
 
   ThrowBlockOutlineMarkerRewriter(AppView<?> appView) {
     this.appView = appView;
     this.deadCodeRemover = new DeadCodeRemover(appView);
+    this.factory = appView.dexItemFactory();
   }
 
   public void processOutlineMethod(
@@ -109,80 +111,92 @@ public class ThrowBlockOutlineMarkerRewriter {
 
   private void processOutlineMarkers(IRCode code) {
     for (BasicBlock block : code.getBlocks()) {
-      Throw throwInstruction = block.exit().asThrow();
-      if (throwInstruction != null) {
-        ThrowBlockOutlineMarker outlineMarker =
-            block.entry().nextUntilInclusive(Instruction::isThrowBlockOutlineMarker);
-        if (outlineMarker != null) {
-          ThrowBlockOutline outline = outlineMarker.getOutline();
-          outlineMarker.detachConstantOutlineArguments(outline);
-          if (outline.isMaterialized()) {
-            // Insert a call to the materialized outline method and load the return value.
-            BasicBlockInstructionListIterator instructionIterator =
-                block.listIterator(block.exit());
-            InvokeStatic invoke =
-                InvokeStatic.builder()
-                    .setArguments(outlineMarker.inValues())
-                    .setIsInterface(false)
-                    .setMethod(outline.getMaterializedOutlineMethod())
-                    .setPosition(throwInstruction)
-                    .build();
+      ThrowBlockOutlineMarker outlineMarker =
+          block.entry().nextUntilInclusive(Instruction::isThrowBlockOutlineMarker);
+      while (outlineMarker != null) {
+        ThrowBlockOutline outline = outlineMarker.getOutline().getParentOrSelf();
+        Instruction outlineEnd = getOutlineEnd(block, outline, outlineMarker);
+        outlineMarker.detachConstantOutlineArguments(outline);
+        if (outline.isMaterialized()) {
+          // Insert a call to the materialized outline method and load the return value.
+          BasicBlockInstructionListIterator instructionIterator = block.listIterator(outlineEnd);
+          InvokeStatic.Builder invokeBuilder =
+              InvokeStatic.builder()
+                  .setArguments(outlineMarker.inValues())
+                  .setIsInterface(false)
+                  .setMethod(outline.getMaterializedOutlineMethod())
+                  .setPosition(outlineEnd);
+          if (outline.isStringBuilderToStringOutline()) {
+            invokeBuilder.setFreshOutValue(
+                code, factory.stringType.toTypeElement(appView), outlineEnd.getLocalInfo());
+          }
+          InvokeStatic invoke = invokeBuilder.build();
+          if (outline.isStringBuilderToStringOutline()) {
+            outlineEnd.replace(invoke);
+            outlineEnd = invoke;
+          } else {
+            assert outline.isThrowOutline();
             instructionIterator.add(invoke);
-            Value returnValue = addReturnOrThrowValue(code, instructionIterator);
+            Value returnOrThrowValue = addReturnOrThrowValue(code, instructionIterator);
 
             // Replace the throw instruction by a normal return, but throw null in initializers.
             if (code.context().getDefinition().isInstanceInitializer()) {
-              throwInstruction.replaceValue(0, returnValue);
+              outlineEnd.replaceValue(0, returnOrThrowValue);
             } else {
               Return returnInstruction =
                   Return.builder()
                       .setPositionForNonThrowingInstruction(
-                          throwInstruction.getPosition(), appView.options())
-                      .setReturnValue(returnValue)
+                          outlineEnd.getPosition(), appView.options())
+                      .setReturnValue(returnOrThrowValue)
                       .build();
               block.replaceLastInstruction(returnInstruction);
+              outlineEnd = returnInstruction;
             }
+          }
 
-            // Remove all outlined instructions bottom up.
-            instructionIterator = block.listIterator(invoke);
-            for (Instruction instruction = instructionIterator.previous();
-                instruction != outlineMarker;
-                instruction = instructionIterator.previous()) {
-              Value outValue = instruction.outValue();
-              if (outValue == null || !outValue.hasNonDebugUsers()) {
-                // Remove all debug users of the out-value.
-                if (outValue != null && outValue.hasDebugUsers()) {
-                  for (Instruction debugUser : outValue.debugUsers()) {
-                    debugUser.getDebugValues().remove(outValue);
-                    if (debugUser.isDebugLocalRead() && debugUser.getDebugValues().isEmpty()) {
-                      debugUser.remove();
-                    }
+          // Remove all outlined instructions bottom up.
+          instructionIterator = block.listIterator(invoke);
+          for (Instruction outlinedInstruction = instructionIterator.previous();
+              outlinedInstruction != outlineMarker;
+              outlinedInstruction = instructionIterator.previous()) {
+            assert !outlinedInstruction.isThrowBlockOutlineMarker();
+            Value outValue = outlinedInstruction.outValue();
+            if (outValue == null || !outValue.hasNonDebugUsers()) {
+              // Remove all debug users of the out-value.
+              if (outValue != null && outValue.hasDebugUsers()) {
+                for (Instruction debugUser : outValue.debugUsers()) {
+                  debugUser.getDebugValues().remove(outValue);
+                  if (debugUser.isDebugLocalRead() && debugUser.getDebugValues().isEmpty()) {
+                    debugUser.remove();
                   }
-                  outValue.clearDebugUsers();
                 }
-                // We are not using `removeOrReplaceByDebugLocalRead` here due to the backwards
-                // iteration.
-                if (instruction.getDebugValues().isEmpty()) {
-                  instruction.remove();
-                } else {
-                  DebugLocalRead replacement = new DebugLocalRead();
-                  instruction.replace(replacement);
-                  Instruction previous = instructionIterator.previous();
-                  assert previous == replacement;
-                }
+                outValue.clearDebugUsers();
+              }
+              // We are not using `removeOrReplaceByDebugLocalRead` here due to the backwards
+              // iteration.
+              if (outlinedInstruction.getDebugValues().isEmpty()) {
+                outlinedInstruction.remove();
+              } else {
+                DebugLocalRead replacement = new DebugLocalRead();
+                outlinedInstruction.replace(replacement);
+                Instruction previous = instructionIterator.previous();
+                assert previous == replacement;
               }
             }
           }
-
-          // Finally delete the outline marker.
-          outlineMarker.removeOrReplaceByDebugLocalRead();
-
-          // Blocks cannot start with DebugLocalRead.
-          while (block.entry().isDebugLocalRead()) {
-            block.entry().moveDebugValues(block.entry().getNext());
-            block.entry().remove();
-          }
         }
+
+        // Finally delete the outline marker.
+        outlineMarker.removeOrReplaceByDebugLocalRead();
+
+        // Blocks cannot start with DebugLocalRead.
+        while (block.entry().isDebugLocalRead()) {
+          block.entry().moveDebugValues(block.entry().getNext());
+          block.entry().remove();
+        }
+
+        // Continue searching for outline markers from the end of the current outline.
+        outlineMarker = outlineEnd.nextUntilExclusive(Instruction::isThrowBlockOutlineMarker);
       }
       assert block.streamInstructions().noneMatch(Instruction::isThrowBlockOutlineMarker);
     }
@@ -214,6 +228,17 @@ public class ThrowBlockOutlineMarkerRewriter {
     } else {
       assert returnType.isVoidType();
       return null;
+    }
+  }
+
+  private Instruction getOutlineEnd(
+      BasicBlock block, ThrowBlockOutline outline, ThrowBlockOutlineMarker outlineMarker) {
+    if (outline.isThrowOutline()) {
+      return block.exit();
+    } else {
+      // The end of a StringBuilder#toString outline is the call to StringBuilder#toString.
+      return outlineMarker.nextUntilExclusive(
+          i -> ThrowBlockOutlinerScanner.isStringBuilderToString(i, factory));
     }
   }
 }

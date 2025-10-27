@@ -321,7 +321,13 @@ public class ParameterTypeTest extends TestBase {
                 result.assertFailureWithErrorThatMatches(
                     containsString(
                         parameters.getDexRuntimeVersion().isNewerThan(Version.V4_4_4)
-                            ? "type Precise Reference: Foo[] but expected Reference: SubInterface[]"
+                            ? "type "
+                                + (parameters
+                                        .getDexRuntimeVersion()
+                                        .isOlderThanOrEqual(Version.V15_0_0)
+                                    ? "Precise "
+                                    : "")
+                                + "Reference: Foo[] but expected Reference: SubInterface[]"
                             : "[LFoo; is not instance of [LSubInterface;")))
         .assertStderrMatches(not(containsString("ClassNotFoundException")));
   }

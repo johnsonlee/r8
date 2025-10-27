@@ -6,12 +6,10 @@ package com.android.tools.r8.kotlin;
 
 import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_3_72;
 import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_5_0;
-import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_6_0;
 import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_9_21;
 import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_2_0_20;
 import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_2_1_10;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
-import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsentIf;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentIf;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -60,7 +58,7 @@ public class KotlinClassInlinerTest extends AbstractR8KotlinTestBase {
   }
 
   @Test
-  public void testJStyleLambdas() throws Exception {
+  public void testJStyleLambdasNoClassInlining() throws Exception {
     // SAM interfaces lambdas are implemented by invoke dynamic in kotlin 1.5 unlike 1.4 where a
     // class is generated for each. In CF we leave invokeDynamic but for DEX we desugar the classes
     // and merge them.
@@ -87,41 +85,40 @@ public class KotlinClassInlinerTest extends AbstractR8KotlinTestBase {
                                 "class_inliner_lambda_j_style.MainKt$testStateful3$1");
                           } else if (testParameters.isDexRuntime()) {
                             Set<Set<DexType>> mergeGroups = inspector.getMergeGroups();
-                            assertEquals(1, mergeGroups.size());
-                            inspector.assertIsCompleteMergeGroup(
-                                "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda0",
-                                "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda2",
-                                "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda4",
-                                "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda3",
-                                "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda5",
-                                "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda6");
+                            assertEquals(2, mergeGroups.size());
+                            inspector
+                                .assertIsCompleteMergeGroup(
+                                    "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda1",
+                                    "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda3",
+                                    "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda4",
+                                    "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda5",
+                                    "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda6",
+                                    "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda7")
+                                .assertIsCompleteMergeGroup(
+                                    "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda2",
+                                    "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticThrowBlockOutline0");
                           }
                           inspector.assertNoOtherClassesMerged();
                         })
                     .noClassInlining())
         .inspect(
             inspector -> {
+              if (kotlinc.getCompilerVersion().isLessThan(KOTLINC_2_0_20)) {
+                // Do not inspect output for older Kotlin versions.
+                return;
+              }
               if (testParameters.isCfRuntime() && !hasKotlinCGeneratedLambdaClasses) {
                 assertEquals(5, inspector.allClasses().size());
-              } else if (!hasKotlinCGeneratedLambdaClasses) {
-                assertThat(
-                    inspector.clazz(
-                        "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda1"),
-                    isPresent());
-                assertThat(
-                    inspector.clazz(
-                        "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda2"),
-                    isAbsent());
               } else {
-                assertThat(
-                    inspector.clazz("class_inliner_lambda_j_style.MainKt$testStateless$1"),
-                    isAbsent());
-                assertThat(
-                    inspector.clazz("class_inliner_lambda_j_style.MainKt$testStateful$1"),
-                    isPresent());
+                assertEquals(7, inspector.allClasses().size());
               }
             });
+  }
 
+  @Test
+  public void testJStyleLambdas() throws Exception {
+    boolean hasKotlinCGeneratedLambdaClasses = kotlinParameters.isOlderThan(KOTLINC_1_5_0);
+    String mainClassName = "class_inliner_lambda_j_style.MainKt";
     runTest(
             "class_inliner_lambda_j_style",
             mainClassName,
@@ -134,41 +131,20 @@ public class KotlinClassInlinerTest extends AbstractR8KotlinTestBase {
                     .addNoVerticalClassMergingRule("class_inliner_lambda_j_style.SamIface"))
         .inspect(
             inspector -> {
-              if (testParameters.isCfRuntime() && !hasKotlinCGeneratedLambdaClasses) {
-                assertEquals(5, inspector.allClasses().size());
+              if (kotlinc.getCompilerVersion().isLessThan(KOTLINC_2_0_20)) {
+                // Do not inspect output for older Kotlin versions.
                 return;
               }
-              if (!hasKotlinCGeneratedLambdaClasses) {
-                // Kotlin 1.6.20 and later do not create intrinsics.stringPlus for two argument
-                // string concatination. That allow R8's stringbuilder optimization to reduce the
-                // size of strings and therefore inline the synthetic lambda.
-                assertThat(
-                    inspector.clazz(
-                        "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda1"),
-                    isAbsentIf(kotlinParameters.isNewerThan(KOTLINC_1_6_0)));
+              if (testParameters.isCfRuntime() && !hasKotlinCGeneratedLambdaClasses) {
+                assertEquals(5, inspector.allClasses().size());
               } else {
-                assertThat(
-                    inspector.clazz("class_inliner_lambda_j_style.MainKt$testStateless$1"),
-                    isAbsent());
-              }
-
-              if (hasKotlinCGeneratedLambdaClasses) {
-                assertThat(
-                    testParameters.isCfRuntime()
-                        ? inspector.clazz("class_inliner_lambda_j_style.MainKt$testStateful2$1")
-                        : inspector.clazz("class_inliner_lambda_j_style.MainKt$testStateful$2"),
-                    isPresent());
-              } else {
-                assertThat(
-                    inspector.clazz(
-                        "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda2"),
-                    isAbsent());
+                assertEquals(7, inspector.allClasses().size());
               }
             });
   }
 
   @Test
-  public void testKStyleLambdas() throws Exception {
+  public void testKStyleLambdasNoClassInlining() throws Exception {
     String mainClassName = "class_inliner_lambda_k_style.MainKt";
     runTest(
             "class_inliner_lambda_k_style",
@@ -264,7 +240,11 @@ public class KotlinClassInlinerTest extends AbstractR8KotlinTestBase {
                     isPresent());
               }
             });
+  }
 
+  @Test
+  public void testKStyleLambdas() throws Exception {
+    String mainClassName = "class_inliner_lambda_k_style.MainKt";
     runTest(
             "class_inliner_lambda_k_style",
             mainClassName,

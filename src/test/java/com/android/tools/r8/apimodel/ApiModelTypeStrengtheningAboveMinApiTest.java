@@ -9,6 +9,7 @@ import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 
+import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -47,6 +48,7 @@ public class ApiModelTypeStrengtheningAboveMinApiTest extends TestBase {
         .apply(setMockApiLevelForClass(ApiLevel23.class, AndroidApiLevel.M))
         .apply(ApiModelingTestHelper::enableApiCallerIdentification)
         .apply(ApiModelingTestHelper::disableOutliningAndStubbing)
+        .enableInliningAnnotations()
         .setMinApi(parameters)
         .compile()
         .inspect(
@@ -85,6 +87,12 @@ public class ApiModelTypeStrengtheningAboveMinApiTest extends TestBase {
       if (Version.getSdkInt(sdk) >= 22) {
         FIELD = new ApiLevel22();
       }
+      print();
+    }
+
+    // So that we don't eliminate the field as a result of redundant field load elimination.
+    @NeverInline
+    static void print() {
       System.out.println(FIELD);
     }
   }

@@ -3,10 +3,12 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize;
 
+import static com.android.tools.r8.ToolHelper.DexVm.Version.V14_0_0;
+import static com.android.tools.r8.ToolHelper.DexVm.Version.V15_0_0;
+
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.ToolHelper.DexVm.Version;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -54,7 +56,7 @@ public class B418719343Test extends TestBase {
         // TODO(b/418568424): Should succeed with expected output.
         .applyIf(
             parameters.isDexRuntime()
-                && parameters.getDexRuntimeVersion().isNewerThanOrEqual(Version.V14_0_0),
+                && parameters.getDexRuntimeVersion().isInRangeInclusive(V14_0_0, V15_0_0),
             rr -> rr.assertSuccessWithOutputLines("-21090195", "over"),
             rr -> rr.assertSuccessWithOutputLines("-21130949", "over"));
   }

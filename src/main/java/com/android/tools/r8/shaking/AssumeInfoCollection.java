@@ -8,6 +8,7 @@ import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClassAndMember;
+import com.android.tools.r8.graph.DexEncodedMember;
 import com.android.tools.r8.graph.DexMember;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.lens.GraphLens;
@@ -43,6 +44,10 @@ public class AssumeInfoCollection {
   }
 
   public AssumeInfo get(DexClassAndMember<?, ?> member) {
+    return get(member.getReference());
+  }
+
+  public AssumeInfo get(DexEncodedMember<?, ?> member) {
     return get(member.getReference());
   }
 

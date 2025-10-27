@@ -29,7 +29,7 @@ import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class R8AssistentReflectiveInstrumentationTest extends TestBase {
+public class R8AssistantReflectiveInstrumentationTest extends TestBase {
 
   @Parameter(0)
   public TestParameters parameters;
@@ -134,7 +134,7 @@ public class R8AssistentReflectiveInstrumentationTest extends TestBase {
       }
       String topOfStack = stack.getStackTraceElements()[0].toString();
       String secondToTopOfStack = stack.getStackTraceElements()[1].toString();
-      String sourceFile = "R8AssistentReflectiveInstrumentationTest";
+      String sourceFile = "R8AssistantReflectiveInstrumentationTest";
       if (!topOfStack.contains("reflectOn(" + sourceFile)) {
         throw new RuntimeException("reflectOn must be top of stack, got " + topOfStack);
       }

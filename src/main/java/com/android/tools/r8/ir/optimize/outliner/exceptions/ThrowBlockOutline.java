@@ -32,6 +32,7 @@ import com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper;
 import com.android.tools.r8.lightir.LirCode;
 import com.android.tools.r8.lightir.LirConstant;
 import com.android.tools.r8.synthesis.SyntheticItems;
+import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.structural.CompareToVisitor;
 import com.android.tools.r8.utils.structural.HashingVisitor;
 import com.google.common.collect.ConcurrentHashMultiset;
@@ -47,10 +48,19 @@ import java.util.Map;
 
 public class ThrowBlockOutline implements LirConstant {
 
-  private final List<AbstractValue> arguments;
-  private final LirCode<?> lirCode;
-  private final DexProto proto;
+  private List<AbstractValue> arguments;
+  private LirCode<?> lirCode;
+  private DexProto proto;
+
   private final Multiset<DexMethod> users = ConcurrentHashMultiset.create();
+
+  // If this is an outline in base, and there are equivalent outlines in features, then the outlines
+  // from features will be removed and merged into the outline in base. This field stores the merged
+  // outlines.
+  //
+  // This is always null in D8.
+  private List<ThrowBlockOutline> children;
+  private ThrowBlockOutline parent;
 
   private ProgramMethod materializedOutlineMethod;
 
@@ -86,6 +96,14 @@ public class ThrowBlockOutline implements LirConstant {
     }
   }
 
+  public void clear() {
+    // Clear the state of this outline since it has been merged with its parent.
+    assert parent != null;
+    arguments = null;
+    lirCode = null;
+    proto = null;
+  }
+
   private AbstractValue encodeArgumentValue(Value value, AbstractValueFactory valueFactory) {
     if (value.isConstNumber()) {
       ConstNumber constNumber = value.getDefinition().asConstNumber();
@@ -102,11 +120,24 @@ public class ThrowBlockOutline implements LirConstant {
     return AbstractValue.unknown();
   }
 
+  // Returns this outline and all outlines that have been merged into this outline.
+  public Iterable<ThrowBlockOutline> getAllOutlines() {
+    if (children == null) {
+      return Collections.singletonList(this);
+    }
+    return IterableUtils.append(children, this);
+  }
+
   public List<AbstractValue> getArguments() {
     return arguments;
   }
 
+  public List<ThrowBlockOutline> getChildren() {
+    return children != null ? children : Collections.emptyList();
+  }
+
   public LirCode<?> getLirCode() {
+    assert verifyNotMerged();
     return lirCode;
   }
 
@@ -120,14 +151,26 @@ public class ThrowBlockOutline implements LirConstant {
   }
 
   public int getNumberOfUsers() {
-    return users.size();
+    int result = users.size();
+    if (children != null) {
+      for (ThrowBlockOutline child : children) {
+        result += child.users.size();
+      }
+    }
+    return result;
+  }
+
+  public ThrowBlockOutline getParentOrSelf() {
+    return parent != null ? parent : this;
   }
 
   public DexProto getProto() {
+    assert verifyNotMerged();
     return proto;
   }
 
   public RewrittenPrototypeDescription getProtoChanges() {
+    assert verifyNotMerged();
     assert hasConstantArgument();
     ArgumentInfoCollection.Builder argumentsInfoBuilder =
         ArgumentInfoCollection.builder().setArgumentInfosSize(proto.getArity());
@@ -145,10 +188,12 @@ public class ThrowBlockOutline implements LirConstant {
   }
 
   public DexProto getOptimizedProto(DexItemFactory factory) {
+    assert verifyNotMerged();
     return proto.withoutParameters((i, p) -> isArgumentConstant(i), factory);
   }
 
   public ProgramMethod getSynthesizingContext(AppView<?> appView) {
+    assert verifyNotMerged();
     DexMethod shortestUser = null;
     for (DexMethod user : users) {
       if (shortestUser == null) {
@@ -227,6 +272,7 @@ public class ThrowBlockOutline implements LirConstant {
   }
 
   public boolean hasConstantArgument() {
+    assert verifyNotMerged();
     return Iterables.any(arguments, argument -> !argument.isUnknown());
   }
 
@@ -241,6 +287,7 @@ public class ThrowBlockOutline implements LirConstant {
   }
 
   public boolean isArgumentConstant(int index) {
+    assert verifyNotMerged();
     return !arguments.get(index).isUnknown();
   }
 
@@ -248,7 +295,16 @@ public class ThrowBlockOutline implements LirConstant {
     return materializedOutlineMethod != null;
   }
 
+  public boolean isStringBuilderToStringOutline() {
+    return !isThrowOutline();
+  }
+
+  public boolean isThrowOutline() {
+    return proto.getReturnType().isVoidType();
+  }
+
   public void materialize(AppView<?> appView, MethodProcessingContext methodProcessingContext) {
+    assert verifyNotMerged();
     SyntheticItems syntheticItems = appView.getSyntheticItems();
     materializedOutlineMethod =
         syntheticItems.createMethod(
@@ -265,6 +321,9 @@ public class ThrowBlockOutline implements LirConstant {
                         appView.apiLevelCompute().computeInitialMinApiLevel(appView.options()))
                     .setCode(methodSig -> lirCode)
                     .setProto(getOptimizedProto(appView.dexItemFactory())));
+    for (ThrowBlockOutline child : getChildren()) {
+      child.materializedOutlineMethod = materializedOutlineMethod;
+    }
   }
 
   private DexAnnotationSet createAnnotations(AppView<?> appView) {
@@ -277,5 +336,24 @@ public class ThrowBlockOutline implements LirConstant {
       return DexAnnotationSet.create(new DexAnnotation[] {annotation});
     }
     return DexAnnotationSet.empty();
+  }
+
+  public void merge(ThrowBlockOutline outline) {
+    for (int i = 0; i < arguments.size(); i++) {
+      if (!arguments.get(i).equals(outline.arguments.get(i))) {
+        arguments.set(i, AbstractValue.unknown());
+      }
+    }
+    if (children == null) {
+      children = new ArrayList<>();
+    }
+    children.add(outline);
+    outline.parent = this;
+    outline.clear();
+  }
+
+  public boolean verifyNotMerged() {
+    assert parent == null;
+    return true;
   }
 }

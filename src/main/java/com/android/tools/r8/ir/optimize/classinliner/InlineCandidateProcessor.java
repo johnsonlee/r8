@@ -38,6 +38,7 @@ import com.android.tools.r8.ir.code.AssumeAndCheckCastAliasedValueConfiguration;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.BasicBlockIterator;
 import com.android.tools.r8.ir.code.CheckCast;
+import com.android.tools.r8.ir.code.ConstClass;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.If;
 import com.android.tools.r8.ir.code.IfType;
@@ -691,6 +692,20 @@ final class InlineCandidateProcessor {
             }
           }
         }
+
+        // Null checks are removed above. If a call to Object#getClass() remains then it must be due
+        // to having an out value.
+        if (invoke.getInvokedMethod().match(dexItemFactory.objectMembers.getClass)) {
+          ConstClass replacement =
+              ConstClass.builder()
+                  .setType(eligibleClass.getType())
+                  .setFreshOutValue(
+                      code, dexItemFactory.classType.toNonNullClassTypeElement(appView))
+                  .setPosition(invoke)
+                  .build();
+          invoke.replace(replacement, affectedValues);
+          continue;
+        }
       }
 
       if (user.isIf()) {
@@ -1302,7 +1317,14 @@ final class InlineCandidateProcessor {
                 .appInfo()
                 .resolveMethodOnLegacy(eligibleClass, invokedMethod)
                 .asSingleResolution();
-        if (resolutionResult == null || !resolutionResult.getResolvedHolder().isProgramClass()) {
+        if (resolutionResult == null) {
+          return false;
+        }
+        if (!resolutionResult.getResolvedHolder().isProgramClass()) {
+          DexMethod method = resolutionResult.getResolvedMethod().getReference();
+          if (method.isIdenticalTo(dexItemFactory.objectMembers.getClass)) {
+            continue;
+          }
           return false;
         }
 

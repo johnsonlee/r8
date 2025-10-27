@@ -3,12 +3,13 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.regress;
 
+import static com.android.tools.r8.ToolHelper.DexVm.Version.V13_0_0;
+import static com.android.tools.r8.ToolHelper.DexVm.Version.V15_0_0;
 import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
@@ -75,7 +76,7 @@ public class B341476044Test extends TestBase {
         .run(parameters.getRuntime(), TestClass.class)
         .applyIf(
             parameters.isDexRuntime()
-                && parameters.getDexRuntimeVersion().isNewerThanOrEqual(Version.V13_0_0),
+                && parameters.getDexRuntimeVersion().isInRangeInclusive(V13_0_0, V15_0_0),
             // TODO(b/341476044): Should be EXPECTED_OUTPUT.
             r -> r.assertSuccessWithOutputLines(NOT_EXPECTED_OUTPUT),
             r -> r.assertSuccessWithOutputLines(EXPECTED_OUTPUT));

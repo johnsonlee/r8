@@ -242,8 +242,13 @@ public abstract class AbstractBackportTest extends TestBase {
         .compileWithExpectedDiagnostics(this::checkDiagnostics)
         .apply(this::configure)
         .inspect(this::assertDesugaring)
-        .run(parameters.getRuntime(), testClassName)
+        .run(parameters.getRuntime(), testClassName, configureD8RunArguments())
         .apply(runResultConsumer);
+  }
+
+  protected String[] configureD8RunArguments() {
+    // For subclasses to configure arguments passed to running the test code.
+    return new String[] {};
   }
 
   protected void configure(D8TestBuilder builder) throws Exception {
@@ -264,7 +269,7 @@ public abstract class AbstractBackportTest extends TestBase {
         .setIncludeClassesChecksum(true)
         .compileWithExpectedDiagnostics(this::checkDiagnostics)
         .apply(this::configure)
-        .run(parameters.getRuntime(), testClassName)
+        .run(parameters.getRuntime(), testClassName, configureD8RunArguments())
         .assertSuccess()
         .inspect(this::assertDesugaring);
   }

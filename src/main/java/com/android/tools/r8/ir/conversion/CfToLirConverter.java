@@ -7,27 +7,29 @@ import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
+import com.android.tools.r8.graph.DexEncodedMember;
 import com.android.tools.r8.graph.DexEncodedMethod;
-import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.analysis.EnqueuerAnalysisCollection;
 import com.android.tools.r8.graph.analysis.FinishedEnqueuerAnalysis;
 import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
+import com.android.tools.r8.ir.code.FieldGet;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
-import com.android.tools.r8.ir.code.StaticGet;
+import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
 import com.android.tools.r8.ir.conversion.passes.BranchSimplifier;
 import com.android.tools.r8.ir.conversion.passes.CodeRewriterPassCollection;
 import com.android.tools.r8.ir.conversion.passes.ConstResourceNumberRewriter;
 import com.android.tools.r8.ir.conversion.passes.StringSwitchConverter;
 import com.android.tools.r8.ir.optimize.DeadCodeRemover;
-import com.android.tools.r8.ir.optimize.membervaluepropagation.D8MemberValuePropagation;
+import com.android.tools.r8.ir.optimize.membervaluepropagation.AssumePropagator;
 import com.android.tools.r8.lightir.IR2LirConverter;
 import com.android.tools.r8.lightir.LirCode;
 import com.android.tools.r8.lightir.LirStrategy;
 import com.android.tools.r8.naming.IdentifierNameStringMarker;
+import com.android.tools.r8.shaking.AssumeInfoCollection;
 import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.ThreadUtils;
@@ -122,8 +124,8 @@ public class CfToLirConverter implements FinishedEnqueuerAnalysis {
     }
     IRCode code = method.buildIR(appView, MethodConversionOptions.forLirPhase(appView));
     codeRewriterPassCollection.run(code, null, null, Timing.empty(), null, appView.options());
-    if (appView.options().isGeneratingDex() && isCodeReadingSdkInt(code)) {
-      new D8MemberValuePropagation(appView).run(code);
+    if (appView.options().isGeneratingDex() && hasApplicableAssumeValuesRule(code)) {
+      new AssumePropagator(appView).run(code);
       new BranchSimplifier(appView).simplifyIf(code);
       new DeadCodeRemover(appView).run(code, Timing.empty());
     }
@@ -136,10 +138,21 @@ public class CfToLirConverter implements FinishedEnqueuerAnalysis {
     method.setCode(lirCode, appView);
   }
 
-  private boolean isCodeReadingSdkInt(IRCode code) {
-    DexField SDK_INT = appView.dexItemFactory().androidOsBuildVersionMembers.SDK_INT;
-    for (StaticGet staticGet : code.<StaticGet>instructions(Instruction::isStaticGet)) {
-      if (staticGet.getField().isIdenticalTo(SDK_INT)) {
+  private boolean hasApplicableAssumeValuesRule(IRCode code) {
+    AssumeInfoCollection assumeInfoCollection = appView.getAssumeInfoCollection();
+    for (Instruction instruction : code.instructions()) {
+      DexEncodedMember<?, ?> resolvedMember;
+      if (instruction.isFieldGet()) {
+        FieldGet fieldGet = instruction.asFieldGet();
+        resolvedMember = fieldGet.resolveField(appView, code.context()).getResolvedField();
+      } else if (instruction.isInvokeMethod()) {
+        InvokeMethod invoke = instruction.asInvokeMethod();
+        resolvedMember = invoke.resolveMethod(appView, code.context()).getResolvedMethod();
+      } else {
+        continue;
+      }
+      if (resolvedMember != null
+          && !assumeInfoCollection.get(resolvedMember).getAssumeValue().isUnknown()) {
         return true;
       }
     }
