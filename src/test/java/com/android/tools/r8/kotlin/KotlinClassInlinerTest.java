@@ -103,6 +103,10 @@ public class KotlinClassInlinerTest extends AbstractR8KotlinTestBase {
                     .noClassInlining())
         .inspect(
             inspector -> {
+              if (kotlinc.getCompilerVersion().isLessThan(KOTLINC_2_0_20)) {
+                // Do not inspect output for older Kotlin versions.
+                return;
+              }
               if (testParameters.isCfRuntime() && !hasKotlinCGeneratedLambdaClasses) {
                 assertEquals(5, inspector.allClasses().size());
               } else {
@@ -127,6 +131,10 @@ public class KotlinClassInlinerTest extends AbstractR8KotlinTestBase {
                     .addNoVerticalClassMergingRule("class_inliner_lambda_j_style.SamIface"))
         .inspect(
             inspector -> {
+              if (kotlinc.getCompilerVersion().isLessThan(KOTLINC_2_0_20)) {
+                // Do not inspect output for older Kotlin versions.
+                return;
+              }
               if (testParameters.isCfRuntime() && !hasKotlinCGeneratedLambdaClasses) {
                 assertEquals(5, inspector.allClasses().size());
               } else {
