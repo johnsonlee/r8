@@ -3,10 +3,13 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.kotlin.inline;
 
+import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_3_72;
+import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_4_20;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndNotRenamed;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.KotlinCompileMemoizer;
+import com.android.tools.r8.KotlinCompilerTool;
 import com.android.tools.r8.KotlinTestBase;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.R8FullTestBuilder;
@@ -101,8 +104,19 @@ public abstract class KotlinInlineTestBase extends KotlinTestBase {
                       .forEach(method -> assertThat(method, isPresentAndNotRenamed()));
                 })
             .writeToZip();
+    // R8 will upgrade the Kotlin Metadata annotation to version 1.4.0 if lower, so compile with
+    // at least Kotlin 1.4
+    KotlinCompilerTool kotlinc =
+        kotlinParameters.is(KOTLINC_1_3_72)
+            ? kotlinc(
+                parameters.getRuntime().asCf(),
+                temp,
+                KOTLINC_1_4_20.getCompiler(),
+                kotlinParameters.getTargetVersion(),
+                kotlinParameters.getLambdaGeneration())
+            : kotlinc(parameters.getRuntime().asCf(), kotlinParameters);
     Path output =
-        kotlinc(parameters.getRuntime().asCf(), kotlinParameters)
+        kotlinc
             .addClasspathFiles(r8LibJar)
             .addSourceFiles(getAppSourceFile())
             .setOutputPath(temp.newFolder().toPath())
@@ -110,7 +124,10 @@ public abstract class KotlinInlineTestBase extends KotlinTestBase {
     if (!kotlinCompilationFails()) {
       testForRuntime(parameters)
           .addProgramFiles(
-              r8LibJar, output, kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinReflectJar())
+              r8LibJar,
+              output,
+              kotlinc.getCompiler().getKotlinStdlibJar(),
+              kotlinc.getCompiler().getKotlinReflectJar())
           .run(parameters.getRuntime(), getMainClass())
           .assertSuccessWithOutput(getExpected());
     }
