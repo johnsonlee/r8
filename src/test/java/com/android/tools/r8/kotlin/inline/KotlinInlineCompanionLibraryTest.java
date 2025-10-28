@@ -53,14 +53,6 @@ public class KotlinInlineCompanionLibraryTest extends KotlinInlineTestBase {
             kotlinParameters
                     .getCompilerVersion()
                     .isGreaterThanOrEqualTo(KotlinCompilerVersion.KOTLINC_2_0_20)
-                ? "main.kt:8:5: error: unresolved reference 'f'"
-                : "main.kt:8:5: error: unresolved reference: f"));
-    assertThat(
-        result.stderr,
-        containsString(
-            kotlinParameters
-                    .getCompilerVersion()
-                    .isGreaterThanOrEqualTo(KotlinCompilerVersion.KOTLINC_2_0_20)
                 ? "main.kt:9:5: error: unresolved reference 'f'"
                 : "main.kt:9:5: error: unresolved reference: f"));
     assertThat(
@@ -69,7 +61,15 @@ public class KotlinInlineCompanionLibraryTest extends KotlinInlineTestBase {
             kotlinParameters
                     .getCompilerVersion()
                     .isGreaterThanOrEqualTo(KotlinCompilerVersion.KOTLINC_2_0_20)
-                ? "main.kt:10:5: error: unresolved reference 'g'"
-                : "main.kt:10:5: error: unresolved reference: g"));
+                ? "main.kt:10:5: error: unresolved reference 'f'"
+                : "main.kt:10:5: error: unresolved reference: f"));
+    assertThat(
+        result.stderr,
+        containsString(
+            kotlinParameters
+                    .getCompilerVersion()
+                    .isGreaterThanOrEqualTo(KotlinCompilerVersion.KOTLINC_2_0_20)
+                ? "main.kt:11:5: error: unresolved reference 'g'"
+                : "main.kt:11:5: error: unresolved reference: g"));
   }
 }
