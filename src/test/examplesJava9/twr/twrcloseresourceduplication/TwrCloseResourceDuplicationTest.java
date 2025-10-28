@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package twr.twrcloseresourceduplication;
 
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.TestBase;
@@ -162,8 +163,8 @@ public class TwrCloseResourceDuplicationTest extends TestBase {
               if (!hasTwrCloseResourceSupport(parameters.isDexRuntime())) {
                 Set<String> classOutputWithSynthetics = new HashSet<>(nonSyntheticClassOutput);
                 classOutputWithSynthetics.add(
-                    SyntheticItemsTestUtils.syntheticApiOutlineClass(
-                            Reference.classFromTypeName(BAR), 0)
+                    getDefaultSyntheticItemsTestUtils()
+                        .syntheticApiOutlineClass(Reference.classFromTypeName(BAR), 0)
                         .getTypeName());
                 assertEquals(classOutputWithSynthetics, foundClasses);
               } else {

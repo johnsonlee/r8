@@ -23,17 +23,32 @@ import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.references.TypeReference;
 import com.android.tools.r8.synthesis.SyntheticNaming.Phase;
 import com.android.tools.r8.synthesis.SyntheticNaming.SyntheticKind;
+import com.android.tools.r8.utils.DescriptorUtils;
 import com.google.common.collect.ImmutableList;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Collections;
 import org.hamcrest.Matcher;
 
-public class SyntheticItemsTestUtils {
+public abstract class SyntheticItemsTestUtils {
 
   // Private copy of the synthetic namings. This is not the compiler instance, but checking on the
   // id/descriptor content is safe.
   private static final SyntheticNaming naming = new SyntheticNaming();
+
+  public static SyntheticItemsTestUtils getDefaultSyntheticItemsTestUtils() {
+    return new DefaultSyntheticItemsTestUtils();
+  }
+
+  public static SyntheticItemsTestUtils getMinimalSyntheticItemsTestUtils() {
+    return new MinimalSyntheticItemsTestUtils();
+  }
+
+  public static SyntheticItemsTestUtils getSyntheticItemsTestUtils(boolean minimalSyntheticNames) {
+    return minimalSyntheticNames
+        ? getMinimalSyntheticItemsTestUtils()
+        : getDefaultSyntheticItemsTestUtils();
+  }
 
   public static String syntheticFileNameD8() {
     return "D8$$SyntheticClass";
@@ -132,15 +147,15 @@ public class SyntheticItemsTestUtils {
     return syntheticClass(clazz, naming.API_CONVERSION, id);
   }
 
-  public static ClassReference syntheticApiOutlineClass(Class<?> clazz, int id) {
-    return syntheticClass(clazz, naming.API_MODEL_OUTLINE, id);
+  public final ClassReference syntheticApiOutlineClass(Class<?> clazz, int id) {
+    return syntheticApiOutlineClass(Reference.classFromClass(clazz), id);
   }
 
-  public static ClassReference syntheticApiOutlineClass(ClassReference classReference, int id) {
+  public ClassReference syntheticApiOutlineClass(ClassReference classReference, int id) {
     return syntheticClass(classReference, naming.API_MODEL_OUTLINE, id);
   }
 
-  public static String syntheticApiOutlineClassPrefix(Class<?> clazz) {
+  public String syntheticApiOutlineClassPrefix(Class<?> clazz) {
     return clazz.getTypeName()
         + EXTERNAL_SYNTHETIC_CLASS_SEPARATOR
         + naming.API_MODEL_OUTLINE.getDescriptor();
@@ -377,5 +392,20 @@ public class SyntheticItemsTestUtils {
 
   public static boolean isInternalThrowNSME(MethodReference method) {
     return SyntheticNaming.isSynthetic(method.getHolderClass(), Phase.INTERNAL, naming.THROW_NSME);
+  }
+
+  private static class DefaultSyntheticItemsTestUtils extends SyntheticItemsTestUtils {}
+
+  private static class MinimalSyntheticItemsTestUtils extends SyntheticItemsTestUtils {
+
+    @Override
+    public ClassReference syntheticApiOutlineClass(ClassReference classReference, int id) {
+      return syntheticClassWithMinimalName(classReference, id);
+    }
+
+    @Override
+    public String syntheticApiOutlineClassPrefix(Class<?> clazz) {
+      return clazz.getTypeName() + DescriptorUtils.INNER_CLASS_SEPARATOR;
+    }
   }
 }

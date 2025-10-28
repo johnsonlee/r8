@@ -76,7 +76,7 @@ public class ApiModelOutlineConstClassTest extends TestBase {
         .setMode(CompilationMode.DEBUG)
         .apply(this::setupTestBuilder)
         .compile()
-        .inspect(this::inspect)
+        .inspect(inspector -> inspect(inspector, false))
         .applyIf(addToBootClasspath(), b -> b.addBootClasspathClasses(LibraryClass.class))
         .run(parameters.getRuntime(), Main.class)
         .apply(this::checkOutput);
@@ -89,7 +89,7 @@ public class ApiModelOutlineConstClassTest extends TestBase {
         .setMode(CompilationMode.RELEASE)
         .apply(this::setupTestBuilder)
         .compile()
-        .inspect(this::inspect)
+        .inspect(inspector -> inspect(inspector, false))
         .applyIf(addToBootClasspath(), b -> b.addBootClasspathClasses(LibraryClass.class))
         .run(parameters.getRuntime(), Main.class)
         .apply(this::checkOutput);
@@ -101,15 +101,17 @@ public class ApiModelOutlineConstClassTest extends TestBase {
     testForR8(parameters.getBackend())
         .apply(this::setupTestBuilder)
         .addKeepMainRule(Main.class)
+        .addOptionsModification(
+            options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
         .compile()
-        .inspect(this::inspect)
+        .inspect(inspector -> inspect(inspector, true))
         .applyIf(addToBootClasspath(), b -> b.addBootClasspathClasses(LibraryClass.class))
         .run(parameters.getRuntime(), Main.class)
         .apply(this::checkOutput);
   }
 
-  private void inspect(CodeInspector inspector) throws Exception {
-    verifyThat(inspector, parameters, LibraryClass.class)
+  private void inspect(CodeInspector inspector, boolean isR8) throws Exception {
+    verifyThat(inspector, parameters, LibraryClass.class, isR8)
         .hasConstClassOutlinedFromUntil(
             Main.class.getMethod("main", String[].class), classApiLevel);
   }

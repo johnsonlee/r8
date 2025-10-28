@@ -5,6 +5,7 @@
 package twr.twrcloseresourceduplication;
 
 import static com.android.tools.r8.desugar.LibraryFilesHelper.getJdk11LibraryFiles;
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentIf;
 import static com.android.tools.r8.utils.codeinspector.Matchers.notIf;
@@ -184,14 +185,14 @@ public class TwrCloseResourceDuplicationProfileRewritingTest
     for (String clazz : ImmutableList.of(FOO, BAR)) {
       ClassSubject syntheticApiOutlineClassSubject0 =
           inspector.clazz(
-              SyntheticItemsTestUtils.syntheticApiOutlineClass(
-                  Reference.classFromTypeName(clazz), 0));
+              getDefaultSyntheticItemsTestUtils()
+                  .syntheticApiOutlineClass(Reference.classFromTypeName(clazz), 0));
       assertThat(syntheticApiOutlineClassSubject0, isPresentIf(hasTwrCloseResourceApiOutlines()));
 
       ClassSubject syntheticApiOutlineClassSubject1 =
           inspector.clazz(
-              SyntheticItemsTestUtils.syntheticApiOutlineClass(
-                  Reference.classFromTypeName(clazz), 1));
+              getDefaultSyntheticItemsTestUtils()
+                  .syntheticApiOutlineClass(Reference.classFromTypeName(clazz), 1));
       assertThat(syntheticApiOutlineClassSubject1, isPresentIf(hasTwrCloseResourceApiOutlines()));
 
       int initialSyntheticId = hasTwrCloseResourceApiOutlines() ? 2 : 0;

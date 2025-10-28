@@ -83,7 +83,7 @@ public class ApiModelOutlineInstanceOfTest extends TestBase {
         .setMode(CompilationMode.DEBUG)
         .apply(this::setupTestBuilder)
         .compile()
-        .inspect(this::inspect)
+        .inspect(inspector -> inspect(inspector, false))
         .applyIf(
             addToBootClasspath(),
             b -> b.addBootClasspathClasses(LibraryClass.class, LibraryProvider.class),
@@ -99,7 +99,7 @@ public class ApiModelOutlineInstanceOfTest extends TestBase {
         .setMode(CompilationMode.RELEASE)
         .apply(this::setupTestBuilder)
         .compile()
-        .inspect(this::inspect)
+        .inspect(inspector -> inspect(inspector, false))
         .applyIf(
             addToBootClasspath(),
             b -> b.addBootClasspathClasses(LibraryClass.class, LibraryProvider.class),
@@ -114,8 +114,10 @@ public class ApiModelOutlineInstanceOfTest extends TestBase {
     testForR8(parameters.getBackend())
         .apply(this::setupTestBuilder)
         .addKeepMainRule(Main.class)
+        .addOptionsModification(
+            options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
         .compile()
-        .inspect(this::inspect)
+        .inspect(inspector -> inspect(inspector, true))
         .applyIf(
             addToBootClasspath(),
             b -> b.addBootClasspathClasses(LibraryClass.class, LibraryProvider.class),
@@ -124,8 +126,8 @@ public class ApiModelOutlineInstanceOfTest extends TestBase {
         .apply(this::checkOutput);
   }
 
-  private void inspect(CodeInspector inspector) throws Exception {
-    verifyThat(inspector, parameters, LibraryClass.class)
+  private void inspect(CodeInspector inspector, boolean isR8) throws Exception {
+    verifyThat(inspector, parameters, LibraryClass.class, isR8)
         .hasInstanceOfOutlinedFromUntil(
             Main.class.getMethod("main", String[].class), classApiLevel);
   }
