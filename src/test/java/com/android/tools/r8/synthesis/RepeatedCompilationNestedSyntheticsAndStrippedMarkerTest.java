@@ -3,7 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.synthesis;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.syntheticBackportClass;
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.syntheticLambdaClass;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -163,7 +163,10 @@ public class RepeatedCompilationNestedSyntheticsAndStrippedMarkerTest extends Te
     assertEquals(
         ImmutableSet.<String>builder()
             .addAll(expectedClassOutputs)
-            .add(syntheticBackportClass(syntheticLambdaClass, 0).getDescriptor())
+            .add(
+                getDefaultSyntheticItemsTestUtils()
+                    .syntheticBackportClass(syntheticLambdaClass, 0)
+                    .getDescriptor())
             .build(),
         allDescriptors.build());
 
@@ -202,7 +205,8 @@ public class RepeatedCompilationNestedSyntheticsAndStrippedMarkerTest extends Te
               // The initial lambda stays as the only item under UsesBackport.
               ClassReference lambdaClass = syntheticLambdaClass(UsesBackport.class, 0);
               // The nested backport has context in the lambda since the lambda was not marked.
-              ClassReference backportClass = syntheticBackportClass(lambdaClass, 0);
+              ClassReference backportClass =
+                  getDefaultSyntheticItemsTestUtils().syntheticBackportClass(lambdaClass, 0);
               assertEquals(
                   ImmutableSet.of(
                       descriptor(I.class),

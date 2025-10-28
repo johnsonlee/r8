@@ -6,6 +6,7 @@ package com.android.tools.r8.jdk17.records;
 
 import static com.android.tools.r8.ir.desugar.records.RecordFullInstructionDesugaring.EQUALS_RECORD_METHOD_NAME;
 import static com.android.tools.r8.ir.desugar.records.RecordFullInstructionDesugaring.GET_FIELDS_AS_OBJECTS_METHOD_NAME;
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethod;
 import static com.android.tools.r8.utils.codeinspector.Matchers.ifThen;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsentIf;
@@ -106,6 +107,9 @@ public class RecordProfileRewritingTest extends TestBase {
                 "-neverpropagatevalue class " + PERSON_REFERENCE.getTypeName() + " { <fields>; }")
             .addArtProfileForRewriting(getArtProfile())
             .addOptionsModification(InlinerOptions::disableInlining)
+            // Explicitly disable minimal synthetic names for robust detection of synthetics.
+            .addOptionsModification(
+                options -> options.desugarSpecificOptions().minimizeSyntheticNames = false)
             .applyIf(
                 parameters.isCfRuntime(),
                 testBuilder -> testBuilder.addLibraryProvider(JdkClassFileProvider.fromSystemJdk()))
@@ -151,8 +155,6 @@ public class RecordProfileRewritingTest extends TestBase {
         inspector,
         SyntheticItemsTestUtils.syntheticRecordTagClass(),
         false,
-        false,
-        parameters.canUseNestBasedAccessesWhenDesugaring(),
         !isRecordsFullyDesugaredForD8(parameters),
         false);
   }
@@ -162,9 +164,7 @@ public class RecordProfileRewritingTest extends TestBase {
         profileInspector,
         inspector,
         RECORD_REFERENCE,
-        parameters.canHaveNonReboundConstructorInvoke(),
         true,
-        parameters.canUseNestBasedAccesses(),
         !isRecordsFullyDesugaredForR8(parameters),
         parameters.isCfRuntime());
   }
@@ -173,9 +173,7 @@ public class RecordProfileRewritingTest extends TestBase {
       ArtProfileInspector profileInspector,
       CodeInspector inspector,
       ClassReference recordClassReference,
-      boolean canHaveNonReboundConstructorInvoke,
-      boolean canMergeRecordTag,
-      boolean canUseNestBasedAccesses,
+      boolean isR8,
       boolean partialDesugaring,
       boolean recordDesugaringIsOff) { // Record desugaring is partial or full.
     ClassSubject mainClassSubject = inspector.clazz(MAIN_REFERENCE);
@@ -185,7 +183,7 @@ public class RecordProfileRewritingTest extends TestBase {
     assertThat(mainMethodSubject, isPresent());
 
     ClassSubject recordTagClassSubject = inspector.clazz(recordClassReference);
-    assertThat(recordTagClassSubject, isAbsentIf(canMergeRecordTag || partialDesugaring));
+    assertThat(recordTagClassSubject, isAbsentIf(isR8 || partialDesugaring));
     if (recordTagClassSubject.isPresent()) {
       assertEquals(1, recordTagClassSubject.allMethods().size());
     }
@@ -198,21 +196,19 @@ public class RecordProfileRewritingTest extends TestBase {
     assertEquals(
         partialDesugaring
             ? inspector.getTypeSubject(RECORD_REFERENCE.getTypeName())
-            : canMergeRecordTag
+            : isR8
                 ? inspector.getTypeSubject(Object.class.getTypeName())
                 : recordTagClassSubject.asTypeSubject(),
         personRecordClassSubject.getSuperType());
     assertEquals(
-        recordDesugaringIsOff ? 6 : (canMergeRecordTag && !partialDesugaring) ? 9 : 8,
+        recordDesugaringIsOff ? 6 : (isR8 && !partialDesugaring) ? 9 : 8,
         personRecordClassSubject.allMethods().size());
 
     MethodSubject personDefaultInstanceInitializerSubject = personRecordClassSubject.init();
-    assertThat(
-        personDefaultInstanceInitializerSubject,
-        isPresentIf(canMergeRecordTag && !partialDesugaring));
+    assertThat(personDefaultInstanceInitializerSubject, isPresentIf(isR8 && !partialDesugaring));
 
     MethodSubject personInstanceInitializerSubject =
-        canMergeRecordTag
+        isR8
             ? personRecordClassSubject.init(String.class.getTypeName())
             : personRecordClassSubject.init(String.class.getTypeName(), "int");
     assertThat(personInstanceInitializerSubject, isPresent());
@@ -243,7 +239,8 @@ public class RecordProfileRewritingTest extends TestBase {
 
     // Objects.hashCode(Object) (used by helper generated for record hashCode).
     ClassSubject objectsHashCodeClassSubject =
-        inspector.clazz(SyntheticItemsTestUtils.syntheticBackportClass(PERSON_REFERENCE, 0));
+        inspector.clazz(
+            getDefaultSyntheticItemsTestUtils().syntheticBackportClass(PERSON_REFERENCE, 0));
     assertThat(
         objectsHashCodeClassSubject,
         isAbsentIf(recordDesugaringIsOff || canUseJavaUtilObjects(parameters)));
@@ -252,7 +249,8 @@ public class RecordProfileRewritingTest extends TestBase {
 
     // Objects.equals(Object, Object) (used by helper generated for record compare).
     ClassSubject objectsEqualsClassSubject =
-        inspector.clazz(SyntheticItemsTestUtils.syntheticBackportClass(PERSON_REFERENCE, 1));
+        inspector.clazz(
+            getDefaultSyntheticItemsTestUtils().syntheticBackportClass(PERSON_REFERENCE, 1));
     assertThat(
         objectsEqualsClassSubject,
         isAbsentIf(recordDesugaringIsOff || canUseJavaUtilObjects(parameters)));
@@ -314,10 +312,10 @@ public class RecordProfileRewritingTest extends TestBase {
                     .assertContainsMethodRules(
                         objectsHashCodeMethodSubject, objectsEqualsMethodSubject))
         .applyIf(
-            canMergeRecordTag && !partialDesugaring,
+            isR8 && !partialDesugaring,
             i -> i.assertContainsMethodRule(personDefaultInstanceInitializerSubject))
         .applyIf(
-            !canMergeRecordTag && !partialDesugaring,
+            !isR8 && !partialDesugaring,
             j ->
                 j.assertContainsClassRules(recordTagClassSubject)
                     .assertContainsMethodRule(recordTagInstanceInitializerSubject))

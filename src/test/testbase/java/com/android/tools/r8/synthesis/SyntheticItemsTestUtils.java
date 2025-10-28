@@ -85,8 +85,13 @@ public abstract class SyntheticItemsTestUtils {
     return SyntheticNaming.makeSyntheticReferenceForTest(clazz, kind, "" + id);
   }
 
-  public static MethodReference syntheticBackportMethod(Class<?> clazz, int id, Method method) {
-    ClassReference syntheticHolder = syntheticBackportClass(clazz, id);
+  public final MethodReference syntheticBackportMethod(Class<?> clazz, int id, Method method) {
+    return syntheticBackportMethod(Reference.classFromClass(clazz), id, method);
+  }
+
+  public final MethodReference syntheticBackportMethod(
+      ClassReference classReference, int id, Method method) {
+    ClassReference syntheticHolder = syntheticBackportClass(classReference, id);
     MethodReference originalMethod = Reference.methodFromMethod(method);
     return Reference.methodFromDescriptor(
         syntheticHolder.getDescriptor(),
@@ -163,11 +168,11 @@ public abstract class SyntheticItemsTestUtils {
         + naming.API_MODEL_OUTLINE.getDescriptor();
   }
 
-  public static ClassReference syntheticBackportClass(Class<?> clazz, int id) {
-    return syntheticClass(clazz, naming.BACKPORT, id);
+  public final ClassReference syntheticBackportClass(Class<?> clazz, int id) {
+    return syntheticBackportClass(Reference.classFromClass(clazz), id);
   }
 
-  public static ClassReference syntheticBackportClass(ClassReference classReference, int id) {
+  public ClassReference syntheticBackportClass(ClassReference classReference, int id) {
     return syntheticClass(classReference, naming.BACKPORT, id);
   }
 
@@ -408,6 +413,11 @@ public abstract class SyntheticItemsTestUtils {
     @Override
     public String syntheticApiOutlineClassPrefix(Class<?> clazz) {
       return clazz.getTypeName() + DescriptorUtils.INNER_CLASS_SEPARATOR;
+    }
+
+    @Override
+    public ClassReference syntheticBackportClass(ClassReference classReference, int id) {
+      return syntheticClassWithMinimalName(classReference, id);
     }
 
     @Override

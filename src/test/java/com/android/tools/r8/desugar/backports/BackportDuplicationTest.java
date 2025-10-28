@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.desugar.backports;
 
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -27,7 +28,6 @@ import com.android.tools.r8.desugar.backports.AbstractBackportTest.MiniAssert;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.references.Reference;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.synthesis.SyntheticNaming;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
@@ -338,12 +338,17 @@ public class BackportDuplicationTest extends TestBase {
     // of intermediates.
     Set<MethodReference> expectedSynthetics =
         ImmutableSet.of(
-            SyntheticItemsTestUtils.syntheticBackportMethod(
-                User1.class, 1, Boolean.class.getMethod("compare", boolean.class, boolean.class)),
-            SyntheticItemsTestUtils.syntheticBackportMethod(
-                User1.class, 0, Character.class.getMethod("compare", char.class, char.class)),
-            SyntheticItemsTestUtils.syntheticBackportMethod(
-                User2.class, 0, Integer.class.getMethod("compare", int.class, int.class)));
+            getDefaultSyntheticItemsTestUtils()
+                .syntheticBackportMethod(
+                    User1.class,
+                    1,
+                    Boolean.class.getMethod("compare", boolean.class, boolean.class)),
+            getDefaultSyntheticItemsTestUtils()
+                .syntheticBackportMethod(
+                    User1.class, 0, Character.class.getMethod("compare", char.class, char.class)),
+            getDefaultSyntheticItemsTestUtils()
+                .syntheticBackportMethod(
+                    User2.class, 0, Integer.class.getMethod("compare", int.class, int.class)));
     assertEquals(expectedSynthetics, getSyntheticMethods(inspector));
   }
 

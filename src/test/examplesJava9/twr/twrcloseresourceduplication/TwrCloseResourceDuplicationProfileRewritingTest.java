@@ -6,6 +6,7 @@ package twr.twrcloseresourceduplication;
 
 import static com.android.tools.r8.desugar.LibraryFilesHelper.getJdk11LibraryFiles;
 import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentIf;
 import static com.android.tools.r8.utils.codeinspector.Matchers.notIf;
@@ -66,7 +67,11 @@ public class TwrCloseResourceDuplicationProfileRewritingTest
         .addKeepClassAndMembersRules(FOO, BAR)
         .addArtProfileForRewriting(getArtProfile())
         .addOptionsModification(InlinerOptions::disableInlining)
-        .addOptionsModification(options -> options.testing.enableSyntheticSharing = false)
+        .addOptionsModification(
+            options -> {
+              options.desugarSpecificOptions().minimizeSyntheticNames = true;
+              options.testing.enableSyntheticSharing = false;
+            })
         .applyIf(
             parameters.isCfRuntime(),
             testBuilder ->
@@ -122,17 +127,19 @@ public class TwrCloseResourceDuplicationProfileRewritingTest
   }
 
   private void inspectD8(ArtProfileInspector profileInspector, CodeInspector inspector) {
-    inspect(profileInspector, inspector, hasTwrCloseResourceSupport(true));
+    inspect(profileInspector, inspector, hasTwrCloseResourceSupport(true), false);
   }
 
   private void inspectR8(ArtProfileInspector profileInspector, CodeInspector inspector) {
-    inspect(profileInspector, inspector, hasTwrCloseResourceSupport(parameters.isDexRuntime()));
+    inspect(
+        profileInspector, inspector, hasTwrCloseResourceSupport(parameters.isDexRuntime()), true);
   }
 
   private void inspect(
       ArtProfileInspector profileInspector,
       CodeInspector inspector,
-      boolean hasTwrCloseResourceSupport) {
+      boolean hasTwrCloseResourceSupport,
+      boolean isR8) {
     int expectedClassCount = 3;
     if (!hasTwrCloseResourceSupport) {
       expectedClassCount += 8;
@@ -199,8 +206,8 @@ public class TwrCloseResourceDuplicationProfileRewritingTest
 
       ClassSubject syntheticBackportClassSubject =
           inspector.clazz(
-              SyntheticItemsTestUtils.syntheticBackportClass(
-                  Reference.classFromTypeName(clazz), initialSyntheticId));
+              getSyntheticItemsTestUtils(isR8)
+                  .syntheticBackportClass(Reference.classFromTypeName(clazz), initialSyntheticId));
       assertThat(syntheticBackportClassSubject, notIf(isPresent(), hasTwrCloseResourceSupport));
 
       ClassSubject syntheticTwrCloseResourceClassSubject3 =
