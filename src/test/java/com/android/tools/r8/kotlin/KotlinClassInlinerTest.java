@@ -73,7 +73,9 @@ public class KotlinClassInlinerTest extends AbstractR8KotlinTestBase {
                     .addKeepRules("-neverinline class * { void test*State*(...); }")
                     .addNoHorizontalClassMergingRule(
                         "class_inliner_lambda_j_style.SamIface$Consumer")
-                    .addHorizontallyMergedClassesInspector(
+                    .addHorizontallyMergedClassesInspectorIf(
+                        // Do not inspect output for older Kotlin versions.
+                        kotlinc.getCompilerVersion().isGreaterThanOrEqualTo(KOTLINC_2_0_20),
                         inspector -> {
                           if (hasKotlinCGeneratedLambdaClasses) {
                             inspector.assertIsCompleteMergeGroup(
