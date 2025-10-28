@@ -57,7 +57,8 @@ public class EnumDataMap {
     if (!failed.isEmpty()) {
       CheckEnumUnboxedDiagnostic diagnostic =
           CheckEnumUnboxedDiagnostic.builder().addFailedEnums(failed).build();
-      throw appView.reporter().fatalError(diagnostic);
+      appView.reporter().error(diagnostic);
+      appView.reporter().failIfPendingErrors();
     }
   }
 

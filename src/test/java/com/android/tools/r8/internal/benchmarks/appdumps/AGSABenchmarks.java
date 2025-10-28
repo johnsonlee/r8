@@ -5,6 +5,7 @@ package com.android.tools.r8.internal.benchmarks.appdumps;
 
 import static org.junit.Assume.assumeTrue;
 
+import com.android.tools.r8.DiagnosticsLevel;
 import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
@@ -12,6 +13,7 @@ import com.android.tools.r8.benchmarks.BenchmarkBase;
 import com.android.tools.r8.benchmarks.BenchmarkConfig;
 import com.android.tools.r8.benchmarks.appdumps.AbortBenchmarkException;
 import com.android.tools.r8.benchmarks.appdumps.AppDumpBenchmarkBuilder;
+import com.android.tools.r8.errors.CheckEnumUnboxedDiagnostic;
 import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.ImmutableList;
 import java.nio.file.Path;
@@ -59,6 +61,10 @@ public class AGSABenchmarks extends BenchmarkBase {
             options -> {
               options.getOpenClosedInterfacesOptions().suppressAllOpenInterfaces();
               options.getTestingOptions().dontReportFailingCheckDiscarded = true;
+              options.reporter.addDiagnosticsLevelMapping(
+                  DiagnosticsLevel.ERROR,
+                  CheckEnumUnboxedDiagnostic.class.getTypeName(),
+                  DiagnosticsLevel.WARNING);
             })
         .allowDiagnosticMessages()
         .allowUnusedDontWarnPatterns()

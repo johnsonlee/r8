@@ -16,15 +16,18 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.optimize.DeadCodeRemover;
 import com.android.tools.r8.lightir.LirCode;
 import com.android.tools.r8.lightir.LirConstant;
+import com.android.tools.r8.lightir.LirOpcodes;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.collections.ProgramMethodMap;
 import com.android.tools.r8.utils.timing.Timing;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
@@ -87,13 +90,35 @@ public class ThrowBlockOutliner {
     timing.begin("Scan " + clazz.getTypeName());
     DeadCodeRemover deadCodeRemover = new DeadCodeRemover(appView);
     clazz.forEachProgramMethodMatching(
-        DexEncodedMethod::hasLirCode,
+        this::hasLirCodeMaybeSubjectToOutlining,
         method -> {
           IRCode code = method.buildIR(appView);
           scan(code);
           method.setCode(code, appView, deadCodeRemover, timing);
         });
     timing.end();
+  }
+
+  private boolean hasLirCodeMaybeSubjectToOutlining(DexEncodedMethod method) {
+    if (!method.hasLirCode()) {
+      return false;
+    }
+    LirCode<?> lirCode = method.getCode().asLirCode();
+    if (Iterables.any(lirCode, instruction -> instruction.getOpcode() == LirOpcodes.ATHROW)) {
+      // Maybe subject to throw outlining.
+      return true;
+    }
+    DexType stringBuilderType = appView.dexItemFactory().stringBuilderType;
+    for (LirConstant constant : lirCode.getConstantPool()) {
+      if (constant instanceof DexMethod) {
+        DexMethod methodConstant = (DexMethod) constant;
+        if (methodConstant.getHolderType().isIdenticalTo(stringBuilderType)) {
+          // Maybe subject to StringBuilder outlining.
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   public void scan(IRCode code) {
