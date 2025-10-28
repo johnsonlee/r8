@@ -30,6 +30,8 @@ import java.lang.reflect.Method;
 import java.util.Collections;
 import org.hamcrest.Matcher;
 
+// TODO(b/454846973): Instantiate this based on an output from D8/R8 so that this is completely
+//  independent of the naming used.
 public abstract class SyntheticItemsTestUtils {
 
   // Private copy of the synthetic namings. This is not the compiler instance, but checking on the
@@ -127,11 +129,11 @@ public abstract class SyntheticItemsTestUtils {
     return syntheticClass(clazz, naming.THROW_BLOCK_OUTLINE, id);
   }
 
-  public static ClassReference syntheticOutlineClass(Class<?> clazz, int id) {
-    return syntheticClass(clazz, naming.OUTLINE, id);
+  public final ClassReference syntheticOutlineClass(Class<?> clazz, int id) {
+    return syntheticOutlineClass(Reference.classFromClass(clazz), id);
   }
 
-  public static ClassReference syntheticOutlineClass(ClassReference clazz, int id) {
+  public ClassReference syntheticOutlineClass(ClassReference clazz, int id) {
     return syntheticClass(clazz, naming.OUTLINE, id);
   }
 
@@ -406,6 +408,11 @@ public abstract class SyntheticItemsTestUtils {
     @Override
     public String syntheticApiOutlineClassPrefix(Class<?> clazz) {
       return clazz.getTypeName() + DescriptorUtils.INNER_CLASS_SEPARATOR;
+    }
+
+    @Override
+    public ClassReference syntheticOutlineClass(ClassReference classReference, int id) {
+      return syntheticClassWithMinimalName(classReference, id);
     }
   }
 }

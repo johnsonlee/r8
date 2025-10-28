@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.ir.optimize.outliner.b149971007;
 
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getMinimalSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.notIf;
@@ -17,7 +18,6 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.dexsplitter.SplitterTestBase;
 import com.android.tools.r8.naming.ClassNameMapper;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.FoundMethodSubject;
@@ -69,9 +69,11 @@ public class B149971007 extends SplitterTestBase {
   private ClassSubject checkOutlineFromFeature(CodeInspector inspector) {
     // There are two expected outlines, in a single single class after horizontal class merging.
     ClassSubject classSubject0 =
-        inspector.clazz(SyntheticItemsTestUtils.syntheticOutlineClass(FeatureClass.class, 0));
+        inspector.clazz(
+            getMinimalSyntheticItemsTestUtils().syntheticOutlineClass(FeatureClass.class, 0));
     ClassSubject classSubject1 =
-        inspector.clazz(SyntheticItemsTestUtils.syntheticOutlineClass(FeatureClass.class, 1));
+        inspector.clazz(
+            getMinimalSyntheticItemsTestUtils().syntheticOutlineClass(FeatureClass.class, 1));
     assertThat(classSubject1, notIf(isPresent(), classSubject0.isPresent()));
 
     ClassSubject classSubject = classSubject0.isPresent() ? classSubject0 : classSubject1;
@@ -93,7 +95,11 @@ public class B149971007 extends SplitterTestBase {
             .addKeepClassAndMembersRules(TestClass.class)
             .addKeepClassAndMembersRules(FeatureClass.class)
             .setMinApi(parameters)
-            .addOptionsModification(options -> options.outline.threshold = 2)
+            .addOptionsModification(
+                options -> {
+                  options.desugarSpecificOptions().minimizeSyntheticNames = true;
+                  options.outline.threshold = 2;
+                })
             .compile();
 
     CodeInspector inspector = compileResult.inspector();
@@ -124,12 +130,12 @@ public class B149971007 extends SplitterTestBase {
     // The features do not give rise to an outline.
     ClassSubject featureOutlineClass =
         inspector.clazz(
-            SyntheticItemsTestUtils.syntheticOutlineClass(FeatureClass.class, 0).getTypeName());
+            getMinimalSyntheticItemsTestUtils().syntheticOutlineClass(FeatureClass.class, 0));
     assertThat(featureOutlineClass, isAbsent());
     // The main TestClass entry does.
     ClassSubject mainOutlineClazz =
         inspector.clazz(
-            SyntheticItemsTestUtils.syntheticOutlineClass(TestClass.class, 0).getTypeName());
+            getMinimalSyntheticItemsTestUtils().syntheticOutlineClass(TestClass.class, 0));
     assertThat(mainOutlineClazz, isPresent());
     assertEquals(1, mainOutlineClazz.allMethods().size());
     assertTrue(mainOutlineClazz.allMethods().stream().noneMatch(this::referenceFeatureClass));
@@ -147,7 +153,11 @@ public class B149971007 extends SplitterTestBase {
             .setMinApi(parameters)
             .addFeatureSplit(
                 builder -> simpleSplitProvider(builder, featureCode, temp, FeatureClass.class))
-            .addOptionsModification(options -> options.outline.threshold = 2)
+            .addOptionsModification(
+                options -> {
+                  options.desugarSpecificOptions().minimizeSyntheticNames = true;
+                  options.outline.threshold = 2;
+                })
             .compile()
             .inspect(this::checkNoOutlineFromFeature);
 
@@ -162,7 +172,10 @@ public class B149971007 extends SplitterTestBase {
         ClassNameMapper.mapperFromString(compileResult.getProguardMap())
             .getObfuscatedToOriginalMapping()
             .inverse
-            .get(SyntheticItemsTestUtils.syntheticOutlineClass(TestClass.class, 0).getTypeName());
+            .get(
+                getMinimalSyntheticItemsTestUtils()
+                    .syntheticOutlineClass(TestClass.class, 0)
+                    .getTypeName());
 
     assertFalse(
         invokesOutline(featureClass.uniqueMethodWithOriginalName("method1"), outlineClassName));

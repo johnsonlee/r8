@@ -4,11 +4,14 @@
 
 package com.android.tools.r8.smali;
 
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.dex.code.DexConst4;
 import com.android.tools.r8.dex.code.DexConstString;
 import com.android.tools.r8.dex.code.DexConstWide;
@@ -50,12 +53,16 @@ import java.util.List;
 import java.util.function.Consumer;
 import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
+@RunWith(Parameterized.class)
 public class OutlineTest extends SmaliTestBase {
 
-  private static ClassReference OUTLINE_CLASS =
-      SyntheticItemsTestUtils.syntheticOutlineClass(
-          Reference.classFromTypeName(DEFAULT_CLASS_NAME), 0);
+  private static final ClassReference OUTLINE_CLASS =
+      getDefaultSyntheticItemsTestUtils()
+          .syntheticOutlineClass(Reference.classFromTypeName(DEFAULT_CLASS_NAME), 0);
 
   private static final String stringBuilderAppendSignature =
       "Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;";
@@ -67,6 +74,15 @@ public class OutlineTest extends SmaliTestBase {
       "Ljava/lang/StringBuilder;->append(J)Ljava/lang/StringBuilder;";
   private static final String stringBuilderToStringSignature =
       "Ljava/lang/StringBuilder;->toString()Ljava/lang/String;";
+
+  @Parameters(name = "{0}")
+  public static TestParametersCollection data() {
+    return getTestParameters().withNoneRuntime().build();
+  }
+
+  public OutlineTest(TestParameters parameters) {
+    parameters.assertNoneRuntime();
+  }
 
   private Consumer<InternalOptions> configureOptions(Consumer<InternalOptions> optionsConsumer) {
     return options -> {

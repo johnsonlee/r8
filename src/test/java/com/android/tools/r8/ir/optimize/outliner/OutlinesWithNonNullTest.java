@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize.outliner;
 
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getMinimalSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -54,6 +55,7 @@ public class OutlinesWithNonNullTest extends TestBase {
         .addDontObfuscate()
         .addOptionsModification(
             options -> {
+              options.desugarSpecificOptions().minimizeSyntheticNames = true;
               options.outline.threshold = 2;
               options.outline.minSize = 2;
             })
@@ -75,6 +77,7 @@ public class OutlinesWithNonNullTest extends TestBase {
         .addDontObfuscate()
         .addOptionsModification(
             options -> {
+              options.desugarSpecificOptions().minimizeSyntheticNames = true;
               options.outline.threshold = 2;
               options.outline.minSize = 2;
             })
@@ -86,7 +89,7 @@ public class OutlinesWithNonNullTest extends TestBase {
 
   private void validateOutlining(CodeInspector inspector, Class<?> main) {
     ClassSubject outlineClass =
-        inspector.clazz(SyntheticItemsTestUtils.syntheticOutlineClass(main, 0));
+        inspector.clazz(getMinimalSyntheticItemsTestUtils().syntheticOutlineClass(main, 0));
     MethodSubject outlineMethod =
         outlineClass.uniqueMethodWithOriginalName(SyntheticItemsTestUtils.syntheticMethodName());
     assertThat(outlineMethod, isPresent());
