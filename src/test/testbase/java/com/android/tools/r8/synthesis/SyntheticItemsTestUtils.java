@@ -126,11 +126,11 @@ public abstract class SyntheticItemsTestUtils {
         methodWithReceiverForForwarding.getMethodDescriptor());
   }
 
-  public static ClassReference syntheticThrowBlockOutlineClass(Class<?> clazz, int id) {
+  public final ClassReference syntheticThrowBlockOutlineClass(Class<?> clazz, int id) {
     return syntheticThrowBlockOutlineClass(Reference.classFromClass(clazz), id);
   }
 
-  public static ClassReference syntheticThrowBlockOutlineClass(ClassReference clazz, int id) {
+  public ClassReference syntheticThrowBlockOutlineClass(ClassReference clazz, int id) {
     return syntheticClass(clazz, naming.THROW_BLOCK_OUTLINE, id);
   }
 
@@ -142,11 +142,11 @@ public abstract class SyntheticItemsTestUtils {
     return syntheticClass(clazz, naming.OUTLINE, id);
   }
 
-  public static ClassReference syntheticLambdaClass(Class<?> clazz, int id) {
-    return syntheticClass(clazz, naming.LAMBDA, id);
+  public final ClassReference syntheticLambdaClass(Class<?> clazz, int id) {
+    return syntheticLambdaClass(Reference.classFromClass(clazz), id);
   }
 
-  public static ClassReference syntheticLambdaClass(ClassReference clazz, int id) {
+  public ClassReference syntheticLambdaClass(ClassReference clazz, int id) {
     return syntheticClass(clazz, naming.LAMBDA, id);
   }
 
@@ -193,36 +193,31 @@ public abstract class SyntheticItemsTestUtils {
     return syntheticClass(reference, naming.RECORD_HELPER, id);
   }
 
-  public static ClassReference syntheticTwrCloseResourceClass(ClassReference reference, int id) {
+  public ClassReference syntheticTwrCloseResourceClass(ClassReference reference, int id) {
     return syntheticClass(reference, naming.TWR_CLOSE_RESOURCE, id);
   }
 
-  public static ClassReference syntheticAutoCloseableDispatcherClass(
+  public ClassReference syntheticAutoCloseableDispatcherClass(
       ClassReference classReference, int id) {
     return syntheticClass(classReference, naming.AUTOCLOSEABLE_DISPATCHER, id);
   }
 
-  public static ClassReference syntheticAutoCloseableForwarderClass(
+  public ClassReference syntheticAutoCloseableForwarderClass(
       ClassReference classReference, int id) {
     return syntheticClass(classReference, naming.AUTOCLOSEABLE_FORWARDER, id);
   }
 
-  public static ClassReference syntheticThrowIAEClass(ClassReference classReference, int id) {
+  public ClassReference syntheticThrowIAEClass(ClassReference classReference, int id) {
     return syntheticClass(classReference, naming.THROW_IAE, id);
   }
 
-  public static MethodReference syntheticLambdaMethod(Class<?> clazz, int id, Method method) {
+  public final MethodReference syntheticLambdaMethod(Class<?> clazz, int id, Method method) {
     ClassReference syntheticHolder = syntheticLambdaClass(clazz, id);
     MethodReference originalMethod = Reference.methodFromMethod(method);
     return Reference.methodFromDescriptor(
         syntheticHolder.getDescriptor(),
         originalMethod.getMethodName(),
         originalMethod.getMethodDescriptor());
-  }
-
-  public static ClassReference syntheticInitializerArgumentType(
-      ClassReference classReference, int id) {
-    return syntheticClass(classReference, naming.NON_FIXED_INIT_TYPE_ARGUMENT, id);
   }
 
   public static ClassReference syntheticNestConstructorArgumentClass(
@@ -416,12 +411,44 @@ public abstract class SyntheticItemsTestUtils {
     }
 
     @Override
+    public ClassReference syntheticAutoCloseableDispatcherClass(
+        ClassReference classReference, int id) {
+      return syntheticClassWithMinimalName(classReference, id);
+    }
+
+    @Override
+    public ClassReference syntheticAutoCloseableForwarderClass(
+        ClassReference classReference, int id) {
+      return syntheticClassWithMinimalName(classReference, id);
+    }
+
+    @Override
     public ClassReference syntheticBackportClass(ClassReference classReference, int id) {
       return syntheticClassWithMinimalName(classReference, id);
     }
 
     @Override
+    public ClassReference syntheticLambdaClass(ClassReference classReference, int id) {
+      return syntheticClassWithMinimalName(classReference, id);
+    }
+
+    @Override
     public ClassReference syntheticOutlineClass(ClassReference classReference, int id) {
+      return syntheticClassWithMinimalName(classReference, id);
+    }
+
+    @Override
+    public ClassReference syntheticThrowBlockOutlineClass(ClassReference classReference, int id) {
+      return syntheticClassWithMinimalName(classReference, id);
+    }
+
+    @Override
+    public ClassReference syntheticThrowIAEClass(ClassReference classReference, int id) {
+      return syntheticClassWithMinimalName(classReference, id);
+    }
+
+    @Override
+    public ClassReference syntheticTwrCloseResourceClass(ClassReference classReference, int id) {
       return syntheticClassWithMinimalName(classReference, id);
     }
   }

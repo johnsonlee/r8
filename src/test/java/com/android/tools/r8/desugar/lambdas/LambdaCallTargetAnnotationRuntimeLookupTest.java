@@ -3,12 +3,13 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.desugar.lambdas;
 
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
+
 import com.android.tools.r8.D8TestBuilder;
 import com.android.tools.r8.GlobalSyntheticsTestingConsumer;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.references.Reference;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
 import java.lang.annotation.Annotation;
@@ -60,7 +61,9 @@ public class LambdaCallTargetAnnotationRuntimeLookupTest extends TestBase {
         .run(
             parameters.getRuntime(),
             TestClass.class,
-            SyntheticItemsTestUtils.syntheticLambdaClass(TestClass.class, 0).getTypeName())
+            getDefaultSyntheticItemsTestUtils()
+                .syntheticLambdaClass(TestClass.class, 0)
+                .getTypeName())
         .assertSuccessWithOutputLines(
             "1",
             "true",

@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.profile.art.completeness;
 
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethod;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.notIf;
@@ -14,7 +15,6 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.profile.art.model.ExternalArtProfile;
 import com.android.tools.r8.profile.art.utils.ArtProfileInspector;
 import com.android.tools.r8.references.Reference;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.MethodReferenceUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
@@ -70,7 +70,8 @@ public class SyntheticLambdaClassProfileRewritingTest extends TestBase {
         CodeInspector inspector,
         boolean canHaveNonReboundConstructorInvoke,
         boolean canUseLambdas,
-        boolean canAccessModifyLambdaImplementationMethods) {
+        boolean canAccessModifyLambdaImplementationMethods,
+        boolean isR8) {
       ClassSubject mainClassSubject = inspector.clazz(Main.class);
       assertThat(mainClassSubject, isPresent());
 
@@ -103,7 +104,7 @@ public class SyntheticLambdaClassProfileRewritingTest extends TestBase {
 
       // Check the presence of the first lambda class and its methods.
       ClassSubject lambdaClassSubject =
-          inspector.clazz(SyntheticItemsTestUtils.syntheticLambdaClass(Main.class, 0));
+          inspector.clazz(getSyntheticItemsTestUtils(isR8).syntheticLambdaClass(Main.class, 0));
       assertThat(lambdaClassSubject, notIf(isPresent(), canUseLambdas));
 
       MethodSubject lambdaInitializerSubject = lambdaClassSubject.uniqueInstanceInitializer();
@@ -117,7 +118,7 @@ public class SyntheticLambdaClassProfileRewritingTest extends TestBase {
 
       // Check the presence of the second lambda class and its methods.
       ClassSubject otherLambdaClassSubject =
-          inspector.clazz(SyntheticItemsTestUtils.syntheticLambdaClass(Main.class, 1));
+          inspector.clazz(getSyntheticItemsTestUtils(isR8).syntheticLambdaClass(Main.class, 1));
       assertThat(otherLambdaClassSubject, notIf(isPresent(), canUseLambdas));
 
       MethodSubject otherLambdaInitializerSubject =
@@ -225,6 +226,8 @@ public class SyntheticLambdaClassProfileRewritingTest extends TestBase {
         .addKeepRules(
             "-neverinline class " + Main.class.getTypeName() + " { void lambda$main$*(); }")
         .addArtProfileForRewriting(artProfileInputOutput.getArtProfile())
+        .addOptionsModification(
+            options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
         .enableProguardTestOptions()
         .noHorizontalClassMergingOfSynthetics()
         .setMinApi(parameters)
@@ -235,7 +238,7 @@ public class SyntheticLambdaClassProfileRewritingTest extends TestBase {
   }
 
   private void inspectD8(ArtProfileInspector profileInspector, CodeInspector inspector) {
-    artProfileInputOutput.inspect(profileInspector, inspector, false, false, true);
+    artProfileInputOutput.inspect(profileInspector, inspector, false, false, true, false);
   }
 
   private void inspectR8(ArtProfileInspector profileInspector, CodeInspector inspector) {
@@ -244,7 +247,8 @@ public class SyntheticLambdaClassProfileRewritingTest extends TestBase {
         inspector,
         parameters.canHaveNonReboundConstructorInvoke(),
         parameters.isCfRuntime(),
-        parameters.isAccessModificationEnabledByDefault());
+        parameters.isAccessModificationEnabledByDefault(),
+        true);
   }
 
   static class Main {

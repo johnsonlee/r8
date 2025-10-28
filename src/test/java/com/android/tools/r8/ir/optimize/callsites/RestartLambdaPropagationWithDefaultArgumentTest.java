@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize.callsites;
 
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getMinimalSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsentIf;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -13,7 +14,6 @@ import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import org.junit.Test;
@@ -41,6 +41,8 @@ public class RestartLambdaPropagationWithDefaultArgumentTest extends TestBase {
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
+        .addOptionsModification(
+            options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
         .enableInliningAnnotations()
         .setMinApi(parameters)
         .compile()
@@ -50,7 +52,8 @@ public class RestartLambdaPropagationWithDefaultArgumentTest extends TestBase {
               assertThat(mainClassSubject, isPresent());
 
               ClassSubject lambdaClassSubject =
-                  inspector.clazz(SyntheticItemsTestUtils.syntheticLambdaClass(Main.class, 0));
+                  inspector.clazz(
+                      getMinimalSyntheticItemsTestUtils().syntheticLambdaClass(Main.class, 0));
               assertThat(lambdaClassSubject, isPresent());
               assertEquals(0, lambdaClassSubject.allInstanceFields().size());
 

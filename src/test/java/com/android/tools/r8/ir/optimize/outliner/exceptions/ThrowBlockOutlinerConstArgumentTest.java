@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize.outliner.exceptions;
 
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.isInvokeWithTarget;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.CoreMatchers.containsString;
@@ -15,7 +16,6 @@ import com.android.tools.r8.TestCompileResult;
 import com.android.tools.r8.TestCompilerBuilder;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.ir.optimize.outliner.exceptions.ThrowBlockOutlinerArrayUseTypeTest.Main;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
@@ -47,7 +47,7 @@ public class ThrowBlockOutlinerConstArgumentTest extends ThrowBlockOutlinerTestB
             .addInnerClasses(getClass())
             .apply(this::configure)
             .compile()
-            .inspect(this::inspectOutput);
+            .inspect(inspector -> inspectOutput(inspector, testBuilder.isR8TestBuilder()));
     for (int i = 0; i < 3; i++) {
       compileResult
           .run(parameters.getRuntime(), Main.class, Integer.toString(i))
@@ -76,11 +76,12 @@ public class ThrowBlockOutlinerConstArgumentTest extends ThrowBlockOutlinerTestB
     assertTrue(numberOfUsers.contains(3));
   }
 
-  private void inspectOutput(CodeInspector inspector) {
+  private void inspectOutput(CodeInspector inspector, boolean isR8) {
     assertEquals(2, inspector.allClasses().size());
 
     ClassSubject outlineClassSubject =
-        inspector.clazz(SyntheticItemsTestUtils.syntheticThrowBlockOutlineClass(Main.class, 0));
+        inspector.clazz(
+            getSyntheticItemsTestUtils(isR8).syntheticThrowBlockOutlineClass(Main.class, 0));
     assertThat(outlineClassSubject, isPresent());
     assertEquals(1, outlineClassSubject.allMethods().size());
 

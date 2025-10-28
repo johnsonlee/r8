@@ -71,6 +71,10 @@ public abstract class ThrowBlockOutlinerTestBase extends TestBase {
                   };
               outlinerOptions.outlineStrategyForTesting = this::shouldOutline;
             })
+        .applyIfR8(
+            b ->
+                b.addOptionsModification(
+                    options -> options.desugarSpecificOptions().minimizeSyntheticNames = true))
         .setMode(mode);
   }
 

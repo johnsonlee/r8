@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize.outliner.exceptions;
 
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethod;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -10,7 +11,6 @@ import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.TestCompileResult;
 import com.android.tools.r8.graph.DexItemFactory;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import java.util.Collection;
 import org.junit.Test;
@@ -46,7 +46,8 @@ public class ThrowBlockOutlinerSyntheticSharingTest extends ThrowBlockOutlinerTe
               assertEquals(3, inspector.allClasses().size());
               ClassSubject syntheticClassSubject =
                   inspector.clazz(
-                      SyntheticItemsTestUtils.syntheticThrowBlockOutlineClass(Main.class, 0));
+                      getDefaultSyntheticItemsTestUtils()
+                          .syntheticThrowBlockOutlineClass(Main.class, 0));
               assertThat(syntheticClassSubject, isPresent());
               assertEquals(1, syntheticClassSubject.allMethods().size());
 

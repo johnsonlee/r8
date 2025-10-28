@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.classmerging.horizontalstatic;
 
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getMinimalSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -12,7 +13,6 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import java.io.IOException;
 import java.lang.Thread.State;
 import java.util.concurrent.ExecutionException;
@@ -58,10 +58,12 @@ public class HorizontalClassMergerSynchronizedMethodTest extends TestBase {
                         parameters.canHaveIssueWithInlinedMonitors(),
                         i -> i.assertIsCompleteMergeGroup(AcquireOne.class, AcquireThree.class))
                     .assertIsCompleteMergeGroup(
-                        SyntheticItemsTestUtils.syntheticLambdaClass(Main.class, 0),
-                        SyntheticItemsTestUtils.syntheticLambdaClass(Main.class, 1),
-                        SyntheticItemsTestUtils.syntheticLambdaClass(Main.class, 2))
+                        getMinimalSyntheticItemsTestUtils().syntheticLambdaClass(Main.class, 0),
+                        getMinimalSyntheticItemsTestUtils().syntheticLambdaClass(Main.class, 1),
+                        getMinimalSyntheticItemsTestUtils().syntheticLambdaClass(Main.class, 2))
                     .assertNoOtherClassesMerged())
+        .addOptionsModification(
+            options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), Main.class)

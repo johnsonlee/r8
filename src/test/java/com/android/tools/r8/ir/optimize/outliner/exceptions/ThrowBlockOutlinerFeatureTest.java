@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize.outliner.exceptions;
 
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getMinimalSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -10,7 +11,6 @@ import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.R8TestCompileResultBase;
 import com.android.tools.r8.graph.DexItemFactory;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import java.util.Collection;
@@ -78,7 +78,8 @@ public class ThrowBlockOutlinerFeatureTest extends ThrowBlockOutlinerTestBase {
     assertThat(inspector.clazz(Main.class), isPresent());
 
     ClassSubject outlineClassSubject =
-        inspector.clazz(SyntheticItemsTestUtils.syntheticThrowBlockOutlineClass(Main.class, 0));
+        inspector.clazz(
+            getMinimalSyntheticItemsTestUtils().syntheticThrowBlockOutlineClass(Main.class, 0));
     assertThat(outlineClassSubject, isPresent());
     assertEquals(1, outlineClassSubject.allMethods().size());
   }
@@ -93,7 +94,8 @@ public class ThrowBlockOutlinerFeatureTest extends ThrowBlockOutlinerTestBase {
     assertThat(inspector.clazz(Feature2.class), isPresent());
 
     ClassSubject outlineClassSubject =
-        inspector.clazz(SyntheticItemsTestUtils.syntheticThrowBlockOutlineClass(Feature2.class, 0));
+        inspector.clazz(
+            getMinimalSyntheticItemsTestUtils().syntheticThrowBlockOutlineClass(Feature2.class, 0));
     assertThat(outlineClassSubject, isPresent());
     assertEquals(1, outlineClassSubject.allMethods().size());
   }

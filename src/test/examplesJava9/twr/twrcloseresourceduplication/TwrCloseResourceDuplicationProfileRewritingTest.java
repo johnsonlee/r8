@@ -6,7 +6,6 @@ package twr.twrcloseresourceduplication;
 
 import static com.android.tools.r8.desugar.LibraryFilesHelper.getJdk11LibraryFiles;
 import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentIf;
 import static com.android.tools.r8.utils.codeinspector.Matchers.notIf;
@@ -18,7 +17,6 @@ import com.android.tools.r8.profile.art.model.ExternalArtProfile;
 import com.android.tools.r8.profile.art.utils.ArtProfileInspector;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.references.TypeReference;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.InternalOptions.InlinerOptions;
@@ -69,7 +67,9 @@ public class TwrCloseResourceDuplicationProfileRewritingTest
         .addOptionsModification(InlinerOptions::disableInlining)
         .addOptionsModification(
             options -> {
-              options.desugarSpecificOptions().minimizeSyntheticNames = true;
+              // Explicitly disable minimal synthetic names to enable robust detection of
+              // synthetics.
+              options.desugarSpecificOptions().minimizeSyntheticNames = false;
               options.testing.enableSyntheticSharing = false;
             })
         .applyIf(
@@ -206,28 +206,31 @@ public class TwrCloseResourceDuplicationProfileRewritingTest
 
       ClassSubject syntheticBackportClassSubject =
           inspector.clazz(
-              getSyntheticItemsTestUtils(isR8)
+              getDefaultSyntheticItemsTestUtils()
                   .syntheticBackportClass(Reference.classFromTypeName(clazz), initialSyntheticId));
       assertThat(syntheticBackportClassSubject, notIf(isPresent(), hasTwrCloseResourceSupport));
 
       ClassSubject syntheticTwrCloseResourceClassSubject3 =
           inspector.clazz(
-              SyntheticItemsTestUtils.syntheticTwrCloseResourceClass(
-                  Reference.classFromTypeName(clazz), initialSyntheticId + 1));
+              getDefaultSyntheticItemsTestUtils()
+                  .syntheticTwrCloseResourceClass(
+                      Reference.classFromTypeName(clazz), initialSyntheticId + 1));
       assertThat(
           syntheticTwrCloseResourceClassSubject3, notIf(isPresent(), hasTwrCloseResourceSupport));
 
       ClassSubject syntheticTwrCloseResourceClassSubject4 =
           inspector.clazz(
-              SyntheticItemsTestUtils.syntheticTwrCloseResourceClass(
-                  Reference.classFromTypeName(clazz), initialSyntheticId + 2));
+              getDefaultSyntheticItemsTestUtils()
+                  .syntheticTwrCloseResourceClass(
+                      Reference.classFromTypeName(clazz), initialSyntheticId + 2));
       assertThat(
           syntheticTwrCloseResourceClassSubject4, notIf(isPresent(), hasTwrCloseResourceSupport));
 
       ClassSubject syntheticTwrCloseResourceClassSubject5 =
           inspector.clazz(
-              SyntheticItemsTestUtils.syntheticTwrCloseResourceClass(
-                  Reference.classFromTypeName(clazz), initialSyntheticId + 3));
+              getDefaultSyntheticItemsTestUtils()
+                  .syntheticTwrCloseResourceClass(
+                      Reference.classFromTypeName(clazz), initialSyntheticId + 3));
       assertThat(
           syntheticTwrCloseResourceClassSubject5, notIf(isPresent(), hasTwrCloseResourceSupport));
 
@@ -258,49 +261,54 @@ public class TwrCloseResourceDuplicationProfileRewritingTest
     profileInspector.applyIf(
         options.shouldDesugarAutoCloseable(),
         i ->
-            i.assertContainsClassRules(getCloseDispatcherSyntheticClasses(inspector))
+            i.assertContainsClassRules(getCloseDispatcherSyntheticClasses(inspector, isR8))
                 .assertContainsMethodRules(
-                    Arrays.stream(getCloseDispatcherSyntheticClasses(inspector))
+                    Arrays.stream(getCloseDispatcherSyntheticClasses(inspector, isR8))
                         .map(ClassSubject::uniqueMethod)
                         .toArray(MethodSubject[]::new)));
 
     profileInspector.assertContainsNoOtherRules();
   }
 
-  private static ClassSubject[] getCloseDispatcherSyntheticClasses(CodeInspector inspector) {
+  private static ClassSubject[] getCloseDispatcherSyntheticClasses(
+      CodeInspector inspector, boolean isR8) {
     return new ClassSubject[] {
       inspector.clazz(
-          SyntheticItemsTestUtils.syntheticAutoCloseableDispatcherClass(
-              Reference.classFromTypeName(FOO), 0)),
+          getDefaultSyntheticItemsTestUtils()
+              .syntheticAutoCloseableDispatcherClass(Reference.classFromTypeName(FOO), 0)),
       inspector.clazz(
-          SyntheticItemsTestUtils.syntheticAutoCloseableDispatcherClass(
-              Reference.classFromTypeName(FOO), 1)),
+          getDefaultSyntheticItemsTestUtils()
+              .syntheticAutoCloseableDispatcherClass(Reference.classFromTypeName(FOO), 1)),
       inspector.clazz(
-          SyntheticItemsTestUtils.syntheticAutoCloseableDispatcherClass(
-              Reference.classFromTypeName(BAR), 0)),
+          getDefaultSyntheticItemsTestUtils()
+              .syntheticAutoCloseableDispatcherClass(Reference.classFromTypeName(BAR), 0)),
       inspector.clazz(
-          SyntheticItemsTestUtils.syntheticAutoCloseableDispatcherClass(
-              Reference.classFromTypeName(BAR), 1)),
+          getDefaultSyntheticItemsTestUtils()
+              .syntheticAutoCloseableDispatcherClass(Reference.classFromTypeName(BAR), 1)),
       inspector.clazz(
-          SyntheticItemsTestUtils.syntheticAutoCloseableForwarderClass(
-              Reference.classFromTypeName(FOO), 2)),
+          getDefaultSyntheticItemsTestUtils()
+              .syntheticAutoCloseableForwarderClass(Reference.classFromTypeName(FOO), 2)),
       inspector.clazz(
-          SyntheticItemsTestUtils.syntheticAutoCloseableForwarderClass(
-              Reference.classFromTypeName(FOO), 3)),
+          getDefaultSyntheticItemsTestUtils()
+              .syntheticAutoCloseableForwarderClass(Reference.classFromTypeName(FOO), 3)),
       inspector.clazz(
-          SyntheticItemsTestUtils.syntheticAutoCloseableForwarderClass(
-              Reference.classFromTypeName(BAR), 2)),
+          getDefaultSyntheticItemsTestUtils()
+              .syntheticAutoCloseableForwarderClass(Reference.classFromTypeName(BAR), 2)),
       inspector.clazz(
-          SyntheticItemsTestUtils.syntheticAutoCloseableForwarderClass(
-              Reference.classFromTypeName(BAR), 3)),
+          getDefaultSyntheticItemsTestUtils()
+              .syntheticAutoCloseableForwarderClass(Reference.classFromTypeName(BAR), 3)),
       inspector.clazz(
-          SyntheticItemsTestUtils.syntheticThrowIAEClass(Reference.classFromTypeName(FOO), 4)),
+          getDefaultSyntheticItemsTestUtils()
+              .syntheticThrowIAEClass(Reference.classFromTypeName(FOO), 4)),
       inspector.clazz(
-          SyntheticItemsTestUtils.syntheticThrowIAEClass(Reference.classFromTypeName(FOO), 5)),
+          getDefaultSyntheticItemsTestUtils()
+              .syntheticThrowIAEClass(Reference.classFromTypeName(FOO), 5)),
       inspector.clazz(
-          SyntheticItemsTestUtils.syntheticThrowIAEClass(Reference.classFromTypeName(BAR), 4)),
+          getDefaultSyntheticItemsTestUtils()
+              .syntheticThrowIAEClass(Reference.classFromTypeName(BAR), 4)),
       inspector.clazz(
-          SyntheticItemsTestUtils.syntheticThrowIAEClass(Reference.classFromTypeName(BAR), 5))
+          getDefaultSyntheticItemsTestUtils()
+              .syntheticThrowIAEClass(Reference.classFromTypeName(BAR), 5))
     };
   }
 }

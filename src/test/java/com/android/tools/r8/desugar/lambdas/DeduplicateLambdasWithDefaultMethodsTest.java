@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.desugar.lambdas;
 
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.TestBase;
@@ -37,7 +38,7 @@ public class DeduplicateLambdasWithDefaultMethodsTest extends TestBase {
             Reference.classFromClass(I.class),
             Reference.classFromClass(TestClass.class),
             SyntheticItemsTestUtils.syntheticCompanionClass(I.class),
-            SyntheticItemsTestUtils.syntheticLambdaClass(TestClass.class, 0)),
+            getDefaultSyntheticItemsTestUtils().syntheticLambdaClass(TestClass.class, 0)),
         testForD8(Backend.CF)
             .addInnerClasses(getClass())
             .setIntermediate(true)

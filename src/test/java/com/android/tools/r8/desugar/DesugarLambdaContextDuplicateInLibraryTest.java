@@ -6,6 +6,7 @@ package com.android.tools.r8.desugar;
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticType;
 import static org.junit.Assert.assertTrue;
 
+import com.android.tools.r8.R8TestRunResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -18,21 +19,20 @@ import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class DesugarLambdaContextDuplicateInLibraryTest extends TestBase {
 
   static final String EXPECTED = StringUtils.lines("library string", "Hello", "world!");
 
-  private final TestParameters parameters;
+  @Parameter(0)
+  public TestParameters parameters;
 
-  @Parameterized.Parameters(name = "{0}")
+  @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
-  }
-
-  public DesugarLambdaContextDuplicateInLibraryTest(TestParameters parameters) {
-    this.parameters = parameters;
   }
 
   private static final Class<?> MAIN = TestClass.class;
@@ -42,7 +42,7 @@ public class DesugarLambdaContextDuplicateInLibraryTest extends TestBase {
   private static final List<Class<?>> LIBRARY =
       ImmutableList.of(LibraryInterface.class, LIBRARY_CONTEXT);
 
-  private static final MethodReference pinnedPrintLn() throws Exception {
+  private static MethodReference pinnedPrintLn() throws Exception {
     return Reference.methodFromMethod(
         TestClass.class.getDeclaredMethod("println", LibraryInterface.class));
   }
@@ -55,6 +55,8 @@ public class DesugarLambdaContextDuplicateInLibraryTest extends TestBase {
         .addProgramClasses(LIBRARY)
         .addKeepMainRule(MAIN)
         .addKeepMethodRules(pinnedPrintLn())
+        .addOptionsModification(
+            options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
         .setMinApi(parameters)
         .addHorizontallyMergedClassesInspector(
             inspector -> {
@@ -82,6 +84,11 @@ public class DesugarLambdaContextDuplicateInLibraryTest extends TestBase {
         .addDefaultRuntimeLibrary(parameters)
         .addKeepMainRule(MAIN)
         .addKeepMethodRules(pinnedPrintLn())
+        // Explicitly disable minimal synthetic names to ensure collision of synthetics. In
+        // particular, note that this test compiles and adds the LIBRARY using D8 below at the call
+        // to addRunClasspathClasses.
+        .addOptionsModification(
+            options -> options.desugarSpecificOptions().minimizeSyntheticNames = false)
         .setMinApi(parameters)
         // Use a checksum filter to simulate the classes being found on bootclasspath by removing
         // then from the program output.
@@ -102,7 +109,7 @@ public class DesugarLambdaContextDuplicateInLibraryTest extends TestBase {
             parameters.isCfRuntime(),
             r -> r.assertSuccessWithOutput(EXPECTED),
             // TODO(b/191747442): A library class and its derivatives should be pinned.
-            r -> r.assertFailure());
+            R8TestRunResult::assertFailure);
   }
 
   interface LibraryInterface {

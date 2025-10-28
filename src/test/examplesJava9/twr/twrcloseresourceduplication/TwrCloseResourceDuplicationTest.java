@@ -3,7 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package twr.twrcloseresourceduplication;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getMinimalSyntheticItemsTestUtils;
 import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.TestBase;
@@ -12,7 +12,6 @@ import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.references.Reference;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.StringUtils;
@@ -146,6 +145,8 @@ public class TwrCloseResourceDuplicationTest extends TestBase {
         .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.LATEST))
         .addKeepMainRule(MAIN)
         .addKeepClassAndMembersRules(FOO, BAR)
+        .addOptionsModification(
+            options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
         .setMinApi(parameters)
         .addDontObfuscate()
         .run(parameters.getRuntime(), MAIN, getZipFile())
@@ -163,7 +164,7 @@ public class TwrCloseResourceDuplicationTest extends TestBase {
               if (!hasTwrCloseResourceSupport(parameters.isDexRuntime())) {
                 Set<String> classOutputWithSynthetics = new HashSet<>(nonSyntheticClassOutput);
                 classOutputWithSynthetics.add(
-                    getDefaultSyntheticItemsTestUtils()
+                    getMinimalSyntheticItemsTestUtils()
                         .syntheticApiOutlineClass(Reference.classFromTypeName(BAR), 0)
                         .getTypeName());
                 assertEquals(classOutputWithSynthetics, foundClasses);
@@ -172,13 +173,14 @@ public class TwrCloseResourceDuplicationTest extends TestBase {
                 if (parameters.getApiLevel().isLessThan(AndroidApiLevel.N)) {
                   // Above N, the forwarder is inlined in the dispatcher.
                   classOutputWithSynthetics.add(
-                      SyntheticItemsTestUtils.syntheticAutoCloseableForwarderClass(
-                              Reference.classFromTypeName(BAR), 1)
+                      getMinimalSyntheticItemsTestUtils()
+                          .syntheticAutoCloseableForwarderClass(Reference.classFromTypeName(BAR), 1)
                           .getTypeName());
                 }
                 if (!parameters.corelibWithExecutorServiceImplementingAutoClosable()) {
                   classOutputWithSynthetics.add(
-                      SyntheticItemsTestUtils.syntheticAutoCloseableDispatcherClass(
+                      getMinimalSyntheticItemsTestUtils()
+                          .syntheticAutoCloseableDispatcherClass(
                               Reference.classFromTypeName(BAR), 0)
                           .getTypeName());
                 }

@@ -4,7 +4,6 @@
 package com.android.tools.r8.synthesis;
 
 import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.syntheticLambdaClass;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -56,7 +55,8 @@ public class RepeatedCompilationNestedSyntheticsAndStrippedMarkerTest extends Te
   public void test() throws Exception {
     assertEquals(Backend.DEX, parameters.getBackend());
 
-    ClassReference syntheticLambdaClass = syntheticLambdaClass(UsesBackport.class, 0);
+    ClassReference syntheticLambdaClass =
+        getDefaultSyntheticItemsTestUtils().syntheticLambdaClass(UsesBackport.class, 0);
     ImmutableSet<String> expectedClassOutputs =
         ImmutableSet.of(descriptor(UsesBackport.class), syntheticLambdaClass.getDescriptor());
 
@@ -203,7 +203,8 @@ public class RepeatedCompilationNestedSyntheticsAndStrippedMarkerTest extends Te
                       .map(c -> c.getFinalReference().getDescriptor())
                       .collect(Collectors.toSet());
               // The initial lambda stays as the only item under UsesBackport.
-              ClassReference lambdaClass = syntheticLambdaClass(UsesBackport.class, 0);
+              ClassReference lambdaClass =
+                  getDefaultSyntheticItemsTestUtils().syntheticLambdaClass(UsesBackport.class, 0);
               // The nested backport has context in the lambda since the lambda was not marked.
               ClassReference backportClass =
                   getDefaultSyntheticItemsTestUtils().syntheticBackportClass(lambdaClass, 0);

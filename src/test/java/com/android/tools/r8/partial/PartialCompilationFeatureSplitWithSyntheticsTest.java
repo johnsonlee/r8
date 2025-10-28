@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.partial;
 
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndNotRenamed;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndRenamed;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -10,6 +11,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -46,27 +48,33 @@ public class PartialCompilationFeatureSplitWithSyntheticsTest extends TestBase {
         .compile()
         .inspect(
             baseInspector -> {
+              SyntheticItemsTestUtils syntheticItemsTestUtils = getDefaultSyntheticItemsTestUtils();
               ClassSubject includedClass = baseInspector.clazz(IncludedBaseClass.class);
               assertThat(includedClass, isPresentAndRenamed());
 
               ClassSubject includedLambda =
-                  baseInspector.lambdaClassFor(IncludedBaseClass.class, 0);
+                  baseInspector.clazz(
+                      syntheticItemsTestUtils.syntheticLambdaClass(IncludedBaseClass.class, 0));
               assertThat(includedLambda, isPresentAndRenamed());
 
               ClassSubject excludedClass = baseInspector.clazz(ExcludedBaseClass.class);
               assertThat(excludedClass, isPresentAndNotRenamed());
 
               ClassSubject excludedLambda =
-                  baseInspector.lambdaClassFor(ExcludedBaseClass.class, 0);
+                  baseInspector.clazz(
+                      syntheticItemsTestUtils.syntheticLambdaClass(ExcludedBaseClass.class, 0));
               assertThat(excludedLambda, isPresentAndNotRenamed());
             },
             feature1Inspector -> {
+              SyntheticItemsTestUtils syntheticItemsTestUtils = getDefaultSyntheticItemsTestUtils();
               ClassSubject includedClass =
                   feature1Inspector.clazz(IncludedFeature1SplitClass.class);
               assertThat(includedClass, isPresentAndRenamed());
 
               ClassSubject includedLambda =
-                  feature1Inspector.lambdaClassFor(IncludedFeature1SplitClass.class, 0);
+                  feature1Inspector.clazz(
+                      syntheticItemsTestUtils.syntheticLambdaClass(
+                          IncludedFeature1SplitClass.class, 0));
               assertThat(includedLambda, isPresentAndRenamed());
 
               ClassSubject excludedClass =
@@ -74,16 +82,21 @@ public class PartialCompilationFeatureSplitWithSyntheticsTest extends TestBase {
               assertThat(excludedClass, isPresentAndNotRenamed());
 
               ClassSubject excludedLambda =
-                  feature1Inspector.lambdaClassFor(ExcludedFeature1SplitClass.class, 0);
+                  feature1Inspector.clazz(
+                      syntheticItemsTestUtils.syntheticLambdaClass(
+                          ExcludedFeature1SplitClass.class, 0));
               assertThat(excludedLambda, isPresentAndNotRenamed());
             },
             feature2Inspector -> {
+              SyntheticItemsTestUtils syntheticItemsTestUtils = getDefaultSyntheticItemsTestUtils();
               ClassSubject includedClass =
                   feature2Inspector.clazz(IncludedFeature2SplitClass.class);
               assertThat(includedClass, isPresentAndRenamed());
 
               ClassSubject includedLambda =
-                  feature2Inspector.lambdaClassFor(IncludedFeature2SplitClass.class, 0);
+                  feature2Inspector.clazz(
+                      syntheticItemsTestUtils.syntheticLambdaClass(
+                          IncludedFeature2SplitClass.class, 0));
               assertThat(includedLambda, isPresentAndRenamed());
 
               ClassSubject excludedClass =
@@ -91,7 +104,9 @@ public class PartialCompilationFeatureSplitWithSyntheticsTest extends TestBase {
               assertThat(excludedClass, isPresentAndNotRenamed());
 
               ClassSubject excludedLambda =
-                  feature2Inspector.lambdaClassFor(ExcludedFeature2SplitClass.class, 0);
+                  feature2Inspector.clazz(
+                      syntheticItemsTestUtils.syntheticLambdaClass(
+                          ExcludedFeature2SplitClass.class, 0));
               assertThat(excludedLambda, isPresentAndNotRenamed());
             })
         .apply(compileResult -> compileResult.addRunClasspathFiles(compileResult.getFeatures()))

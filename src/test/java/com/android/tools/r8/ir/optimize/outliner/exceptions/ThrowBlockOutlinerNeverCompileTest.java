@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize.outliner.exceptions;
 
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -12,7 +13,6 @@ import static org.junit.Assert.assertTrue;
 import com.android.tools.r8.SingleTestRunResult;
 import com.android.tools.r8.TestCompilerBuilder;
 import com.android.tools.r8.graph.DexItemFactory;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
@@ -47,7 +47,7 @@ public class ThrowBlockOutlinerNeverCompileTest extends ThrowBlockOutlinerTestBa
                 })
             .apply(this::configure)
             .compile()
-            .inspect(inspector -> inspectOutput(inspector, false))
+            .inspect(inspector -> inspectOutput(inspector, false, testBuilder.isR8TestBuilder()))
             .runDex2Oat(parameters.getRuntime())
             .getOatSizeOrDefault(-1);
     assertTrue(0 < oatSize);
@@ -62,7 +62,8 @@ public class ThrowBlockOutlinerNeverCompileTest extends ThrowBlockOutlinerTestBa
                 })
             .apply(this::configure)
             .compile()
-            .inspect(inspector -> inspectOutput(inspector, true))
+            .inspect(
+                inspector -> inspectOutput(inspector, true, otherTestBuilder.isR8TestBuilder()))
             .runDex2Oat(parameters.getRuntime())
             .getOatSizeOrDefault(-1);
     assertTrue(0 < oatSizeNeverCompile);
@@ -75,11 +76,12 @@ public class ThrowBlockOutlinerNeverCompileTest extends ThrowBlockOutlinerTestBa
     // Intentionally empty.
   }
 
-  private void inspectOutput(CodeInspector inspector, boolean neverCompile) {
+  private void inspectOutput(CodeInspector inspector, boolean neverCompile, boolean isR8) {
     assertEquals(2, inspector.allClasses().size());
 
     ClassSubject outlineClassSubject =
-        inspector.clazz(SyntheticItemsTestUtils.syntheticThrowBlockOutlineClass(Main.class, 0));
+        inspector.clazz(
+            getSyntheticItemsTestUtils(isR8).syntheticThrowBlockOutlineClass(Main.class, 0));
     assertThat(outlineClassSubject, isPresent());
     assertEquals(1, outlineClassSubject.allMethods().size());
 

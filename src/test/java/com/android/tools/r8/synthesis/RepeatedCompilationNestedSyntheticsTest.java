@@ -4,7 +4,6 @@
 package com.android.tools.r8.synthesis;
 
 import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.syntheticLambdaClass;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -55,7 +54,8 @@ public class RepeatedCompilationNestedSyntheticsTest extends TestBase {
   public void test() throws Exception {
     assertEquals(Backend.DEX, parameters.getBackend());
 
-    ClassReference syntheticLambdaClass = syntheticLambdaClass(UsesBackport.class, 0);
+    ClassReference syntheticLambdaClass =
+        getDefaultSyntheticItemsTestUtils().syntheticLambdaClass(UsesBackport.class, 0);
     ImmutableSet<String> expectedClassOutputs =
         ImmutableSet.of(descriptor(UsesBackport.class), syntheticLambdaClass.getDescriptor());
 
@@ -192,7 +192,9 @@ public class RepeatedCompilationNestedSyntheticsTest extends TestBase {
                       getDefaultSyntheticItemsTestUtils()
                           .syntheticBackportClass(UsesBackport.class, 0)
                           .getDescriptor(),
-                      syntheticLambdaClass(UsesBackport.class, 1).getDescriptor()),
+                      getDefaultSyntheticItemsTestUtils()
+                          .syntheticLambdaClass(UsesBackport.class, 1)
+                          .getDescriptor()),
                   descriptors);
             });
   }

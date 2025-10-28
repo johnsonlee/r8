@@ -416,10 +416,6 @@ public class CodeInspector {
     return clazz(SyntheticItemsTestUtils.syntheticCompanionClass(clazz));
   }
 
-  public ClassSubject lambdaClassFor(Class<?> clazz, int id) {
-    return clazz(SyntheticItemsTestUtils.syntheticLambdaClass(clazz, id));
-  }
-
   public void forAllClasses(Consumer<FoundClassSubject> inspection) {
     forAll(
         application.classes(),

@@ -3,42 +3,26 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize.outliner.exceptions;
 
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.isInvokeWithTarget;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.SingleTestRunResult;
 import com.android.tools.r8.TestCompileResult;
 import com.android.tools.r8.TestCompilerBuilder;
 import com.android.tools.r8.graph.DexItemFactory;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
-import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import it.unimi.dsi.fastutil.ints.IntArraySet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.util.Collection;
-import java.util.List;
 import org.junit.Test;
-import org.junit.runners.Parameterized.Parameter;
-import org.junit.runners.Parameterized.Parameters;
 
 public class ThrowBlockOutlinerNoArgumentsTest extends ThrowBlockOutlinerTestBase {
-
-  @Parameter(2)
-  public boolean minimizeSyntheticNames;
-
-  @Parameters(name = "{0}, mode: {1}, minimizeSyntheticNames: {2}")
-  public static List<Object[]> extraData() {
-    return buildParameters(
-        getTestParameters().withDexRuntimesAndAllApiLevels().build(),
-        CompilationMode.values(),
-        BooleanUtils.values());
-  }
 
   @Test
   public void testD8() throws Exception {
@@ -58,12 +42,8 @@ public class ThrowBlockOutlinerNoArgumentsTest extends ThrowBlockOutlinerTestBas
         testBuilder
             .addInnerClasses(getClass())
             .apply(this::configure)
-            .addOptionsModification(
-                options ->
-                    options.desugarSpecificOptions().minimizeSyntheticNames =
-                        minimizeSyntheticNames)
             .compile()
-            .inspect(this::inspectOutput);
+            .inspect(inspector -> inspectOutput(inspector, testBuilder.isR8TestBuilder()));
     for (int i = 0; i < 3; i++) {
       compileResult
           .run(parameters.getRuntime(), Main.class, Integer.toString(i))
@@ -89,7 +69,7 @@ public class ThrowBlockOutlinerNoArgumentsTest extends ThrowBlockOutlinerTestBas
     assertTrue(numberOfUsers.contains(3));
   }
 
-  private void inspectOutput(CodeInspector inspector) {
+  private void inspectOutput(CodeInspector inspector, boolean isR8) {
     assertEquals(2, inspector.allClasses().size());
 
     MethodSubject mainMethodSubject = inspector.clazz(Main.class).mainMethod();
@@ -97,9 +77,7 @@ public class ThrowBlockOutlinerNoArgumentsTest extends ThrowBlockOutlinerTestBas
 
     ClassSubject outlineClassSubject =
         inspector.clazz(
-            minimizeSyntheticNames
-                ? SyntheticItemsTestUtils.syntheticClassWithMinimalName(Main.class, 0)
-                : SyntheticItemsTestUtils.syntheticThrowBlockOutlineClass(Main.class, 0));
+            getSyntheticItemsTestUtils(isR8).syntheticThrowBlockOutlineClass(Main.class, 0));
     assertThat(outlineClassSubject, isPresent());
     assertEquals(1, outlineClassSubject.allMethods().size());
 

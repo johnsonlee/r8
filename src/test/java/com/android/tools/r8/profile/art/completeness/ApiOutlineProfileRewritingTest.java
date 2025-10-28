@@ -6,7 +6,7 @@ package com.android.tools.r8.profile.art.completeness;
 
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLevelForClass;
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.verifyThat;
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.notIf;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -139,8 +139,7 @@ public class ApiOutlineProfileRewritingTest extends TestBase {
 
     // Check outline was added to program.
     ClassSubject apiOutlineClassSubject =
-        inspector.clazz(
-            getDefaultSyntheticItemsTestUtils().syntheticApiOutlineClass(Main.class, 0));
+        inspector.clazz(getSyntheticItemsTestUtils(isR8).syntheticApiOutlineClass(Main.class, 0));
     assertThat(apiOutlineClassSubject, notIf(isPresent(), isLibraryClassAlwaysPresent()));
 
     MethodSubject apiOutlineMethodSubject = apiOutlineClassSubject.uniqueMethod();
