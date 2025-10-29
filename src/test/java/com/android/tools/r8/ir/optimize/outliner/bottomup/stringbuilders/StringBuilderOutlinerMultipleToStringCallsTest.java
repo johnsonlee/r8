@@ -1,17 +1,17 @@
 // Copyright (c) 2025, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-package com.android.tools.r8.ir.optimize.outliner.stringbuilders;
+package com.android.tools.r8.ir.optimize.outliner.bottomup.stringbuilders;
 
 import com.android.tools.r8.SingleTestRunResult;
 import com.android.tools.r8.TestCompilerBuilder;
 import com.android.tools.r8.graph.DexItemFactory;
-import com.android.tools.r8.ir.optimize.outliner.exceptions.ThrowBlockOutline;
-import com.android.tools.r8.ir.optimize.outliner.exceptions.ThrowBlockOutlinerTestBase;
+import com.android.tools.r8.ir.optimize.outliner.bottomup.BottomUpOutlinerTestBase;
+import com.android.tools.r8.ir.optimize.outliner.bottomup.Outline;
 import java.util.Collection;
 import org.junit.Test;
 
-public class StringBuilderOutlinerMultipleToStringCallsTest extends ThrowBlockOutlinerTestBase {
+public class StringBuilderOutlinerMultipleToStringCallsTest extends BottomUpOutlinerTestBase {
 
   @Test
   public void testD8() throws Exception {
@@ -36,10 +36,10 @@ public class StringBuilderOutlinerMultipleToStringCallsTest extends ThrowBlockOu
   }
 
   @Override
-  public void inspectOutlines(Collection<ThrowBlockOutline> outlines, DexItemFactory factory) {}
+  public void inspectOutlines(Collection<Outline> outlines, DexItemFactory factory) {}
 
   @Override
-  public boolean shouldOutline(ThrowBlockOutline outline) {
+  public boolean shouldOutline(Outline outline) {
     return true;
   }
 

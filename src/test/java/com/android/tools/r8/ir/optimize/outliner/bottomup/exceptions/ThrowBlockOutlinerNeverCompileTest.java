@@ -1,7 +1,7 @@
 // Copyright (c) 2025, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-package com.android.tools.r8.ir.optimize.outliner.exceptions;
+package com.android.tools.r8.ir.optimize.outliner.bottomup.exceptions;
 
 import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
@@ -13,13 +13,15 @@ import static org.junit.Assert.assertTrue;
 import com.android.tools.r8.SingleTestRunResult;
 import com.android.tools.r8.TestCompilerBuilder;
 import com.android.tools.r8.graph.DexItemFactory;
+import com.android.tools.r8.ir.optimize.outliner.bottomup.BottomUpOutlinerTestBase;
+import com.android.tools.r8.ir.optimize.outliner.bottomup.Outline;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import java.util.Collection;
 import org.junit.Test;
 
-public class ThrowBlockOutlinerNeverCompileTest extends ThrowBlockOutlinerTestBase {
+public class ThrowBlockOutlinerNeverCompileTest extends BottomUpOutlinerTestBase {
 
   @Test
   public void testD8() throws Exception {
@@ -43,7 +45,7 @@ public class ThrowBlockOutlinerNeverCompileTest extends ThrowBlockOutlinerTestBa
             .addInnerClasses(getClass())
             .addOptionsModification(
                 options -> {
-                  assertFalse(options.getThrowBlockOutlinerOptions().neverCompile);
+                  assertFalse(options.getBottomUpOutlinerOptions().neverCompile);
                 })
             .apply(this::configure)
             .compile()
@@ -57,8 +59,8 @@ public class ThrowBlockOutlinerNeverCompileTest extends ThrowBlockOutlinerTestBa
             .addInnerClasses(getClass())
             .addOptionsModification(
                 options -> {
-                  assertFalse(options.getThrowBlockOutlinerOptions().neverCompile);
-                  options.getThrowBlockOutlinerOptions().neverCompile = true;
+                  assertFalse(options.getBottomUpOutlinerOptions().neverCompile);
+                  options.getBottomUpOutlinerOptions().neverCompile = true;
                 })
             .apply(this::configure)
             .compile()
@@ -72,7 +74,7 @@ public class ThrowBlockOutlinerNeverCompileTest extends ThrowBlockOutlinerTestBa
   }
 
   @Override
-  public void inspectOutlines(Collection<ThrowBlockOutline> outlines, DexItemFactory factory) {
+  public void inspectOutlines(Collection<Outline> outlines, DexItemFactory factory) {
     // Intentionally empty.
   }
 
@@ -81,7 +83,7 @@ public class ThrowBlockOutlinerNeverCompileTest extends ThrowBlockOutlinerTestBa
 
     ClassSubject outlineClassSubject =
         inspector.clazz(
-            getSyntheticItemsTestUtils(isR8).syntheticThrowBlockOutlineClass(Main.class, 0));
+            getSyntheticItemsTestUtils(isR8).syntheticBottomUpOutlineClass(Main.class, 0));
     assertThat(outlineClassSubject, isPresent());
     assertEquals(1, outlineClassSubject.allMethods().size());
 
@@ -90,7 +92,7 @@ public class ThrowBlockOutlinerNeverCompileTest extends ThrowBlockOutlinerTestBa
   }
 
   @Override
-  public boolean shouldOutline(ThrowBlockOutline outline) {
+  public boolean shouldOutline(Outline outline) {
     return true;
   }
 

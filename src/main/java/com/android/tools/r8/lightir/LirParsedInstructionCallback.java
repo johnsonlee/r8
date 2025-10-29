@@ -18,7 +18,7 @@ import com.android.tools.r8.graph.OriginalFieldWitness;
 import com.android.tools.r8.ir.code.IfType;
 import com.android.tools.r8.ir.code.MemberType;
 import com.android.tools.r8.ir.code.NumericType;
-import com.android.tools.r8.ir.optimize.outliner.exceptions.ThrowBlockOutline;
+import com.android.tools.r8.ir.optimize.outliner.bottomup.Outline;
 import com.android.tools.r8.lightir.LirBuilder.FillArrayPayload;
 import com.android.tools.r8.lightir.LirBuilder.IntSwitchPayload;
 import com.android.tools.r8.lightir.LirBuilder.NameComputationPayload;
@@ -471,7 +471,7 @@ public abstract class LirParsedInstructionCallback<EV> implements LirInstruction
     onInstruction();
   }
 
-  public void onThrowBlockOutlineMarker(ThrowBlockOutline outline, List<EV> arguments) {
+  public void onOutlineMarker(Outline outline, List<EV> arguments) {
     onInstruction();
   }
 
@@ -1316,12 +1316,11 @@ public abstract class LirParsedInstructionCallback<EV> implements LirInstruction
           onStoreStoreFence(value);
           return;
         }
-      case LirOpcodes.THROWBLOCKOUTLINEMARKER:
+      case LirOpcodes.OUTLINEMARKER:
         {
-          ThrowBlockOutline outline =
-              (ThrowBlockOutline) getConstantItem(view.getNextConstantOperand());
+          Outline outline = (Outline) getConstantItem(view.getNextConstantOperand());
           List<EV> arguments = getInvokeInstructionArguments(view);
-          onThrowBlockOutlineMarker(outline, arguments);
+          onOutlineMarker(outline, arguments);
           return;
         }
       default:

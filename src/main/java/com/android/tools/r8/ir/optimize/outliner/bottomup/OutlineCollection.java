@@ -1,7 +1,7 @@
 // Copyright (c) 2025, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-package com.android.tools.r8.ir.optimize.outliner.exceptions;
+package com.android.tools.r8.ir.optimize.outliner.bottomup;
 
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 
@@ -22,7 +22,7 @@ public class OutlineCollection {
   private final AppView<?> appView;
   private final ClassToFeatureSplitMap classToFeatureSplitMap;
 
-  private final Map<FeatureSplit, Map<Wrapper<LirCode<?>>, ThrowBlockOutline>> outlines =
+  private final Map<FeatureSplit, Map<Wrapper<LirCode<?>>, Outline>> outlines =
       new ConcurrentHashMap<>();
 
   OutlineCollection(AppView<?> appView) {
@@ -30,18 +30,17 @@ public class OutlineCollection {
     this.classToFeatureSplitMap = appView.appInfo().getClassToFeatureSplitMap();
   }
 
-  public ThrowBlockOutline add(LirCode<?> lirCode, DexProto proto, ProgramMethod context) {
+  public Outline add(LirCode<?> lirCode, DexProto proto, ProgramMethod context) {
     // Get the outlines in the current feature.
     FeatureSplit feature = classToFeatureSplitMap.getFeatureSplit(context.getHolder(), appView);
-    Map<Wrapper<LirCode<?>>, ThrowBlockOutline> outlinesInFeature =
+    Map<Wrapper<LirCode<?>>, Outline> outlinesInFeature =
         outlines.computeIfAbsent(feature, ignoreKey(ConcurrentHashMap::new));
     // Add the outline.
-    Wrapper<LirCode<?>> lirCodeWrapper = ThrowBlockOutlinerLirCodeEquivalence.get().wrap(lirCode);
-    return outlinesInFeature.computeIfAbsent(
-        lirCodeWrapper, w -> new ThrowBlockOutline(w.get(), proto));
+    Wrapper<LirCode<?>> lirCodeWrapper = BottomUpOutlinerLirCodeEquivalence.get().wrap(lirCode);
+    return outlinesInFeature.computeIfAbsent(lirCodeWrapper, w -> new Outline(w.get(), proto));
   }
 
-  public Collection<ThrowBlockOutline> getOutlines() {
+  public Collection<Outline> getOutlines() {
     mergeOutlinesFromFeaturesIntoBase();
     return outlines.values().stream()
         .flatMap(x -> x.values().stream())
@@ -49,7 +48,7 @@ public class OutlineCollection {
   }
 
   private void mergeOutlinesFromFeaturesIntoBase() {
-    Map<Wrapper<LirCode<?>>, ThrowBlockOutline> outlinesInBase = outlines.get(FeatureSplit.BASE);
+    Map<Wrapper<LirCode<?>>, Outline> outlinesInBase = outlines.get(FeatureSplit.BASE);
     if (outlinesInBase == null) {
       return;
     }
@@ -58,16 +57,16 @@ public class OutlineCollection {
       if (feature.isBase()) {
         continue;
       }
-      Map<Wrapper<LirCode<?>>, ThrowBlockOutline> outlinesInFeature = entry.getValue();
+      Map<Wrapper<LirCode<?>>, Outline> outlinesInFeature = entry.getValue();
       var innerIterator = outlinesInFeature.entrySet().iterator();
       while (innerIterator.hasNext()) {
         var innerEntry = innerIterator.next();
         Wrapper<LirCode<?>> lirCodeWrapper = innerEntry.getKey();
-        ThrowBlockOutline outlineInBase = outlinesInBase.get(lirCodeWrapper);
+        Outline outlineInBase = outlinesInBase.get(lirCodeWrapper);
         if (outlineInBase == null) {
           continue;
         }
-        ThrowBlockOutline outlineInFeature = innerEntry.getValue();
+        Outline outlineInFeature = innerEntry.getValue();
         outlineInBase.merge(outlineInFeature);
         innerIterator.remove();
       }

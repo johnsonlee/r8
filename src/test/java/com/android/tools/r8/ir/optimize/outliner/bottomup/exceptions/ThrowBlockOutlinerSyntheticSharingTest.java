@@ -1,7 +1,7 @@
 // Copyright (c) 2025, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-package com.android.tools.r8.ir.optimize.outliner.exceptions;
+package com.android.tools.r8.ir.optimize.outliner.bottomup.exceptions;
 
 import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethod;
@@ -11,11 +11,13 @@ import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.TestCompileResult;
 import com.android.tools.r8.graph.DexItemFactory;
+import com.android.tools.r8.ir.optimize.outliner.bottomup.BottomUpOutlinerTestBase;
+import com.android.tools.r8.ir.optimize.outliner.bottomup.Outline;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import java.util.Collection;
 import org.junit.Test;
 
-public class ThrowBlockOutlinerSyntheticSharingTest extends ThrowBlockOutlinerTestBase {
+public class ThrowBlockOutlinerSyntheticSharingTest extends BottomUpOutlinerTestBase {
 
   @Test
   public void test() throws Exception {
@@ -47,7 +49,7 @@ public class ThrowBlockOutlinerSyntheticSharingTest extends ThrowBlockOutlinerTe
               ClassSubject syntheticClassSubject =
                   inspector.clazz(
                       getDefaultSyntheticItemsTestUtils()
-                          .syntheticThrowBlockOutlineClass(Main.class, 0));
+                          .syntheticBottomUpOutlineClass(Main.class, 0));
               assertThat(syntheticClassSubject, isPresent());
               assertEquals(1, syntheticClassSubject.allMethods().size());
 
@@ -66,13 +68,13 @@ public class ThrowBlockOutlinerSyntheticSharingTest extends ThrowBlockOutlinerTe
   }
 
   @Override
-  public void inspectOutlines(Collection<ThrowBlockOutline> outlines, DexItemFactory factory) {
+  public void inspectOutlines(Collection<Outline> outlines, DexItemFactory factory) {
     // Verify that a single outline was created in each intermediate build.
     assertEquals(1, outlines.size());
   }
 
   @Override
-  public boolean shouldOutline(ThrowBlockOutline outline) {
+  public boolean shouldOutline(Outline outline) {
     return true;
   }
 

@@ -1,7 +1,7 @@
 // Copyright (c) 2025, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-package com.android.tools.r8.ir.optimize.outliner.exceptions;
+package com.android.tools.r8.ir.optimize.outliner.bottomup;
 
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 import static com.google.common.base.Predicates.alwaysTrue;
@@ -44,23 +44,23 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
-public class ThrowBlockOutliner {
+public class BottomUpOutliner {
 
   private final AppView<?> appView;
-  private final ThrowBlockOutlinerOptions outlinerOptions;
+  private final BottomUpOutlinerOptions outlinerOptions;
 
   // Scans IR code during IR conversion. Responsible for computing candidate outlines.
-  private ThrowBlockOutlinerScanner scanner;
+  private BottomUpOutlinerScanner scanner;
 
-  private ThrowBlockOutliner(AppView<?> appView) {
+  private BottomUpOutliner(AppView<?> appView) {
     this.appView = appView;
-    this.outlinerOptions = appView.options().getThrowBlockOutlinerOptions();
-    this.scanner = new ThrowBlockOutlinerScanner(appView);
+    this.outlinerOptions = appView.options().getBottomUpOutlinerOptions();
+    this.scanner = new BottomUpOutlinerScanner(appView);
   }
 
-  public static ThrowBlockOutliner create(AppView<?> appView) {
-    return appView.options().getThrowBlockOutlinerOptions().isEnabled(appView)
-        ? new ThrowBlockOutliner(appView)
+  public static BottomUpOutliner create(AppView<?> appView) {
+    return appView.options().getBottomUpOutlinerOptions().isEnabled(appView)
+        ? new BottomUpOutliner(appView)
         : null;
   }
 
@@ -133,7 +133,7 @@ public class ThrowBlockOutliner {
       throws ExecutionException {
     // Unset the scanner, which is responsible for computing outline candidates.
     assert scanner != null;
-    Collection<ThrowBlockOutline> outlines = scanner.getOutlines();
+    Collection<Outline> outlines = scanner.getOutlines();
     scanner = null;
 
     // Create outlines.
@@ -143,23 +143,21 @@ public class ThrowBlockOutliner {
 
     // Convert LIR to DEX.
     processMethods(outlines, executorService);
-    appView.unsetThrowBlockOutliner();
+    appView.unsetBottomUpOutliner();
   }
 
   private void updateOutlineUsers(
-      Collection<ThrowBlockOutline> outlines,
-      Map<DexMethod, DexMethod> forcefullyMovedLambdaMethods) {
-    for (ThrowBlockOutline outline : outlines) {
+      Collection<Outline> outlines, Map<DexMethod, DexMethod> forcefullyMovedLambdaMethods) {
+    for (Outline outline : outlines) {
       outline.updateUsers(appView, forcefullyMovedLambdaMethods);
     }
   }
 
-  private void materializeOutlines(
-      Collection<ThrowBlockOutline> outlines, ExecutorService executorService)
+  private void materializeOutlines(Collection<Outline> outlines, ExecutorService executorService)
       throws ExecutionException {
     // Find the outlines that we need to synthesize from each method.
-    ProgramMethodMap<List<ThrowBlockOutline>> synthesizingContexts = ProgramMethodMap.create();
-    for (ThrowBlockOutline outline : outlines) {
+    ProgramMethodMap<List<Outline>> synthesizingContexts = ProgramMethodMap.create();
+    for (Outline outline : outlines) {
       ProgramMethod synthesizingContext = outline.getSynthesizingContext(appView);
       if (shouldMaterializeOutline(outline, synthesizingContext)) {
         synthesizingContexts
@@ -177,12 +175,11 @@ public class ThrowBlockOutliner {
           }
           LirConstant[] constantPool =
               synthesizingContext.getDefinition().getCode().asLirCode().getConstantPool();
-          Reference2IntMap<ThrowBlockOutline> outlineConstantPoolIndices =
-              new Reference2IntOpenHashMap<>();
+          Reference2IntMap<Outline> outlineConstantPoolIndices = new Reference2IntOpenHashMap<>();
           for (int i = 0; i < constantPool.length; i++) {
             LirConstant constant = constantPool[i];
-            if (constant instanceof ThrowBlockOutline) {
-              outlineConstantPoolIndices.put((ThrowBlockOutline) constant, i);
+            if (constant instanceof Outline) {
+              outlineConstantPoolIndices.put((Outline) constant, i);
             }
           }
           assert outlinesFromSynthesizingContext.stream()
@@ -199,7 +196,7 @@ public class ThrowBlockOutliner {
         (synthesizingContext, outlinesFromSynthesizingContext) -> {
           MethodProcessingContext methodProcessingContext =
               processorContext.createMethodProcessingContext(synthesizingContext);
-          for (ThrowBlockOutline outline : outlinesFromSynthesizingContext) {
+          for (Outline outline : outlinesFromSynthesizingContext) {
             outline.materialize(appView, methodProcessingContext);
           }
         },
@@ -207,10 +204,8 @@ public class ThrowBlockOutliner {
         executorService);
   }
 
-  private boolean shouldMaterializeOutline(
-      ThrowBlockOutline outline, ProgramMethod synthesizingContext) {
-    Predicate<ThrowBlockOutline> outlineStrategyForTesting =
-        outlinerOptions.outlineStrategyForTesting;
+  private boolean shouldMaterializeOutline(Outline outline, ProgramMethod synthesizingContext) {
+    Predicate<Outline> outlineStrategyForTesting = outlinerOptions.outlineStrategyForTesting;
     if (outlineStrategyForTesting != null) {
       return outlineStrategyForTesting.test(outline);
     }
@@ -252,7 +247,7 @@ public class ThrowBlockOutliner {
 
     // Estimate the savings from this outline.
     int estimatedSavingsInBytes = 0;
-    for (ThrowBlockOutline outlineOrMergedOutline : outline.getAllOutlines()) {
+    for (Outline outlineOrMergedOutline : outline.getAllOutlines()) {
       for (Multiset.Entry<DexMethod> entry : outlineOrMergedOutline.getUsers().entrySet()) {
         // For each call we save the outlined instructions at the cost of an invoke + return.
         int estimatedSavingsForUser = codeSizeInBytes - (DexInvokeStatic.SIZE + DexReturn.SIZE);
@@ -270,11 +265,10 @@ public class ThrowBlockOutliner {
     return false;
   }
 
-  private void processMethods(
-      Collection<ThrowBlockOutline> outlines, ExecutorService executorService)
+  private void processMethods(Collection<Outline> outlines, ExecutorService executorService)
       throws ExecutionException {
-    ProgramMethodMap<ThrowBlockOutline> methodsToReprocess = getMethodsToReprocess(outlines);
-    ThrowBlockOutlineMarkerRewriter rewriter = new ThrowBlockOutlineMarkerRewriter(appView);
+    ProgramMethodMap<Outline> methodsToReprocess = getMethodsToReprocess(outlines);
+    OutlineMarkerRewriter rewriter = new OutlineMarkerRewriter(appView);
     ThreadUtils.processMap(
         methodsToReprocess,
         (method, outline) -> {
@@ -291,12 +285,11 @@ public class ThrowBlockOutliner {
         executorService);
   }
 
-  private ProgramMethodMap<ThrowBlockOutline> getMethodsToReprocess(
-      Collection<ThrowBlockOutline> outlines) {
-    ProgramMethodMap<ThrowBlockOutline> methodsToReprocess = ProgramMethodMap.create();
+  private ProgramMethodMap<Outline> getMethodsToReprocess(Collection<Outline> outlines) {
+    ProgramMethodMap<Outline> methodsToReprocess = ProgramMethodMap.create();
     Set<DexMethod> seenUsers = Sets.newIdentityHashSet();
-    for (ThrowBlockOutline outline : outlines) {
-      for (ThrowBlockOutline outlineOrMergedOutline : outline.getAllOutlines()) {
+    for (Outline outline : outlines) {
+      for (Outline outlineOrMergedOutline : outline.getAllOutlines()) {
         for (DexMethod user : outlineOrMergedOutline.getUsers().elementSet()) {
           if (seenUsers.add(user)) {
             ProgramMethod methodToReprocess = appView.definitionFor(user).asProgramMethod();
@@ -311,8 +304,8 @@ public class ThrowBlockOutliner {
     return methodsToReprocess;
   }
 
-  private boolean supplyOutlineConsumerForTesting(Collection<ThrowBlockOutline> outlines) {
-    Consumer<Collection<ThrowBlockOutline>> consumer = outlinerOptions.outlineConsumerForTesting;
+  private boolean supplyOutlineConsumerForTesting(Collection<Outline> outlines) {
+    Consumer<Collection<Outline>> consumer = outlinerOptions.outlineConsumerForTesting;
     if (consumer != null) {
       consumer.accept(outlines);
     }

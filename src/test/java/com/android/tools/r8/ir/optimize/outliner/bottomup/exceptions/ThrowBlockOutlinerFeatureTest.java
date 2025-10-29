@@ -1,7 +1,7 @@
 // Copyright (c) 2025, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-package com.android.tools.r8.ir.optimize.outliner.exceptions;
+package com.android.tools.r8.ir.optimize.outliner.bottomup.exceptions;
 
 import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getMinimalSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
@@ -11,13 +11,15 @@ import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.R8TestCompileResultBase;
 import com.android.tools.r8.graph.DexItemFactory;
+import com.android.tools.r8.ir.optimize.outliner.bottomup.BottomUpOutlinerTestBase;
+import com.android.tools.r8.ir.optimize.outliner.bottomup.Outline;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import java.util.Collection;
 import java.util.Iterator;
 import org.junit.Test;
 
-public class ThrowBlockOutlinerFeatureTest extends ThrowBlockOutlinerTestBase {
+public class ThrowBlockOutlinerFeatureTest extends BottomUpOutlinerTestBase {
 
   @Test
   public void testR8() throws Exception {
@@ -45,11 +47,11 @@ public class ThrowBlockOutlinerFeatureTest extends ThrowBlockOutlinerTestBase {
   }
 
   @Override
-  public void inspectOutlines(Collection<ThrowBlockOutline> outlines, DexItemFactory factory) {
+  public void inspectOutlines(Collection<Outline> outlines, DexItemFactory factory) {
     // Verify that we have two outlines after merging.
-    Iterator<ThrowBlockOutline> iterator = outlines.iterator();
-    ThrowBlockOutline outlineFromBase = iterator.next();
-    ThrowBlockOutline outlineFromFeature2;
+    Iterator<Outline> iterator = outlines.iterator();
+    Outline outlineFromBase = iterator.next();
+    Outline outlineFromFeature2;
     if (outlineFromBase.getChildren().isEmpty()) {
       outlineFromFeature2 = outlineFromBase;
       outlineFromBase = iterator.next();
@@ -79,7 +81,7 @@ public class ThrowBlockOutlinerFeatureTest extends ThrowBlockOutlinerTestBase {
 
     ClassSubject outlineClassSubject =
         inspector.clazz(
-            getMinimalSyntheticItemsTestUtils().syntheticThrowBlockOutlineClass(Main.class, 0));
+            getMinimalSyntheticItemsTestUtils().syntheticBottomUpOutlineClass(Main.class, 0));
     assertThat(outlineClassSubject, isPresent());
     assertEquals(1, outlineClassSubject.allMethods().size());
   }
@@ -95,13 +97,13 @@ public class ThrowBlockOutlinerFeatureTest extends ThrowBlockOutlinerTestBase {
 
     ClassSubject outlineClassSubject =
         inspector.clazz(
-            getMinimalSyntheticItemsTestUtils().syntheticThrowBlockOutlineClass(Feature2.class, 0));
+            getMinimalSyntheticItemsTestUtils().syntheticBottomUpOutlineClass(Feature2.class, 0));
     assertThat(outlineClassSubject, isPresent());
     assertEquals(1, outlineClassSubject.allMethods().size());
   }
 
   @Override
-  public boolean shouldOutline(ThrowBlockOutline outline) {
+  public boolean shouldOutline(Outline outline) {
     return true;
   }
 

@@ -216,7 +216,7 @@ public class KotlinLambdaMergingKeepAttributesKotlinStyleTest extends KotlinTest
                 syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 22),
                 syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 23),
                 syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 24),
-                syntheticItemsTestUtils.syntheticThrowBlockOutlineClass(mainKt, 0));
+                syntheticItemsTestUtils.syntheticBottomUpOutlineClass(mainKt, 0));
         inspector.assertIsCompleteMergeGroup(mergeGroup).assertNoOtherClassesMerged();
       }
     }

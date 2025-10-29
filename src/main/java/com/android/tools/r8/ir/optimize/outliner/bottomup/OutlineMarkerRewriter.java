@@ -1,7 +1,7 @@
 // Copyright (c) 2025, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-package com.android.tools.r8.ir.optimize.outliner.exceptions;
+package com.android.tools.r8.ir.optimize.outliner.bottomup;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.Code;
@@ -16,10 +16,10 @@ import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InvokeStatic;
 import com.android.tools.r8.ir.code.NumberGenerator;
+import com.android.tools.r8.ir.code.OutlineMarker;
 import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.code.Return;
-import com.android.tools.r8.ir.code.ThrowBlockOutlineMarker;
 import com.android.tools.r8.ir.code.UnusedArgument;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.IRFinalizer;
@@ -38,21 +38,21 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
 
-/** Rewriter that processes {@link ThrowBlockOutlineMarker} instructions. */
-public class ThrowBlockOutlineMarkerRewriter {
+/** Rewriter that processes {@link OutlineMarker} instructions. */
+public class OutlineMarkerRewriter {
 
   private final AppView<?> appView;
   private final DeadCodeRemover deadCodeRemover;
   private final DexItemFactory factory;
 
-  ThrowBlockOutlineMarkerRewriter(AppView<?> appView) {
+  OutlineMarkerRewriter(AppView<?> appView) {
     this.appView = appView;
     this.deadCodeRemover = new DeadCodeRemover(appView);
     this.factory = appView.dexItemFactory();
   }
 
   public void processOutlineMethod(
-      ProgramMethod method, LirCode<Integer> lirCode, ThrowBlockOutline outline) {
+      ProgramMethod method, LirCode<Integer> lirCode, Outline outline) {
     IRCode code = buildIRForOutlineMethod(lirCode, method, outline);
     removeConstantArgumentsFromOutline(method, code, outline);
     finalizeCode(method, code);
@@ -65,7 +65,7 @@ public class ThrowBlockOutlineMarkerRewriter {
   }
 
   private IRCode buildIRForOutlineMethod(
-      LirCode<Integer> lirCode, ProgramMethod method, ThrowBlockOutline outline) {
+      LirCode<Integer> lirCode, ProgramMethod method, Outline outline) {
     if (!outline.hasConstantArgument()) {
       return lirCode.buildIR(method, appView);
     }
@@ -95,7 +95,7 @@ public class ThrowBlockOutlineMarkerRewriter {
   }
 
   private void removeConstantArgumentsFromOutline(
-      ProgramMethod method, IRCode code, ThrowBlockOutline outline) {
+      ProgramMethod method, IRCode code, Outline outline) {
     if (!outline.hasConstantArgument()) {
       return;
     }
@@ -113,10 +113,9 @@ public class ThrowBlockOutlineMarkerRewriter {
 
   private void processOutlineMarkers(IRCode code) {
     for (BasicBlock block : code.getBlocks()) {
-      ThrowBlockOutlineMarker outlineMarker =
-          block.entry().nextUntilInclusive(Instruction::isThrowBlockOutlineMarker);
+      OutlineMarker outlineMarker = block.entry().nextUntilInclusive(Instruction::isOutlineMarker);
       while (outlineMarker != null) {
-        ThrowBlockOutline outline = outlineMarker.getOutline().getParentOrSelf();
+        Outline outline = outlineMarker.getOutline().getParentOrSelf();
         Instruction outlineEnd = getOutlineEnd(block, outline, outlineMarker);
         outlineMarker.detachConstantOutlineArguments(outline);
         if (outline.isMaterialized()) {
@@ -161,7 +160,7 @@ public class ThrowBlockOutlineMarkerRewriter {
           for (Instruction outlinedInstruction = instructionIterator.previous();
               outlinedInstruction != outlineMarker;
               outlinedInstruction = instructionIterator.previous()) {
-            assert !outlinedInstruction.isThrowBlockOutlineMarker();
+            assert !outlinedInstruction.isOutlineMarker();
             fixupOutlinedOutValue(outlinedInstruction);
             Value outValue = outlinedInstruction.outValue();
             if (outValue == null || !outValue.hasNonDebugUsers()) {
@@ -199,9 +198,9 @@ public class ThrowBlockOutlineMarkerRewriter {
         }
 
         // Continue searching for outline markers from the end of the current outline.
-        outlineMarker = outlineEnd.nextUntilExclusive(Instruction::isThrowBlockOutlineMarker);
+        outlineMarker = outlineEnd.nextUntilExclusive(Instruction::isOutlineMarker);
       }
-      assert block.streamInstructions().noneMatch(Instruction::isThrowBlockOutlineMarker);
+      assert block.streamInstructions().noneMatch(Instruction::isOutlineMarker);
     }
 
     // TODO(b/443663978): Workaround the fact that we do not correctly patch up the debug info for
@@ -245,7 +244,7 @@ public class ThrowBlockOutlineMarkerRewriter {
         && factory.stringBuilderMethods.isAppendMethod(
             outlinedInstruction.asInvokeVirtual().getInvokedMethod())) {
       assert appView.options().debug;
-      assert appView.options().getThrowBlockOutlinerOptions().forceDebug;
+      assert appView.options().getBottomUpOutlinerOptions().forceDebug;
       Value outlinedOutValue = outlinedInstruction.outValue();
       if (outlinedOutValue.hasDebugUsers()) {
         Collection<Instruction> debugUsers = new ArrayList<>(outlinedOutValue.debugUsers());
@@ -260,13 +259,13 @@ public class ThrowBlockOutlineMarkerRewriter {
   }
 
   private Instruction getOutlineEnd(
-      BasicBlock block, ThrowBlockOutline outline, ThrowBlockOutlineMarker outlineMarker) {
+      BasicBlock block, Outline outline, OutlineMarker outlineMarker) {
     if (outline.isThrowOutline()) {
       return block.exit();
     } else {
       // The end of a StringBuilder#toString outline is the call to StringBuilder#toString.
       return outlineMarker.nextUntilExclusive(
-          i -> ThrowBlockOutlinerScanner.isStringBuilderToString(i, factory));
+          i -> BottomUpOutlinerScanner.isStringBuilderToString(i, factory));
     }
   }
 }

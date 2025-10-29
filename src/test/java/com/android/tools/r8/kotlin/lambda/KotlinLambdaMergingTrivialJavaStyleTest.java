@@ -163,9 +163,9 @@ public class KotlinLambdaMergingTrivialJavaStyleTest extends KotlinTestBase {
                 syntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 6),
                 syntheticItemsTestUtils.syntheticLambdaClass(innerClassReference, 1))
             .assertIsCompleteMergeGroup(
-                syntheticItemsTestUtils.syntheticThrowBlockOutlineClass(mainClassReference, 0),
-                syntheticItemsTestUtils.syntheticThrowBlockOutlineClass(mainClassReference, 1),
-                syntheticItemsTestUtils.syntheticThrowBlockOutlineClass(mainClassReference, 2));
+                syntheticItemsTestUtils.syntheticBottomUpOutlineClass(mainClassReference, 0),
+                syntheticItemsTestUtils.syntheticBottomUpOutlineClass(mainClassReference, 1),
+                syntheticItemsTestUtils.syntheticBottomUpOutlineClass(mainClassReference, 2));
         for (int id = 4; id < 30; id++) {
           inspector.assertClassReferencesNotMerged(
               syntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, id));

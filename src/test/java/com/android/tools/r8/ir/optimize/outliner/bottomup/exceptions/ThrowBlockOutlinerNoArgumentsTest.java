@@ -1,7 +1,7 @@
 // Copyright (c) 2025, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-package com.android.tools.r8.ir.optimize.outliner.exceptions;
+package com.android.tools.r8.ir.optimize.outliner.bottomup.exceptions;
 
 import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.isInvokeWithTarget;
@@ -14,6 +14,8 @@ import com.android.tools.r8.SingleTestRunResult;
 import com.android.tools.r8.TestCompileResult;
 import com.android.tools.r8.TestCompilerBuilder;
 import com.android.tools.r8.graph.DexItemFactory;
+import com.android.tools.r8.ir.optimize.outliner.bottomup.BottomUpOutlinerTestBase;
+import com.android.tools.r8.ir.optimize.outliner.bottomup.Outline;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
@@ -22,7 +24,7 @@ import it.unimi.dsi.fastutil.ints.IntSet;
 import java.util.Collection;
 import org.junit.Test;
 
-public class ThrowBlockOutlinerNoArgumentsTest extends ThrowBlockOutlinerTestBase {
+public class ThrowBlockOutlinerNoArgumentsTest extends BottomUpOutlinerTestBase {
 
   @Test
   public void testD8() throws Exception {
@@ -58,11 +60,11 @@ public class ThrowBlockOutlinerNoArgumentsTest extends ThrowBlockOutlinerTestBas
   }
 
   @Override
-  public void inspectOutlines(Collection<ThrowBlockOutline> outlines, DexItemFactory factory) {
+  public void inspectOutlines(Collection<Outline> outlines, DexItemFactory factory) {
     // Verify that we have two outlines with one and three users, respectively.
     assertEquals(2, outlines.size());
     IntSet numberOfUsers = new IntArraySet();
-    for (ThrowBlockOutline outline : outlines) {
+    for (Outline outline : outlines) {
       numberOfUsers.add(outline.getNumberOfUsers());
     }
     assertTrue(numberOfUsers.contains(1));
@@ -77,7 +79,7 @@ public class ThrowBlockOutlinerNoArgumentsTest extends ThrowBlockOutlinerTestBas
 
     ClassSubject outlineClassSubject =
         inspector.clazz(
-            getSyntheticItemsTestUtils(isR8).syntheticThrowBlockOutlineClass(Main.class, 0));
+            getSyntheticItemsTestUtils(isR8).syntheticBottomUpOutlineClass(Main.class, 0));
     assertThat(outlineClassSubject, isPresent());
     assertEquals(1, outlineClassSubject.allMethods().size());
 

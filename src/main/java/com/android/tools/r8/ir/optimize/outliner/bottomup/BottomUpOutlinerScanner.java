@@ -1,7 +1,7 @@
 // Copyright (c) 2025, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-package com.android.tools.r8.ir.optimize.outliner.exceptions;
+package com.android.tools.r8.ir.optimize.outliner.bottomup;
 
 import static com.android.tools.r8.ir.code.Opcodes.ASSUME;
 import static com.android.tools.r8.ir.code.Opcodes.CONST_NUMBER;
@@ -40,11 +40,11 @@ import com.android.tools.r8.ir.code.InvokeStatic;
 import com.android.tools.r8.ir.code.InvokeVirtual;
 import com.android.tools.r8.ir.code.NewInstance;
 import com.android.tools.r8.ir.code.NumberGenerator;
+import com.android.tools.r8.ir.code.OutlineMarker;
 import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.code.Position.SyntheticPosition;
 import com.android.tools.r8.ir.code.Return;
 import com.android.tools.r8.ir.code.Throw;
-import com.android.tools.r8.ir.code.ThrowBlockOutlineMarker;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.IRToLirFinalizer;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
@@ -66,7 +66,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.function.Consumer;
 
-public class ThrowBlockOutlinerScanner {
+public class BottomUpOutlinerScanner {
 
   private static final IRMetadata metadata = IRMetadata.unknown();
 
@@ -75,7 +75,7 @@ public class ThrowBlockOutlinerScanner {
   private final OutlineCollection outlines;
   private final AbstractValueFactory valueFactory;
 
-  ThrowBlockOutlinerScanner(AppView<?> appView) {
+  BottomUpOutlinerScanner(AppView<?> appView) {
     this.appView = appView;
     this.factory = appView.dexItemFactory();
     this.outlines = new OutlineCollection(appView);
@@ -86,7 +86,7 @@ public class ThrowBlockOutlinerScanner {
   }
 
   public void run(IRCode code) {
-    assert !code.metadata().mayHaveThrowBlockOutlineMarker();
+    assert !code.metadata().mayHaveOutlineMarker();
     if (IterableUtils.none(code.getBlocks(), BasicBlock::isReturnBlock)) {
       // Don't outline from methods that unconditionally throw.
       // They may be manually created throw block outlines.
@@ -94,23 +94,23 @@ public class ThrowBlockOutlinerScanner {
     }
     for (BasicBlock block : code.getBlocks()) {
       if (block.exit().isThrow()) {
-        new ThrowBlockOutlinerScannerForThrow(code, block).tryBuildOutline();
+        new BottomUpOutlinerScannerForThrow(code, block).tryBuildOutline();
       }
-      if (!appView.options().getThrowBlockOutlinerOptions().enableStringBuilderOutlining) {
+      if (!appView.options().getBottomUpOutlinerOptions().enableStringBuilderOutlining) {
         continue;
       }
       Instruction previousOutlineEnd = null;
       for (Instruction instruction : block.getInstructions()) {
         // If we encounter an outline marker it is because we were able to outline the tail of the
         // block above. Since the remainder of the block has been outlined, abort further outlining.
-        if (instruction.isThrowBlockOutlineMarker()) {
+        if (instruction.isOutlineMarker()) {
           assert block.exit().isThrow();
           break;
         }
         if (isStringBuilderToString(instruction, factory)) {
           InvokeVirtual invoke = instruction.asInvokeVirtual();
-          ThrowBlockOutline outline =
-              new ThrowBlockOutlinerScannerForStringBuilderToString(
+          Outline outline =
+              new BottomUpOutlinerScannerForStringBuilderToString(
                       code, block, invoke, previousOutlineEnd)
                   .tryBuildOutline();
           if (outline != null) {
@@ -119,7 +119,7 @@ public class ThrowBlockOutlinerScanner {
         }
       }
     }
-    if (code.metadata().mayHaveThrowBlockOutlineMarker()) {
+    if (code.metadata().mayHaveOutlineMarker()) {
       if (appView.enableWholeProgramOptimizations()) {
         assert code.getConversionOptions().isGeneratingLir();
       } else {
@@ -127,7 +127,7 @@ public class ThrowBlockOutlinerScanner {
         code.mutateConversionOptions(MutableMethodConversionOptions::setIsGeneratingLir);
       }
     } else {
-      assert code.streamInstructions().noneMatch(Instruction::isThrowBlockOutlineMarker);
+      assert code.streamInstructions().noneMatch(Instruction::isOutlineMarker);
     }
   }
 
@@ -135,7 +135,7 @@ public class ThrowBlockOutlinerScanner {
     return valueFactory;
   }
 
-  public Collection<ThrowBlockOutline> getOutlines() {
+  public Collection<Outline> getOutlines() {
     return outlines.getOutlines();
   }
 
@@ -147,7 +147,7 @@ public class ThrowBlockOutlinerScanner {
         && invoke.hasOutValue();
   }
 
-  private abstract class ThrowBlockOutlinerScannerForInstruction {
+  private abstract class BottomUpOutlinerScannerForInstruction {
 
     final IRCode code;
     final BasicBlock block;
@@ -155,7 +155,7 @@ public class ThrowBlockOutlinerScanner {
 
     private boolean hasRunPrefixer;
 
-    ThrowBlockOutlinerScannerForInstruction(
+    BottomUpOutlinerScannerForInstruction(
         IRCode code, BasicBlock block, Instruction previousOutlineEnd) {
       this.code = code;
       this.block = block;
@@ -215,8 +215,7 @@ public class ThrowBlockOutlinerScanner {
     }
 
     private void processConstInstruction(
-        ConstInstruction instruction,
-        Consumer<OutlineBuilder> continuation) {
+        ConstInstruction instruction, Consumer<OutlineBuilder> continuation) {
       processPredecessorInstructionOrStartOutline(instruction, continuation);
     }
 
@@ -421,7 +420,7 @@ public class ThrowBlockOutlinerScanner {
         newFirstOutlinedInstruction = firstOutlinedInstruction;
       } else {
         newFirstOutlinedInstruction =
-            new ThrowBlockOutlinerPrefixer(factory, block, previousOutlineEnd)
+            new BottomUpOutlinerPrefixer(factory, block, previousOutlineEnd)
                 .tryMoveNonOutlinedStringBuilderInstructionsToOutline(firstOutlinedInstruction);
         hasRunPrefixer = true;
       }
@@ -434,14 +433,14 @@ public class ThrowBlockOutlinerScanner {
     }
   }
 
-  private class ThrowBlockOutlinerScannerForStringBuilderToString
-      extends ThrowBlockOutlinerScannerForInstruction {
+  private class BottomUpOutlinerScannerForStringBuilderToString
+      extends BottomUpOutlinerScannerForInstruction {
 
     private final InvokeVirtual stringBuilderToStringInstruction;
 
-    private ThrowBlockOutline outline;
+    private Outline outline;
 
-    ThrowBlockOutlinerScannerForStringBuilderToString(
+    BottomUpOutlinerScannerForStringBuilderToString(
         IRCode code,
         BasicBlock block,
         InvokeVirtual stringBuilderToStringInstruction,
@@ -455,7 +454,7 @@ public class ThrowBlockOutlinerScanner {
       return stringBuilderToStringInstruction;
     }
 
-    ThrowBlockOutline tryBuildOutline() {
+    Outline tryBuildOutline() {
       // Recursively build up the outline method. On successful outline creation, the resulting
       // LirCode is passed to the continuation function.
       processStringBuilderToString(
@@ -475,8 +474,8 @@ public class ThrowBlockOutlinerScanner {
             // where to materialize the outline call.
             Instruction insertionPoint = outlineBuilder.getFirstOutlinedInstruction();
             assert insertionPoint.getBlock() == block;
-            ThrowBlockOutlineMarker marker =
-                ThrowBlockOutlineMarker.builder()
+            OutlineMarker marker =
+                OutlineMarker.builder()
                     .setArguments(arguments)
                     .setOutline(outline)
                     .setPosition(Position.none())
@@ -502,11 +501,11 @@ public class ThrowBlockOutlinerScanner {
     }
   }
 
-  private class ThrowBlockOutlinerScannerForThrow extends ThrowBlockOutlinerScannerForInstruction {
+  private class BottomUpOutlinerScannerForThrow extends BottomUpOutlinerScannerForInstruction {
 
     private final Throw throwInstruction;
 
-    ThrowBlockOutlinerScannerForThrow(IRCode code, BasicBlock block) {
+    BottomUpOutlinerScannerForThrow(IRCode code, BasicBlock block) {
       super(code, block, null);
       this.throwInstruction = block.exit().asThrow();
     }
@@ -527,7 +526,7 @@ public class ThrowBlockOutlinerScanner {
               return;
             }
             LirCode<?> lirCode = outlineBuilder.buildLirCode(appView, code.context());
-            ThrowBlockOutline outline = outlines.add(lirCode, proto, code.context());
+            Outline outline = outlines.add(lirCode, proto, code.context());
             assert proto.isIdenticalTo(outline.getProto());
             List<Value> arguments = outlineBuilder.buildArguments();
             outline.addUser(code.reference(), arguments, getAbstractValueFactory());
@@ -536,8 +535,8 @@ public class ThrowBlockOutlinerScanner {
             // where to materialize the outline call.
             Instruction insertionPoint = outlineBuilder.getFirstOutlinedInstruction();
             assert insertionPoint.getBlock() == block;
-            ThrowBlockOutlineMarker marker =
-                ThrowBlockOutlineMarker.builder()
+            OutlineMarker marker =
+                OutlineMarker.builder()
                     .setArguments(arguments)
                     .setOutline(outline)
                     .setPosition(Position.none())

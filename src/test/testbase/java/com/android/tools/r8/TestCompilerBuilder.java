@@ -64,8 +64,8 @@ public abstract class TestCompilerBuilder<
   public static final Consumer<InternalOptions> DEFAULT_OPTIONS =
       options -> {
         options.testing.enableTestAssertions = true;
-        options.getThrowBlockOutlinerOptions().enable = true;
-        options.getThrowBlockOutlinerOptions().enableStringBuilderOutlining = true;
+        options.getBottomUpOutlinerOptions().enable = true;
+        options.getBottomUpOutlinerOptions().enableStringBuilderOutlining = true;
       };
 
   public static final Consumer<InternalOptions> DEFAULT_D8_OPTIONS = DEFAULT_OPTIONS;

@@ -1,7 +1,7 @@
 // Copyright (c) 2025, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-package com.android.tools.r8.ir.optimize.outliner.exceptions;
+package com.android.tools.r8.ir.optimize.outliner.bottomup;
 
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
@@ -23,7 +23,7 @@ import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public abstract class ThrowBlockOutlinerTestBase extends TestBase {
+public abstract class BottomUpOutlinerTestBase extends TestBase {
 
   @Parameter(0)
   public TestParameters parameters;
@@ -61,7 +61,7 @@ public abstract class ThrowBlockOutlinerTestBase extends TestBase {
     testBuilder
         .addOptionsModification(
             options -> {
-              ThrowBlockOutlinerOptions outlinerOptions = options.getThrowBlockOutlinerOptions();
+              BottomUpOutlinerOptions outlinerOptions = options.getBottomUpOutlinerOptions();
               assertTrue(outlinerOptions.enable);
               outlinerOptions.forceDebug = true;
               outlinerOptions.outlineConsumerForTesting =
@@ -79,9 +79,9 @@ public abstract class ThrowBlockOutlinerTestBase extends TestBase {
   }
 
   public abstract void inspectOutlines(
-      Collection<ThrowBlockOutline> outlineCollection, DexItemFactory factory);
+      Collection<Outline> outlineCollection, DexItemFactory factory);
 
-  public boolean shouldOutline(ThrowBlockOutline outline) {
+  public boolean shouldOutline(Outline outline) {
     return outline.getNumberOfUsers() >= 2;
   }
 }

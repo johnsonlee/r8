@@ -1,7 +1,7 @@
 // Copyright (c) 2025, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-package com.android.tools.r8.ir.optimize.outliner.exceptions;
+package com.android.tools.r8.ir.optimize.outliner.bottomup;
 
 import static com.android.tools.r8.graph.DexAnnotation.VISIBILITY_BUILD;
 import static com.android.tools.r8.graph.DexClassAndMethod.asProgramMethodOrNull;
@@ -46,7 +46,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-public class ThrowBlockOutline implements LirConstant {
+public class Outline implements LirConstant {
 
   private List<AbstractValue> arguments;
   private LirCode<?> lirCode;
@@ -59,12 +59,12 @@ public class ThrowBlockOutline implements LirConstant {
   // outlines.
   //
   // This is always null in D8.
-  private List<ThrowBlockOutline> children;
-  private ThrowBlockOutline parent;
+  private List<Outline> children;
+  private Outline parent;
 
   private ProgramMethod materializedOutlineMethod;
 
-  ThrowBlockOutline(LirCode<?> lirCode, DexProto proto) {
+  Outline(LirCode<?> lirCode, DexProto proto) {
     this.arguments = proto.getArity() == 0 ? Collections.emptyList() : new ArrayList<>();
     this.lirCode = lirCode;
     this.proto = proto;
@@ -121,7 +121,7 @@ public class ThrowBlockOutline implements LirConstant {
   }
 
   // Returns this outline and all outlines that have been merged into this outline.
-  public Iterable<ThrowBlockOutline> getAllOutlines() {
+  public Iterable<Outline> getAllOutlines() {
     if (children == null) {
       return Collections.singletonList(this);
     }
@@ -132,7 +132,7 @@ public class ThrowBlockOutline implements LirConstant {
     return arguments;
   }
 
-  public List<ThrowBlockOutline> getChildren() {
+  public List<Outline> getChildren() {
     return children != null ? children : Collections.emptyList();
   }
 
@@ -143,7 +143,7 @@ public class ThrowBlockOutline implements LirConstant {
 
   @Override
   public LirConstantOrder getLirConstantOrder() {
-    return LirConstantOrder.THROW_BLOCK_OUTLINE;
+    return LirConstantOrder.OUTLINE;
   }
 
   public ProgramMethod getMaterializedOutlineMethod() {
@@ -153,14 +153,14 @@ public class ThrowBlockOutline implements LirConstant {
   public int getNumberOfUsers() {
     int result = users.size();
     if (children != null) {
-      for (ThrowBlockOutline child : children) {
+      for (Outline child : children) {
         result += child.users.size();
       }
     }
     return result;
   }
 
-  public ThrowBlockOutline getParentOrSelf() {
+  public Outline getParentOrSelf() {
     return parent != null ? parent : this;
   }
 
@@ -308,7 +308,7 @@ public class ThrowBlockOutline implements LirConstant {
     SyntheticItems syntheticItems = appView.getSyntheticItems();
     materializedOutlineMethod =
         syntheticItems.createMethod(
-            kinds -> kinds.THROW_BLOCK_OUTLINE,
+            kinds -> kinds.BOTTOM_UP_OUTLINE,
             methodProcessingContext.createUniqueContext(),
             appView,
             builder ->
@@ -321,13 +321,13 @@ public class ThrowBlockOutline implements LirConstant {
                         appView.apiLevelCompute().computeInitialMinApiLevel(appView.options()))
                     .setCode(methodSig -> lirCode)
                     .setProto(getOptimizedProto(appView.dexItemFactory())));
-    for (ThrowBlockOutline child : getChildren()) {
+    for (Outline child : getChildren()) {
       child.materializedOutlineMethod = materializedOutlineMethod;
     }
   }
 
   private DexAnnotationSet createAnnotations(AppView<?> appView) {
-    if (appView.options().getThrowBlockOutlinerOptions().neverCompile) {
+    if (appView.options().getBottomUpOutlinerOptions().neverCompile) {
       DexItemFactory factory = appView.dexItemFactory();
       DexEncodedAnnotation encodedAnnotation =
           new DexEncodedAnnotation(
@@ -338,7 +338,7 @@ public class ThrowBlockOutline implements LirConstant {
     return DexAnnotationSet.empty();
   }
 
-  public void merge(ThrowBlockOutline outline) {
+  public void merge(Outline outline) {
     for (int i = 0; i < arguments.size(); i++) {
       if (!arguments.get(i).equals(outline.arguments.get(i))) {
         arguments.set(i, AbstractValue.unknown());

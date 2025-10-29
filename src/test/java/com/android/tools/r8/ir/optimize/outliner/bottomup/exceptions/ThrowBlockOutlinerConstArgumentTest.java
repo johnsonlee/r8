@@ -1,7 +1,7 @@
 // Copyright (c) 2025, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-package com.android.tools.r8.ir.optimize.outliner.exceptions;
+package com.android.tools.r8.ir.optimize.outliner.bottomup.exceptions;
 
 import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.isInvokeWithTarget;
@@ -15,7 +15,8 @@ import com.android.tools.r8.SingleTestRunResult;
 import com.android.tools.r8.TestCompileResult;
 import com.android.tools.r8.TestCompilerBuilder;
 import com.android.tools.r8.graph.DexItemFactory;
-import com.android.tools.r8.ir.optimize.outliner.exceptions.ThrowBlockOutlinerArrayUseTypeTest.Main;
+import com.android.tools.r8.ir.optimize.outliner.bottomup.BottomUpOutlinerTestBase;
+import com.android.tools.r8.ir.optimize.outliner.bottomup.Outline;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
@@ -26,7 +27,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.junit.Test;
 
-public class ThrowBlockOutlinerConstArgumentTest extends ThrowBlockOutlinerTestBase {
+public class ThrowBlockOutlinerConstArgumentTest extends BottomUpOutlinerTestBase {
 
   @Test
   public void testD8() throws Exception {
@@ -63,13 +64,13 @@ public class ThrowBlockOutlinerConstArgumentTest extends ThrowBlockOutlinerTestB
   }
 
   @Override
-  public void inspectOutlines(Collection<ThrowBlockOutline> outlines, DexItemFactory factory) {
+  public void inspectOutlines(Collection<Outline> outlines, DexItemFactory factory) {
     // Verify that we have two throw block outlines with one and three users, respectively.
-    List<ThrowBlockOutline> throwOutlines =
-        outlines.stream().filter(ThrowBlockOutline::isThrowOutline).collect(Collectors.toList());
+    List<Outline> throwOutlines =
+        outlines.stream().filter(Outline::isThrowOutline).collect(Collectors.toList());
     assertEquals(2, throwOutlines.size());
     IntSet numberOfUsers = new IntArraySet();
-    for (ThrowBlockOutline outline : throwOutlines) {
+    for (Outline outline : throwOutlines) {
       numberOfUsers.add(outline.getNumberOfUsers());
     }
     assertTrue(numberOfUsers.contains(1));
@@ -81,7 +82,7 @@ public class ThrowBlockOutlinerConstArgumentTest extends ThrowBlockOutlinerTestB
 
     ClassSubject outlineClassSubject =
         inspector.clazz(
-            getSyntheticItemsTestUtils(isR8).syntheticThrowBlockOutlineClass(Main.class, 0));
+            getSyntheticItemsTestUtils(isR8).syntheticBottomUpOutlineClass(Main.class, 0));
     assertThat(outlineClassSubject, isPresent());
     assertEquals(1, outlineClassSubject.allMethods().size());
 

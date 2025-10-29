@@ -1223,11 +1223,11 @@ public abstract class Instruction
     return null;
   }
 
-  public boolean isThrowBlockOutlineMarker() {
+  public boolean isOutlineMarker() {
     return false;
   }
 
-  public ThrowBlockOutlineMarker asThrowBlockOutlineMarker() {
+  public OutlineMarker asOutlineMarker() {
     return null;
   }
 

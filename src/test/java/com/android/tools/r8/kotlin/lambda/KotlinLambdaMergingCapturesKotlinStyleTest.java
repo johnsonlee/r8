@@ -90,9 +90,9 @@ public class KotlinLambdaMergingCapturesKotlinStyleTest extends KotlinTestBase {
                 inspector
                     .assertIsCompleteMergeGroup(
                         getMinimalSyntheticItemsTestUtils()
-                            .syntheticThrowBlockOutlineClass(getMainClassReference(), 0),
+                            .syntheticBottomUpOutlineClass(getMainClassReference(), 0),
                         getMinimalSyntheticItemsTestUtils()
-                            .syntheticThrowBlockOutlineClass(getMainClassReference(), 1))
+                            .syntheticBottomUpOutlineClass(getMainClassReference(), 1))
                     .assertNoOtherClassesMerged();
               } else {
                 inspector.assertNoClassesMerged();

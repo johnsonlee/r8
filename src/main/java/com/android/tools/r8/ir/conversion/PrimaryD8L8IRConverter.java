@@ -281,7 +281,7 @@ public class PrimaryD8L8IRConverter extends IRConverter {
             .convertClasses(executorService, timing);
 
     // Process computed throw outlines.
-    appView.withThrowBlockOutliner(
+    appView.withBottomUpOutliner(
         outliner ->
             outliner.tearDownScanner(
                 classConverterResult.getForcefullyMovedLambdaMethods(), executorService));

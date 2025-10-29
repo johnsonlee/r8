@@ -733,7 +733,7 @@ public class R8 {
 
       R8LibraryDesugaring.runIfNecessary(appView, executorService, timing);
 
-      appView.withThrowBlockOutliner(outliner -> outliner.runForR8(executorService, timing));
+      appView.withBottomUpOutliner(outliner -> outliner.runForR8(executorService, timing));
 
       if (appView.appInfo().hasLiveness()) {
         SyntheticFinalization.finalizeWithLiveness(appView.withLiveness(), executorService, timing);

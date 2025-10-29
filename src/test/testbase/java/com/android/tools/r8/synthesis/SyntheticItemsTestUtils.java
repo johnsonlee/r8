@@ -126,12 +126,12 @@ public abstract class SyntheticItemsTestUtils {
         methodWithReceiverForForwarding.getMethodDescriptor());
   }
 
-  public final ClassReference syntheticThrowBlockOutlineClass(Class<?> clazz, int id) {
-    return syntheticThrowBlockOutlineClass(Reference.classFromClass(clazz), id);
+  public final ClassReference syntheticBottomUpOutlineClass(Class<?> clazz, int id) {
+    return syntheticBottomUpOutlineClass(Reference.classFromClass(clazz), id);
   }
 
-  public ClassReference syntheticThrowBlockOutlineClass(ClassReference clazz, int id) {
-    return syntheticClass(clazz, naming.THROW_BLOCK_OUTLINE, id);
+  public ClassReference syntheticBottomUpOutlineClass(ClassReference clazz, int id) {
+    return syntheticClass(clazz, naming.BOTTOM_UP_OUTLINE, id);
   }
 
   public final ClassReference syntheticOutlineClass(Class<?> clazz, int id) {
@@ -438,7 +438,7 @@ public abstract class SyntheticItemsTestUtils {
     }
 
     @Override
-    public ClassReference syntheticThrowBlockOutlineClass(ClassReference classReference, int id) {
+    public ClassReference syntheticBottomUpOutlineClass(ClassReference classReference, int id) {
       return syntheticClassWithMinimalName(classReference, id);
     }
 
