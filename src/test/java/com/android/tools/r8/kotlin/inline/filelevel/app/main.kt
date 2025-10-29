@@ -8,6 +8,7 @@ import com.android.tools.r8.kotlin.inline.filelevel.lib.g
 
 fun main() {
   f()
-  f { "Hello again, world!" }
-  g({ "Hello, " })
+  f { "2" }
+  g({ "3" })
+  g({ "5" }) { "6" }
 }

@@ -6,7 +6,8 @@ package com.android.tools.r8.kotlin;
 
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.isValidMethodDescriptor;
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.rewriteList;
-import static com.android.tools.r8.kotlin.KotlinMetadataUtils.toDefaultJvmMethodSignature;
+import static com.android.tools.r8.kotlin.KotlinMetadataUtils.toStaticDefaultJvmMethodSignature;
+import static com.android.tools.r8.kotlin.KotlinMetadataUtils.toVirtualDefaultJvmMethodSignature;
 import static com.android.tools.r8.utils.FunctionUtils.forEachApply;
 
 import com.android.tools.r8.graph.AppView;
@@ -160,23 +161,34 @@ public class KotlinDeclarationContainerInfo implements EnqueuerMetadataTraceable
       Map<String, DexEncodedMethod> methodSignatureMap,
       Consumer<DexEncodedMethod> keepByteCode) {
     if (Attributes.isInline(kmFunction)) {
-      // Check if we can find a default method. If there are more than 32 arguments another int
-      // index will be added to the default method.
-      for (int i = 1;
-          i <= IntMath.divide(method.getParameters().size(), 32, RoundingMode.CEILING);
-          i++) {
-        DexEncodedMethod defaultValueMethod =
-            methodSignatureMap.get(toDefaultJvmMethodSignature(signature, i).toString());
-        if (defaultValueMethod != null) {
-          keepByteCode.accept(defaultValueMethod);
-          return;
-        }
-      }
+      keepByteCode.accept(method);
       String forInlineSig = signature.getName() + "$$forInline" + signature.getDescriptor();
       if (methodSignatureMap.containsKey(forInlineSig)) {
         keepByteCode.accept(methodSignatureMap.get(forInlineSig));
       }
-      keepByteCode.accept(method);
+      // Check if we can find a default method. If there are more than 32 arguments another int
+      // index will be added to the default method.
+      boolean hasOptionalArguments = false;
+      for (int i = 0; i < kmFunction.getValueParameters().size() && !hasOptionalArguments; i++) {
+        hasOptionalArguments |=
+            Attributes.getDeclaresDefaultValue(kmFunction.getValueParameters().get(i));
+      }
+      if (!hasOptionalArguments) {
+        return;
+      }
+      for (int i = 1;
+          i <= IntMath.divide(method.getParameters().size(), 32, RoundingMode.CEILING);
+          i++) {
+        DexEncodedMethod defaultValueMethod =
+            methodSignatureMap.get(
+                (method.isStatic()
+                        ? toStaticDefaultJvmMethodSignature(signature, i)
+                        : toVirtualDefaultJvmMethodSignature(method.getHolderType(), signature, i))
+                    .toString());
+        if (defaultValueMethod != null) {
+          keepByteCode.accept(defaultValueMethod);
+        }
+      }
     }
   }
 

@@ -7,4 +7,5 @@ import com.android.tools.r8.kotlin.inline.companion_optional_params.lib.A
 
 fun main() {
   A.g({ "1" })
+  A.g({ "3" }) { "4" }
 }
