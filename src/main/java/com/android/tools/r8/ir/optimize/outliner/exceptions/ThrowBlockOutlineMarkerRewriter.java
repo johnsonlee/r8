@@ -33,6 +33,8 @@ import com.android.tools.r8.lightir.LirCode;
 import com.android.tools.r8.lightir.LirStrategy;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.timing.Timing;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
 
@@ -160,6 +162,7 @@ public class ThrowBlockOutlineMarkerRewriter {
               outlinedInstruction != outlineMarker;
               outlinedInstruction = instructionIterator.previous()) {
             assert !outlinedInstruction.isThrowBlockOutlineMarker();
+            fixupOutlinedOutValue(outlinedInstruction);
             Value outValue = outlinedInstruction.outValue();
             if (outValue == null || !outValue.hasNonDebugUsers()) {
               // Remove all debug users of the out-value.
@@ -228,6 +231,31 @@ public class ThrowBlockOutlineMarkerRewriter {
     } else {
       assert returnType.isVoidType();
       return null;
+    }
+  }
+
+  // In debug mode the out-value of outlined calls to StringBuilder#append may be used outside the
+  // outline. In this case we replace the out-value by the receiver of the call.
+  //
+  // In release mode calls to StringBuilder#append does not have an out-value.
+  private void fixupOutlinedOutValue(Instruction outlinedInstruction) {
+    if (outlinedInstruction.hasOutValue()
+        && outlinedInstruction.outValue().hasNonDebugUsers()
+        && outlinedInstruction.isInvokeVirtual()
+        && factory.stringBuilderMethods.isAppendMethod(
+            outlinedInstruction.asInvokeVirtual().getInvokedMethod())) {
+      assert appView.options().debug;
+      assert appView.options().getThrowBlockOutlinerOptions().forceDebug;
+      Value outlinedOutValue = outlinedInstruction.outValue();
+      if (outlinedOutValue.hasDebugUsers()) {
+        Collection<Instruction> debugUsers = new ArrayList<>(outlinedOutValue.debugUsers());
+        outlinedOutValue.clearDebugUsers();
+        for (Instruction debugUser : debugUsers) {
+          debugUser.removeDebugValue(outlinedOutValue);
+        }
+        outlinedOutValue.clearLocalInfo();
+      }
+      outlinedOutValue.replaceUsers(outlinedInstruction.getFirstOperand());
     }
   }
 

@@ -24,11 +24,14 @@ import java.util.Set;
 public class ThrowBlockOutlinerPrefixer {
 
   private final DexItemFactory factory;
-  private final BasicBlock throwBlock;
+  private final BasicBlock block;
+  private final Instruction previousOutlineEnd;
 
-  ThrowBlockOutlinerPrefixer(DexItemFactory factory, BasicBlock throwBlock) {
+  ThrowBlockOutlinerPrefixer(
+      DexItemFactory factory, BasicBlock block, Instruction previousOutlineEnd) {
     this.factory = factory;
-    this.throwBlock = throwBlock;
+    this.block = block;
+    this.previousOutlineEnd = previousOutlineEnd;
   }
 
   /**
@@ -167,7 +170,7 @@ public class ThrowBlockOutlinerPrefixer {
     // StringBuilder instructions into the outline.
     InvokeDirect stringBuilderConstructorCall = null;
     for (Instruction instruction = firstOutlinedInstruction.getPrev();
-        instruction != null;
+        instruction != null && instruction != previousOutlineEnd;
         instruction = instruction.getPrev()) {
       switch (instruction.opcode()) {
         case INVOKE_DIRECT:
@@ -246,7 +249,7 @@ public class ThrowBlockOutlinerPrefixer {
   private Instruction moveNonOutlinedInstructionToOutline(
       Instruction nonOutlinedInstruction, Instruction firstOutlinedInstruction) {
     if (nonOutlinedInstruction != firstOutlinedInstruction.getPrev()) {
-      InstructionList throwBlockInstructions = throwBlock.getInstructions();
+      InstructionList throwBlockInstructions = block.getInstructions();
       throwBlockInstructions.removeIgnoreValues(nonOutlinedInstruction);
       throwBlockInstructions.addBefore(nonOutlinedInstruction, firstOutlinedInstruction);
     }

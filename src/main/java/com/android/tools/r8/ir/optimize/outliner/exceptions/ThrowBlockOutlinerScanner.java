@@ -52,7 +52,9 @@ import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodC
 import com.android.tools.r8.lightir.LirCode;
 import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.ListUtils;
+import com.android.tools.r8.utils.WorkList;
 import com.android.tools.r8.utils.timing.Timing;
+import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -61,6 +63,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.function.Consumer;
 
 public class ThrowBlockOutlinerScanner {
@@ -158,6 +161,8 @@ public class ThrowBlockOutlinerScanner {
       this.block = block;
       this.previousOutlineEnd = previousOutlineEnd;
     }
+
+    abstract Instruction getOutlineEnd();
 
     void processInstruction(Instruction instruction, Consumer<OutlineBuilder> continuation) {
       if (instruction != previousOutlineEnd) {
@@ -280,7 +285,8 @@ public class ThrowBlockOutlinerScanner {
 
     private void processStringBuilderConstructorCall(
         InvokeDirect invoke, Consumer<OutlineBuilder> continuation) {
-      if (!factory.stringBuilderMethods.isConstructorMethod(invoke.getInvokedMethod())) {
+      if (!factory.stringBuilderMethods.isConstructorMethod(invoke.getInvokedMethod())
+          || isStringBuilderMaybeUsedAfterOutlineEnd(invoke.getReceiver())) {
         // Unhandled instruction.
         startOutline(invoke.getNext(), continuation);
         return;
@@ -302,6 +308,41 @@ public class ThrowBlockOutlinerScanner {
                     .build());
             continuation.accept(outlineBuilder);
           });
+    }
+
+    private boolean isStringBuilderMaybeUsedAfterOutlineEnd(Value stringBuilderValue) {
+      if (getOutlineEnd().isThrow()) {
+        return false;
+      }
+      WorkList<Value> aliases = WorkList.newIdentityWorkList(stringBuilderValue);
+      Set<Instruction> allUsers = Sets.newIdentityHashSet();
+      while (aliases.hasNext()) {
+        Value alias = aliases.next();
+        if (alias.hasPhiUsers()) {
+          return true;
+        }
+        for (Instruction user : alias.uniqueUsers()) {
+          if (user.getBlock() != block) {
+            return true;
+          }
+          if (user.isInvokeVirtual()) {
+            InvokeVirtual invoke = user.asInvokeVirtual();
+            if (invoke.hasOutValue()
+                && factory.stringBuilderMethods.isAppendMethod(invoke.getInvokedMethod())) {
+              aliases.addIfNotSeen(invoke.outValue());
+            }
+          }
+          allUsers.add(user);
+        }
+      }
+      for (Instruction instruction = getOutlineEnd().getNext();
+          instruction != null;
+          instruction = instruction.getNext()) {
+        if (allUsers.contains(instruction)) {
+          return true;
+        }
+      }
+      return false;
     }
 
     private void processStringFormatOrValueOf(
@@ -380,7 +421,7 @@ public class ThrowBlockOutlinerScanner {
         newFirstOutlinedInstruction = firstOutlinedInstruction;
       } else {
         newFirstOutlinedInstruction =
-            new ThrowBlockOutlinerPrefixer(factory, block)
+            new ThrowBlockOutlinerPrefixer(factory, block, previousOutlineEnd)
                 .tryMoveNonOutlinedStringBuilderInstructionsToOutline(firstOutlinedInstruction);
         hasRunPrefixer = true;
       }
@@ -407,6 +448,11 @@ public class ThrowBlockOutlinerScanner {
         Instruction previousOutlineEnd) {
       super(code, block, previousOutlineEnd);
       this.stringBuilderToStringInstruction = stringBuilderToStringInstruction;
+    }
+
+    @Override
+    Instruction getOutlineEnd() {
+      return stringBuilderToStringInstruction;
     }
 
     ThrowBlockOutline tryBuildOutline() {
@@ -463,6 +509,11 @@ public class ThrowBlockOutlinerScanner {
     ThrowBlockOutlinerScannerForThrow(IRCode code, BasicBlock block) {
       super(code, block, null);
       this.throwInstruction = block.exit().asThrow();
+    }
+
+    @Override
+    Instruction getOutlineEnd() {
+      return throwInstruction;
     }
 
     void tryBuildOutline() {

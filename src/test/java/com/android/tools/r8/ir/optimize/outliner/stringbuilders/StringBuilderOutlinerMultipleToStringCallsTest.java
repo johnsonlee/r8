@@ -5,7 +5,6 @@ package com.android.tools.r8.ir.optimize.outliner.stringbuilders;
 
 import com.android.tools.r8.SingleTestRunResult;
 import com.android.tools.r8.TestCompilerBuilder;
-import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.ir.optimize.outliner.exceptions.ThrowBlockOutline;
 import com.android.tools.r8.ir.optimize.outliner.exceptions.ThrowBlockOutlinerTestBase;
@@ -33,12 +32,7 @@ public class StringBuilderOutlinerMultipleToStringCallsTest extends ThrowBlockOu
         .apply(this::configure)
         .compile()
         .run(parameters.getRuntime(), Main.class, "Hel", "lo, ", "world!")
-        .applyIf(
-            parameters.getDexRuntimeVersion().isEqualToOneOf(Version.V5_1_1, Version.V6_0_1)
-                && mode.isRelease()
-                && testBuilder.isD8TestBuilder(),
-            rr -> rr.assertFailureWithErrorThatThrows(NullPointerException.class),
-            rr -> rr.assertFailureWithErrorThatThrows(VerifyError.class));
+        .assertSuccessWithOutputLines("Hello, Hello, world!");
   }
 
   @Override
