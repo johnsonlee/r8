@@ -95,7 +95,7 @@ public abstract class KotlinInlineTestBase extends KotlinTestBase {
             .addClasspathFiles(kotlinc.getKotlinAnnotationJar())
             .addProgramFiles(jarMap.getForConfiguration(kotlinParameters))
             .addClasspathFiles(kotlinc.getKotlinStdlibJar())
-            .addKeepKotlinMetadata()
+            .addKeepRuntimeVisibleAnnotations()
             .apply(this::configure)
             .compile()
             .inspect(
