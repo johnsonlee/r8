@@ -72,7 +72,7 @@ public class MetadataRewriteEnumTest extends KotlinMetadataTestBase {
             .addProgramFiles(
                 jarMap.getForConfiguration(kotlinParameters), kotlinc.getKotlinAnnotationJar())
             .addClasspathFiles(kotlinc.getKotlinStdlibJar())
-            .addKeepKotlinMetadata()
+            .addKeepRuntimeVisibleAnnotations()
             .addKeepEnumsRule()
             .addKeepClassRules(DIRECTION_TYPE_NAME)
             .addKeepClassAndMembersRulesWithAllowObfuscation(DIRECTION_TYPE_NAME)
@@ -101,7 +101,7 @@ public class MetadataRewriteEnumTest extends KotlinMetadataTestBase {
             .addProgramFiles(
                 jarMap.getForConfiguration(kotlinParameters), kotlinc.getKotlinAnnotationJar())
             .addClasspathFiles(kotlinc.getKotlinStdlibJar())
-            .addKeepKotlinMetadata()
+            .addKeepRuntimeVisibleAnnotations()
             .addKeepEnumsRule()
             .addKeepClassRules(DIRECTION_TYPE_NAME)
             .addKeepClassAndMembersRulesWithAllowObfuscation(DIRECTION_TYPE_NAME)

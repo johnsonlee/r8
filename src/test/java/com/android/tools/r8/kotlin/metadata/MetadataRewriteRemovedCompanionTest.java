@@ -69,7 +69,7 @@ public class MetadataRewriteRemovedCompanionTest extends KotlinMetadataTestBase 
             .addProgramFiles(companionRemoveJarMap.getForConfiguration(kotlinParameters))
             // Keep everything
             .addKeepRules("-keep class **.companion_remove_lib.** { *; }")
-            .addKeepKotlinMetadata()
+            .addKeepRuntimeVisibleAnnotations()
             // To keep ...$Companion structure
             .addKeepAttributeInnerClassesAndEnclosingMethod()
             .compile()
@@ -96,7 +96,7 @@ public class MetadataRewriteRemovedCompanionTest extends KotlinMetadataTestBase 
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
             .addProgramFiles(companionRemoveJarMap.getForConfiguration(kotlinParameters))
             // Keep the ClasWithCompanion class.
-            .addKeepKotlinMetadata()
+            .addKeepRuntimeVisibleAnnotations()
             .addKeepRules("-keep class **.ClassWithCompanion { void <init>(); void doStuff(); }")
             .addKeepRules("-keep class **.ClassWithCompanion$Companion")
             .compile()
