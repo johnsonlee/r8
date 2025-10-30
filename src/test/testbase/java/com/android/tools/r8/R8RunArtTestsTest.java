@@ -1227,6 +1227,11 @@ public abstract class R8RunArtTestsTest extends TestBase {
 
   private static Map<String, Consumer<InternalOptions>> configurations =
       ImmutableMap.of(
+          // Creates a weak reference to a computed string that has been interned and checks that
+          // a GC will collect the computed string. With the StringBuilder append optimization
+          // enabled, the computed string is replaced by a const string, which changes the GC
+          // behavior, presumably because the string now ends up in the interned table when loaded.
+          "003-omnibus-opcodes", options -> options.enableStringConcatenationOptimization = false,
           // Has a new-instance instruction that attempts to instantiate an interface.
           "162-method-resolution", options -> options.testing.disableStackMapVerification = true,
           "435-new-instance", options -> options.testing.allowTypeErrors = true);

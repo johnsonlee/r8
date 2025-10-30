@@ -358,7 +358,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   void disableAllOptimizations() {
     disableGlobalOptimizations();
     enableNameReflectionOptimization = false;
-    enableStringConcatenationOptimization = false;
   }
 
   public void disableGlobalOptimizations() {
