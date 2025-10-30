@@ -5,7 +5,6 @@
 package com.android.tools.r8.features;
 
 import com.android.tools.r8.FeatureSplit;
-import com.android.tools.r8.FeatureSplitProgramResourceProvider;
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;

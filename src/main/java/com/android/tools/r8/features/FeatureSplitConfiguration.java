@@ -6,7 +6,6 @@ package com.android.tools.r8.features;
 import com.android.tools.r8.DataResourceConsumer;
 import com.android.tools.r8.DataResourceProvider;
 import com.android.tools.r8.FeatureSplit;
-import com.android.tools.r8.FeatureSplitProgramResourceProvider;
 import com.android.tools.r8.ProgramResourceProvider;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.utils.IterableUtils;

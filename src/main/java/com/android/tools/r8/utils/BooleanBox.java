@@ -27,6 +27,10 @@ public class BooleanBox {
     return value;
   }
 
+  public int intValue() {
+    return BooleanUtils.intValue(isTrue());
+  }
+
   public boolean isFalse() {
     return !get();
   }
