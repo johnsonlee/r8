@@ -6,14 +6,13 @@ package com.android.tools.r8.partial;
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticType;
 import static org.junit.Assert.assertEquals;
 
+import com.android.tools.r8.R8PartialTestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.errors.UnusedProguardKeepRuleDiagnostic;
-import com.android.tools.r8.partial.PartialCompilationSyntheticKeepTest.Main.NestMember;
-import com.google.common.collect.ImmutableList;
-import java.util.List;
+import com.android.tools.r8.synthesis.SyntheticNaming;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -21,7 +20,7 @@ import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class PartialCompilationSyntheticKeepTest extends TestBase {
+public class PartialCompilationSyntheticClassKeepTest extends TestBase {
 
   @Parameter(0)
   public TestParameters parameters;
@@ -34,10 +33,10 @@ public class PartialCompilationSyntheticKeepTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     testForR8(parameters)
-        .addProgramClassFileData(getProgramClassFileData())
+        .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
         .addKeepRules(
-            "-keepclassmembers class " + NestMember.class.getTypeName() + " { synthetic *; }")
+            "-keep class " + I.class.getTypeName() + SyntheticNaming.COMPANION_CLASS_SUFFIX)
         .allowUnusedProguardConfigurationRules()
         .compileWithExpectedDiagnostics(
             diagnostics ->
@@ -53,43 +52,43 @@ public class PartialCompilationSyntheticKeepTest extends TestBase {
   @Test
   public void testR8Partial() throws Exception {
     testForR8Partial(parameters)
-        .addProgramClassFileData(getProgramClassFileData())
-        .addR8IncludedClasses(false, Main.class, NestMember.class)
+        .addR8IncludedClasses(Main.class, I.class)
         .addKeepMainRule(Main.class)
         .addKeepRules(
-            "-keepclassmembers class " + NestMember.class.getTypeName() + " { synthetic *; }")
-        .compile()
-        // TODO(b/394488245): Should be 1.
-        .inspect(inspector -> assertEquals(2, inspector.allClasses().size()))
+            "-keep class " + I.class.getTypeName() + SyntheticNaming.COMPANION_CLASS_SUFFIX)
+        .applyIf(
+            parameters.canUseDefaultAndStaticInterfaceMethods(),
+            R8PartialTestBuilder::allowUnusedProguardConfigurationRules)
+        .compileWithExpectedDiagnostics(
+            diagnostics -> {
+              if (parameters.canUseDefaultAndStaticInterfaceMethods()) {
+                diagnostics.assertInfosMatch(
+                    diagnosticType(UnusedProguardKeepRuleDiagnostic.class));
+              } else {
+                diagnostics.assertNoMessages();
+              }
+            })
+        .inspect(
+            inspector ->
+                // TODO(b/394488245): Should be 1.
+                assertEquals(
+                    parameters.canUseDefaultAndStaticInterfaceMethods() ? 1 : 2,
+                    inspector.allClasses().size()))
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("Hello, world!");
-  }
-
-  private static List<byte[]> getProgramClassFileData() throws Exception {
-    return ImmutableList.of(
-        transformer(Main.class).setNest(Main.class, NestMember.class).transform(),
-        transformer(NestMember.class)
-            .setNest(Main.class, NestMember.class)
-            .setAccessFlags(
-                NestMember.class.getDeclaredMethod("greet"),
-                flags -> {
-                  flags.unsetPublic();
-                  flags.setPrivate();
-                })
-            .transform());
   }
 
   static class Main {
 
     public static void main(String[] args) {
-      NestMember.greet();
+      I.m();
     }
+  }
 
-    static class NestMember {
+  interface I {
 
-      public static void greet() {
-        System.out.println("Hello, world!");
-      }
+    static void m() {
+      System.out.println("Hello, world!");
     }
   }
 }

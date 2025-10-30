@@ -205,6 +205,10 @@ public class RootSetUtils {
       return dependentMinimumKeepInfo;
     }
 
+    boolean isConsequentRootSetBuilder() {
+      return false;
+    }
+
     boolean isMainDexRootSetBuilder() {
       return false;
     }
@@ -1307,6 +1311,11 @@ public class RootSetUtils {
         ProguardConfigurationRule context,
         DexClass precondition,
         ProguardIfRulePreconditionMatch ifRulePreconditionMatch) {
+      if (!isConsequentRootSetBuilder() && !isMainDexRootSetBuilder()) {
+        if (method.getDefinition().isD8R8Synthesized()) {
+          return;
+        }
+      }
       if (methodsMarked != null
           && methodsMarked.contains(MethodSignatureEquivalence.get().wrap(method.getReference()))) {
         // Ignore, method is overridden in sub class.
@@ -1328,6 +1337,11 @@ public class RootSetUtils {
         ProguardConfigurationRule context,
         DexClass precondition,
         ProguardIfRulePreconditionMatch ifRulePreconditionMatch) {
+      if (!isConsequentRootSetBuilder() && !isMainDexRootSetBuilder()) {
+        if (field.getDefinition().isD8R8Synthesized()) {
+          return;
+        }
+      }
       for (ProguardMemberRule rule : rules) {
         if (rule.matches(field, appView, this::handleMatchedAnnotation, dexStringCache)) {
           addItemToSets(field, context, rule, precondition, ifRulePreconditionMatch);
@@ -2541,6 +2555,11 @@ public class RootSetUtils {
         enqueuer.retainAnnotationForFinalTreeShaking(
             annotationMatchResult.asConcreteAnnotationMatchResult().getMatchedAnnotations());
       }
+    }
+
+    @Override
+    boolean isConsequentRootSetBuilder() {
+      return true;
     }
   }
 
