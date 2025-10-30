@@ -149,7 +149,8 @@ class R8Partial {
         input.getKeepDeclarations(),
         subCompilationConfiguration.getOutputClasspathClasses(),
         subCompilationConfiguration.getOutputLibraryClasses(),
-        subCompilationConfiguration.getStartupProfile());
+        subCompilationConfiguration.getStartupProfile(),
+        subCompilationConfiguration.getSynthetics());
   }
 
   private void runR8Step(
@@ -241,6 +242,7 @@ class R8Partial {
             d8Result.getKeepDeclarations(),
             d8Result.getStartupProfile(),
             statsMetadataBuilder,
+            d8Result.getSynthetics(),
             timing);
     r8Options.setArtProfileOptions(
         new ArtProfileOptions(r8Options, options.getArtProfileOptions()));

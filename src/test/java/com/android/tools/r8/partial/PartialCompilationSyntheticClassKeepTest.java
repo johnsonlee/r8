@@ -6,7 +6,6 @@ package com.android.tools.r8.partial;
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticType;
 import static org.junit.Assert.assertEquals;
 
-import com.android.tools.r8.R8PartialTestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -56,24 +55,12 @@ public class PartialCompilationSyntheticClassKeepTest extends TestBase {
         .addKeepMainRule(Main.class)
         .addKeepRules(
             "-keep class " + I.class.getTypeName() + SyntheticNaming.COMPANION_CLASS_SUFFIX)
-        .applyIf(
-            parameters.canUseDefaultAndStaticInterfaceMethods(),
-            R8PartialTestBuilder::allowUnusedProguardConfigurationRules)
+        .allowUnusedProguardConfigurationRules()
         .compileWithExpectedDiagnostics(
-            diagnostics -> {
-              if (parameters.canUseDefaultAndStaticInterfaceMethods()) {
+            diagnostics ->
                 diagnostics.assertInfosMatch(
-                    diagnosticType(UnusedProguardKeepRuleDiagnostic.class));
-              } else {
-                diagnostics.assertNoMessages();
-              }
-            })
-        .inspect(
-            inspector ->
-                // TODO(b/394488245): Should be 1.
-                assertEquals(
-                    parameters.canUseDefaultAndStaticInterfaceMethods() ? 1 : 2,
-                    inspector.allClasses().size()))
+                    diagnosticType(UnusedProguardKeepRuleDiagnostic.class)))
+        .inspect(inspector -> assertEquals(1, inspector.allClasses().size()))
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("Hello, world!");
   }

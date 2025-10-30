@@ -38,6 +38,7 @@ import com.android.tools.r8.graph.lens.NonIdentityGraphLens;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryTypeRewriter;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration.R8PartialR8SubCompilationConfiguration;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.synthesis.SyntheticFinalization.Result;
@@ -252,6 +253,10 @@ public class SyntheticItems {
     return committed;
   }
 
+  public CommittedSyntheticsCollection getFinalized() {
+    return finalized;
+  }
+
   public SyntheticNaming getNaming() {
     return naming;
   }
@@ -263,11 +268,15 @@ public class SyntheticItems {
   // Only for use from initial AppInfo/AppInfoWithClassHierarchy create functions. */
   public static CommittedItems createInitialSyntheticItems(
       DexApplication application, GlobalSyntheticsStrategy globalSyntheticsStrategy) {
+    R8PartialR8SubCompilationConfiguration subCompilationConfiguration =
+        application.options.getR8PartialR8SubCompilationOptions();
     return new CommittedItems(
         State.OPEN,
         application,
         CommittedSyntheticsCollection.empty(),
-        CommittedSyntheticsCollection.empty(),
+        subCompilationConfiguration != null
+            ? subCompilationConfiguration.getSynthetics()
+            : CommittedSyntheticsCollection.empty(),
         ImmutableList.of(),
         globalSyntheticsStrategy);
   }
@@ -320,6 +329,11 @@ public class SyntheticItems {
   }
 
   public static void collectSyntheticInputs(AppView<?> appView) {
+    // Nothing to collect in R8 partial.
+    if (appView.options().getR8PartialR8SubCompilationOptions() != null) {
+      return;
+    }
+
     // Collecting synthetic items must be the very first task after application build.
     SyntheticItems synthetics = appView.getSyntheticItems();
     assert synthetics.committed.isEmpty();
@@ -682,7 +696,6 @@ public class SyntheticItems {
   }
 
   public boolean isSyntheticMethodThatShouldNotBeDoubleProcessed(ProgramMethod method) {
-    assert finalized.isEmpty();
     for (SyntheticMethodReference reference :
         committed.getMethods().getOrDefault(method.getHolderType(), Collections.emptyList())) {
       if (reference.getKind().equals(naming.STATIC_INTERFACE_CALL)) {
@@ -702,7 +715,6 @@ public class SyntheticItems {
       DexProgramClass clazz,
       Predicate<DexProgramClass> ifIsLambda,
       Predicate<DexProgramClass> ifNotLambda) {
-    assert finalized.isEmpty();
     Iterable<SyntheticReference<?, ?, ?>> references = committed.getItems(clazz.getType());
     SyntheticDefinition<?, ?, ?> definition = pending.definitions.get(clazz.getType());
     if (definition != null) {
