@@ -11,9 +11,12 @@ import static com.android.tools.r8.ir.desugar.nest.NestBasedAccessDesugaring.NES
 import static com.android.tools.r8.ir.desugar.nest.NestBasedAccessDesugaring.NEST_ACCESS_STATIC_METHOD_NAME_PREFIX;
 import static com.android.tools.r8.ir.desugar.nest.NestBasedAccessDesugaring.NEST_ACCESS_STATIC_PUT_FIELD_NAME_PREFIX;
 import static com.android.tools.r8.synthesis.SyntheticNaming.EXTERNAL_SYNTHETIC_CLASS_SEPARATOR;
+import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 import static org.hamcrest.CoreMatchers.containsString;
 
+import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.graph.DexItemFactory;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.desugar.invokespecial.InvokeSpecialToSelfDesugaring;
 import com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringForTesting;
 import com.android.tools.r8.references.ClassReference;
@@ -25,9 +28,14 @@ import com.android.tools.r8.synthesis.SyntheticNaming.Phase;
 import com.android.tools.r8.synthesis.SyntheticNaming.SyntheticKind;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.google.common.collect.ImmutableList;
+import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
+import it.unimi.dsi.fastutil.ints.Int2ReferenceMaps;
+import it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import org.hamcrest.Matcher;
 
 // TODO(b/454846973): Instantiate this based on an output from D8/R8 so that this is completely
@@ -130,25 +138,19 @@ public abstract class SyntheticItemsTestUtils {
     return syntheticBottomUpOutlineClass(Reference.classFromClass(clazz), id);
   }
 
-  public ClassReference syntheticBottomUpOutlineClass(ClassReference clazz, int id) {
-    return syntheticClass(clazz, naming.BOTTOM_UP_OUTLINE, id);
-  }
+  public abstract ClassReference syntheticBottomUpOutlineClass(ClassReference clazz, int id);
 
   public final ClassReference syntheticOutlineClass(Class<?> clazz, int id) {
     return syntheticOutlineClass(Reference.classFromClass(clazz), id);
   }
 
-  public ClassReference syntheticOutlineClass(ClassReference clazz, int id) {
-    return syntheticClass(clazz, naming.OUTLINE, id);
-  }
+  public abstract ClassReference syntheticOutlineClass(ClassReference clazz, int id);
 
   public final ClassReference syntheticLambdaClass(Class<?> clazz, int id) {
     return syntheticLambdaClass(Reference.classFromClass(clazz), id);
   }
 
-  public ClassReference syntheticLambdaClass(ClassReference clazz, int id) {
-    return syntheticClass(clazz, naming.LAMBDA, id);
-  }
+  public abstract ClassReference syntheticLambdaClass(ClassReference clazz, int id);
 
   public static ClassReference syntheticApiConversionClass(Class<?> clazz, int id) {
     return syntheticClass(clazz, naming.API_CONVERSION, id);
@@ -158,23 +160,15 @@ public abstract class SyntheticItemsTestUtils {
     return syntheticApiOutlineClass(Reference.classFromClass(clazz), id);
   }
 
-  public ClassReference syntheticApiOutlineClass(ClassReference classReference, int id) {
-    return syntheticClass(classReference, naming.API_MODEL_OUTLINE, id);
-  }
+  public abstract ClassReference syntheticApiOutlineClass(ClassReference classReference, int id);
 
-  public String syntheticApiOutlineClassPrefix(Class<?> clazz) {
-    return clazz.getTypeName()
-        + EXTERNAL_SYNTHETIC_CLASS_SEPARATOR
-        + naming.API_MODEL_OUTLINE.getDescriptor();
-  }
+  public abstract String syntheticApiOutlineClassPrefix(Class<?> clazz);
 
   public final ClassReference syntheticBackportClass(Class<?> clazz, int id) {
     return syntheticBackportClass(Reference.classFromClass(clazz), id);
   }
 
-  public ClassReference syntheticBackportClass(ClassReference classReference, int id) {
-    return syntheticClass(classReference, naming.BACKPORT, id);
-  }
+  public abstract ClassReference syntheticBackportClass(ClassReference classReference, int id);
 
   public static ClassReference syntheticBackportWithForwardingClass(Class<?> clazz, int id) {
     return syntheticClass(clazz, naming.BACKPORT_WITH_FORWARDING, id);
@@ -193,23 +187,15 @@ public abstract class SyntheticItemsTestUtils {
     return syntheticClass(reference, naming.RECORD_HELPER, id);
   }
 
-  public ClassReference syntheticTwrCloseResourceClass(ClassReference reference, int id) {
-    return syntheticClass(reference, naming.TWR_CLOSE_RESOURCE, id);
-  }
+  public abstract ClassReference syntheticTwrCloseResourceClass(ClassReference reference, int id);
 
-  public ClassReference syntheticAutoCloseableDispatcherClass(
-      ClassReference classReference, int id) {
-    return syntheticClass(classReference, naming.AUTOCLOSEABLE_DISPATCHER, id);
-  }
+  public abstract ClassReference syntheticAutoCloseableDispatcherClass(
+      ClassReference classReference, int id);
 
-  public ClassReference syntheticAutoCloseableForwarderClass(
-      ClassReference classReference, int id) {
-    return syntheticClass(classReference, naming.AUTOCLOSEABLE_FORWARDER, id);
-  }
+  public abstract ClassReference syntheticAutoCloseableForwarderClass(
+      ClassReference classReference, int id);
 
-  public ClassReference syntheticThrowIAEClass(ClassReference classReference, int id) {
-    return syntheticClass(classReference, naming.THROW_IAE, id);
-  }
+  public abstract ClassReference syntheticThrowIAEClass(ClassReference classReference, int id);
 
   public final MethodReference syntheticLambdaMethod(Class<?> clazz, int id, Method method) {
     ClassReference syntheticHolder = syntheticLambdaClass(clazz, id);
@@ -396,7 +382,62 @@ public abstract class SyntheticItemsTestUtils {
     return SyntheticNaming.isSynthetic(method.getHolderClass(), Phase.INTERNAL, naming.THROW_NSME);
   }
 
-  private static class DefaultSyntheticItemsTestUtils extends SyntheticItemsTestUtils {}
+  private static class DefaultSyntheticItemsTestUtils extends SyntheticItemsTestUtils {
+
+    @Override
+    public ClassReference syntheticApiOutlineClass(ClassReference classReference, int id) {
+      return syntheticClass(classReference, naming.API_MODEL_OUTLINE, id);
+    }
+
+    @Override
+    public String syntheticApiOutlineClassPrefix(Class<?> clazz) {
+      return clazz.getTypeName()
+          + EXTERNAL_SYNTHETIC_CLASS_SEPARATOR
+          + naming.API_MODEL_OUTLINE.getDescriptor();
+    }
+
+    @Override
+    public ClassReference syntheticAutoCloseableDispatcherClass(
+        ClassReference classReference, int id) {
+      return syntheticClass(classReference, naming.AUTOCLOSEABLE_DISPATCHER, id);
+    }
+
+    @Override
+    public ClassReference syntheticAutoCloseableForwarderClass(
+        ClassReference classReference, int id) {
+      return syntheticClass(classReference, naming.AUTOCLOSEABLE_FORWARDER, id);
+    }
+
+    @Override
+    public ClassReference syntheticBackportClass(ClassReference classReference, int id) {
+      return syntheticClass(classReference, naming.BACKPORT, id);
+    }
+
+    @Override
+    public ClassReference syntheticBottomUpOutlineClass(ClassReference clazz, int id) {
+      return syntheticClass(clazz, naming.BOTTOM_UP_OUTLINE, id);
+    }
+
+    @Override
+    public ClassReference syntheticLambdaClass(ClassReference clazz, int id) {
+      return syntheticClass(clazz, naming.LAMBDA, id);
+    }
+
+    @Override
+    public ClassReference syntheticOutlineClass(ClassReference clazz, int id) {
+      return syntheticClass(clazz, naming.OUTLINE, id);
+    }
+
+    @Override
+    public ClassReference syntheticThrowIAEClass(ClassReference classReference, int id) {
+      return syntheticClass(classReference, naming.THROW_IAE, id);
+    }
+
+    @Override
+    public ClassReference syntheticTwrCloseResourceClass(ClassReference reference, int id) {
+      return syntheticClass(reference, naming.TWR_CLOSE_RESOURCE, id);
+    }
+  }
 
   private static class MinimalSyntheticItemsTestUtils extends SyntheticItemsTestUtils {
 
@@ -428,17 +469,17 @@ public abstract class SyntheticItemsTestUtils {
     }
 
     @Override
+    public ClassReference syntheticBottomUpOutlineClass(ClassReference classReference, int id) {
+      return syntheticClassWithMinimalName(classReference, id);
+    }
+
+    @Override
     public ClassReference syntheticLambdaClass(ClassReference classReference, int id) {
       return syntheticClassWithMinimalName(classReference, id);
     }
 
     @Override
     public ClassReference syntheticOutlineClass(ClassReference classReference, int id) {
-      return syntheticClassWithMinimalName(classReference, id);
-    }
-
-    @Override
-    public ClassReference syntheticBottomUpOutlineClass(ClassReference classReference, int id) {
       return syntheticClassWithMinimalName(classReference, id);
     }
 
@@ -450,6 +491,80 @@ public abstract class SyntheticItemsTestUtils {
     @Override
     public ClassReference syntheticTwrCloseResourceClass(ClassReference classReference, int id) {
       return syntheticClassWithMinimalName(classReference, id);
+    }
+  }
+
+  public static class Builder extends SyntheticItemsTestUtils {
+
+    private final Map<ClassReference, Map<SyntheticKind, Int2ReferenceMap<ClassReference>>>
+        synthetics = new HashMap<>();
+
+    public void add(SyntheticKind kind, int id, DexType syntheticContext, DexType externalType) {
+      Map<SyntheticKind, Int2ReferenceMap<ClassReference>> syntheticsForContextMap =
+          synthetics.computeIfAbsent(syntheticContext.asClassReference(), ignoreKey(HashMap::new));
+      Int2ReferenceMap<ClassReference> idToExternalTypeMap =
+          syntheticsForContextMap.computeIfAbsent(kind, ignoreKey(Int2ReferenceOpenHashMap::new));
+      ClassReference previousValue = idToExternalTypeMap.put(id, externalType.asClassReference());
+      assert previousValue == null;
+    }
+
+    private ClassReference lookup(ClassReference classReference, int id, SyntheticKind kind) {
+      return synthetics
+          .getOrDefault(classReference, Collections.emptyMap())
+          .getOrDefault(kind, Int2ReferenceMaps.emptyMap())
+          .get(id);
+    }
+
+    @Override
+    public ClassReference syntheticApiOutlineClass(ClassReference classReference, int id) {
+      return lookup(classReference, id, naming.API_MODEL_OUTLINE);
+    }
+
+    @Override
+    public String syntheticApiOutlineClassPrefix(Class<?> clazz) {
+      throw new Unimplemented();
+    }
+
+    @Override
+    public ClassReference syntheticAutoCloseableDispatcherClass(
+        ClassReference classReference, int id) {
+      return lookup(classReference, id, naming.AUTOCLOSEABLE_DISPATCHER);
+    }
+
+    @Override
+    public ClassReference syntheticAutoCloseableForwarderClass(
+        ClassReference classReference, int id) {
+      return lookup(classReference, id, naming.AUTOCLOSEABLE_FORWARDER);
+    }
+
+    @Override
+    public ClassReference syntheticBackportClass(ClassReference classReference, int id) {
+      return lookup(classReference, id, naming.BACKPORT);
+    }
+
+    @Override
+    public ClassReference syntheticBottomUpOutlineClass(ClassReference classReference, int id) {
+      return lookup(classReference, id, naming.BOTTOM_UP_OUTLINE);
+    }
+
+    @Override
+    public ClassReference syntheticLambdaClass(ClassReference classReference, int id) {
+      return lookup(classReference, id, naming.LAMBDA);
+    }
+
+    @Override
+    public ClassReference syntheticOutlineClass(ClassReference classReference, int id) {
+      return lookup(classReference, id, naming.OUTLINE);
+    }
+
+    @Override
+    public ClassReference syntheticThrowIAEClass(ClassReference classReference, int id) {
+      return lookup(classReference, id, naming.THROW_IAE);
+    }
+
+    @Override
+    public ClassReference syntheticTwrCloseResourceClass(ClassReference classReference, int id) {
+      return lookup(classReference, id, naming.TWR_CLOSE_RESOURCE);
     }
   }
 }

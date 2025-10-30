@@ -10,6 +10,10 @@ public class NumberGenerator implements ValueFactory {
 
   private int nextValueNumber = 0;
 
+  public int peekPrevious() {
+    return nextValueNumber - 1;
+  }
+
   public int next() {
     return nextValueNumber++;
   }

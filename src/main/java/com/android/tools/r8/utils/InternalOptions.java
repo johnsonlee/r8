@@ -107,6 +107,7 @@ import com.android.tools.r8.shaking.KeepSpecificationSource;
 import com.android.tools.r8.shaking.ProguardConfiguration;
 import com.android.tools.r8.shaking.ProguardConfigurationRule;
 import com.android.tools.r8.synthesis.SyntheticItemsOptions;
+import com.android.tools.r8.synthesis.SyntheticNaming.SyntheticKind;
 import com.android.tools.r8.threading.ThreadingModule;
 import com.android.tools.r8.tracereferences.TraceReferencesOptions;
 import com.android.tools.r8.utils.IROrdering.IdentityIROrdering;
@@ -2330,6 +2331,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
     public BiConsumer<DexItemFactory, RepackagingLens> repackagingLensConsumer =
         ConsumerUtils.emptyBiConsumer();
+
+    public QuadConsumer<SyntheticKind, Integer, DexType, DexType> syntheticItemsConsumer = null;
 
     public BiConsumer<DexItemFactory, EnumDataMap> unboxedEnumsConsumer =
         ConsumerUtils.emptyBiConsumer();

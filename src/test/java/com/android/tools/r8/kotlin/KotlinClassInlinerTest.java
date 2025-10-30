@@ -99,7 +99,7 @@ public class KotlinClassInlinerTest extends AbstractR8KotlinTestBase {
                                     "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda7")
                                 .assertIsCompleteMergeGroup(
                                     "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda2",
-                                    "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticThrowBlockOutline0");
+                                    "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticBUOutline0");
                           }
                           inspector.assertNoOtherClassesMerged();
                         })

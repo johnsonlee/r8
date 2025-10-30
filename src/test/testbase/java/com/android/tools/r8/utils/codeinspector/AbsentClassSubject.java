@@ -20,6 +20,10 @@ import org.junit.rules.TemporaryFolder;
 
 public class AbsentClassSubject extends ClassSubject {
 
+  public AbsentClassSubject() {
+    super(null, null);
+  }
+
   public AbsentClassSubject(CodeInspector codeInspector, ClassReference reference) {
     super(codeInspector, reference);
   }

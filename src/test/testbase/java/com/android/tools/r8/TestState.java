@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8;
 
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
@@ -19,6 +20,8 @@ public class TestState {
 
   private String stdout;
   private String stderr;
+
+  private SyntheticItemsTestUtils syntheticItems;
 
   public TestState(TemporaryFolder temp) {
     this(temp, new TestDiagnosticMessagesImpl());
@@ -79,6 +82,14 @@ public class TestState {
 
   void setStderr(String stderr) {
     this.stderr = stderr;
+  }
+
+  public SyntheticItemsTestUtils getSyntheticItems() {
+    return syntheticItems;
+  }
+
+  void setSyntheticItems(SyntheticItemsTestUtils syntheticItems) {
+    this.syntheticItems = syntheticItems;
   }
 
   void setDiagnosticsLevelModifier(

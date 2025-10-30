@@ -17,6 +17,7 @@ import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.optimize.argumentpropagation.ArgumentPropagatorEventConsumer;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodStateCollectionByReference;
 import com.android.tools.r8.profile.art.model.ExternalArtProfile;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.testing.AndroidBuildVersion;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.AndroidApp;
@@ -115,6 +116,7 @@ public abstract class TestCompilerBuilder<
   private PrintStream oldStderr = null;
   protected OutputMode outputMode = OutputMode.DexIndexed;
   private boolean isBenchmarkRunner = false;
+  private SyntheticItemsTestUtils.Builder syntheticItemsBuilder;
 
   private Optional<Integer> isAndroidBuildVersionAdded = null;
 
@@ -296,6 +298,13 @@ public abstract class TestCompilerBuilder<
     return self();
   }
 
+  public T collectSyntheticItems() {
+    assert syntheticItemsBuilder == null;
+    this.syntheticItemsBuilder = new SyntheticItemsTestUtils.Builder();
+    return addOptionsModification(
+        options -> options.testing.syntheticItemsConsumer = syntheticItemsBuilder::add);
+  }
+
   public CR benchmarkCompile(BenchmarkResults results) throws CompilationFailedException {
     if (System.getProperty("com.android.tools.r8.printtimes") != null) {
       allowStdoutMessages();
@@ -433,6 +442,9 @@ public abstract class TestCompilerBuilder<
         getState().setStderr(stderr.toString());
       }
       System.setErr(oldStderr);
+      if (syntheticItemsBuilder != null) {
+        getState().setSyntheticItems(syntheticItemsBuilder);
+      }
     }
   }
 

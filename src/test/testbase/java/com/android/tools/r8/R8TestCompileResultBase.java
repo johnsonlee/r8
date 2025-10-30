@@ -27,6 +27,7 @@ import com.android.tools.r8.profile.art.model.ExternalArtProfile;
 import com.android.tools.r8.profile.art.utils.ArtProfileInspector;
 import com.android.tools.r8.shaking.CollectingGraphConsumer;
 import com.android.tools.r8.shaking.ProguardConfigurationRule;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.InternalOptions;
@@ -211,6 +212,16 @@ public abstract class R8TestCompileResultBase<CR extends R8TestCompileResultBase
     consumer.accept(
         new ResourceTableInspector(
             ZipUtils.readSingleEntry(resourceShrinkerOutput, "resources.pb")));
+    return self();
+  }
+
+  public SyntheticItemsTestUtils getSyntheticItems() {
+    return state.getSyntheticItems();
+  }
+
+  public <E extends Throwable> CR inspectSyntheticItems(
+      ThrowingConsumer<SyntheticItemsTestUtils, E> consumer) throws E {
+    consumer.accept(state.getSyntheticItems());
     return self();
   }
 

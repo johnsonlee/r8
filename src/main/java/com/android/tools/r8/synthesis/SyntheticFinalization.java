@@ -38,6 +38,7 @@ import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.OptionalBool;
+import com.android.tools.r8.utils.QuadConsumer;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.collections.BidirectionalManyToOneRepresentativeHashMap;
 import com.android.tools.r8.utils.collections.BidirectionalManyToOneRepresentativeMap;
@@ -650,14 +651,13 @@ public class SyntheticFinalization {
             // Two equivalence groups in same context type must be distinct otherwise the assignment
             // of the synthetic name will be non-deterministic between the two.
             assert i == 0 || checkGroupsAreDistinct(groups.get(i - 1), group, comparator);
-            SyntheticKind kind = group.getRepresentative().getKind();
             DexType representativeType =
                 intermediate
                         && synthetics.isSyntheticInput(
                             group.getRepresentative().getHolder().asProgramClass())
                     ? group.getRepresentative().getHolder().getType()
                     : createExternalType(
-                        kind,
+                        group,
                         externalSyntheticTypePrefix,
                         generators,
                         appView,
@@ -871,15 +871,17 @@ public class SyntheticFinalization {
   }
 
   private DexType createExternalType(
-      SyntheticKind kind,
+      EquivalenceGroup<?> group,
       String externalSyntheticTypePrefix,
       Map<String, NumberGenerator> generators,
       AppView<?> appView,
       Predicate<DexType> reserved) {
     DexItemFactory factory = appView.dexItemFactory();
+    SyntheticKind kind = group.getRepresentative().getKind();
+    InternalOptions options = appView.options();
     if (kind.isFixedSuffixSynthetic()) {
       return SyntheticNaming.createExternalType(
-          kind, externalSyntheticTypePrefix, "", factory, appView.options());
+          kind, externalSyntheticTypePrefix, "", factory, options);
     }
     NumberGenerator generator =
         generators.computeIfAbsent(externalSyntheticTypePrefix, k -> new NumberGenerator());
@@ -903,6 +905,17 @@ public class SyntheticFinalization {
         externalType = null;
       }
     } while (externalType == null);
+    QuadConsumer<SyntheticKind, Integer, DexType, DexType> syntheticItemsConsumer =
+        options.getTestingOptions().syntheticItemsConsumer;
+    if (syntheticItemsConsumer != null) {
+      for (SyntheticDefinition<?, ?, ?> member : group.getRepresentativeAndMembers()) {
+        syntheticItemsConsumer.accept(
+            kind,
+            generator.peekPrevious(),
+            member.getContext().getSynthesizingContextType(),
+            externalType);
+      }
+    }
     return externalType;
   }
 
@@ -1010,6 +1023,10 @@ public class SyntheticFinalization {
       this.members = members;
       this.representative = representative;
       this.pinned = pinned;
+    }
+
+    public Iterable<T> getRepresentativeAndMembers() {
+      return IterableUtils.append(members, representative);
     }
 
     public boolean isPinned(AppView<?> appView) {
