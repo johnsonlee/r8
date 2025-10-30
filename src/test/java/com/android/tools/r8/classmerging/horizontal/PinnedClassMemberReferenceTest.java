@@ -4,8 +4,8 @@
 
 package com.android.tools.r8.classmerging.horizontal;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assume.assumeTrue;
 
@@ -50,15 +50,8 @@ public class PinnedClassMemberReferenceTest extends HorizontalClassMergingTestBa
               ClassSubject aClassSubject = codeInspector.clazz(A.class);
               assertThat(aClassSubject, isPresent());
 
-              assertThat(codeInspector.clazz(B.class), not(isPresent()));
-
-              ClassSubject cClassSubject = codeInspector.clazz(C.class);
-              assertThat(cClassSubject, isPresent());
-              assertThat(cClassSubject.field(aClassSubject.getFinalName(), "a"), isPresent());
-              assertThat(cClassSubject.field(aClassSubject.getFinalName(), "b"), isPresent());
-
-              assertThat(
-                  cClassSubject.method("void", "foo", aClassSubject.getFinalName()), isPresent());
+              assertThat(codeInspector.clazz(B.class), isAbsent());
+              assertThat(codeInspector.clazz(C.class), isAbsent());
             });
   }
 
@@ -69,7 +62,7 @@ public class PinnedClassMemberReferenceTest extends HorizontalClassMergingTestBa
                 .addKeepRules(
                     "-keepclassmembers class " + C.class.getTypeName() + " { ",
                     "  " + A.class.getTypeName() + " a;",
-                    "  " + C.class.getTypeName() + " c;",
+                    "  " + B.class.getTypeName() + " b;",
                     "  void foo(" + A.class.getTypeName() + ");",
                     "  void foo(" + B.class.getTypeName() + ");",
                     "}"))

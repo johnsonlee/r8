@@ -3,7 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize.membervaluepropagation.fields;
 
-import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.TestBase;
@@ -36,10 +36,9 @@ public class B274802355Test extends TestBase {
         .compile()
         .inspect(
             inspector -> {
-              // TODO(b/274802355): Should be absent.
               FieldSubject fieldSubject =
                   inspector.clazz(Main.class).uniqueFieldWithOriginalName("f");
-              assertThat(fieldSubject, isPresent());
+              assertThat(fieldSubject, isAbsent());
             })
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithEmptyOutput();

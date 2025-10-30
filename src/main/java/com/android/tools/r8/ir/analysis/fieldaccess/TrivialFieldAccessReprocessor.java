@@ -240,6 +240,10 @@ public final class TrivialFieldAccessReprocessor {
     if (abstractValue.isNonConstantNumberValue()) {
       return FieldClassification.NON_CONSTANT;
     }
+    if (field.getType().isReferenceType()
+        && field.getOptimizationInfo().getDynamicType().getNullability().isDefinitelyNotNull()) {
+      return FieldClassification.NON_CONSTANT;
+    }
     return FieldClassification.UNKNOWN;
   }
 
