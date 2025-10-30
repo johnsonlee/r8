@@ -236,7 +236,8 @@ public class OutlineMarkerRewriter {
   // In debug mode the out-value of outlined calls to StringBuilder#append may be used outside the
   // outline. In this case we replace the out-value by the receiver of the call.
   //
-  // In release mode calls to StringBuilder#append does not have an out-value.
+  // In release mode calls to StringBuilder#append does not have an out-value, since our "returns
+  // receiver" modeling replaces all uses of the out-value by the receiver.
   private void fixupOutlinedOutValue(Instruction outlinedInstruction) {
     if (outlinedInstruction.hasOutValue()
         && outlinedInstruction.outValue().hasNonDebugUsers()
