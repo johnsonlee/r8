@@ -1,0 +1,19 @@
+#!/bin/bash
+
+THIS_DIR=$(dirname "$0")
+
+if [[ -n "$JAVA_HOME" ]]; then
+  JAVA="$JAVA_HOME/bin/java"
+elif [[ $(uname) = Linux ]]; then
+  JAVA="$THIS_DIR/../openjdk/jdk-21/linux/bin/java"
+else
+  JAVA=java
+fi
+
+# Exports list taken from cipd/google-java-format.jar/META-INF/MANIFEST.MG
+# Use GOOGLE_JAVA_FORMAT_ARGS=--skip-javadoc-formatting to skip javadoc.
+exec "$JAVA" \
+    -Xms512M \
+    -jar "$THIS_DIR/../google/google-java-format/1.24.0/google-java-format-1.24.0-all-deps.jar" \
+    $GOOGLE_JAVA_FORMAT_ARGS \
+    "$@"
