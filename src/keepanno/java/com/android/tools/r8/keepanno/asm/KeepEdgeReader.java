@@ -112,6 +112,7 @@ public class KeepEdgeReader implements Opcodes {
         || AnnotationConstants.UsesReflectionToConstruct.isDescriptor(descriptor)
         || AnnotationConstants.UsesReflectionToAccessMethod.isDescriptor(descriptor)
         || AnnotationConstants.UsesReflectionToAccessField.isDescriptor(descriptor)
+        || AnnotationConstants.UnconditionallyKeep.isDescriptor(descriptor)
         || AnnotationConstants.ForApi.isDescriptor(descriptor)
         || AnnotationConstants.UsedByReflection.isDescriptor(descriptor)
         || AnnotationConstants.UsedByNative.isDescriptor(descriptor)
@@ -378,7 +379,7 @@ public class KeepEdgeReader implements Opcodes {
         AnnotationParsingContext parsingContext,
         String className,
         Consumer<KeepEdgeMetaInfo.Builder> setContext) {
-      // Skip any visible annotations as @KeepEdge is not runtime visible.
+      // Skip any visible annotations as keep annotations are not runtime visible.
       if (visible) {
         return null;
       }
@@ -428,6 +429,10 @@ public class KeepEdgeReader implements Opcodes {
                 KeepClassItemPattern.builder()
                     .setClassNamePattern(KeepQualifiedClassNamePattern.exact(className))
                     .build());
+      }
+      if (AnnotationConstants.UnconditionallyKeep.isDescriptor(descriptor)) {
+        return new UnconditionallyKeepClassVisitor(
+            parsingContext, parent::accept, setContext, className);
       }
       if (ForApi.isDescriptor(descriptor)) {
         return new ForApiClassVisitor(parsingContext, parent::accept, setContext, className);
@@ -622,6 +627,14 @@ public class KeepEdgeReader implements Opcodes {
             bindingsHelper ->
                 createMethodItemContext(className, methodName, methodDescriptor, bindingsHelper));
       }
+      if (AnnotationConstants.UnconditionallyKeep.isDescriptor(descriptor)) {
+        return new UnconditionallyKeepMemberVisitor(
+            parsingContext,
+            parent::accept,
+            setContext,
+            bindingsHelper ->
+                createMethodItemContext(className, methodName, methodDescriptor, bindingsHelper));
+      }
       if (AnnotationConstants.ForApi.isDescriptor(descriptor)) {
         return new ForApiMemberVisitor(
             parsingContext,
@@ -751,6 +764,14 @@ public class KeepEdgeReader implements Opcodes {
       }
       if (AnnotationConstants.UsesReflection.isDescriptor(descriptor)) {
         return new UsesReflectionVisitor(
+            parsingContext,
+            parent::accept,
+            setContext,
+            bindingsHelper ->
+                createMemberItemContext(className, fieldName, fieldTypeDescriptor, bindingsHelper));
+      }
+      if (AnnotationConstants.UnconditionallyKeep.isDescriptor(descriptor)) {
+        return new UnconditionallyKeepMemberVisitor(
             parsingContext,
             parent::accept,
             setContext,
@@ -2202,6 +2223,77 @@ public class KeepEdgeReader implements Opcodes {
               .setBindings(bindingsHelper.build())
               .setPreconditions(preconditions.build())
               .setConsequences(consequencesBuilder.build())
+              .build());
+    }
+  }
+
+  private static class UnconditionallyKeepClassVisitor extends AnnotationVisitorBase {
+
+    private final Parent<KeepEdge> parent;
+    private final KeepEdge.Builder builder = KeepEdge.builder();
+    private final KeepEdgeMetaInfo.Builder metaInfoBuilder = KeepEdgeMetaInfo.builder();
+    private final UserBindingsHelper bindingsHelper = new UserBindingsHelper();
+    private final KeepConsequences.Builder consequences = KeepConsequences.builder();
+
+    UnconditionallyKeepClassVisitor(
+        AnnotationParsingContext parsingContext,
+        Parent<KeepEdge> parent,
+        Consumer<KeepEdgeMetaInfo.Builder> addContext,
+        String className) {
+      super(parsingContext);
+      this.parent = parent;
+      addContext.accept(metaInfoBuilder);
+      KeepClassBindingReference kotlinMetadataBinding =
+          bindingsHelper.defineFreshClassBinding(
+              KeepClassItemPattern.builder()
+                  .setClassPattern(KeepClassPattern.exact(className))
+                  .build());
+      consequences.addTarget(KeepTarget.builder().setItemReference(kotlinMetadataBinding).build());
+    }
+
+    @Override
+    public void visitEnd() {
+      parent.accept(
+          builder
+              .setMetaInfo(metaInfoBuilder.build())
+              .setBindings(bindingsHelper.build())
+              .setConsequences(consequences.build())
+              .build());
+    }
+  }
+
+  private static class UnconditionallyKeepMemberVisitor extends AnnotationVisitorBase {
+
+    private final Parent<KeepEdge> parent;
+    private final KeepEdge.Builder builder = KeepEdge.builder();
+    private final KeepEdgeMetaInfo.Builder metaInfoBuilder = KeepEdgeMetaInfo.builder();
+    private final UserBindingsHelper bindingsHelper = new UserBindingsHelper();
+    private final KeepConsequences.Builder consequences = KeepConsequences.builder();
+
+    UnconditionallyKeepMemberVisitor(
+        AnnotationParsingContext parsingContext,
+        Parent<KeepEdge> parent,
+        Consumer<KeepEdgeMetaInfo.Builder> addContext,
+        Function<UserBindingsHelper, KeepMemberItemPattern> contextBuilder) {
+      super(parsingContext);
+      this.parent = parent;
+      addContext.accept(metaInfoBuilder);
+      KeepMemberItemPattern context = contextBuilder.apply(bindingsHelper);
+      KeepClassBindingReference classReference = context.getClassReference();
+      consequences.addTarget(
+          KeepTarget.builder()
+              .setItemReference(bindingsHelper.defineFreshMemberBinding(context))
+              .build());
+      consequences.addTarget(KeepTarget.builder().setItemReference(classReference).build());
+    }
+
+    @Override
+    public void visitEnd() {
+      parent.accept(
+          builder
+              .setMetaInfo(metaInfoBuilder.build())
+              .setBindings(bindingsHelper.build())
+              .setConsequences(consequences.build())
               .build());
     }
   }

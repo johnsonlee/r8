@@ -2333,6 +2333,7 @@ public class KeepItemAnnotationGenerator {
             generateUsesReflectionToConstructConstants();
             generateUsesReflectionToAccessMethodConstants();
             generateUsesReflectionToAccessFieldConstants();
+            generateUnconditionallyKeepConstants();
             // Common item fields.
             generateItemConstants();
             // Inner annotation classes.
@@ -2524,6 +2525,17 @@ public class KeepItemAnnotationGenerator {
           () -> {
             generateAnnotationConstants(USES_REFLECTION_TO_ACCESS_METHOD);
             forEachUsesReflectionToAccessMethodGroup(g -> g.generateConstants(this));
+          });
+      println("}");
+      println();
+    }
+
+    private void generateUnconditionallyKeepConstants() {
+      println("public static final class UnconditionallyKeep {");
+      withIndent(
+          () -> {
+            generateAnnotationConstants(UNCONDITIONALLY_KEEP);
+            forEachUsesReflectionToAccessFieldGroup(g -> g.generateConstants(this));
           });
       println("}");
       println();

@@ -29,6 +29,10 @@ public class KeepClassPattern {
     return fromName(KeepQualifiedClassNamePattern.exactFromDescriptor(typeDescriptor));
   }
 
+  public static KeepClassPattern exact(String type) {
+    return fromName(KeepQualifiedClassNamePattern.exact(type));
+  }
+
   private final KeepQualifiedClassNamePattern classNamePattern;
   private final KeepInstanceOfPattern instanceOfPattern;
 

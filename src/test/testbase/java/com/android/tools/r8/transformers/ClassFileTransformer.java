@@ -1905,4 +1905,42 @@ public class ClassFileTransformer {
         predicate,
         builder -> annotationBuilderConsumer.accept(builder.setAnnotationClass(annotationClass)));
   }
+
+  public ClassFileTransformer setAnnotation(
+      FieldPredicate predicate, Consumer<AnnotationBuilder> annotationBuilderConsumer) {
+    return addClassTransformer(
+        new ClassTransformer() {
+          @Override
+          public FieldVisitor visitField(
+              int access, String name, String descriptor, String signature, Object object) {
+            FieldVisitor mv = super.visitField(access, name, descriptor, signature, object);
+            if (predicate.test(access, name, descriptor, signature, object)) {
+              AnnotationBuilder ab =
+                  new AnnotationBuilder(
+                      annotationClass ->
+                          mv.visitAnnotation(annotationClass.getDescriptor(), false));
+              annotationBuilderConsumer.accept(ab);
+              ab.av.visitEnd();
+              return new FieldVisitor(ASM_VERSION, mv) {
+                @Override
+                public AnnotationVisitor visitAnnotation(
+                    final String descriptor, final boolean visible) {
+                  return null;
+                  // Remove all other annotations.
+                }
+              };
+            }
+            return mv;
+          }
+        });
+  }
+
+  public ClassFileTransformer setAnnotation(
+      FieldPredicate predicate,
+      ClassReference annotationClass,
+      Consumer<AnnotationContentBuilder> annotationBuilderConsumer) {
+    return setAnnotation(
+        predicate,
+        builder -> annotationBuilderConsumer.accept(builder.setAnnotationClass(annotationClass)));
+  }
 }
