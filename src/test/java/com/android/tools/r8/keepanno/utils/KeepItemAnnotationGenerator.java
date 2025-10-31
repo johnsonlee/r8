@@ -1613,7 +1613,7 @@ public class KeepItemAnnotationGenerator {
           .setDocTitle("A pattern structure for matching strings.")
           .addParagraph("If no properties are set, the default pattern matches any string.")
           .printDoc(this::println);
-      printOpenAnnotationClassTargettingAnnotations(STRING_PATTERN);
+      printOpenAnnotationClassTargetingAnnotations(STRING_PATTERN);
       println();
       withIndent(
           () -> {
@@ -1642,7 +1642,7 @@ public class KeepItemAnnotationGenerator {
           .addParagraph("If no properties are set, the default pattern matches any type.")
           .addParagraph("All properties on this annotation are mutually exclusive.")
           .printDoc(this::println);
-      printOpenAnnotationClassTargettingAnnotations(TYPE_PATTERN);
+      printOpenAnnotationClassTargetingAnnotations(TYPE_PATTERN);
       println();
       withIndent(() -> typePatternGroup().generate(this));
       printCloseAnnotationClass();
@@ -1661,7 +1661,7 @@ public class KeepItemAnnotationGenerator {
               "If no properties are set, the default pattern matches any name of a class or"
                   + " interface.")
           .printDoc(this::println);
-      printOpenAnnotationClassTargettingAnnotations(CLASS_NAME_PATTERN);
+      printOpenAnnotationClassTargetingAnnotations(CLASS_NAME_PATTERN);
       println();
       withIndent(
           () -> {
@@ -1687,7 +1687,7 @@ public class KeepItemAnnotationGenerator {
           .setDocTitle("A pattern structure for matching instances of classes and interfaces.")
           .addParagraph("If no properties are set, the default pattern matches any instance.")
           .printDoc(this::println);
-      printOpenAnnotationClassTargettingAnnotations(INSTANCE_OF_PATTERN);
+      printOpenAnnotationClassTargetingAnnotations(INSTANCE_OF_PATTERN);
       println();
       withIndent(
           () -> {
@@ -1712,7 +1712,7 @@ public class KeepItemAnnotationGenerator {
               "If no properties are set, the default pattern matches any annotation",
               "with a runtime retention policy.")
           .printDoc(this::println);
-      printOpenAnnotationClassTargettingAnnotations(ANNOTATION_PATTERN);
+      printOpenAnnotationClassTargetingAnnotations(ANNOTATION_PATTERN);
       println();
       withIndent(
           () -> {
@@ -1740,7 +1740,7 @@ public class KeepItemAnnotationGenerator {
           .addUnorderedList(
               "a pattern on classes;", "a pattern on methods; or", "a pattern on fields.")
           .printDoc(this::println);
-      printOpenAnnotationClassTargettingAnnotations(KEEP_BINDING);
+      printOpenAnnotationClassTargetingAnnotations(KEEP_BINDING);
       println();
       withIndent(
           () -> {
@@ -1767,7 +1767,7 @@ public class KeepItemAnnotationGenerator {
           .addUnorderedList(
               "a pattern on classes;", "a pattern on methods; or", "a pattern on fields.")
           .printDoc(this::println);
-      printOpenAnnotationClassTargettingAnnotations(KEEP_TARGET);
+      printOpenAnnotationClassTargetingAnnotations(KEEP_TARGET);
       println();
       withIndent(
           () -> {
@@ -1797,7 +1797,7 @@ public class KeepItemAnnotationGenerator {
           .addUnorderedList(
               "a pattern on classes;", "a pattern on methods; or", "a pattern on fields.")
           .printDoc(this::println);
-      printOpenAnnotationClassTargettingAnnotations(KEEP_CONDITION);
+      printOpenAnnotationClassTargetingAnnotations(KEEP_CONDITION);
       println();
       withIndent(this::generateClassAndMemberPropertiesWithClassAndMemberBinding);
       printCloseAnnotationClass();
