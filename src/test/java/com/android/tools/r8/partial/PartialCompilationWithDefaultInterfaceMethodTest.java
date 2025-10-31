@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.partial;
 
-import static com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper.DEFAULT_METHOD_PREFIX;
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethod;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbstract;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
@@ -62,8 +61,7 @@ public class PartialCompilationWithDefaultInterfaceMethodTest extends TestBase {
                 assertThat(jCompanionClassSubject, isPresent());
 
                 MethodSubject jCompanionMethodSubject =
-                    jCompanionClassSubject.uniqueMethodWithOriginalName(
-                        DEFAULT_METHOD_PREFIX + "m");
+                    jCompanionClassSubject.uniqueMethodWithOriginalName("m");
                 assertThat(jCompanionMethodSubject, isPresent());
 
                 ClassSubject aClassSubject = inspector.clazz(A.class);

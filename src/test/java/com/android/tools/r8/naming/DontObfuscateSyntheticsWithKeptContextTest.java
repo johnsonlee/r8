@@ -83,11 +83,7 @@ public class DontObfuscateSyntheticsWithKeptContextTest extends TestBase {
             inspector -> {
               ClassReference lambdaClassReference = getLambdaClassReference();
               ClassSubject lambdaClassSubject = inspector.clazz(lambdaClassReference);
-              assertThat(
-                  lambdaClassSubject,
-                  isPresentAndRenamed(
-                      !restrictRenaming
-                          && parameters.getPartialCompilationTestParameters().isNone()));
+              assertThat(lambdaClassSubject, isPresentAndRenamed(!restrictRenaming));
             })
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("Hello, world!");

@@ -68,7 +68,7 @@ public class ClassHierarchyInterleavedD8AndR8Test extends TestBase {
         partialConfigurationBuilder ->
             partialConfigurationBuilder.includeAll().excludeClasses(B.class),
         inspector -> {
-          assertThat(inspector.clazz(A.class), isPresentAndNotRenamed());
+          assertThat(inspector.clazz(A.class), isPresentAndRenamed());
           assertThat(inspector.clazz(B.class), isPresentAndNotRenamed());
           assertThat(inspector.clazz(C.class), isPresentAndRenamed());
         });
@@ -80,8 +80,8 @@ public class ClassHierarchyInterleavedD8AndR8Test extends TestBase {
         partialConfigurationBuilder ->
             partialConfigurationBuilder.includeAll().excludeClasses(C.class),
         inspector -> {
-          assertThat(inspector.clazz(A.class), isPresentAndNotRenamed());
-          assertThat(inspector.clazz(B.class), isPresentAndNotRenamed());
+          assertThat(inspector.clazz(A.class), isAbsent()); // Merged into B.
+          assertThat(inspector.clazz(B.class), isPresentAndRenamed());
           assertThat(inspector.clazz(C.class), isPresentAndNotRenamed());
         });
   }
