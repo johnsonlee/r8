@@ -3,9 +3,11 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.partial;
 
+import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.WorkList;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -23,6 +25,20 @@ public class R8PartialProgramPartitioning {
     R8PartialProgramPartitioning partioning = new R8PartialProgramPartitioning();
     partialCompilationConfiguration.partition(
         app, partioning.d8Classes::add, partioning.r8Classes::add);
+    // Collect all transitive superclasses of all D8 classes and treat these as D8 classes.
+    WorkList<DexClass> worklist = WorkList.newIdentityWorkList(partioning.d8Classes);
+    worklist.process(
+        clazz ->
+            clazz.forEachImmediateSuperClassMatching(
+                app,
+                (supertype, superclass) -> superclass != null && !superclass.isLibraryClass(),
+                (supertype, superclass) -> {
+                  if (superclass.isProgramClass()
+                      && partioning.r8Classes.remove(superclass.asProgramClass())) {
+                    partioning.d8Classes.add(superclass.asProgramClass());
+                  }
+                  worklist.addIfNotSeen(superclass);
+                }));
     return partioning;
   }
 
