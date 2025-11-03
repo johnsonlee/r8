@@ -1218,6 +1218,7 @@ public class DexItemFactory {
               javaUtilConcurrentCancellationExceptionType,
               javaUtilConcurrentExecutionExceptionType,
               javaUtilConcurrentRejectedExecutionExceptionType,
+              javaUtilConcurrentTimeUnitType,
               javaUtilConcurrentTimeoutExceptionType,
               javaUtilConcurrentModificationExceptionType,
               javaUtilNoSuchElementExceptionType,
@@ -1283,6 +1284,7 @@ public class DexItemFactory {
           javaUtilConcurrentCancellationExceptionType,
           javaUtilConcurrentExecutionExceptionType,
           javaUtilConcurrentRejectedExecutionExceptionType,
+          javaUtilConcurrentTimeUnitType,
           javaUtilConcurrentTimeoutExceptionType,
           javaUtilConcurrentModificationExceptionType,
           javaUtilNoSuchElementExceptionType,
@@ -1719,6 +1721,26 @@ public class DexItemFactory {
     public final DexField SECONDS =
         createField(javaUtilConcurrentTimeUnitType, javaUtilConcurrentTimeUnitType, "SECONDS");
 
+    public final DexMethod convert =
+        createMethod(
+            javaUtilConcurrentTimeUnitType,
+            createProto(longType, longType, javaUtilConcurrentTimeUnitType),
+            "convert");
+    public final DexMethod toDays =
+        createMethod(javaUtilConcurrentTimeUnitType, createProto(longType, longType), "toDays");
+    public final DexMethod toHours =
+        createMethod(javaUtilConcurrentTimeUnitType, createProto(longType, longType), "toHours");
+    public final DexMethod toMinutes =
+        createMethod(javaUtilConcurrentTimeUnitType, createProto(longType, longType), "toMinutes");
+    public final DexMethod toSeconds =
+        createMethod(javaUtilConcurrentTimeUnitType, createProto(longType, longType), "toSeconds");
+    public final DexMethod toMillis =
+        createMethod(javaUtilConcurrentTimeUnitType, createProto(longType, longType), "toMillis");
+    public final DexMethod toMicros =
+        createMethod(javaUtilConcurrentTimeUnitType, createProto(longType, longType), "toMicros");
+    public final DexMethod toNanos =
+        createMethod(javaUtilConcurrentTimeUnitType, createProto(longType, longType), "toNanos");
+
     @Override
     public void forEachFinalField(Consumer<DexField> consumer) {
       consumer.accept(DAYS);
@@ -1728,6 +1750,17 @@ public class DexItemFactory {
       consumer.accept(MINUTES);
       consumer.accept(NANOSECONDS);
       consumer.accept(SECONDS);
+    }
+
+    public boolean isConversionMethod(DexMethod method) {
+      return method.isIdenticalTo(convert)
+          || method.isIdenticalTo(toDays)
+          || method.isIdenticalTo(toHours)
+          || method.isIdenticalTo(toMicros)
+          || method.isIdenticalTo(toMillis)
+          || method.isIdenticalTo(toMinutes)
+          || method.isIdenticalTo(toNanos)
+          || method.isIdenticalTo(toSeconds);
     }
   }
 
