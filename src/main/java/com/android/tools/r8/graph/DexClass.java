@@ -646,7 +646,10 @@ public abstract class DexClass extends DexDefinition
   }
 
   public boolean isEffectivelyFinal(AppView<?> appView) {
-    return isFinal();
+    // Leverage that enums cannot be subclassed. Strictly speaking library enums
+    // *can* have subclasses, but they are all non-public synthetic classes so from
+    // the app's perspective we can treat them as final.
+    return isFinal() || isEnum();
   }
 
   @Override
