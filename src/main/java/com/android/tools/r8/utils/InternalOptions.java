@@ -73,7 +73,7 @@ import com.android.tools.r8.ir.desugar.desugaredlibrary.LibraryDesugaringOptions
 import com.android.tools.r8.ir.desugar.nest.Nest;
 import com.android.tools.r8.ir.optimize.Inliner;
 import com.android.tools.r8.ir.optimize.enums.EnumDataMap;
-import com.android.tools.r8.ir.optimize.outliner.exceptions.ThrowBlockOutlinerOptions;
+import com.android.tools.r8.ir.optimize.outliner.bottomup.BottomUpOutlinerOptions;
 import com.android.tools.r8.metadata.D8BuildMetadata;
 import com.android.tools.r8.metadata.R8BuildMetadata;
 import com.android.tools.r8.naming.ClassNameMapper;
@@ -107,6 +107,7 @@ import com.android.tools.r8.shaking.KeepSpecificationSource;
 import com.android.tools.r8.shaking.ProguardConfiguration;
 import com.android.tools.r8.shaking.ProguardConfigurationRule;
 import com.android.tools.r8.synthesis.SyntheticItemsOptions;
+import com.android.tools.r8.synthesis.SyntheticNaming.SyntheticKind;
 import com.android.tools.r8.threading.ThreadingModule;
 import com.android.tools.r8.tracereferences.TraceReferencesOptions;
 import com.android.tools.r8.utils.IROrdering.IdentityIROrdering;
@@ -357,7 +358,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   void disableAllOptimizations() {
     disableGlobalOptimizations();
     enableNameReflectionOptimization = false;
-    enableStringConcatenationOptimization = false;
   }
 
   public void disableGlobalOptimizations() {
@@ -1046,8 +1046,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
       new VerticalClassMergerOptions(this);
   private final OpenClosedInterfacesOptions openClosedInterfacesOptions =
       new OpenClosedInterfacesOptions();
-  private final ThrowBlockOutlinerOptions throwBlockOutlinerOptions =
-      new ThrowBlockOutlinerOptions();
+  private final BottomUpOutlinerOptions bottomUpOutlinerOptions = new BottomUpOutlinerOptions();
   private final ProtoShrinkingOptions protoShrinking = new ProtoShrinkingOptions();
   private final RedundantBridgeRemovalOptions redundantBridgeRemovalOptions =
       new RedundantBridgeRemovalOptions();
@@ -1196,8 +1195,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     return syntheticItemsOptions;
   }
 
-  public ThrowBlockOutlinerOptions getThrowBlockOutlinerOptions() {
-    return throwBlockOutlinerOptions;
+  public BottomUpOutlinerOptions getBottomUpOutlinerOptions() {
+    return bottomUpOutlinerOptions;
   }
 
   public TraceReferencesOptions getTraceReferencesOptions() {
@@ -2331,6 +2330,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
     public BiConsumer<DexItemFactory, RepackagingLens> repackagingLensConsumer =
         ConsumerUtils.emptyBiConsumer();
+
+    public QuadConsumer<SyntheticKind, Integer, DexType, DexType> syntheticItemsConsumer = null;
 
     public BiConsumer<DexItemFactory, EnumDataMap> unboxedEnumsConsumer =
         ConsumerUtils.emptyBiConsumer();

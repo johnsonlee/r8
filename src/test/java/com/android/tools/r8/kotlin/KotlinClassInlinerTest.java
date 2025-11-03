@@ -9,6 +9,7 @@ import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTL
 import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_9_21;
 import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_2_0_20;
 import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_2_1_10;
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getMinimalSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentIf;
@@ -98,7 +99,7 @@ public class KotlinClassInlinerTest extends AbstractR8KotlinTestBase {
                                     "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda7")
                                 .assertIsCompleteMergeGroup(
                                     "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda2",
-                                    "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticThrowBlockOutline0");
+                                    "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticBUOutline0");
                           }
                           inspector.assertNoOtherClassesMerged();
                         })
@@ -172,15 +173,17 @@ public class KotlinClassInlinerTest extends AbstractR8KotlinTestBase {
                           } else if (testParameters.isDexRuntime()) {
                             ClassReference mainKt =
                                 Reference.classFromTypeName("class_inliner_lambda_k_style.MainKt");
+                            SyntheticItemsTestUtils syntheticItemsTestUtils =
+                                getMinimalSyntheticItemsTestUtils();
                             inspector
                                 .assertIsCompleteMergeGroup(
-                                    SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 2),
-                                    SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 3),
-                                    SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 4),
-                                    SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 5),
-                                    SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 6),
-                                    SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 7),
-                                    SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 8))
+                                    syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 2),
+                                    syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 3),
+                                    syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 4),
+                                    syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 5),
+                                    syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 6),
+                                    syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 7),
+                                    syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 8))
                                 .assertIsCompleteMergeGroup(
                                     Reference.classFromTypeName("kotlin.jvm.functions.Function0"),
                                     Reference.classFromTypeName("kotlin.jvm.functions.Function1"))
@@ -196,8 +199,8 @@ public class KotlinClassInlinerTest extends AbstractR8KotlinTestBase {
                                         .isBetweenBothIncluded(KOTLINC_1_9_21, KOTLINC_2_0_20),
                                     i ->
                                         i.assertIsCompleteMergeGroup(
-                                            SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 0),
-                                            SyntheticItemsTestUtils.syntheticLambdaClass(
+                                            syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 0),
+                                            syntheticItemsTestUtils.syntheticLambdaClass(
                                                 mainKt, 1)),
                                     kotlinParameters
                                         .getCompiler()
@@ -208,9 +211,9 @@ public class KotlinClassInlinerTest extends AbstractR8KotlinTestBase {
                                           Reference.classFromTypeName(
                                               "kotlin.sequences.SequencesKt__SequencesKt");
                                       i.assertIsCompleteMergeGroup(
-                                          SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 0),
-                                          SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 1),
-                                          SyntheticItemsTestUtils.syntheticLambdaClass(
+                                          syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 0),
+                                          syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 1),
+                                          syntheticItemsTestUtils.syntheticLambdaClass(
                                               sequencesKt, 0));
                                     })
                                 .assertNoOtherClassesMerged();
@@ -229,6 +232,8 @@ public class KotlinClassInlinerTest extends AbstractR8KotlinTestBase {
                                 .assertNoOtherClassesMerged();
                           }
                         })
+                    .addOptionsModification(
+                        options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
                     .noClassInlining())
         .inspect(
             inspector -> {

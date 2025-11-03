@@ -7,6 +7,7 @@ package com.android.tools.r8.apimodel;
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLevelForClass;
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLevelForDefaultInstanceInitializer;
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLevelForMethod;
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getMinimalSyntheticItemsTestUtils;
 
 import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.SingleTestRunResult;
@@ -15,7 +16,6 @@ import com.android.tools.r8.TestCompilerBuilder;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.references.Reference;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.codeinspector.HorizontallyMergedClassesInspector;
 import java.util.Collections;
@@ -121,6 +121,8 @@ public class ApiModelClassMergingPackagePrivateTest extends TestBase {
             parameters.isCfRuntime(), HorizontallyMergedClassesInspector::assertNoClassesMerged)
         .addHorizontallyMergedClassesInspectorIf(
             !parameters.isCfRuntime(), this::inspectHorizontallyMergedClasses)
+        .addOptionsModification(
+            options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
         .compile()
         .addBootClasspathClasses(Api1.class, Api2.class)
         .run(parameters.getRuntime(), Main.class)
@@ -132,9 +134,10 @@ public class ApiModelClassMergingPackagePrivateTest extends TestBase {
       inspector.assertNoClassesMerged();
     } else {
       inspector.assertIsCompleteMergeGroup(
-          SyntheticItemsTestUtils.syntheticApiOutlineClass(Reference.classFromClass(Main.class), 0),
-          SyntheticItemsTestUtils.syntheticApiOutlineClass(
-              Reference.classFromDescriptor(newCallerDescriptor), 0));
+          getMinimalSyntheticItemsTestUtils()
+              .syntheticApiOutlineClass(Reference.classFromClass(Main.class), 0),
+          getMinimalSyntheticItemsTestUtils()
+              .syntheticApiOutlineClass(Reference.classFromDescriptor(newCallerDescriptor), 0));
     }
   }
 

@@ -126,7 +126,7 @@ public class MetadataRewriteInTypeAliasTest extends KotlinMetadataTestBase {
             .addKeepRules("-keep class " + PKG + ".typealias_lib.*Tester$Companion { *; }")
             .addKeepRules("-keep class " + PKG + ".typealias_lib.SubTypeOfAlias { *; }")
             .addApplyMapping(superTypeName + " -> " + renamedSuperTypeName + ":")
-            .addKeepKotlinMetadata()
+            .addKeepRuntimeVisibleAnnotations()
             .addKeepAttributes(
                 ProguardKeepAttributes.SIGNATURE,
                 ProguardKeepAttributes.INNER_CLASSES,

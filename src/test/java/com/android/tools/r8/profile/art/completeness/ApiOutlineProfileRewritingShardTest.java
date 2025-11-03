@@ -5,6 +5,7 @@ package com.android.tools.r8.profile.art.completeness;
 
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLevelForClass;
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.verifyThat;
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsentIf;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -18,7 +19,6 @@ import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.profile.art.model.ExternalArtProfile;
 import com.android.tools.r8.profile.art.utils.ArtProfileInspector;
 import com.android.tools.r8.references.Reference;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.MethodReferenceUtils;
@@ -138,7 +138,7 @@ public class ApiOutlineProfileRewritingShardTest extends TestBase {
 
     // Check outline was added to program.
     ClassSubject apiOutlineClassSubject =
-        inspector.clazz(SyntheticItemsTestUtils.syntheticApiOutlineClass(mainClass, 0));
+        inspector.clazz(getDefaultSyntheticItemsTestUtils().syntheticApiOutlineClass(mainClass, 0));
     assertThat(apiOutlineClassSubject, isAbsentIf(isLibraryClassAlwaysPresent()));
 
     MethodSubject apiOutlineMethodSubject = apiOutlineClassSubject.uniqueMethod();
@@ -162,14 +162,16 @@ public class ApiOutlineProfileRewritingShardTest extends TestBase {
         2 + BooleanUtils.intValue(!isLibraryClassAlwaysPresent()), inspector.allClasses().size());
 
     ClassSubject apiOutlineClassSubject =
-        inspector.clazz(SyntheticItemsTestUtils.syntheticApiOutlineClass(Main.class, 0));
+        inspector.clazz(
+            getDefaultSyntheticItemsTestUtils().syntheticApiOutlineClass(Main.class, 0));
     assertThat(apiOutlineClassSubject, isAbsentIf(isLibraryClassAlwaysPresent()));
 
     MethodSubject apiOutlineMethodSubject = apiOutlineClassSubject.uniqueMethod();
     assertThat(apiOutlineMethodSubject, isAbsentIf(isLibraryClassAlwaysPresent()));
 
     ClassSubject otherApiOutlineClassSubject =
-        inspector.clazz(SyntheticItemsTestUtils.syntheticApiOutlineClass(OtherMain.class, 0));
+        inspector.clazz(
+            getDefaultSyntheticItemsTestUtils().syntheticApiOutlineClass(OtherMain.class, 0));
     assertThat(otherApiOutlineClassSubject, isAbsent());
 
     // Verify the residual profile contains the outline method and its holder when present.

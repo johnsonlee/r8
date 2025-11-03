@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.kotlin.lambda;
 
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getMinimalSyntheticItemsTestUtils;
 import static junit.framework.TestCase.assertEquals;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
@@ -14,7 +15,6 @@ import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.Reference;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.StringUtils;
@@ -89,15 +89,17 @@ public class KotlinLambdaMergingCapturesKotlinStyleTest extends KotlinTestBase {
                   && kotlinParameters.getLambdaGeneration().isInvokeDynamic()) {
                 inspector
                     .assertIsCompleteMergeGroup(
-                        SyntheticItemsTestUtils.syntheticThrowBlockOutlineClass(
-                            getMainClassReference(), 0),
-                        SyntheticItemsTestUtils.syntheticThrowBlockOutlineClass(
-                            getMainClassReference(), 1))
+                        getMinimalSyntheticItemsTestUtils()
+                            .syntheticBottomUpOutlineClass(getMainClassReference(), 0),
+                        getMinimalSyntheticItemsTestUtils()
+                            .syntheticBottomUpOutlineClass(getMainClassReference(), 1))
                     .assertNoOtherClassesMerged();
               } else {
                 inspector.assertNoClassesMerged();
               }
             })
+        .addOptionsModification(
+            options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
         .allowAccessModification(allowAccessModification)
         .setMinApi(parameters)
         .compile()

@@ -92,7 +92,7 @@ public class MetadataRewriteInMultifileClassTest extends KotlinMetadataTestBase 
             // Keep UtilKt#comma*Join*(). Let R8 optimize (inline) others, such as joinOf*(String).
             .addKeepRules("-keep class **.UtilKt")
             .addKeepRules("-keepclassmembers class * { ** comma*Join*(...); }")
-            .addKeepKotlinMetadata()
+            .addKeepRuntimeVisibleAnnotations()
             .compile()
             .inspect(this::inspectMerged)
             .writeToZip();
@@ -135,7 +135,8 @@ public class MetadataRewriteInMultifileClassTest extends KotlinMetadataTestBase 
             .addKeepRules("-keepclassmembers class * { ** comma*Join*(...); }")
             // Keep yet rename joinOf*(String).
             .addKeepRules("-keepclassmembers,allowobfuscation class * { ** joinOf*(...); }")
-            .addKeepKotlinMetadata()
+            .addKeepRuntimeVisibleAnnotations()
+            .addKeepRuntimeInvisibleAnnotations()
             .compile()
             .inspect(this::inspectRenamed)
             .writeToZip();

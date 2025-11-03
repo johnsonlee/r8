@@ -3,7 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.synthesis;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.syntheticBackportClass;
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
@@ -85,7 +85,9 @@ public class RepeatedCompilationSyntheticsTest extends TestBase {
     assertEquals(
         ImmutableSet.of(
             descriptor(UsesBackport.class),
-            syntheticBackportClass(UsesBackport.class, 0).getDescriptor()),
+            getDefaultSyntheticItemsTestUtils()
+                .syntheticBackportClass(UsesBackport.class, 0)
+                .getDescriptor()),
         firstCompilation.keySet());
 
     List<String> secondCompilation = new ArrayList<>();
@@ -132,8 +134,12 @@ public class RepeatedCompilationSyntheticsTest extends TestBase {
     secondCompilation.sort(String::compareTo);
     assertEquals(
         ImmutableList.of(
-            syntheticBackportClass(UsesBackport.class, 0).getDescriptor(),
-            syntheticBackportClass(UsesBackport.class, 0).getDescriptor(),
+            getDefaultSyntheticItemsTestUtils()
+                .syntheticBackportClass(UsesBackport.class, 0)
+                .getDescriptor(),
+            getDefaultSyntheticItemsTestUtils()
+                .syntheticBackportClass(UsesBackport.class, 0)
+                .getDescriptor(),
             descriptor(UsesBackport.class)),
         secondCompilation);
   }

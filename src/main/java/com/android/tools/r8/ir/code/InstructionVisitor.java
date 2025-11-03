@@ -148,7 +148,7 @@ public interface InstructionVisitor<T> {
 
   T visit(Throw instruction);
 
-  T visit(ThrowBlockOutlineMarker instruction);
+  T visit(OutlineMarker instruction);
 
   T visit(UnusedArgument instruction);
 

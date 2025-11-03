@@ -1,0 +1,2 @@
+"git cl format" uses the presense of a .jar file in this directory
+to know to enable "git cl format" for Java code.

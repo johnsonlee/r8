@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.profile.art.completeness;
 
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsentIf;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -13,7 +14,6 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.profile.art.model.ExternalArtProfile;
 import com.android.tools.r8.profile.art.utils.ArtProfileInspector;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.InternalOptions.InlinerOptions;
 import com.android.tools.r8.utils.MethodReferenceUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
@@ -60,7 +60,10 @@ public class LambdaStaticLibraryMethodImplementationProfileRewritingTest extends
         .addArtProfileForRewriting(getArtProfile())
         .addOptionsModification(InlinerOptions::disableInlining)
         .addOptionsModification(
-            options -> options.callSiteOptimizationOptions().setEnableMethodStaticizing(false))
+            options -> {
+              options.callSiteOptimizationOptions().setEnableMethodStaticizing(false);
+              options.desugarSpecificOptions().minimizeSyntheticNames = true;
+            })
         .setMinApi(parameters)
         .compile()
         .inspectResidualArtProfile(this::inspectR8)
@@ -75,14 +78,13 @@ public class LambdaStaticLibraryMethodImplementationProfileRewritingTest extends
   }
 
   private void inspectD8(ArtProfileInspector profileInspector, CodeInspector inspector) {
-    inspect(profileInspector, inspector, false, false, false);
+    inspect(profileInspector, inspector, false, false);
   }
 
   private void inspectR8(ArtProfileInspector profileInspector, CodeInspector inspector) {
     inspect(
         profileInspector,
         inspector,
-        parameters.canHaveNonReboundConstructorInvoke(),
         parameters.isCfRuntime(),
         true);
   }
@@ -90,7 +92,6 @@ public class LambdaStaticLibraryMethodImplementationProfileRewritingTest extends
   public void inspect(
       ArtProfileInspector profileInspector,
       CodeInspector inspector,
-      boolean canHaveNonReboundConstructorInvoke,
       boolean canUseLambdas,
       boolean isR8) {
     ClassSubject mainClassSubject = inspector.clazz(Main.class);
@@ -104,7 +105,7 @@ public class LambdaStaticLibraryMethodImplementationProfileRewritingTest extends
 
     // Check the presence of the lambda class and its methods.
     ClassSubject lambdaClassSubject =
-        inspector.clazz(SyntheticItemsTestUtils.syntheticLambdaClass(Main.class, 0));
+        inspector.clazz(getSyntheticItemsTestUtils(isR8).syntheticLambdaClass(Main.class, 0));
     assertThat(lambdaClassSubject, isAbsentIf(canUseLambdas));
 
     MethodSubject lambdaInitializerSubject = lambdaClassSubject.uniqueInstanceInitializer();

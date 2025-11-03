@@ -9,6 +9,7 @@
 *~
 .#*
 .gradle/
+.kotlin/
 **/.gradle/
 .gradle_user_home
 .idea/
@@ -125,8 +126,6 @@ third_party/google/google-kotlin-format/0.54
 third_party/google/google-kotlin-format/0.54.tar.gz
 third_party/google/yapf/20231013
 third_party/google/yapf/20231013.tar.gz
-third_party/google-java-format
-third_party/google-java-format.tar.gz
 third_party/goyt
 third_party/goyt.tar.gz
 third_party/gradle-plugin
@@ -205,6 +204,8 @@ third_party/openjdk/desugar_jdk_libs_releases/1.1.5
 third_party/openjdk/desugar_jdk_libs_releases/1.1.5.tar.gz
 third_party/openjdk/desugar_jdk_libs_releases/2.0.3
 third_party/openjdk/desugar_jdk_libs_releases/2.0.3.tar.gz
+third_party/openjdk/float16-test.tar.gz
+third_party/openjdk/float16-test/
 third_party/openjdk/jdk-[0-9][0-9]/linux
 third_party/openjdk/jdk-[0-9][0-9]/linux.tar.gz
 third_party/openjdk/jdk-[0-9][0-9]/osx

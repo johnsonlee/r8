@@ -4,20 +4,20 @@
 
 package com.android.tools.r8.ir.optimize.outliner.b149971007;
 
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getMinimalSyntheticItemsTestUtils;
+import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethod;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.notIf;
 import static junit.framework.TestCase.assertEquals;
-import static junit.framework.TestCase.assertFalse;
 import static junit.framework.TestCase.assertTrue;
+import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.dexsplitter.SplitterTestBase;
-import com.android.tools.r8.naming.ClassNameMapper;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.FoundMethodSubject;
@@ -30,19 +30,18 @@ import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class B149971007 extends SplitterTestBase {
 
-  private final TestParameters parameters;
+  @Parameter(0)
+  public TestParameters parameters;
 
-  @Parameterized.Parameters(name = "{0}")
+  @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters().withDexRuntimes().withAllApiLevels().build();
-  }
-
-  public B149971007(TestParameters parameters) {
-    this.parameters = parameters;
   }
 
   private boolean invokesOutline(MethodSubject method, String outlineClassName) {
@@ -69,9 +68,11 @@ public class B149971007 extends SplitterTestBase {
   private ClassSubject checkOutlineFromFeature(CodeInspector inspector) {
     // There are two expected outlines, in a single single class after horizontal class merging.
     ClassSubject classSubject0 =
-        inspector.clazz(SyntheticItemsTestUtils.syntheticOutlineClass(FeatureClass.class, 0));
+        inspector.clazz(
+            getMinimalSyntheticItemsTestUtils().syntheticOutlineClass(FeatureClass.class, 0));
     ClassSubject classSubject1 =
-        inspector.clazz(SyntheticItemsTestUtils.syntheticOutlineClass(FeatureClass.class, 1));
+        inspector.clazz(
+            getMinimalSyntheticItemsTestUtils().syntheticOutlineClass(FeatureClass.class, 1));
     assertThat(classSubject1, notIf(isPresent(), classSubject0.isPresent()));
 
     ClassSubject classSubject = classSubject0.isPresent() ? classSubject0 : classSubject1;
@@ -93,7 +94,11 @@ public class B149971007 extends SplitterTestBase {
             .addKeepClassAndMembersRules(TestClass.class)
             .addKeepClassAndMembersRules(FeatureClass.class)
             .setMinApi(parameters)
-            .addOptionsModification(options -> options.outline.threshold = 2)
+            .addOptionsModification(
+                options -> {
+                  options.desugarSpecificOptions().minimizeSyntheticNames = true;
+                  options.outline.threshold = 2;
+                })
             .compile();
 
     CodeInspector inspector = compileResult.inspector();
@@ -124,12 +129,12 @@ public class B149971007 extends SplitterTestBase {
     // The features do not give rise to an outline.
     ClassSubject featureOutlineClass =
         inspector.clazz(
-            SyntheticItemsTestUtils.syntheticOutlineClass(FeatureClass.class, 0).getTypeName());
+            getMinimalSyntheticItemsTestUtils().syntheticOutlineClass(FeatureClass.class, 0));
     assertThat(featureOutlineClass, isAbsent());
     // The main TestClass entry does.
     ClassSubject mainOutlineClazz =
         inspector.clazz(
-            SyntheticItemsTestUtils.syntheticOutlineClass(TestClass.class, 0).getTypeName());
+            getMinimalSyntheticItemsTestUtils().syntheticOutlineClass(TestClass.class, 0));
     assertThat(mainOutlineClazz, isPresent());
     assertEquals(1, mainOutlineClazz.allMethods().size());
     assertTrue(mainOutlineClazz.allMethods().stream().noneMatch(this::referenceFeatureClass));
@@ -144,34 +149,37 @@ public class B149971007 extends SplitterTestBase {
             .addProgramClasses(TestClass.class, FeatureAPI.class)
             .addKeepClassAndMembersRules(TestClass.class)
             .addKeepClassAndMembersRules(FeatureClass.class)
+            .collectSyntheticItems()
             .setMinApi(parameters)
             .addFeatureSplit(
                 builder -> simpleSplitProvider(builder, featureCode, temp, FeatureClass.class))
-            .addOptionsModification(options -> options.outline.threshold = 2)
+            .addOptionsModification(
+                options -> {
+                  options.desugarSpecificOptions().minimizeSyntheticNames = true;
+                  options.outline.threshold = 2;
+                })
             .compile()
             .inspect(this::checkNoOutlineFromFeature);
+
+    MethodSubject outlineMethod =
+        compileResult
+            .inspector()
+            .clazz(compileResult.getSyntheticItems().syntheticOutlineClass(TestClass.class, 1))
+            .uniqueMethod();
+    assertThat(outlineMethod, isPresent());
 
     // Check that parts of method1, ..., method4 in FeatureClass was not outlined.
     CodeInspector featureInspector = new CodeInspector(featureCode);
     ClassSubject featureClass = featureInspector.clazz(FeatureClass.class);
-
-    // Note, this code does not really check a valid property now as the name of the outline is not
-    // known.
     assertThat(featureClass, isPresent());
-    String outlineClassName =
-        ClassNameMapper.mapperFromString(compileResult.getProguardMap())
-            .getObfuscatedToOriginalMapping()
-            .inverse
-            .get(SyntheticItemsTestUtils.syntheticOutlineClass(TestClass.class, 0).getTypeName());
-
-    assertFalse(
-        invokesOutline(featureClass.uniqueMethodWithOriginalName("method1"), outlineClassName));
-    assertFalse(
-        invokesOutline(featureClass.uniqueMethodWithOriginalName("method2"), outlineClassName));
-    assertFalse(
-        invokesOutline(featureClass.uniqueMethodWithOriginalName("method3"), outlineClassName));
-    assertFalse(
-        invokesOutline(featureClass.uniqueMethodWithOriginalName("method4"), outlineClassName));
+    assertThat(
+        featureClass.uniqueMethodWithOriginalName("method1"), not(invokesMethod(outlineMethod)));
+    assertThat(
+        featureClass.uniqueMethodWithOriginalName("method2"), not(invokesMethod(outlineMethod)));
+    assertThat(
+        featureClass.uniqueMethodWithOriginalName("method3"), not(invokesMethod(outlineMethod)));
+    assertThat(
+        featureClass.uniqueMethodWithOriginalName("method4"), not(invokesMethod(outlineMethod)));
 
     // Run the code without the feature code present.
     compileResult.run(parameters.getRuntime(), TestClass.class).assertSuccessWithOutput("12");

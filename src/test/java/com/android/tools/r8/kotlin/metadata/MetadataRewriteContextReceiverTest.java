@@ -150,7 +150,7 @@ public class MetadataRewriteContextReceiverTest extends KotlinMetadataTestBase {
             .addKeepRules("-keep class " + PKG_LIB + ".Printer { *; }")
             // Keep Super, but allow minification.
             .addKeepRules("-keep class " + PKG_LIB + ".LibKt { <methods>; }")
-            .addKeepKotlinMetadata()
+            .addKeepRuntimeVisibleAnnotations()
             .compile();
 
     // Rewrite the kotlin source to rewrite the classes from the mapping file

@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.desugar.lambdas;
 
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -71,6 +72,9 @@ public class LambdaStaticInstanceFieldDuplicationTest extends TestBase {
         .addKeepMainRule(TestClass.class)
         // Prevent R8 from eliminating the lambdas by keeping the application of them.
         .addKeepClassAndMembersRules(Accept.class)
+        // Disable minimal synthetic names to ensure robust detection of synthetics.
+        .addOptionsModification(
+            options -> options.desugarSpecificOptions().minimizeSyntheticNames = false)
         .setMinApi(parameters)
         .addDontObfuscateUnless(minify)
         .run(parameters.getRuntime(), TestClass.class)
@@ -229,13 +233,16 @@ public class LambdaStaticInstanceFieldDuplicationTest extends TestBase {
     Set<MethodReference> expectedSynthetics =
         ImmutableSet.of(
             // User1 has two lambdas.
-            SyntheticItemsTestUtils.syntheticLambdaMethod(
-                User1.class, 0, MyConsumer.class.getMethod("accept", Object.class)),
-            SyntheticItemsTestUtils.syntheticLambdaMethod(
-                User1.class, 1, MyConsumer.class.getMethod("accept", Object.class)),
+            getDefaultSyntheticItemsTestUtils()
+                .syntheticLambdaMethod(
+                    User1.class, 0, MyConsumer.class.getMethod("accept", Object.class)),
+            getDefaultSyntheticItemsTestUtils()
+                .syntheticLambdaMethod(
+                    User1.class, 1, MyConsumer.class.getMethod("accept", Object.class)),
             // User2 has one lambda.
-            SyntheticItemsTestUtils.syntheticLambdaMethod(
-                User2.class, 0, MyConsumer.class.getMethod("accept", Object.class)));
+            getDefaultSyntheticItemsTestUtils()
+                .syntheticLambdaMethod(
+                    User2.class, 0, MyConsumer.class.getMethod("accept", Object.class)));
     assertEquals(expectedSynthetics, getSyntheticMethods(inspector));
   }
 

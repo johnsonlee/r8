@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.desugar.backports;
 
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.AndroidApiLevel.BAKLAVA;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
@@ -122,7 +123,8 @@ public class SdkIntFullBackportOutlineInBackportTest extends TestBase {
               backport.uniqueMethod(),
               inspector.getFactory().androidOsBuildVersionMembers.SDK_INT_FULL));
       ClassSubject apiOutline =
-          inspector.clazz(SyntheticItemsTestUtils.syntheticApiOutlineClass(TestClass.class, 0));
+          inspector.clazz(
+              getDefaultSyntheticItemsTestUtils().syntheticApiOutlineClass(TestClass.class, 0));
       assertThat(apiOutline.uniqueMethod(), isPresent());
       assertEquals(
           1,
@@ -159,7 +161,8 @@ public class SdkIntFullBackportOutlineInBackportTest extends TestBase {
               inspector.clazz(TestClass.class).mainMethod(),
               inspector.getFactory().androidOsBuildVersionMembers.SDK_INT_FULL));
       ClassSubject apiOutline =
-          inspector.clazz(SyntheticItemsTestUtils.syntheticApiOutlineClass(TestClass.class, 0));
+          inspector.clazz(
+              getDefaultSyntheticItemsTestUtils().syntheticApiOutlineClass(TestClass.class, 0));
       assertThat(apiOutline.uniqueMethod(), isPresent());
       assertEquals(
           1,

@@ -11,6 +11,7 @@ import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
 
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.cfmethodgeneration.CodeGenerationBase;
+import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.keepanno.annotations.KeepItemKind;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.Reference;
@@ -39,6 +40,7 @@ import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import kotlin.annotation.AnnotationRetention;
 
@@ -630,6 +632,10 @@ public class KeepItemAnnotationGenerator {
       return pkg.startsWith("androidx.");
     }
 
+    private void print(String s) {
+      writer.print(s);
+    }
+
     private void println() {
       println("");
     }
@@ -687,19 +693,62 @@ public class KeepItemAnnotationGenerator {
       printImports(ANNOTATION_IMPORTS);
     }
 
-    private void printOpenAnnotationClassTargettingAnnotations(String clazz) {
-      if (generateKotlin()) {
-        println("@Retention(AnnotationRetention.BINARY)");
-        println("@Target(AnnotationTarget.ANNOTATION_CLASS)");
-        println("public annotation class " + clazz + "(");
-      } else {
-        println("@Target(ElementType.ANNOTATION_TYPE)");
-        println("@Retention(RetentionPolicy.CLASS)");
-        println("public @interface " + clazz + " {");
+    enum AnnotationTarget {
+      CLASS,
+      ANNOTATION_CLASS,
+      TYPE_PARAMETER,
+      FIELD,
+      LOCAL_VARIABLE,
+      VALUE_PARAMETER,
+      FUNCTION,
+      CONSTRUCTOR,
+      PROPERTY,
+      PROPERTY_GETTER,
+      PROPERTY_SETTER,
+      EXPRESSION,
+      FILE,
+      TYPE_ALIAS;
+
+      private static boolean isClassFieldMethodCtor(AnnotationTarget target) {
+        return target == AnnotationTarget.CLASS
+            || target == AnnotationTarget.FIELD
+            || target == AnnotationTarget.FUNCTION
+            || target == AnnotationTarget.CONSTRUCTOR;
+      }
+
+      private static boolean isSupportedInJava(AnnotationTarget target) {
+        return isClassFieldMethodCtor(target) || target == ANNOTATION_CLASS;
+      }
+
+      private static String javaName(AnnotationTarget target) {
+        assert isSupportedInJava(target);
+        switch (target) {
+          case CLASS:
+            return "TYPE";
+          case ANNOTATION_CLASS:
+            return "ANNOTATION_TYPE";
+          case FIELD:
+            return "FIELD";
+          case FUNCTION:
+            return "METHOD";
+          case CONSTRUCTOR:
+            return "CONSTRUCTOR";
+          default:
+            throw new Unreachable();
+        }
       }
     }
 
+    private void printOpenAnnotationClassTargetingAnnotations(ClassReference clazz) {
+      printOpenAnnotationClass(clazz, target -> target == AnnotationTarget.ANNOTATION_CLASS);
+    }
+
     private void printOpenAnnotationClassTargetingClassFieldMethodCtor(ClassReference clazz) {
+      printOpenAnnotationClass(clazz, AnnotationTarget::isClassFieldMethodCtor);
+    }
+
+    private void printOpenAnnotationClass(
+        ClassReference clazz, Predicate<AnnotationTarget> target) {
       String unqualifiedName = getUnqualifiedName(clazz);
       if (generateKotlin()) {
         println("@Retention(AnnotationRetention.BINARY)");
@@ -707,10 +756,11 @@ public class KeepItemAnnotationGenerator {
           println("@Repeatable");
         }
         println("@Target(");
-        println("  AnnotationTarget.CLASS,");
-        println("  AnnotationTarget.FIELD,");
-        println("  AnnotationTarget.FUNCTION,");
-        println("  AnnotationTarget.CONSTRUCTOR,");
+        for (AnnotationTarget value : AnnotationTarget.values()) {
+          if (target.test(value)) {
+            println("  AnnotationTarget." + value.name() + ",");
+          }
+        }
         println(")");
         println("public annotation class " + unqualifiedName + "(");
       } else {
@@ -718,16 +768,26 @@ public class KeepItemAnnotationGenerator {
           throw new RuntimeException(
               "Repeatable annotations not supported for Java code generation");
         }
-        println(
-            "@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD,"
-                + " ElementType.CONSTRUCTOR})");
+        List<String> targets = new ArrayList<>();
+        for (AnnotationTarget value : AnnotationTarget.values()) {
+          if (target.test(value)) {
+            assert AnnotationTarget.isSupportedInJava(value) : value;
+            targets.add("ElementType." + AnnotationTarget.javaName(value));
+          }
+        }
+        assert !targets.isEmpty();
+        print("@Target(");
+        if (targets.size() > 1) {
+          print("{");
+        }
+        print(String.join(",", targets));
+        if (targets.size() > 1) {
+          print("}");
+        }
+        println(")");
         println("@Retention(RetentionPolicy.CLASS)");
         println("public @interface " + unqualifiedName + " {");
       }
-    }
-
-    private void printOpenAnnotationClassTargettingAnnotations(ClassReference clazz) {
-      printOpenAnnotationClassTargettingAnnotations(getUnqualifiedName(clazz));
     }
 
     private String defaultInvalidClassNamePattern() {
@@ -1553,7 +1613,7 @@ public class KeepItemAnnotationGenerator {
           .setDocTitle("A pattern structure for matching strings.")
           .addParagraph("If no properties are set, the default pattern matches any string.")
           .printDoc(this::println);
-      printOpenAnnotationClassTargettingAnnotations(STRING_PATTERN);
+      printOpenAnnotationClassTargetingAnnotations(STRING_PATTERN);
       println();
       withIndent(
           () -> {
@@ -1582,7 +1642,7 @@ public class KeepItemAnnotationGenerator {
           .addParagraph("If no properties are set, the default pattern matches any type.")
           .addParagraph("All properties on this annotation are mutually exclusive.")
           .printDoc(this::println);
-      printOpenAnnotationClassTargettingAnnotations(TYPE_PATTERN);
+      printOpenAnnotationClassTargetingAnnotations(TYPE_PATTERN);
       println();
       withIndent(() -> typePatternGroup().generate(this));
       printCloseAnnotationClass();
@@ -1601,7 +1661,7 @@ public class KeepItemAnnotationGenerator {
               "If no properties are set, the default pattern matches any name of a class or"
                   + " interface.")
           .printDoc(this::println);
-      printOpenAnnotationClassTargettingAnnotations(CLASS_NAME_PATTERN);
+      printOpenAnnotationClassTargetingAnnotations(CLASS_NAME_PATTERN);
       println();
       withIndent(
           () -> {
@@ -1627,7 +1687,7 @@ public class KeepItemAnnotationGenerator {
           .setDocTitle("A pattern structure for matching instances of classes and interfaces.")
           .addParagraph("If no properties are set, the default pattern matches any instance.")
           .printDoc(this::println);
-      printOpenAnnotationClassTargettingAnnotations(INSTANCE_OF_PATTERN);
+      printOpenAnnotationClassTargetingAnnotations(INSTANCE_OF_PATTERN);
       println();
       withIndent(
           () -> {
@@ -1652,7 +1712,7 @@ public class KeepItemAnnotationGenerator {
               "If no properties are set, the default pattern matches any annotation",
               "with a runtime retention policy.")
           .printDoc(this::println);
-      printOpenAnnotationClassTargettingAnnotations(ANNOTATION_PATTERN);
+      printOpenAnnotationClassTargetingAnnotations(ANNOTATION_PATTERN);
       println();
       withIndent(
           () -> {
@@ -1680,7 +1740,7 @@ public class KeepItemAnnotationGenerator {
           .addUnorderedList(
               "a pattern on classes;", "a pattern on methods; or", "a pattern on fields.")
           .printDoc(this::println);
-      printOpenAnnotationClassTargettingAnnotations("KeepBinding");
+      printOpenAnnotationClassTargetingAnnotations(KEEP_BINDING);
       println();
       withIndent(
           () -> {
@@ -1707,7 +1767,7 @@ public class KeepItemAnnotationGenerator {
           .addUnorderedList(
               "a pattern on classes;", "a pattern on methods; or", "a pattern on fields.")
           .printDoc(this::println);
-      printOpenAnnotationClassTargettingAnnotations("KeepTarget");
+      printOpenAnnotationClassTargetingAnnotations(KEEP_TARGET);
       println();
       withIndent(
           () -> {
@@ -1737,12 +1797,9 @@ public class KeepItemAnnotationGenerator {
           .addUnorderedList(
               "a pattern on classes;", "a pattern on methods; or", "a pattern on fields.")
           .printDoc(this::println);
-      printOpenAnnotationClassTargettingAnnotations("KeepCondition");
+      printOpenAnnotationClassTargetingAnnotations(KEEP_CONDITION);
       println();
-      withIndent(
-          () -> {
-            generateClassAndMemberPropertiesWithClassAndMemberBinding();
-          });
+      withIndent(this::generateClassAndMemberPropertiesWithClassAndMemberBinding);
       printCloseAnnotationClass();
     }
 
@@ -2134,7 +2191,13 @@ public class KeepItemAnnotationGenerator {
               "@see UsesReflectionToAccessMethod",
               "@see UsesReflectionToAccessField")
           .printDoc(this::println);
-      printOpenAnnotationClassTargetingClassFieldMethodCtor(UNCONDITIONALLY_KEEP);
+      printOpenAnnotationClass(
+          UNCONDITIONALLY_KEEP,
+          target ->
+              AnnotationTarget.isClassFieldMethodCtor(target)
+                  || target == AnnotationTarget.PROPERTY
+                  || target == AnnotationTarget.PROPERTY_GETTER
+                  || target == AnnotationTarget.PROPERTY_SETTER);
       println();
       withIndent(
           () -> {
@@ -2270,6 +2333,7 @@ public class KeepItemAnnotationGenerator {
             generateUsesReflectionToConstructConstants();
             generateUsesReflectionToAccessMethodConstants();
             generateUsesReflectionToAccessFieldConstants();
+            generateUnconditionallyKeepConstants();
             // Common item fields.
             generateItemConstants();
             // Inner annotation classes.
@@ -2461,6 +2525,17 @@ public class KeepItemAnnotationGenerator {
           () -> {
             generateAnnotationConstants(USES_REFLECTION_TO_ACCESS_METHOD);
             forEachUsesReflectionToAccessMethodGroup(g -> g.generateConstants(this));
+          });
+      println("}");
+      println();
+    }
+
+    private void generateUnconditionallyKeepConstants() {
+      println("public static final class UnconditionallyKeep {");
+      withIndent(
+          () -> {
+            generateAnnotationConstants(UNCONDITIONALLY_KEEP);
+            forEachUsesReflectionToAccessFieldGroup(g -> g.generateConstants(this));
           });
       println("}");
       println();

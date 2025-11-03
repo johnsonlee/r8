@@ -9,6 +9,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.NeverClassInline;
+import com.android.tools.r8.NeverPropagateValue;
 import com.android.tools.r8.NoAccessModification;
 import com.android.tools.r8.NoHorizontalClassMerging;
 import com.android.tools.r8.TestBase;
@@ -43,6 +44,7 @@ public class EquivalentConstructorsWithClassIdAndExtraNullsMergingTest extends T
         .addHorizontallyMergedClassesInspector(
             inspector ->
                 inspector.assertIsCompleteMergeGroup(A.class, B.class).assertNoOtherClassesMerged())
+        .enableMemberValuePropagationAnnotations()
         .enableNeverClassInliningAnnotations()
         .enableNoAccessModificationAnnotationsForMembers()
         .enableNoHorizontalClassMergingAnnotations()
@@ -73,7 +75,7 @@ public class EquivalentConstructorsWithClassIdAndExtraNullsMergingTest extends T
   @NeverClassInline
   static class A {
 
-    @NoAccessModification private final Object c;
+    @NeverPropagateValue @NoAccessModification private final Object c;
 
     A(C c) {
       this.c = c;
@@ -93,7 +95,7 @@ public class EquivalentConstructorsWithClassIdAndExtraNullsMergingTest extends T
   @NeverClassInline
   static class B {
 
-    @NoAccessModification private final D d;
+    @NeverPropagateValue @NoAccessModification private final D d;
 
     B(D d) {
       this.d = d;

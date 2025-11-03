@@ -136,7 +136,7 @@ public class R8RunExamplesAndroidOTest extends RunExamplesAndroidOTest<R8Command
         .withOptionConsumer(opts -> opts.enableClassInlining = false)
         .withBuilderTransformation(
             b -> b.addProguardConfiguration(PROGUARD_OPTIONS, Origin.unknown()))
-        .withDexCheck(inspector -> checkLambdaCount(inspector, 4, "lambdadesugaring"))
+        .withDexCheck(inspector -> checkLambdaCount(inspector, 3, "lambdadesugaring"))
         .run(Paths.get(ToolHelper.THIRD_PARTY_DIR, "examplesAndroidOLegacy"));
 
     test("lambdadesugaring", "lambdadesugaring", "LambdaDesugaring")
@@ -175,7 +175,7 @@ public class R8RunExamplesAndroidOTest extends RunExamplesAndroidOTest<R8Command
         .withOptionConsumer(opts -> opts.enableClassInlining = false)
         .withBuilderTransformation(
             b -> b.addProguardConfiguration(PROGUARD_OPTIONS, Origin.unknown()))
-        .withDexCheck(inspector -> checkLambdaCount(inspector, 4, "lambdadesugaring"))
+        .withDexCheck(inspector -> checkLambdaCount(inspector, 3, "lambdadesugaring"))
         .run(Paths.get(ToolHelper.THIRD_PARTY_DIR, "examplesAndroidOLegacy"));
 
     test("lambdadesugaring", "lambdadesugaring", "LambdaDesugaring")
@@ -255,7 +255,7 @@ public class R8RunExamplesAndroidOTest extends RunExamplesAndroidOTest<R8Command
             b ->
                 b.addProguardConfiguration(
                     getProguardOptionsNPlus(enableProguardCompatibilityMode), Origin.unknown()))
-        .withDexCheck(inspector -> checkLambdaCount(inspector, 2, "lambdadesugaringnplus"))
+        .withDexCheck(inspector -> checkLambdaCount(inspector, 1, "lambdadesugaringnplus"))
         .run();
 
     test("lambdadesugaringnplus", "lambdadesugaringnplus", "LambdasWithStaticAndDefaultMethods")

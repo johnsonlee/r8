@@ -81,8 +81,8 @@ public class GMSCoreV10Test extends GMSCoreCompilationTestBase {
         .addProgramFiles(base.resolve(DEPLOY_JAR))
         .addOptionsModification(
             options -> {
-              assertTrue(options.getThrowBlockOutlinerOptions().enable);
-              options.getThrowBlockOutlinerOptions().enable = false;
+              assertTrue(options.getBottomUpOutlinerOptions().enable);
+              options.getBottomUpOutlinerOptions().enable = false;
             })
         .setMinApi(parameters)
         .apply(configuration)

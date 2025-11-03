@@ -222,6 +222,29 @@ public final class AnnotationConstants {
     public static final String fieldTypeName = "fieldTypeName";
   }
 
+  public static final class UnconditionallyKeep {
+    private static final String DESCRIPTOR = "Landroidx/annotation/keep/UnconditionallyKeep;";
+    private static final String DESCRIPTOR_LEGACY =
+        "Lcom/android/tools/r8/keepanno/annotations/UnconditionallyKeep;";
+
+    public static boolean isDescriptor(String descriptor) {
+      return DESCRIPTOR.equals(descriptor) || DESCRIPTOR_LEGACY.equals(descriptor);
+    }
+
+    public static String getDescriptor() {
+      return DESCRIPTOR;
+    }
+
+    public static final String classSelectionGroup = "class-selection";
+    public static final String classConstant = "classConstant";
+    public static final String className = "className";
+    public static final String includeSubclasses = "includeSubclasses";
+    public static final String fieldName = "fieldName";
+    public static final String fieldTypeSelectionGroup = "field-type-selection";
+    public static final String fieldType = "fieldType";
+    public static final String fieldTypeName = "fieldTypeName";
+  }
+
   /** Item properties common to binding items, conditions and targets. */
   public static final class Item {
     public static final String classGroup = "class";

@@ -7,6 +7,5 @@ import com.android.tools.r8.kotlin.inline.companion.lib.A
 
 fun main() {
   A.f()
-  A.f { "Hello again, world!" }
-  A.g({ "Hello, " })
+  A.f { "2" }
 }

@@ -299,6 +299,10 @@ public class Value implements Comparable<Value>, InstructionOrValue {
     debugData = new DebugData(local);
   }
 
+  public void clearLocalInfo() {
+    debugData = null;
+  }
+
   public Set<Instruction> getDebugLocalEnds() {
     return debugData == null
         ? Collections.emptySet()

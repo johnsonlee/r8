@@ -4,6 +4,7 @@
 package com.android.tools.r8.ir.optimize.unusedarguments;
 
 import com.android.tools.r8.NeverClassInline;
+import com.android.tools.r8.NeverPropagateValue;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -38,6 +39,7 @@ public class CollisionWithUnusedArgumentAndParameterAnnotationsTest extends Test
         .addKeepMainRule(TestClass.class)
         .addKeepRuntimeVisibleParameterAnnotations()
         .addKeepClassAndMembersRules(ParameterAnnotation.class)
+        .enableMemberValuePropagationAnnotations()
         .setMinApi(parameters.getApiLevel())
         .enableNeverClassInliningAnnotations()
         .run(parameters.getRuntime(), TestClass.class)
@@ -51,6 +53,7 @@ public class CollisionWithUnusedArgumentAndParameterAnnotationsTest extends Test
         .addKeepMainRule(TestClass.class)
         .addKeepRuntimeVisibleParameterAnnotations()
         .addKeepClassAndMembersRules(ParameterAnnotation.class)
+        .enableMemberValuePropagationAnnotations()
         .setMinApi(parameters.getApiLevel())
         .enableNeverClassInliningAnnotations()
         .run(parameters.getRuntime(), TestClass.class)
@@ -69,7 +72,8 @@ public class CollisionWithUnusedArgumentAndParameterAnnotationsTest extends Test
 
   @NeverClassInline
   static class A {
-    B b;
+
+    @NeverPropagateValue B b;
 
     // Unused argument is removed, but then an extra argument is added to avoid the signature
     // collision.

@@ -6,10 +6,10 @@ package com.android.tools.r8.apimodel;
 
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLevelForClass;
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLevelForMethod;
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.syntheticApiOutlineClass;
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getSyntheticItemsTestUtils;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.notIf;
-import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.CompilationMode;
@@ -21,6 +21,7 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.Reference;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.testing.AndroidBuildVersion;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
@@ -131,6 +132,8 @@ public class ApiModelAndroidxApiImplTest extends TestBase {
         .addKeepMainRule(Main.class)
         .addHorizontallyMergedClassesInspector(
             HorizontallyMergedClassesInspector::assertNoClassesMerged)
+        .addOptionsModification(
+            options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
         .compile()
         .inspect(inspector -> inspect(inspector, true))
         .apply(this::setupRuntime)
@@ -144,15 +147,18 @@ public class ApiModelAndroidxApiImplTest extends TestBase {
     if (parameters.isCfRuntime()) {
       assertThat(inspector.clazz(classReference), isPresent());
     } else {
+      SyntheticItemsTestUtils syntheticItemsTestUtils = getSyntheticItemsTestUtils(isR8);
       assertThat(
           inspector.clazz(classReference),
           notIf(
               isPresent(),
               isR8 && parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.O)));
       assertThat(
-          inspector.clazz(syntheticApiOutlineClass(classReference, 0)),
+          inspector.clazz(syntheticItemsTestUtils.syntheticApiOutlineClass(classReference, 0)),
           notIf(isPresent(), parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.R)));
-      assertThat(inspector.clazz(syntheticApiOutlineClass(classReference, 1)), not(isPresent()));
+      assertThat(
+          inspector.clazz(syntheticItemsTestUtils.syntheticApiOutlineClass(classReference, 1)),
+          isAbsent());
     }
   }
 

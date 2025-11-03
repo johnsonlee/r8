@@ -6,6 +6,7 @@ package com.android.tools.r8.startup;
 
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticType;
 import static com.android.tools.r8.startup.utils.StartupTestingMatchers.isEqualToClassDataLayout;
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.notIf;
@@ -24,7 +25,6 @@ import com.android.tools.r8.startup.profile.ExternalStartupItem;
 import com.android.tools.r8.startup.profile.ExternalStartupMethod;
 import com.android.tools.r8.startup.utils.MixedSectionLayoutInspector;
 import com.android.tools.r8.startup.utils.StartupTestingUtils;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.MethodReferenceUtils;
@@ -86,6 +86,7 @@ public class StartupSyntheticWithoutContextTest extends TestBase {
         .addKeepClassAndMembersRules(A.class, C.class)
         .addOptionsModification(
             options -> {
+              options.desugarSpecificOptions().minimizeSyntheticNames = true;
               options
                   .getStartupOptions()
                   .setEnableMinimalStartupDex(enableMinimalStartupDex)
@@ -128,16 +129,17 @@ public class StartupSyntheticWithoutContextTest extends TestBase {
             .setMethodReference(Reference.methodFromMethod(B.class.getDeclaredMethod("b")))
             .build(),
         ExternalStartupClass.builder()
-            .setClassReference(getSyntheticLambdaClassReference(B.class))
+            .setClassReference(getSyntheticLambdaClassReference(B.class, false))
             .build(),
         ExternalStartupMethod.builder()
             .setMethodReference(
-                MethodReferenceUtils.instanceConstructor(getSyntheticLambdaClassReference(B.class)))
+                MethodReferenceUtils.instanceConstructor(
+                    getSyntheticLambdaClassReference(B.class, false)))
             .build(),
         ExternalStartupMethod.builder()
             .setMethodReference(
                 Reference.method(
-                    getSyntheticLambdaClassReference(B.class),
+                    getSyntheticLambdaClassReference(B.class, false),
                     "run",
                     Collections.emptyList(),
                     TypeReferenceUtils.getVoidType()))
@@ -158,10 +160,10 @@ public class StartupSyntheticWithoutContextTest extends TestBase {
           Reference.classFromClass(Main.class),
           Reference.classFromClass(A.class),
           Reference.classFromClass(C.class),
-          getSyntheticLambdaClassReference(B.class));
+          getSyntheticLambdaClassReference(B.class, true));
     }
     if (!enableMinimalStartupDex || virtualFile == 1) {
-      builder.add(getSyntheticLambdaClassReference(Main.class));
+      builder.add(getSyntheticLambdaClassReference(Main.class, true));
     }
     return builder.build();
   }
@@ -180,23 +182,24 @@ public class StartupSyntheticWithoutContextTest extends TestBase {
     assertThat(inspector.clazz(A.class), isPresent());
     assertThat(inspector.clazz(B.class), isAbsent());
     assertThat(inspector.clazz(C.class), isPresent());
-    assertThat(inspector.clazz(getSyntheticLambdaClassReference(B.class)), isPresent());
+    assertThat(inspector.clazz(getSyntheticLambdaClassReference(B.class, true)), isPresent());
     assertThat(
-        inspector.clazz(getSyntheticLambdaClassReference(Main.class)),
+        inspector.clazz(getSyntheticLambdaClassReference(Main.class, true)),
         notIf(isPresent(), enableMinimalStartupDex));
   }
 
   private void inspectSecondaryDex(CodeInspector inspector) {
     if (enableMinimalStartupDex) {
       assertEquals(1, inspector.allClasses().size());
-      assertThat(inspector.clazz(getSyntheticLambdaClassReference(Main.class)), isPresent());
+      assertThat(inspector.clazz(getSyntheticLambdaClassReference(Main.class, true)), isPresent());
     } else {
       assertTrue(inspector.allClasses().isEmpty());
     }
   }
 
-  private static ClassReference getSyntheticLambdaClassReference(Class<?> synthesizingContext) {
-    return SyntheticItemsTestUtils.syntheticLambdaClass(synthesizingContext, 0);
+  private static ClassReference getSyntheticLambdaClassReference(
+      Class<?> synthesizingContext, boolean isR8) {
+    return getSyntheticItemsTestUtils(isR8).syntheticLambdaClass(synthesizingContext, 0);
   }
 
   static class Main {

@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.shaking;
 
-import static com.android.tools.r8.shaking.ProguardKeepAttributes.RUNTIME_INVISIBLE_ANNOTATIONS;
 import static com.android.tools.r8.shaking.ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS;
 
 import com.android.tools.r8.errors.dontwarn.DontWarnConfiguration;
@@ -267,22 +266,12 @@ public class ProguardConfiguration {
       ProguardKeepRule keepKotlinMetadata =
           ProguardKeepRuleUtils.keepClassAndMembersRule(
               origin, positionStart, dexItemFactory.kotlinMetadataType, source);
-      ProguardKeepRule keepKotlinJvmNameAnnotation =
-          ProguardKeepRuleUtils.keepClassAndMembersRule(
-              origin, positionStart, dexItemFactory.kotlinJvmNameType, source);
       // Mark the rules as used to ensure we do not report any information messages if the class
       // is not present.
       keepKotlinMetadata.markAsUsed();
-      keepKotlinJvmNameAnnotation.markAsUsed();
       addRule(keepKotlinMetadata, parser, positionStart);
-      addRule(keepKotlinJvmNameAnnotation, parser, positionStart);
       addKeepAttributePatterns(
           Collections.singletonList(RUNTIME_VISIBLE_ANNOTATIONS), parser, position, positionStart);
-      addKeepAttributePatterns(
-          Collections.singletonList(RUNTIME_INVISIBLE_ANNOTATIONS),
-          parser,
-          position,
-          positionStart);
     }
 
     public Builder addKeepAttributePatterns(List<String> keepAttributePatterns) {

@@ -33,7 +33,7 @@ import com.android.tools.r8.ir.code.NumericType;
 import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.code.Position.SyntheticPosition;
 import com.android.tools.r8.ir.code.ValueType;
-import com.android.tools.r8.ir.optimize.outliner.exceptions.ThrowBlockOutline;
+import com.android.tools.r8.ir.optimize.outliner.bottomup.Outline;
 import com.android.tools.r8.lightir.LirCode.DebugLocalInfoTable;
 import com.android.tools.r8.lightir.LirCode.LinePositionEntry;
 import com.android.tools.r8.lightir.LirCode.PositionEntry;
@@ -776,10 +776,9 @@ public class LirBuilder<V, EV> {
     return addOneValueInstruction(LirOpcodes.ATHROW, exception);
   }
 
-  public LirBuilder<V, EV> addThrowBlockOutlineMarker(
-      ThrowBlockOutline outline, List<V> arguments) {
+  public LirBuilder<V, EV> addOutlineMarker(Outline outline, List<V> arguments) {
     return addInstructionTemplate(
-        LirOpcodes.THROWBLOCKOUTLINEMARKER, Collections.singletonList(outline), arguments);
+        LirOpcodes.OUTLINEMARKER, Collections.singletonList(outline), arguments);
   }
 
   public LirBuilder<V, EV> addReturn(V value) {

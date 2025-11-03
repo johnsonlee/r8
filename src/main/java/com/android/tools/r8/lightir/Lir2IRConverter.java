@@ -82,6 +82,7 @@ import com.android.tools.r8.ir.code.NumberGenerator;
 import com.android.tools.r8.ir.code.NumericType;
 import com.android.tools.r8.ir.code.Or;
 import com.android.tools.r8.ir.code.OriginalFieldWitnessInstruction;
+import com.android.tools.r8.ir.code.OutlineMarker;
 import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.code.RecordFieldValues;
@@ -97,14 +98,13 @@ import com.android.tools.r8.ir.code.StoreStoreFence;
 import com.android.tools.r8.ir.code.StringSwitch;
 import com.android.tools.r8.ir.code.Sub;
 import com.android.tools.r8.ir.code.Throw;
-import com.android.tools.r8.ir.code.ThrowBlockOutlineMarker;
 import com.android.tools.r8.ir.code.Ushr;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.ir.code.Xor;
 import com.android.tools.r8.ir.conversion.ExtraParameter;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
-import com.android.tools.r8.ir.optimize.outliner.exceptions.ThrowBlockOutline;
+import com.android.tools.r8.ir.optimize.outliner.bottomup.Outline;
 import com.android.tools.r8.lightir.LirBuilder.IntSwitchPayload;
 import com.android.tools.r8.lightir.LirBuilder.StringSwitchPayload;
 import com.android.tools.r8.lightir.LirCode.PositionEntry;
@@ -858,8 +858,8 @@ public class Lir2IRConverter {
     }
 
     @Override
-    public void onThrowBlockOutlineMarker(ThrowBlockOutline outline, List<EV> arguments) {
-      addInstruction(new ThrowBlockOutlineMarker(outline, getValues(arguments)));
+    public void onOutlineMarker(Outline outline, List<EV> arguments) {
+      addInstruction(new OutlineMarker(outline, getValues(arguments)));
     }
 
     @Override

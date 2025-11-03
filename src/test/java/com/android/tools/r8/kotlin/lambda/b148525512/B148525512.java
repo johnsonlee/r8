@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.kotlin.lambda.b148525512;
 
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getMinimalSyntheticItemsTestUtils;
+
 import com.android.tools.r8.DexIndexedConsumer.ArchiveConsumer;
 import com.android.tools.r8.KotlinCompileMemoizer;
 import com.android.tools.r8.KotlinTestBase;
@@ -12,7 +14,6 @@ import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.Reference;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.ArchiveResourceProvider;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.HorizontallyMergedClassesInspector;
@@ -95,6 +96,8 @@ public class B148525512 extends KotlinTestBase {
                 "}")
             .addHorizontallyMergedClassesInspector(
                 HorizontallyMergedClassesInspector::assertNoClassesMerged)
+            .addOptionsModification(
+                options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
             .enableProguardTestOptions()
             .setMinApi(parameters)
             .addFeatureSplit(
@@ -133,19 +136,19 @@ public class B148525512 extends KotlinTestBase {
                         Reference.classFromTypeName(
                             "com.android.tools.r8.kotlin.lambda.b148525512.FeatureKt");
                     assertRemovedFromOutput(
-                        SyntheticItemsTestUtils.syntheticLambdaClass(baseKt, 0),
+                        getMinimalSyntheticItemsTestUtils().syntheticLambdaClass(baseKt, 0),
                         inputInspector,
                         inspector);
                     assertRemovedFromOutput(
-                        SyntheticItemsTestUtils.syntheticLambdaClass(baseKt, 1),
+                        getMinimalSyntheticItemsTestUtils().syntheticLambdaClass(baseKt, 1),
                         inputInspector,
                         inspector);
                     assertRemovedFromOutput(
-                        SyntheticItemsTestUtils.syntheticLambdaClass(featureKt, 0),
+                        getMinimalSyntheticItemsTestUtils().syntheticLambdaClass(featureKt, 0),
                         inputInspector,
                         inspector);
                     assertRemovedFromOutput(
-                        SyntheticItemsTestUtils.syntheticLambdaClass(featureKt, 1),
+                        getMinimalSyntheticItemsTestUtils().syntheticLambdaClass(featureKt, 1),
                         inputInspector,
                         inspector);
                   }

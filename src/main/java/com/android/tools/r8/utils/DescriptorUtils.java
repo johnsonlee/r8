@@ -936,4 +936,20 @@ public class DescriptorUtils {
     }
     return argCount;
   }
+
+  public static String addLeadingArguments(
+      final String methodDescriptor, List<String> argumentDescriptors) {
+    assert methodDescriptor.charAt(0) == '(';
+    return "(" + String.join("", argumentDescriptors) + methodDescriptor.substring(1);
+  }
+
+  public static String addTrailingArguments(
+      final String methodDescriptor, List<String> argumentDescriptors) {
+    assert methodDescriptor.charAt(0) == '(';
+    int closingParenIndex = methodDescriptor.lastIndexOf(')');
+    assert methodDescriptor.indexOf(')') == closingParenIndex;
+    return methodDescriptor.substring(0, closingParenIndex)
+        + String.join("", argumentDescriptors)
+        + methodDescriptor.substring(closingParenIndex);
+  }
 }

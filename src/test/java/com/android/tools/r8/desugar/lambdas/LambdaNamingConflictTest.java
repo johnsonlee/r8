@@ -3,12 +3,12 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.desugar.lambdas;
 
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getSyntheticItemsTestUtils;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.references.ClassReference;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import org.junit.Test;
@@ -30,8 +30,9 @@ public class LambdaNamingConflictTest extends TestBase {
   }
 
   // The expected synthetic name is the context of the lambda, TestClass, and the first id.
-  private static final ClassReference CONFLICTING_NAME =
-      SyntheticItemsTestUtils.syntheticLambdaClass(TestClass.class, 0);
+  private static ClassReference getConflictingName(boolean isR8) {
+    return getSyntheticItemsTestUtils(isR8).syntheticLambdaClass(TestClass.class, 0);
+  }
 
   private final TestParameters parameters;
 
@@ -44,8 +45,8 @@ public class LambdaNamingConflictTest extends TestBase {
     parameters.assumeJvmTestParameters();
     testForJvm(parameters)
         .addProgramClasses(I.class)
-        .addProgramClassFileData(getConflictingNameClass())
-        .addProgramClassFileData(getTransformedMainClass())
+        .addProgramClassFileData(getConflictingNameClass(false))
+        .addProgramClassFileData(getTransformedMainClass(false))
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutput(EXPECTED);
   }
@@ -54,8 +55,8 @@ public class LambdaNamingConflictTest extends TestBase {
   public void testD8() throws Exception {
     testForD8(parameters.getBackend())
         .addProgramClasses(I.class)
-        .addProgramClassFileData(getConflictingNameClass())
-        .addProgramClassFileData(getTransformedMainClass())
+        .addProgramClassFileData(getConflictingNameClass(false))
+        .addProgramClassFileData(getTransformedMainClass(false))
         .setMinApi(parameters)
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutput(EXPECTED);
@@ -65,29 +66,35 @@ public class LambdaNamingConflictTest extends TestBase {
   public void testR8() throws Exception {
     testForR8(parameters.getBackend())
         .addProgramClasses(I.class)
-        .addProgramClassFileData(getConflictingNameClass())
-        .addProgramClassFileData(getTransformedMainClass())
+        .addProgramClassFileData(getConflictingNameClass(true))
+        .addProgramClassFileData(getTransformedMainClass(true))
         .setMinApi(parameters)
         .addKeepMainRule(TestClass.class)
         // Ensure that R8 cannot remove or rename the conflicting name.
-        .addKeepClassAndMembersRules(CONFLICTING_NAME.getTypeName())
+        .addKeepClassAndMembersRules(getConflictingName(true).getTypeName())
+        .addOptionsModification(
+            options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutput(EXPECTED);
   }
 
-  private byte[] getTransformedMainClass() throws Exception {
+  private byte[] getTransformedMainClass(boolean isR8) throws Exception {
     return transformer(TestClass.class)
         .transformMethodInsnInMethod(
             "main",
             (opcode, owner, name, descriptor, isInterface, visitor) ->
                 visitor.visitMethodInsn(
-                    opcode, CONFLICTING_NAME.getBinaryName(), name, descriptor, isInterface))
+                    opcode,
+                    getConflictingName(isR8).getBinaryName(),
+                    name,
+                    descriptor,
+                    isInterface))
         .transform();
   }
 
-  private byte[] getConflictingNameClass() throws Exception {
+  private byte[] getConflictingNameClass(boolean isR8) throws Exception {
     return transformer(WillBeConflictingName.class)
-        .setClassDescriptor(CONFLICTING_NAME.getDescriptor())
+        .setClassDescriptor(getConflictingName(isR8).getDescriptor())
         .transform();
   }
 

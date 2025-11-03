@@ -416,8 +416,8 @@ public class CodeInspector {
     return clazz(SyntheticItemsTestUtils.syntheticCompanionClass(clazz));
   }
 
-  public ClassSubject lambdaClassFor(Class<?> clazz, int id) {
-    return clazz(SyntheticItemsTestUtils.syntheticLambdaClass(clazz, id));
+  public ClassSubject syntheticClass(ClassReference classReference) {
+    return classReference != null ? clazz(classReference) : new AbsentClassSubject();
   }
 
   public void forAllClasses(Consumer<FoundClassSubject> inspection) {

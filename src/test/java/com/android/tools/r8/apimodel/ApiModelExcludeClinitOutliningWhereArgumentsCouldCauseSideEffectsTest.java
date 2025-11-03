@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.apimodel;
 
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getMinimalSyntheticItemsTestUtils;
 import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.NeverInline;
@@ -75,6 +76,8 @@ public class ApiModelExcludeClinitOutliningWhereArgumentsCouldCauseSideEffectsTe
     testForR8(parameters)
         .addProgramClassFileData(getTestClass())
         .addKeepMainRule(TestClass.class)
+        .addOptionsModification(
+            options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
         .enableInliningAnnotations()
         .compile()
         .inspect(
@@ -96,8 +99,8 @@ public class ApiModelExcludeClinitOutliningWhereArgumentsCouldCauseSideEffectsTe
                                   .getTypeName()
                                   .equals(
                                       inspector.getObfuscatedTypeName(
-                                          SyntheticItemsTestUtils.syntheticApiOutlineClass(
-                                                  TestClass.class, 0)
+                                          getMinimalSyntheticItemsTestUtils()
+                                              .syntheticApiOutlineClass(TestClass.class, 0)
                                               .getTypeName())))
                       .count());
               // As android.graphics.SurfaceTexture was introduced in API level 11 the <clinit>

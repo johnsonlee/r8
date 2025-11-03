@@ -8,15 +8,11 @@ class A {
 
   companion object {
     inline fun f() {
-      println("Hello, world!")
+      println("1")
     }
 
     inline fun f(supplier: () -> String) {
       println(supplier())
-    }
-
-    inline fun g(supplier1: () -> String, supplier2: () -> String = { "default" }) {
-      println(supplier1() + supplier2())
     }
   }
 }

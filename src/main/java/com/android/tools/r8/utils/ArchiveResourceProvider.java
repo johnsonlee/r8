@@ -62,46 +62,23 @@ public class ArchiveResourceProvider implements ProgramResourceProvider, DataRes
   }
 
   private void readArchive(Consumer<ProgramResource> consumer) throws ResourceException {
-    BooleanBox seenCf = new BooleanBox();
-    BooleanBox seenDex = new BooleanBox();
-    try (ZipFile zipFile =
-        FileUtils.createZipFile(archive.getPath().toFile(), StandardCharsets.UTF_8)) {
-      final Enumeration<? extends ZipEntry> entries = zipFile.entries();
-      while (entries.hasMoreElements()) {
-        ZipEntry entry = entries.nextElement();
-        try (InputStream stream = zipFile.getInputStream(entry)) {
-          String name = entry.getName();
-          Origin entryOrigin = new ArchiveEntryOrigin(name, origin);
-          if (archive.matchesFile(name)) {
-            if (ZipUtils.isDexFile(name)) {
-              if (!ignoreDexInArchive) {
-                ProgramResource resource =
-                    OneShotByteResource.create(
-                        Kind.DEX, entryOrigin, ByteStreams.toByteArray(stream), null);
-                consumer.accept(resource);
-                seenDex.set();
-              }
-            } else if (ZipUtils.isClassFile(name)) {
-              String descriptor = DescriptorUtils.guessTypeDescriptor(name);
-              ProgramResource resource =
-                  OneShotByteResource.create(
-                      Kind.CF,
-                      entryOrigin,
-                      ByteStreams.toByteArray(stream),
-                      Collections.singleton(descriptor));
-              consumer.accept(resource);
-              seenCf.set();
-            }
-          }
-        }
-      }
+    List<Kind> seenKinds;
+    try {
+      seenKinds =
+          ArchiveResourceProviderUtils.readArchive(
+              archive.getPath(),
+              origin,
+              (name, kind) -> archive.matchesFile(name) && (kind == Kind.CF || !ignoreDexInArchive),
+              consumer);
     } catch (ZipException e) {
       throw new CompilationError(
           "Zip error while reading '" + archive + "': " + e.getMessage(), e);
     } catch (IOException e) {
       throw new ResourceException(origin, e);
     }
-    if (seenCf.isTrue() && seenDex.isTrue()) {
+    if (seenKinds.size() == 2) {
+      assert seenKinds.contains(Kind.CF);
+      assert seenKinds.contains(Kind.DEX);
       throw new CompilationError(
           "Cannot create android app from an archive '"
               + archive

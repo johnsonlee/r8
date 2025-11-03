@@ -9,6 +9,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.NeverClassInline;
+import com.android.tools.r8.NeverPropagateValue;
 import com.android.tools.r8.NoHorizontalClassMerging;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -44,6 +45,7 @@ public class EquivalentConstructorsWithClassIdAndDifferentArgumentAndAssignmentO
         .addHorizontallyMergedClassesInspector(
             inspector ->
                 inspector.assertIsCompleteMergeGroup(A.class, B.class).assertNoOtherClassesMerged())
+        .enableMemberValuePropagationAnnotations()
         .enableNeverClassInliningAnnotations()
         .enableNoHorizontalClassMergingAnnotations()
         .setMinApi(parameters)
@@ -72,8 +74,9 @@ public class EquivalentConstructorsWithClassIdAndDifferentArgumentAndAssignmentO
   @NeverClassInline
   static class A {
 
-    private final C c;
-    private final D d;
+    @NeverPropagateValue private final C c;
+
+    @NeverPropagateValue private final D d;
 
     A(C c, D d) {
       this.c = c;
@@ -89,8 +92,9 @@ public class EquivalentConstructorsWithClassIdAndDifferentArgumentAndAssignmentO
   @NeverClassInline
   static class B {
 
-    private final C c;
-    private final D d;
+    @NeverPropagateValue private final C c;
+
+    @NeverPropagateValue private final D d;
 
     B(D d, C c) {
       this.d = d;

@@ -318,8 +318,8 @@ public class IRMetadata implements StructuralItem<IRMetadata> {
     return result;
   }
 
-  public boolean mayHaveThrowBlockOutlineMarker() {
-    return get(Opcodes.THROW_BLOCK_OUTLINE_MARKER);
+  public boolean mayHaveOutlineMarker() {
+    return get(Opcodes.OUTLINE_MARKER);
   }
 
   public boolean mayHaveUshr() {

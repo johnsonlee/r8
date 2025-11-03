@@ -23,6 +23,7 @@ import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.shaking.ProguardKeepAttributes;
 import com.android.tools.r8.transformers.ClassFileTransformer;
 import com.android.tools.r8.transformers.ClassFileTransformer.AnnotationBuilder;
+import com.android.tools.r8.transformers.ClassFileTransformer.FieldPredicate;
 import com.android.tools.r8.transformers.ClassFileTransformer.MethodPredicate;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.FileUtils;
@@ -133,6 +134,32 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
         builderConsumer);
   }
 
+  protected static byte[] setAnnotationOnField(
+      ClassFileTransformer transformer,
+      FieldPredicate fieldPredicate,
+      Consumer<AnnotationBuilder> builderConsumer) {
+    return transformer.setAnnotation(fieldPredicate, builderConsumer).transform();
+  }
+
+  protected static byte[] setAnnotationOnField(
+      Class<?> clazz, FieldPredicate fieldPredicate, Consumer<AnnotationBuilder> builderConsumer)
+      throws IOException {
+    return setAnnotationOnField(transformer(clazz), fieldPredicate, builderConsumer);
+  }
+
+  protected static byte[] setAnnotationOnField(
+      ClassReference classReference,
+      byte[] classFileBytes,
+      ClassReference classReferenceToTransform,
+      FieldPredicate fieldPredicate,
+      Consumer<AnnotationBuilder> builderConsumer) {
+    if (!classReference.equals(classReferenceToTransform)) {
+      return classFileBytes;
+    }
+    return setAnnotationOnField(
+        transformer(classFileBytes, classReference), fieldPredicate, builderConsumer);
+  }
+
   public abstract static class ExpectedRule {
     public abstract String getRule(boolean r8);
   }
@@ -157,10 +184,12 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
 
     @Override
     public String getRule(boolean r8) {
-      return "-if class "
-          + conditionClass
-          + (conditionMembers != null ? " " + conditionMembers : "")
-          + " "
+      return (conditionClass != null
+              ? "-if class "
+                  + conditionClass
+                  + (conditionMembers != null ? " " + conditionMembers : "")
+                  + " "
+              : "")
           + keepVariant
           + (r8 ? ",allowaccessmodification" : "")
           + " class "

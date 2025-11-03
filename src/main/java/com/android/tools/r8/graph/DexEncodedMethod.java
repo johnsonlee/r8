@@ -989,9 +989,9 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     } else if (code.isLirCode()) {
       // TODO(b/443663978): Add support for patching up LIR debug info.
       assert appView.options().isRelease()
-          || appView.options().getThrowBlockOutlinerOptions().forceDebug;
+          || appView.options().getBottomUpOutlinerOptions().forceDebug;
       assert code.asLirCode().getDebugLocalInfoTable() == null
-          || appView.options().getThrowBlockOutlinerOptions().forceDebug;
+          || appView.options().getBottomUpOutlinerOptions().forceDebug;
       return code.asLirCode().newCodeWithoutDebugLocalInfoTable();
     }
     assert false;

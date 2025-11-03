@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.desugar.lambdas;
 
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -71,6 +72,9 @@ public class LambdaToSysOutPrintlnDuplicationTest extends TestBase {
         .addKeepMainRule(TestClass.class)
         .setMinApi(parameters)
         .addDontObfuscateUnless(minify)
+        // Disable minimal synthetic names to ensure robust detection of synthetics.
+        .addOptionsModification(
+            options -> options.desugarSpecificOptions().minimizeSyntheticNames = false)
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutput(EXPECTED)
         .inspect(this::checkNoOriginalsAndNoInternalSynthetics);
@@ -226,8 +230,9 @@ public class LambdaToSysOutPrintlnDuplicationTest extends TestBase {
     // of intermediates.
     Set<MethodReference> expectedSynthetics =
         ImmutableSet.of(
-            SyntheticItemsTestUtils.syntheticLambdaMethod(
-                User1.class, 0, MyConsumer.class.getMethod("accept", Object.class)));
+            getDefaultSyntheticItemsTestUtils()
+                .syntheticLambdaMethod(
+                    User1.class, 0, MyConsumer.class.getMethod("accept", Object.class)));
     assertEquals(expectedSynthetics, getSyntheticMethods(inspector));
   }
 

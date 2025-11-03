@@ -5,6 +5,7 @@ package com.android.tools.r8.maindexlist;
 
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticOrigin;
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticType;
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static org.hamcrest.CoreMatchers.allOf;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
@@ -21,7 +22,6 @@ import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.errors.UnsupportedMainDexListUsageDiagnostic;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.origin.PathOrigin;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.FileUtils;
@@ -187,7 +187,8 @@ public class MainDexWithSynthesizedClassesTest extends TestBase {
                         && clazz
                             .getOriginalReference()
                             .equals(
-                                SyntheticItemsTestUtils.syntheticLambdaClass(lambdaHolder, 0))));
+                                getDefaultSyntheticItemsTestUtils()
+                                    .syntheticLambdaClass(lambdaHolder, 0))));
   }
 
   static class TestClass {

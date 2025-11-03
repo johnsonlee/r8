@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.compilerapi.syntheticscontexts;
 
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.ByteDataView;
@@ -18,7 +19,6 @@ import com.android.tools.r8.compilerapi.CompilerApiTest;
 import com.android.tools.r8.compilerapi.CompilerApiTestRunner;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.references.ClassReference;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -40,7 +40,8 @@ public class SyntheticContextsConsumerTest extends CompilerApiTestRunner {
   @Test
   public void test() throws Exception {
     // First compile to CF such that we have an input class that has a synthetic context.
-    ClassReference backport = SyntheticItemsTestUtils.syntheticBackportClass(UsesBackport.class, 0);
+    ClassReference backport =
+        getDefaultSyntheticItemsTestUtils().syntheticBackportClass(UsesBackport.class, 0);
     Map<String, byte[]> outputs = new HashMap<>();
     testForD8(Backend.CF)
         .addProgramClasses(UsesBackport.class)

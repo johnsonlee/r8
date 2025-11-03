@@ -6,36 +6,24 @@ package com.android.tools.r8;
 import com.android.tools.r8.ProgramResource.Kind;
 import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
-import com.android.tools.r8.origin.ArchiveEntryOrigin;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.origin.PathOrigin;
-import com.android.tools.r8.utils.BooleanBox;
-import com.android.tools.r8.utils.DescriptorUtils;
+import com.android.tools.r8.utils.ArchiveResourceProviderUtils;
 import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.ZipUtils;
-import com.google.common.io.ByteStreams;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.Enumeration;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
 
 /** Provider for archives of program resources. */
 @KeepForApi
 public class ArchiveProgramResourceProvider implements ProgramResourceProvider {
-
-  interface ArchiveEntryConsumer {
-    void accept(ArchiveEntryOrigin entry, InputStream stream) throws IOException;
-  }
 
   @KeepForApi
   public interface ZipFileSupplier {
@@ -91,90 +79,30 @@ public class ArchiveProgramResourceProvider implements ProgramResourceProvider {
     this.include = include;
   }
 
-  void readArchive(ArchiveEntryConsumer consumer) throws IOException {
-    try (ZipFile zipFile = supplier.open()) {
-      final Enumeration<? extends ZipEntry> entries = zipFile.entries();
-      while (entries.hasMoreElements()) {
-        ZipEntry entry = entries.nextElement();
-        try (InputStream stream = zipFile.getInputStream(entry)) {
-          consumer.accept(new ArchiveEntryOrigin(entry.getName(), origin), stream);
-        }
-      }
-    } catch (ZipException e) {
-      throw new CompilationError("Zip error while reading archive" + e.getMessage(), e, origin);
-    }
-  }
-
   @Override
   public Collection<ProgramResource> getProgramResources() throws ResourceException {
-    try {
-      List<ProgramResource> dexResources = new ArrayList<>();
-      List<ProgramResource> classResources = new ArrayList<>();
-      readArchive(
-          (entry, stream) -> {
-            String name = entry.getEntryName();
-            if (include.test(name)) {
-              if (ZipUtils.isDexFile(name)) {
-                dexResources.add(
-                    ProgramResource.fromBytes(
-                        entry, Kind.DEX, ByteStreams.toByteArray(stream), null));
-              } else if (ZipUtils.isClassFile(name)) {
-                String descriptor = DescriptorUtils.guessTypeDescriptor(name);
-                classResources.add(
-                    ProgramResource.fromBytes(
-                        entry,
-                        Kind.CF,
-                        ByteStreams.toByteArray(stream),
-                        Collections.singleton(descriptor)));
-              }
-            }
-          });
-      if (!dexResources.isEmpty() && !classResources.isEmpty()) {
-        throw new CompilationError(
-            "Cannot create android app from an archive containing both DEX and Java-bytecode "
-                + "content.",
-            origin);
-      }
-      return !dexResources.isEmpty() ? dexResources : classResources;
-    } catch (IOException e) {
-      throw new ResourceException(origin, e);
-    }
+    List<ProgramResource> programResources = new ArrayList<>();
+    getProgramResources(programResources::add);
+    return programResources;
   }
 
   @Override
   public void getProgramResources(Consumer<ProgramResource> consumer) throws ResourceException {
+    List<Kind> seenKinds;
     try {
-      BooleanBox seenCf = new BooleanBox();
-      BooleanBox seenDex = new BooleanBox();
-      readArchive(
-          (entry, stream) -> {
-            String name = entry.getEntryName();
-            if (include.test(name)) {
-              if (ZipUtils.isDexFile(name)) {
-                consumer.accept(
-                    ProgramResource.fromBytes(
-                        entry, Kind.DEX, ByteStreams.toByteArray(stream), null));
-                seenDex.set();
-              } else if (ZipUtils.isClassFile(name)) {
-                String descriptor = DescriptorUtils.guessTypeDescriptor(name);
-                consumer.accept(
-                    ProgramResource.fromBytes(
-                        entry,
-                        Kind.CF,
-                        ByteStreams.toByteArray(stream),
-                        Collections.singleton(descriptor)));
-                seenCf.set();
-              }
-            }
-          });
-      if (seenCf.isTrue() && seenDex.isTrue()) {
-        throw new CompilationError(
-            "Cannot create android app from an archive containing both DEX and Java-bytecode "
-                + "content.",
-            origin);
-      }
+      seenKinds =
+          ArchiveResourceProviderUtils.readArchive(
+              supplier, origin, (name, kind) -> include.test(name), consumer);
     } catch (IOException e) {
       throw new ResourceException(origin, e);
+    }
+    if (seenKinds.size() == 2) {
+      assert seenKinds.contains(Kind.CF);
+      assert seenKinds.contains(Kind.DEX);
+      throw new CompilationError(
+          "Cannot create android app from an archive containing both DEX and Java-bytecode "
+              + "content.",
+          origin);
     }
   }
 }

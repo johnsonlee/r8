@@ -27,6 +27,7 @@ import com.android.tools.r8.profile.art.ArtProfile;
 import com.android.tools.r8.profile.art.ArtProfileCollection;
 import com.android.tools.r8.profile.art.ArtProfileMethodRule;
 import com.android.tools.r8.profile.startup.profile.StartupProfile;
+import com.android.tools.r8.synthesis.CommittedSyntheticsCollection;
 import com.android.tools.r8.synthesis.SyntheticItems;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.MapUtils;
@@ -85,6 +86,7 @@ public abstract class R8PartialSubCompilationConfiguration {
     private Collection<DexClasspathClass> outputClasspathClasses;
     private Collection<DexLibraryClass> outputLibraryClasses;
     private StartupProfile startupProfile;
+    private CommittedSyntheticsCollection synthetics;
 
     public R8PartialD8SubCompilationConfiguration(
         Set<DexType> d8Types,
@@ -134,6 +136,11 @@ public abstract class R8PartialSubCompilationConfiguration {
     public StartupProfile getStartupProfile() {
       assert startupProfile != null;
       return startupProfile;
+    }
+
+    public CommittedSyntheticsCollection getSynthetics() {
+      assert synthetics != null;
+      return synthetics;
     }
 
     public MethodConversionOptions.Target getTargetFor(
@@ -189,6 +196,7 @@ public abstract class R8PartialSubCompilationConfiguration {
       outputClasspathClasses = app.classpathClasses();
       outputLibraryClasses = app.libraryClasses();
       startupProfile = appView.getStartupProfile();
+      synthetics = appView.getSyntheticItems().getFinalized();
     }
   }
 
@@ -201,6 +209,7 @@ public abstract class R8PartialSubCompilationConfiguration {
     private List<KeepDeclaration> keepDeclarations;
     private StartupProfile startupProfile;
     private R8PartialCompilationStatsMetadataBuilder statsMetadataBuilder;
+    private CommittedSyntheticsCollection synthetics;
 
     // Stores the missing class references from the D8 compilation unit in R8 partial.
     // We use this to ensure that calling AppInfoWithLiveness#definitionFor does not fail
@@ -218,6 +227,7 @@ public abstract class R8PartialSubCompilationConfiguration {
         List<KeepDeclaration> keepDeclarations,
         StartupProfile startupProfile,
         R8PartialCompilationStatsMetadataBuilder statsMetadataBuilder,
+        CommittedSyntheticsCollection synthetics,
         Timing timing) {
       super(flags, timing);
       this.artProfiles = artProfiles;
@@ -227,6 +237,7 @@ public abstract class R8PartialSubCompilationConfiguration {
       this.keepDeclarations = keepDeclarations;
       this.startupProfile = startupProfile;
       this.statsMetadataBuilder = statsMetadataBuilder;
+      this.synthetics = synthetics;
     }
 
     public ArtProfileCollection getArtProfiles() {
@@ -256,6 +267,11 @@ public abstract class R8PartialSubCompilationConfiguration {
 
     public R8PartialCompilationStatsMetadataBuilder getStatsMetadataBuilder() {
       return statsMetadataBuilder;
+    }
+
+    public CommittedSyntheticsCollection getSynthetics() {
+      assert synthetics != null;
+      return synthetics;
     }
 
     public void amendCompleteArtProfile(ArtProfile.Builder artProfileBuilder) {

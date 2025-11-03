@@ -19,6 +19,7 @@ import java.util.stream.Stream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 class TestClass {
@@ -65,11 +66,8 @@ public class B112247415 extends TestBase {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
   }
 
-  private final TestParameters parameters;
-
-  public B112247415(TestParameters parameters) {
-    this.parameters = parameters;
-  }
+  @Parameter(0)
+  public TestParameters parameters;
 
   @Test
   public void test() throws Exception {
@@ -91,6 +89,8 @@ public class B112247415 extends TestBase {
                   // To trigger outliner, set # of expected outline candidate as threshold.
                   options.outline.threshold = 2;
                   options.inlinerOptions().enableInlining = false;
+                  // Disable minimize synthetic names for robust detection of synthetic kinds.
+                  options.desugarSpecificOptions().minimizeSyntheticNames = false;
                 })
             .noHorizontalClassMergingOfSynthetics()
             .run(parameters.getRuntime(), TestClass.class)

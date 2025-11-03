@@ -11,6 +11,7 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.profile.art.ArtProfileCollection;
 import com.android.tools.r8.profile.startup.profile.StartupProfile;
+import com.android.tools.r8.synthesis.CommittedSyntheticsCollection;
 import java.util.Collection;
 import java.util.List;
 
@@ -25,6 +26,7 @@ public class R8PartialD8Result {
   private final Collection<DexClasspathClass> outputClasspathClasses;
   private final Collection<DexLibraryClass> outputLibraryClasses;
   private final StartupProfile startupProfile;
+  private final CommittedSyntheticsCollection synthetics;
 
   public R8PartialD8Result(
       ArtProfileCollection artProfiles,
@@ -35,7 +37,8 @@ public class R8PartialD8Result {
       List<KeepDeclaration> keepDeclarations,
       Collection<DexClasspathClass> outputClasspathClasses,
       Collection<DexLibraryClass> outputLibraryClasses,
-      StartupProfile startupProfile) {
+      StartupProfile startupProfile,
+      CommittedSyntheticsCollection synthetics) {
     this.artProfiles = artProfiles;
     this.classToFeatureSplitMap = classToFeatureSplitMap;
     this.dexedClasses = dexedClasses;
@@ -45,6 +48,7 @@ public class R8PartialD8Result {
     this.outputClasspathClasses = outputClasspathClasses;
     this.outputLibraryClasses = outputLibraryClasses;
     this.startupProfile = startupProfile;
+    this.synthetics = synthetics;
   }
 
   public ArtProfileCollection getArtProfiles() {
@@ -81,5 +85,9 @@ public class R8PartialD8Result {
 
   public StartupProfile getStartupProfile() {
     return startupProfile;
+  }
+
+  public CommittedSyntheticsCollection getSynthetics() {
+    return synthetics;
   }
 }

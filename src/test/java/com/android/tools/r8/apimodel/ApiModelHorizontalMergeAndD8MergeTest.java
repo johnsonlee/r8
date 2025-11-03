@@ -6,6 +6,7 @@ package com.android.tools.r8.apimodel;
 
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLevelForClass;
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLevelForMethod;
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -19,7 +20,6 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestCompilerBuilder;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
@@ -110,8 +110,10 @@ public class ApiModelHorizontalMergeAndD8MergeTest extends TestBase {
                 inspector.assertNoClassesMerged();
               } else {
                 inspector.assertIsCompleteMergeGroup(
-                    SyntheticItemsTestUtils.syntheticApiOutlineClass(TestCallingFoo.class, 0),
-                    SyntheticItemsTestUtils.syntheticApiOutlineClass(TestCallingBar.class, 0));
+                    getDefaultSyntheticItemsTestUtils()
+                        .syntheticApiOutlineClass(TestCallingFoo.class, 0),
+                    getDefaultSyntheticItemsTestUtils()
+                        .syntheticApiOutlineClass(TestCallingBar.class, 0));
               }
             })
         .compile()

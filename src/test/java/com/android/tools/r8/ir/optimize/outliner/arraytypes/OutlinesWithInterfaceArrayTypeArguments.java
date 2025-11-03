@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.ir.optimize.outliner.arraytypes;
 
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getMinimalSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -46,7 +47,8 @@ public class OutlinesWithInterfaceArrayTypeArguments extends TestBase {
     // No outlining when arrays of interfaces are involved, see b/132420510 - unless the testing
     // option is set.
     ClassSubject outlineClass =
-        inspector.clazz(SyntheticItemsTestUtils.syntheticOutlineClass(TestClass.class, 0));
+        inspector.clazz(
+            getMinimalSyntheticItemsTestUtils().syntheticOutlineClass(TestClass.class, 0));
     if (allowOutlinerInterfaceArrayArguments && parameters.isCfRuntime()) {
       assertThat(outlineClass, isPresent());
       MethodSubject outline0Method =
@@ -80,6 +82,7 @@ public class OutlinesWithInterfaceArrayTypeArguments extends TestBase {
         .addDontObfuscate()
         .addOptionsModification(
             options -> {
+              options.desugarSpecificOptions().minimizeSyntheticNames = true;
               options.outline.threshold = 2;
               options.outline.minSize = 2;
               options.testing.allowOutlinerInterfaceArrayArguments =

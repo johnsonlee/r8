@@ -4,13 +4,14 @@
 package com.android.tools.r8.kotlin.inline.filelevel.lib
 
 inline fun f() {
-  println("Hello, world!")
+  println("1")
 }
 
 inline fun f(supplier: () -> String) {
   println(supplier())
 }
 
-inline fun g(supplier1: () -> String, supplier2: () -> String = { "default" }) {
-  println(supplier1() + supplier2())
+inline fun g(supplier1: () -> String, supplier2: () -> String = { "4" }) {
+  println(supplier1())
+  println(supplier2())
 }

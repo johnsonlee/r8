@@ -6,6 +6,7 @@ package com.android.tools.r8.startup;
 
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticType;
 import static com.android.tools.r8.startup.utils.StartupTestingMatchers.isEqualToClassDataLayout;
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.notIf;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -28,7 +29,6 @@ import com.android.tools.r8.startup.profile.ExternalStartupItem;
 import com.android.tools.r8.startup.profile.ExternalStartupMethod;
 import com.android.tools.r8.startup.utils.MixedSectionLayoutInspector;
 import com.android.tools.r8.startup.utils.StartupTestingUtils;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.MethodReferenceUtils;
@@ -372,7 +372,7 @@ public class StartupSyntheticPlacementTest extends TestBase {
   }
 
   private static ClassReference getSyntheticLambdaClassReference() {
-    return SyntheticItemsTestUtils.syntheticLambdaClass(B.class, 0);
+    return getDefaultSyntheticItemsTestUtils().syntheticLambdaClass(B.class, 0);
   }
 
   static class Main {

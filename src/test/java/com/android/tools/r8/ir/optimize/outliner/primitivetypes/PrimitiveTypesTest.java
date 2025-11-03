@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.ir.optimize.outliner.primitivetypes;
 
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getMinimalSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static junit.framework.TestCase.assertEquals;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -53,7 +54,7 @@ public class PrimitiveTypesTest extends TestBase {
     }
 
     ClassSubject outlineClass =
-        inspector.clazz(SyntheticItemsTestUtils.syntheticOutlineClass(testClass, 0));
+        inspector.clazz(getMinimalSyntheticItemsTestUtils().syntheticOutlineClass(testClass, 0));
     MethodSubject outline0Method =
         outlineClass.method(
             "java.lang.String",
@@ -83,6 +84,7 @@ public class PrimitiveTypesTest extends TestBase {
         .addDontObfuscate()
         .addOptionsModification(
             options -> {
+              options.desugarSpecificOptions().minimizeSyntheticNames = true;
               options.outline.threshold = 2;
               options.outline.minSize = 2;
             })

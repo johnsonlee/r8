@@ -3,8 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.synthesis;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.syntheticBackportClass;
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.syntheticLambdaClass;
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -55,7 +54,8 @@ public class RepeatedCompilationNestedSyntheticsTest extends TestBase {
   public void test() throws Exception {
     assertEquals(Backend.DEX, parameters.getBackend());
 
-    ClassReference syntheticLambdaClass = syntheticLambdaClass(UsesBackport.class, 0);
+    ClassReference syntheticLambdaClass =
+        getDefaultSyntheticItemsTestUtils().syntheticLambdaClass(UsesBackport.class, 0);
     ImmutableSet<String> expectedClassOutputs =
         ImmutableSet.of(descriptor(UsesBackport.class), syntheticLambdaClass.getDescriptor());
 
@@ -159,7 +159,10 @@ public class RepeatedCompilationNestedSyntheticsTest extends TestBase {
     assertEquals(
         ImmutableSet.<String>builder()
             .addAll(expectedClassOutputs)
-            .add(syntheticBackportClass(syntheticLambdaClass, 0).getDescriptor())
+            .add(
+                getDefaultSyntheticItemsTestUtils()
+                    .syntheticBackportClass(syntheticLambdaClass, 0)
+                    .getDescriptor())
             .build(),
         allDescriptors.build());
 
@@ -186,8 +189,12 @@ public class RepeatedCompilationNestedSyntheticsTest extends TestBase {
                       // The merge step will reestablish the original contexts, thus both the lambda
                       // and the backport are placed under the non-synthetic input class
                       // UsesBackport.
-                      syntheticBackportClass(UsesBackport.class, 0).getDescriptor(),
-                      syntheticLambdaClass(UsesBackport.class, 1).getDescriptor()),
+                      getDefaultSyntheticItemsTestUtils()
+                          .syntheticBackportClass(UsesBackport.class, 0)
+                          .getDescriptor(),
+                      getDefaultSyntheticItemsTestUtils()
+                          .syntheticLambdaClass(UsesBackport.class, 1)
+                          .getDescriptor()),
                   descriptors);
             });
   }

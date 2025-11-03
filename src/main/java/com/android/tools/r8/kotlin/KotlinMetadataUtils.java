@@ -20,6 +20,7 @@ import com.android.tools.r8.shaking.ProguardKeepRuleType;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.TriFunction;
+import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.function.Consumer;
 import kotlin.Metadata;
@@ -99,13 +100,32 @@ public class KotlinMetadataUtils {
     return new JvmMethodSignature(method.name.toString(), descBuilder.toString());
   }
 
-  static JvmMethodSignature toDefaultJvmMethodSignature(
+  static JvmMethodSignature toStaticDefaultJvmMethodSignature(
       JvmMethodSignature methodSignature, int intArguments) {
+    return internalToDefaultJvmMethodSignature(null, methodSignature, intArguments);
+  }
+
+  static JvmMethodSignature toVirtualDefaultJvmMethodSignature(
+      DexType holder, JvmMethodSignature methodSignature, int intArguments) {
+    assert holder != null;
+    return internalToDefaultJvmMethodSignature(holder, methodSignature, intArguments);
+  }
+
+  private static JvmMethodSignature internalToDefaultJvmMethodSignature(
+      DexType holder, JvmMethodSignature methodSignature, int intArguments) {
+    String desc = methodSignature.getDescriptor();
+    if (holder != null) {
+      desc =
+          DescriptorUtils.addLeadingArguments(desc, ImmutableList.of(holder.descriptor.toString()));
+    }
+    ImmutableList.Builder<String> trailingArgumentsBuilder = ImmutableList.builder();
+    for (int i = 0; i < intArguments; i++) {
+      trailingArgumentsBuilder.add("I");
+    }
+    trailingArgumentsBuilder.add("Ljava/lang/Object;");
     return new JvmMethodSignature(
         methodSignature.getName() + "$default",
-        methodSignature
-            .getDescriptor()
-            .replace(")", "I".repeat(intArguments) + "Ljava/lang/Object;)"));
+        DescriptorUtils.addTrailingArguments(desc, trailingArgumentsBuilder.build()));
   }
 
   static class KmPropertyProcessor {
