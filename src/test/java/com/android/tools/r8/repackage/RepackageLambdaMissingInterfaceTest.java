@@ -13,6 +13,7 @@ import static org.hamcrest.CoreMatchers.startsWith;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.R8TestRunResult;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.utils.UnverifiableCfCodeDiagnostic;
@@ -44,29 +45,32 @@ public class RepackageLambdaMissingInterfaceTest extends RepackageTestBase {
   }
 
   private R8TestRunResult runTest(boolean repackage) throws Exception {
-    return testForR8(parameters.getBackend())
-        .addProgramClasses(ClassWithLambda.class, Main.class)
-        .addKeepMainRule(Main.class)
-        .addKeepAttributeInnerClassesAndEnclosingMethod()
-        .applyIf(repackage, this::configureRepackaging)
-        .setMinApi(parameters)
-        .addDontWarn(MissingInterface.class)
-        .allowDiagnosticWarningMessages(parameters.isDexRuntime())
-        .noClassInlining()
-        .enableInliningAnnotations()
-        .compileWithExpectedDiagnostics(
-            diagnostics -> {
-              if (parameters.isDexRuntime()) {
-                diagnostics.assertWarningsMatch(
-                    allOf(
-                        diagnosticType(UnverifiableCfCodeDiagnostic.class),
-                        diagnosticMessage(
-                            containsString(
-                                "Unverifiable code in `void "
-                                    + ClassWithLambda.class.getTypeName()
-                                    + ".callWithLambda()`"))));
-              }
-            })
+    R8TestCompileResult compileResult =
+        testForR8(parameters.getBackend())
+            .addProgramClasses(ClassWithLambda.class, Main.class)
+            .addKeepMainRule(Main.class)
+            .addKeepAttributeInnerClassesAndEnclosingMethod()
+            .applyIf(repackage, this::configureRepackaging)
+            .collectSyntheticItems()
+            .setMinApi(parameters)
+            .addDontWarn(MissingInterface.class)
+            .allowDiagnosticWarningMessages(parameters.isDexRuntime())
+            .noClassInlining()
+            .enableInliningAnnotations()
+            .compileWithExpectedDiagnostics(
+                diagnostics -> {
+                  if (parameters.isDexRuntime()) {
+                    diagnostics.assertWarningsMatch(
+                        allOf(
+                            diagnosticType(UnverifiableCfCodeDiagnostic.class),
+                            diagnosticMessage(
+                                containsString(
+                                    "Unverifiable code in `void "
+                                        + ClassWithLambda.class.getTypeName()
+                                        + ".callWithLambda()`"))));
+                  }
+                });
+    return compileResult
         .inspect(
             inspector -> {
               // Find the generated lambda class
@@ -78,7 +82,7 @@ public class RepackageLambdaMissingInterfaceTest extends RepackageTestBase {
               }
               inspector.forAllClasses(
                   clazz -> {
-                    if (clazz.isSynthesizedJavaLambdaClass()) {
+                    if (clazz.isSynthesizedJavaLambdaClass(compileResult.getSyntheticItems())) {
                       assertThat(
                           clazz.getFinalName(),
                           startsWith(repackage ? getRepackagePackage() : "a."));

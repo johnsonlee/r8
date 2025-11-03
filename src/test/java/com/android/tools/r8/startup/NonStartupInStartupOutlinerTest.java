@@ -3,7 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.startup;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.syntheticNonStartupInStartupOutlineClass;
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getMinimalSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -23,6 +23,7 @@ import com.android.tools.r8.startup.profile.ExternalStartupClass;
 import com.android.tools.r8.startup.profile.ExternalStartupItem;
 import com.android.tools.r8.startup.profile.ExternalStartupMethod;
 import com.android.tools.r8.startup.utils.StartupTestingUtils;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.MethodReferenceUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
@@ -115,8 +116,10 @@ public class NonStartupInStartupOutlinerTest extends TestBase {
   private void inspectSecondaryDex(CodeInspector inspector) {
     assertThat(inspector.clazz(NonStartupMain.class), isPresent());
 
+    SyntheticItemsTestUtils syntheticItems = getMinimalSyntheticItemsTestUtils();
     ClassSubject movePrivateOutline =
-        inspector.clazz(syntheticNonStartupInStartupOutlineClass(StartupMain.class, 0));
+        inspector.clazz(
+            syntheticItems.syntheticNonStartupInStartupOutlineClass(StartupMain.class, 0));
     assertThat(movePrivateOutline, isPresent());
     assertTrue(
         movePrivateOutline
@@ -125,9 +128,11 @@ public class NonStartupInStartupOutlinerTest extends TestBase {
             .anyMatch(i -> i.isConstString("movePrivate")));
 
     ClassSubject outlinePinnedStaticOutline =
-        inspector.clazz(syntheticNonStartupInStartupOutlineClass(StartupMain.class, 1));
+        inspector.clazz(
+            syntheticItems.syntheticNonStartupInStartupOutlineClass(StartupMain.class, 1));
     assertThat(
-        inspector.clazz(syntheticNonStartupInStartupOutlineClass(StartupMain.class, 1)),
+        inspector.clazz(
+            syntheticItems.syntheticNonStartupInStartupOutlineClass(StartupMain.class, 1)),
         isPresent());
     assertTrue(
         outlinePinnedStaticOutline
@@ -136,7 +141,8 @@ public class NonStartupInStartupOutlinerTest extends TestBase {
             .anyMatch(i -> i.isConstString("outlinePinnedStatic")));
 
     ClassSubject outlinePinnedInstanceOutline =
-        inspector.clazz(syntheticNonStartupInStartupOutlineClass(StartupMain.class, 2));
+        inspector.clazz(
+            syntheticItems.syntheticNonStartupInStartupOutlineClass(StartupMain.class, 2));
     assertThat(outlinePinnedInstanceOutline, isPresent());
     assertTrue(
         outlinePinnedInstanceOutline
@@ -145,7 +151,8 @@ public class NonStartupInStartupOutlinerTest extends TestBase {
             .anyMatch(i -> i.isConstString("outlinePinnedInstance")));
 
     ClassSubject moveStaticOutline =
-        inspector.clazz(syntheticNonStartupInStartupOutlineClass(StartupMain.class, 3));
+        inspector.clazz(
+            syntheticItems.syntheticNonStartupInStartupOutlineClass(StartupMain.class, 3));
     assertThat(moveStaticOutline, isPresent());
     assertTrue(
         moveStaticOutline
@@ -154,7 +161,8 @@ public class NonStartupInStartupOutlinerTest extends TestBase {
             .anyMatch(i -> i.isConstString("moveStatic")));
 
     assertThat(
-        inspector.clazz(syntheticNonStartupInStartupOutlineClass(StartupMain.class, 4)),
+        inspector.syntheticClass(
+            syntheticItems.syntheticNonStartupInStartupOutlineClass(StartupMain.class, 4)),
         isAbsent());
   }
 

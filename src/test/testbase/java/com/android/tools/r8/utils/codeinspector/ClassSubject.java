@@ -235,7 +235,7 @@ public abstract class ClassSubject extends ClassOrMemberSubject {
 
   public abstract boolean isAnonymousClass();
 
-  public abstract boolean isSynthesizedJavaLambdaClass();
+  public abstract boolean isSynthesizedJavaLambdaClass(SyntheticItemsTestUtils syntheticItems);
 
   public abstract DexMethod getFinalEnclosingMethod();
 

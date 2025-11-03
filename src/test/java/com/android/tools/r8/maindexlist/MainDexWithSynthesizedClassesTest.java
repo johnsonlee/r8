@@ -14,7 +14,6 @@ import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.D8TestCompileResult;
 import com.android.tools.r8.OutputMode;
 import com.android.tools.r8.TestBase;
-import com.android.tools.r8.TestCompileResult;
 import com.android.tools.r8.TestDiagnosticMessages;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -160,7 +159,7 @@ public class MainDexWithSynthesizedClassesTest extends TestBase {
     checkCompilationResult(compileResult, compileResult.app);
   }
 
-  private void checkCompilationResult(TestCompileResult<?, ?> compileResult, AndroidApp app)
+  private void checkCompilationResult(D8TestCompileResult compileResult, AndroidApp app)
       throws Exception {
     if (parameters.getRuntime().asDex().getMinApiLevel().getLevel()
         < nativeMultiDexLevel.getLevel()) {
@@ -183,7 +182,7 @@ public class MainDexWithSynthesizedClassesTest extends TestBase {
         inspector.allClasses().stream()
             .anyMatch(
                 clazz ->
-                    clazz.isSynthesizedJavaLambdaClass()
+                    clazz.isSynthesizedJavaLambdaClass(getDefaultSyntheticItemsTestUtils())
                         && clazz
                             .getOriginalReference()
                             .equals(

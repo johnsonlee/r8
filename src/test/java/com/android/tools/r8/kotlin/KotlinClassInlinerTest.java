@@ -91,15 +91,15 @@ public class KotlinClassInlinerTest extends AbstractR8KotlinTestBase {
                             assertEquals(2, mergeGroups.size());
                             inspector
                                 .assertIsCompleteMergeGroup(
-                                    "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda1",
-                                    "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda3",
-                                    "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda4",
-                                    "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda5",
-                                    "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda6",
-                                    "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda7")
+                                    "class_inliner_lambda_j_style.MainKt$1",
+                                    "class_inliner_lambda_j_style.MainKt$3",
+                                    "class_inliner_lambda_j_style.MainKt$4",
+                                    "class_inliner_lambda_j_style.MainKt$5",
+                                    "class_inliner_lambda_j_style.MainKt$6",
+                                    "class_inliner_lambda_j_style.MainKt$7")
                                 .assertIsCompleteMergeGroup(
-                                    "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticLambda2",
-                                    "class_inliner_lambda_j_style.MainKt$$ExternalSyntheticBUOutline0");
+                                    "class_inliner_lambda_j_style.MainKt$0",
+                                    "class_inliner_lambda_j_style.MainKt$2");
                           }
                           inspector.assertNoOtherClassesMerged();
                         })

@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.cf.varhandle;
 
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertSame;
@@ -21,7 +22,6 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.references.Reference;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.IntBox;
 import com.android.tools.r8.utils.ZipUtils;
@@ -110,18 +110,19 @@ public abstract class VarHandleDesugaringTestBase extends TestBase {
     // Right now we only expect one backport coming out of DesugarVarHandle - the backport with
     // forwarding of Unsafe.compareAndSwapObject.
     MethodReference firstBackportFromDesugarVarHandle =
-        SyntheticItemsTestUtils.syntheticBackportWithForwardingMethod(
-            Reference.classFromDescriptor("Lcom/android/tools/r8/DesugarVarHandle;"),
-            0,
-            Reference.method(
-                Reference.classFromDescriptor("Lsun/misc/Unsafe;"),
-                "compareAndSwapObject",
-                ImmutableList.of(
-                    Reference.typeFromDescriptor("Ljava/lang/Object;"),
-                    Reference.LONG,
-                    Reference.typeFromDescriptor("Ljava/lang/Object;"),
-                    Reference.typeFromDescriptor("Ljava/lang/Object;")),
-                Reference.BOOL));
+        getDefaultSyntheticItemsTestUtils()
+            .syntheticBackportWithForwardingMethod(
+                Reference.classFromDescriptor("Lcom/android/tools/r8/DesugarVarHandle;"),
+                0,
+                Reference.method(
+                    Reference.classFromDescriptor("Lsun/misc/Unsafe;"),
+                    "compareAndSwapObject",
+                    ImmutableList.of(
+                        Reference.typeFromDescriptor("Ljava/lang/Object;"),
+                        Reference.LONG,
+                        Reference.typeFromDescriptor("Ljava/lang/Object;"),
+                        Reference.typeFromDescriptor("Ljava/lang/Object;")),
+                    Reference.BOOL));
     inspector.forAllClasses(
         clazz -> {
           clazz.forAllMethods(

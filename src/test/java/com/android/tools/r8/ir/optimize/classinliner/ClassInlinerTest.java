@@ -305,6 +305,7 @@ public class ClassInlinerTest extends ClassInlinerTestBase {
             .addKeepMainRule(main)
             .addKeepAttributes("LineNumberTable")
             .allowAccessModification()
+            .collectSyntheticItems()
             .enableInliningAnnotations()
             .addDontObfuscate()
             .setMinApi(parameters)
@@ -316,7 +317,7 @@ public class ClassInlinerTest extends ClassInlinerTestBase {
 
     List<String> synthesizedJavaLambdaClasses =
         inspector.allClasses().stream()
-            .filter(FoundClassSubject::isSynthesizedJavaLambdaClass)
+            .filter(c -> c.isSynthesizedJavaLambdaClass(result.getState().getSyntheticItems()))
             .map(FoundClassSubject::getFinalName)
             .collect(Collectors.toList());
     assertEquals(Collections.emptyList(), synthesizedJavaLambdaClasses);

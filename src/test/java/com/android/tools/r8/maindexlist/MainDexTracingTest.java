@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.maindexlist;
 
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.FileUtils.JAR_EXTENSION;
 import static com.android.tools.r8.utils.FileUtils.ZIP_EXTENSION;
 import static com.android.tools.r8.utils.FileUtils.withNativeFileSeparators;
@@ -208,7 +209,7 @@ public class MainDexTracingTest extends TestBase {
         "multidex004",
         EXAMPLE_O_BUILD_DIR,
         Paths.get(EXAMPLE_SRC_DIR, "multidex", "main-dex-rules.txt"),
-        Paths.get(EXAMPLE_O_SRC_DIR, "multidex004", "ref-list-1.txt"),
+        Paths.get(EXAMPLE_O_SRC_DIR, "multidex004", "ref-list-r8.txt"),
         Paths.get(EXAMPLE_O_SRC_DIR, "multidex004", "ref-list-1.txt"),
         AndroidApiLevel.I,
         builder ->
@@ -385,20 +386,23 @@ public class MainDexTracingTest extends TestBase {
 
     // Build main-dex list using R8.
     final Box<String> r8MainDexListOutput = new Box<>();
-    testForR8(Backend.DEX)
-        .addProgramFiles(inputJar)
-        .addProgramFiles(Paths.get(EXAMPLE_BUILD_DIR, "multidexfakeframeworks" + JAR_EXTENSION))
-        .addKeepRules("-keepattributes *Annotation*")
-        .addMainDexRuleFiles(mainDexRules)
-        .apply(configuration)
-        .assumeAllMethodsMayHaveSideEffects()
-        .setMinApi(minSdk)
-        .addDontObfuscate()
-        .addDontShrink()
-        .addDontOptimize()
-        .setMainDexListConsumer(ToolHelper.consumeString(r8MainDexListOutput::set))
-        .compile()
-        .writeToZip(out);
+    SyntheticItemsTestUtils r8SyntheticItems =
+        testForR8(Backend.DEX)
+            .addProgramFiles(inputJar)
+            .addProgramFiles(Paths.get(EXAMPLE_BUILD_DIR, "multidexfakeframeworks" + JAR_EXTENSION))
+            .addKeepRules("-keepattributes *Annotation*")
+            .addMainDexRuleFiles(mainDexRules)
+            .apply(configuration)
+            .assumeAllMethodsMayHaveSideEffects()
+            .collectSyntheticItems()
+            .setMinApi(minSdk)
+            .addDontObfuscate()
+            .addDontShrink()
+            .addDontOptimize()
+            .setMainDexListConsumer(ToolHelper.consumeString(r8MainDexListOutput::set))
+            .compile()
+            .writeToZip(out)
+            .getSyntheticItems();
 
     List<String> r8MainDexList =
         StringUtils.splitLines(r8MainDexListOutput.get()).stream()
@@ -414,7 +418,7 @@ public class MainDexTracingTest extends TestBase {
       if (r8MainDexList.size() <= i) {
         fail("R8 main dex list is missing '" + reference + "'");
       }
-      checkSameMainDexEntry(reference, r8MainDexList.get(i));
+      checkSameMainDexEntry(reference, r8MainDexList.get(i), r8SyntheticItems);
     }
     String[] refList = new String(Files.readAllBytes(
         expectedMainDexList), StandardCharsets.UTF_8).split("\n");
@@ -423,25 +427,26 @@ public class MainDexTracingTest extends TestBase {
       if (mainDexListFromD8.size() <= i) {
         fail("D8 main-dex list is missing '" + reference + "'");
       }
-      checkSameMainDexEntry(reference, mainDexListFromD8.get(i));
+      checkSameMainDexEntry(
+          reference, mainDexListFromD8.get(i), getDefaultSyntheticItemsTestUtils());
     }
     int nonLambdaOffset = 0;
     for (int i = 0; i < refList.length; i++) {
       String reference = refList[i].trim();
       // The main dex list generator does not do any lambda desugaring.
-      if (!isExternalSyntheticLambda(reference)) {
+      if (!isExternalSyntheticLambda(reference, getDefaultSyntheticItemsTestUtils())) {
         if (mainDexGeneratorMainDexList.size() <= i - nonLambdaOffset) {
           fail("Main dex list generator is missing '" + reference + "'");
         }
         String fromList = mainDexGeneratorMainDexList.get(i - nonLambdaOffset);
         String fromConsumer = mainDexGeneratorMainDexListFromConsumer.get(i - nonLambdaOffset);
-        if (isExternalSyntheticLambda(fromList)) {
+        if (isExternalSyntheticLambda(fromList, getDefaultSyntheticItemsTestUtils())) {
           assertEquals(Backend.DEX, backend);
           assertEquals(fromList, fromConsumer);
           nonLambdaOffset--;
         } else {
-          checkSameMainDexEntry(reference, fromList);
-          checkSameMainDexEntry(reference, fromConsumer);
+          checkSameMainDexEntry(reference, fromList, getDefaultSyntheticItemsTestUtils());
+          checkSameMainDexEntry(reference, fromConsumer, getDefaultSyntheticItemsTestUtils());
         }
       } else {
         nonLambdaOffset++;
@@ -477,8 +482,9 @@ public class MainDexTracingTest extends TestBase {
     assertArrayEquals(entriesUnsorted, entriesSorted);
   }
 
-  private boolean isExternalSyntheticLambda(String mainDexEntry) {
-    return SyntheticItemsTestUtils.isExternalLambda(Reference.classFromDescriptor(mainDexEntry));
+  private boolean isExternalSyntheticLambda(
+      String mainDexEntry, SyntheticItemsTestUtils syntheticItems) {
+    return syntheticItems.isExternalLambda(Reference.classFromDescriptor(mainDexEntry));
   }
 
   private String mainDexStringToDescriptor(String mainDexString) {
@@ -487,8 +493,9 @@ public class MainDexTracingTest extends TestBase {
         mainDexString.substring(0, mainDexString.length() - FileUtils.CLASS_EXTENSION.length()));
   }
 
-  private void checkSameMainDexEntry(String reference, String computed) {
-    if (isExternalSyntheticLambda(reference)) {
+  private void checkSameMainDexEntry(
+      String reference, String computed, SyntheticItemsTestUtils syntheticItems) {
+    if (isExternalSyntheticLambda(reference, syntheticItems)) {
       // For synthetic classes we check that the context classes match.
       reference = reference.substring(0, reference.lastIndexOf('$'));
       computed = computed.substring(0, computed.lastIndexOf('$'));

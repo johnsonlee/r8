@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.desugaring.lambdanames;
 
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.TestBase;
@@ -12,7 +13,6 @@ import com.android.tools.r8.transformers.ClassFileTransformer;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.StringUtils;
-import com.android.tools.r8.utils.codeinspector.FoundClassSubject;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -52,7 +52,9 @@ public class PackageDependentLambdaNamesTest extends TestBase {
             assertEquals(
                 2,
                 inspector.allClasses().stream()
-                    .filter(FoundClassSubject::isSynthesizedJavaLambdaClass)
+                    .filter(
+                        clazz ->
+                            clazz.isSynthesizedJavaLambdaClass(getDefaultSyntheticItemsTestUtils()))
                     .count());
           });
     }

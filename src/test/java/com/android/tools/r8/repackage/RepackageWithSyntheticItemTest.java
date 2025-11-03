@@ -63,7 +63,7 @@ public class RepackageWithSyntheticItemTest extends RepackageTestBase {
                       .filter(item -> item.getFinalName().startsWith("foo"))
                       .collect(Collectors.toList());
               assertEquals(2, classesStartingWithfoo.size());
-              String expectedOriginalNamePrefix = typeName(A.class) + "$$ExternalSyntheticLambda0";
+              String expectedOriginalNamePrefix = typeName(A.class) + "$0";
               assertTrue(
                   classesStartingWithfoo.stream()
                       .anyMatch(

@@ -4,6 +4,7 @@
 
 package com.android.tools.r8;
 
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.ToolHelper.DexVm;
@@ -274,7 +275,8 @@ public class R8RunExamplesAndroidOTest extends RunExamplesAndroidOTest<R8Command
   private void checkLambdaCount(CodeInspector inspector, int maxExpectedCount, String prefix) {
     List<String> found = new ArrayList<>();
     for (FoundClassSubject clazz : inspector.allClasses()) {
-      if (clazz.isSynthesizedJavaLambdaClass() && clazz.getOriginalTypeName().startsWith(prefix)) {
+      if (clazz.isSynthesizedJavaLambdaClass(getDefaultSyntheticItemsTestUtils())
+          && clazz.getOriginalTypeName().startsWith(prefix)) {
         found.add(clazz.getOriginalTypeName());
       }
     }

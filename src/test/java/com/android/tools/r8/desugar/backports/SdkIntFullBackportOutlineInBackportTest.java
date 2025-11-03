@@ -5,6 +5,7 @@
 package com.android.tools.r8.desugar.backports;
 
 import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getMinimalSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.AndroidApiLevel.BAKLAVA;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
@@ -20,7 +21,6 @@ import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.androidapi.AndroidApiLevelHashingDatabaseImpl;
 import com.android.tools.r8.graph.AccessFlags;
 import com.android.tools.r8.graph.DexField;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
@@ -84,7 +84,6 @@ public class SdkIntFullBackportOutlineInBackportTest extends TestBase {
           || apiLevel.isGreaterThanOrEqualTo(AndroidApiLevel.LATEST)) {
         continue;
       }
-      System.out.println(apiLevel);
       testForR8(Backend.DEX)
           .addProgramClassFileData(getTransformedMainClass())
           .addKeepMainRule(TestClass.class)
@@ -110,7 +109,8 @@ public class SdkIntFullBackportOutlineInBackportTest extends TestBase {
       // is outlined from the backport as well.
       ClassSubject backport =
           inspector.clazz(
-              SyntheticItemsTestUtils.syntheticBackportWithForwardingClass(TestClass.class, 1));
+              getDefaultSyntheticItemsTestUtils()
+                  .syntheticBackportWithForwardingClass(TestClass.class, 1));
       assertThat(backport, isPresent());
       assertEquals(
           2,
@@ -148,7 +148,8 @@ public class SdkIntFullBackportOutlineInBackportTest extends TestBase {
       // into main.
       ClassSubject backport =
           inspector.clazz(
-              SyntheticItemsTestUtils.syntheticBackportWithForwardingClass(TestClass.class, 1));
+              getMinimalSyntheticItemsTestUtils()
+                  .syntheticBackportWithForwardingClass(TestClass.class, 1));
       assertThat(backport, isAbsent());
       assertEquals(
           1,
@@ -162,7 +163,7 @@ public class SdkIntFullBackportOutlineInBackportTest extends TestBase {
               inspector.getFactory().androidOsBuildVersionMembers.SDK_INT_FULL));
       ClassSubject apiOutline =
           inspector.clazz(
-              getDefaultSyntheticItemsTestUtils().syntheticApiOutlineClass(TestClass.class, 0));
+              getMinimalSyntheticItemsTestUtils().syntheticApiOutlineClass(TestClass.class, 0));
       assertThat(apiOutline.uniqueMethod(), isPresent());
       assertEquals(
           1,

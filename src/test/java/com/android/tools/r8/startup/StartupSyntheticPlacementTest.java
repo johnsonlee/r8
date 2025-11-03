@@ -6,7 +6,7 @@ package com.android.tools.r8.startup;
 
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticType;
 import static com.android.tools.r8.startup.utils.StartupTestingMatchers.isEqualToClassDataLayout;
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getMinimalSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.notIf;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -136,6 +136,8 @@ public class StartupSyntheticPlacementTest extends TestBase {
     D8TestCompileResult instrumentationCompileResult =
         testForD8(parameters.getBackend())
             .addInnerClasses(getClass())
+            .addOptionsModification(
+                options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
             .apply(
                 StartupTestingUtils.enableStartupInstrumentationForOriginalAppUsingLogcat(
                     parameters))
@@ -372,7 +374,7 @@ public class StartupSyntheticPlacementTest extends TestBase {
   }
 
   private static ClassReference getSyntheticLambdaClassReference() {
-    return getDefaultSyntheticItemsTestUtils().syntheticLambdaClass(B.class, 0);
+    return getMinimalSyntheticItemsTestUtils().syntheticLambdaClass(B.class, 0);
   }
 
   static class Main {

@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.desugar.desugaredlibrary.test;
 
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
@@ -18,6 +19,7 @@ import com.android.tools.r8.TestRuntime;
 import com.android.tools.r8.desugar.desugaredlibrary.DesugaredLibraryTestBase;
 import com.android.tools.r8.profile.art.model.ExternalArtProfile;
 import com.android.tools.r8.profile.art.utils.ArtProfileInspector;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.ThrowingBiConsumer;
 import com.android.tools.r8.utils.ThrowingConsumer;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
@@ -72,6 +74,16 @@ public class DesugaredLibraryTestCompileResult<T extends DesugaredLibraryTestBas
     } else {
       fail();
       return null;
+    }
+  }
+
+  public SyntheticItemsTestUtils getSyntheticItems() {
+    if (compileResult.isR8CompileResult()) {
+      return compileResult.asR8CompileResult().getSyntheticItems();
+    } else if (compileResult.isR8PartialCompileResult()) {
+      return compileResult.asR8PartialCompileResult().getSyntheticItems();
+    } else {
+      return getDefaultSyntheticItemsTestUtils();
     }
   }
 

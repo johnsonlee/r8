@@ -215,10 +215,6 @@ public abstract class R8TestCompileResultBase<CR extends R8TestCompileResultBase
     return self();
   }
 
-  public SyntheticItemsTestUtils getSyntheticItems() {
-    return state.getSyntheticItems();
-  }
-
   public <E extends Throwable> CR inspectSyntheticItems(
       ThrowingConsumer<SyntheticItemsTestUtils, E> consumer) throws E {
     consumer.accept(state.getSyntheticItems());

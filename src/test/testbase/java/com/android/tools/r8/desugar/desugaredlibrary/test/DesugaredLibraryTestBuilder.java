@@ -629,6 +629,11 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
     return FileUtils.readTextFile(generatedKeepRules, Charsets.UTF_8);
   }
 
+  public DesugaredLibraryTestBuilder<T> collectSyntheticItems() {
+    builder.collectSyntheticItems();
+    return this;
+  }
+
   public SingleTestRunResult<?> run(TestRuntime runtime, Class<?> mainClass, String... args)
       throws ExecutionException, IOException, CompilationFailedException {
     return compile().run(runtime, mainClass.getTypeName(), args);

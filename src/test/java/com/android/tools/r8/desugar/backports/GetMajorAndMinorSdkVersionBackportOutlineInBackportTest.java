@@ -5,6 +5,7 @@
 package com.android.tools.r8.desugar.backports;
 
 import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getMinimalSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.AndroidApiLevel.BAKLAVA;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -21,7 +22,6 @@ import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
@@ -143,7 +143,8 @@ public class GetMajorAndMinorSdkVersionBackportOutlineInBackportTest extends Tes
       for (int i = 2; i < 3; i++) {
         ClassSubject backport =
             inspector.clazz(
-                SyntheticItemsTestUtils.syntheticBackportWithForwardingClass(TestClass.class, i));
+                getDefaultSyntheticItemsTestUtils()
+                    .syntheticBackportWithForwardingClass(TestClass.class, i));
         assertThat(backport, isPresent());
         assertEquals(
             1,
@@ -174,7 +175,7 @@ public class GetMajorAndMinorSdkVersionBackportOutlineInBackportTest extends Tes
     } else {
       ClassSubject apiOutline0 =
           inspector.clazz(
-              getDefaultSyntheticItemsTestUtils().syntheticApiOutlineClass(TestClass.class, 0));
+              getMinimalSyntheticItemsTestUtils().syntheticApiOutlineClass(TestClass.class, 0));
       assertEquals(4, apiOutline0.allMethods().size());
       MethodSubject main = inspector.clazz(TestClass.class).mainMethod();
       assertEquals(

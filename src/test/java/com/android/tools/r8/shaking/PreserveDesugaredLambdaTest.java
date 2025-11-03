@@ -62,14 +62,17 @@ public class PreserveDesugaredLambdaTest extends TestBase {
             .compile();
     // A is not passed in to ensure the Enqueuer is not tracing through classpath to see the use of
     // computeFoo().
-    testForR8(parameters.getBackend())
-        .addProgramClasses(Main.class)
-        .addClasspathClasses(Interface.class)
-        .addLibraryFiles(parameters.getDefaultRuntimeLibrary())
-        .addKeepAllClassesRule()
-        .addDontWarn(A.class)
-        .setMinApi(parameters)
-        .compile()
+    R8TestCompileResult compileResult =
+        testForR8(parameters.getBackend())
+            .addProgramClasses(Main.class)
+            .addClasspathClasses(Interface.class)
+            .addLibraryFiles(parameters.getDefaultRuntimeLibrary())
+            .addKeepAllClassesRule()
+            .collectSyntheticItems()
+            .addDontWarn(A.class)
+            .setMinApi(parameters)
+            .compile();
+    compileResult
         .addRunClasspathFiles(libraryCompileResult.writeToZip())
         .inspect(
             codeInspector ->
@@ -77,7 +80,8 @@ public class PreserveDesugaredLambdaTest extends TestBase {
                     codeInspector.allClasses().stream()
                         .anyMatch(
                             c -> {
-                              if (c.isSynthesizedJavaLambdaClass()) {
+                              if (c.isSynthesizedJavaLambdaClass(
+                                  compileResult.getSyntheticItems())) {
                                 assertThat(
                                     c.uniqueMethodWithOriginalName("computeTheFoo"), isPresent());
                                 return true;

@@ -5,6 +5,7 @@
 package com.android.tools.r8;
 
 import static com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringForTesting.getCompanionClassNameSuffix;
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.FileUtils.JAR_EXTENSION;
 import static org.junit.Assert.assertEquals;
 
@@ -100,7 +101,7 @@ public abstract class D8IncrementalRunExamplesAndroidOTest
               descriptor.endsWith(getCompanionClassNameSuffix() + ";")
                   || SyntheticItemsTestUtils.isExternalTwrCloseMethod(reference)
                   || SyntheticItemsTestUtils.isMaybeExternalSuppressedExceptionMethod(reference)
-                  || SyntheticItemsTestUtils.isExternalLambda(reference)
+                  || getDefaultSyntheticItemsTestUtils().isExternalLambda(reference)
                   || SyntheticItemsTestUtils.isExternalStaticInterfaceCall(reference)
                   || descriptor.equals(mainClassDescriptor));
         }
