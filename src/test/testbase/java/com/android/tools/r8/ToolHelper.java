@@ -217,8 +217,8 @@ public class ToolHelper {
 
   public static final String R8_TEST_BUCKET = "r8-test-results";
 
-  public static final String ASM_JAR = BUILD_DIR + "deps/asm-9.8.jar";
-  public static final String ASM_UTIL_JAR = BUILD_DIR + "deps/asm-util-9.8.jar";
+  public static final String ASM_JAR = BUILD_DIR + "deps/asm-9.9.jar";
+  public static final String ASM_UTIL_JAR = BUILD_DIR + "deps/asm-util-9.9.jar";
 
   public static final String LINE_SEPARATOR = StringUtils.LINE_SEPARATOR;
   public static final String CLASSPATH_SEPARATOR = File.pathSeparator;

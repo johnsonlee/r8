@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.cf;
 
+import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -14,7 +15,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
-public class ClassFileVersion70Test extends TestBase {
+public class ClassFileVersion71Test extends TestBase {
 
   static final String EXPECTED = StringUtils.lines("Hello, world");
 
@@ -29,14 +30,15 @@ public class ClassFileVersion70Test extends TestBase {
         .build();
   }
 
-  public ClassFileVersion70Test(TestParameters parameters) {
+  public ClassFileVersion71Test(TestParameters parameters) {
     this.parameters = parameters;
   }
 
-  @Test
+  // Update ASM once it has a release with v27 support.
+  @Test(expected = CompilationFailedException.class)
   public void test() throws Exception {
     testForD8(parameters.getBackend())
-        .addProgramClassFileData(transformer(TestClass.class).setVersion(CfVersion.V26).transform())
+        .addProgramClassFileData(transformer(TestClass.class).setVersion(CfVersion.V27).transform())
         .setMinApi(parameters)
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutput(EXPECTED);

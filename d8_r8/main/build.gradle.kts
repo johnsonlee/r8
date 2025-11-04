@@ -337,6 +337,8 @@ fun relocateDepsExceptAsm(pkg: String): List<String> {
                 "--map",
                 "perfetto.protos.**->${pkg}.perfetto.protos",
                 "--map",
+                "org.jspecify.annotations.**->${pkg}.org.jspecify.annotations",
+                "--map",
                 "_COROUTINE.**->${pkg}._COROUTINE")
 }
 

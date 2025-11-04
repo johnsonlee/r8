@@ -90,7 +90,11 @@ tasks {
     from(bootstrapTestsDepsJarTask.outputs.getFiles().map(::zipTree))
     from(javaTestBaseDepsJar.outputs.getFiles().map(::zipTree))
     from(keepAnnoAndroidXAnnotationsJar.outputs.getFiles().map(::zipTree))
-    exclude("META-INF/*.kotlin_module", "**/*.kotlin_metadata")
+    exclude(
+      "META-INF/*.kotlin_module",
+      "**/*.kotlin_metadata",
+      "org/jspecify/**",
+      "org/jspecify")
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     destinationDirectory.set(getRoot().resolveAll("build", "libs"))
     archiveFileName.set("test_deps_all.jar")
