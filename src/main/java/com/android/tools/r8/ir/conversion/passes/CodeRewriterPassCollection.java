@@ -14,6 +14,7 @@ import com.android.tools.r8.ir.conversion.passes.result.CodeRewriterResult;
 import com.android.tools.r8.ir.optimize.ListIterationRewriter;
 import com.android.tools.r8.ir.optimize.RedundantFieldLoadAndStoreElimination;
 import com.android.tools.r8.ir.optimize.ServiceLoaderRewriter;
+import com.android.tools.r8.ir.optimize.ShareInstanceGetInstructions;
 import com.android.tools.r8.ir.optimize.enums.EnumValueOptimizer;
 import com.android.tools.r8.ir.optimize.string.StringBuilderAppendOptimizer;
 import com.android.tools.r8.utils.InternalOptions;
@@ -63,6 +64,7 @@ public class CodeRewriterPassCollection {
       passes.add(new SplitReturnRewriter(appView));
       passes.add(new ReturnBlockCanonicalizerRewriter(appView));
     }
+    passes.add(new ShareInstanceGetInstructions(appView));
     return new CodeRewriterPassCollection(passes);
   }
 
