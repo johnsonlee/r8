@@ -11,9 +11,9 @@ import com.android.tools.r8.Finishable;
  * This is an internal consumer that can accept our internal representation of a mapping format.
  * This should not be exposed.
  */
-public interface MapConsumer extends Finishable {
+public interface InternalMapConsumer extends Finishable {
 
-  void accept(
-      DiagnosticsHandler diagnosticsHandler,
-      ClassNameMapper classNameMapper);
+  void accept(DiagnosticsHandler diagnosticsHandler, ClassNameMapper classNameMapper);
+
+  default void acceptMapId(String mapId) {}
 }

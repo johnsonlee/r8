@@ -6,12 +6,12 @@ package com.android.tools.r8;
 
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.naming.ClassNameMapper;
-import com.android.tools.r8.naming.MapConsumer;
+import com.android.tools.r8.naming.InternalMapConsumer;
 import com.android.tools.r8.retrace.ProguardMapPartitioner;
 import com.android.tools.r8.retrace.internal.ProguardMapProducerInternal;
 import java.io.IOException;
 
-public class MapConsumerToPartitionMapConsumer implements MapConsumer {
+public class MapConsumerToPartitionMapConsumer implements InternalMapConsumer {
 
   protected final PartitionMapConsumer partitionMapConsumer;
 

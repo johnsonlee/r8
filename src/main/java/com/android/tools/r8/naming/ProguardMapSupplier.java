@@ -83,7 +83,7 @@ public class ProguardMapSupplier {
 
   private final ClassNameMapper classNameMapper;
   private final InternalOptions options;
-  private final MapConsumer consumer;
+  private final InternalMapConsumer consumer;
   private final Reporter reporter;
   private final Tool compiler;
 
@@ -110,7 +110,7 @@ public class ProguardMapSupplier {
     try (Timing t0 = timing.begin("Prepare write")) {
       classNameMapper.prepareWrite(appView, executorService);
     }
-    AwaitableFutureValue<ProguardMapId> proguardMapId =
+    AwaitableFutureValue<ProguardMapId> proguardMapIdSupplier =
         computeProguardMapId(appView, executorService, timing);
     AwaitableFuture mapWritten;
     mapWritten =
@@ -118,10 +118,11 @@ public class ProguardMapSupplier {
             () -> {
               try (Timing threadTiming =
                   timing.createThreadTiming("Write proguard map to consumer", appView.options())) {
+                ProguardMapId proguardMapId = proguardMapIdSupplier.awaitValue();
                 ProguardMapMarkerInfo markerInfo =
                     ProguardMapMarkerInfo.builder()
                         .setCompilerName(compiler.name())
-                        .setProguardMapId(proguardMapId.awaitValue())
+                        .setProguardMapId(proguardMapId)
                         .setGeneratingDex(options.isGeneratingDex())
                         .setApiLevel(options.getMinApiLevel())
                         .setMapVersion(options.getMapFileVersion())
@@ -132,13 +133,14 @@ public class ProguardMapSupplier {
                     ListUtils.concat(markerInfo.toPreamble(), classNameMapper.getPreamble()));
 
                 consumer.accept(reporter, classNameMapper);
+                consumer.acceptMapId(proguardMapId.id);
                 ExceptionUtils.withConsumeResourceHandler(reporter, this.consumer::finished);
               }
               return null;
             },
             appView.options().getThreadingModule(),
             executorService);
-    return new ProguardMapSupplierResult(proguardMapId, mapWritten);
+    return new ProguardMapSupplierResult(proguardMapIdSupplier, mapWritten);
   }
 
   private AwaitableFutureValue<ProguardMapId> computeProguardMapId(

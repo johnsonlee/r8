@@ -10,6 +10,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.DexIndexedConsumer;
+import com.android.tools.r8.DiagnosticsHandler;
+import com.android.tools.r8.MapConsumer;
 import com.android.tools.r8.MapIdEnvironment;
 import com.android.tools.r8.MarkerMatcher;
 import com.android.tools.r8.ProgramConsumer;
@@ -22,10 +24,13 @@ import com.android.tools.r8.compilerapi.CompilerApiTestRunner;
 import com.android.tools.r8.dex.Marker;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.BooleanBox;
+import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.ThrowingBiConsumer;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
+import com.google.common.collect.ImmutableList;
 import java.nio.file.Path;
 import java.util.Collection;
+import java.util.List;
 import java.util.function.Function;
 import org.junit.Test;
 
@@ -44,6 +49,12 @@ public class CustomMapIdTest extends CompilerApiTestRunner {
   public void testDefaultMapId() throws Exception {
     ApiTest test = new ApiTest(ApiTest.PARAMETERS);
     runTest(test::runDefaultMapId, hash -> hash);
+  }
+
+  @Test
+  public void testDefaultMapIdWithPrintConfiguration() throws Exception {
+    ApiTest test = new ApiTest(ApiTest.PARAMETERS);
+    runTest(test::runDefaultMapIdWithPrintConfiguration, hash -> hash);
   }
 
   @Test
@@ -68,13 +79,34 @@ public class CustomMapIdTest extends CompilerApiTestRunner {
     Path output = temp.newFolder().toPath().resolve("out.jar");
     StringBuilder mappingBuilder = new StringBuilder();
     BooleanBox didGetMappingContent = new BooleanBox(false);
+    BooleanBox finished = new BooleanBox();
+    Box<String> consumedMapId = new Box<>();
     test.accept(
         new DexIndexedConsumer.ArchiveConsumer(output),
-        (mappingContent, handler) -> {
-          mappingBuilder.append(mappingContent);
-          didGetMappingContent.set(true);
+        new MapConsumer() {
+          @Override
+          public void accept(String string, DiagnosticsHandler handler) {
+            assertTrue(finished.isFalse());
+            mappingBuilder.append(string);
+            didGetMappingContent.set(true);
+          }
+
+          @Override
+          public void acceptMapId(String mapId) {
+            assertTrue(finished.isFalse());
+            consumedMapId.set(mapId);
+          }
+
+          @Override
+          public void finished(DiagnosticsHandler handler) {
+            assertTrue(finished.isFalse());
+            MapConsumer.super.finished(handler);
+            finished.set();
+          }
         });
-    assertTrue(didGetMappingContent.get());
+    assertTrue(didGetMappingContent.isTrue());
+    assertTrue(consumedMapId.isSet());
+    assertTrue(finished.isTrue());
 
     // Extract the map hash from the file. This is always set by R8 to a SHA 256 hash.
     String mappingContent = mappingBuilder.toString();
@@ -83,6 +115,7 @@ public class CustomMapIdTest extends CompilerApiTestRunner {
 
     // Check the map id is also defined in the map file.
     String mapId = hashToId.apply(mapHash);
+    assertEquals(mapId, consumedMapId.get());
     assertThat(mappingContent, containsString("pg_map_id: " + mapId + "\n"));
 
     // Check that the map id is also present in the markers.
@@ -100,10 +133,26 @@ public class CustomMapIdTest extends CompilerApiTestRunner {
 
     public void runDefaultMapId(ProgramConsumer programConsumer, StringConsumer mappingConsumer)
         throws Exception {
+      internalRunDefaultMapId(programConsumer, mappingConsumer, false);
+    }
+
+    public void runDefaultMapIdWithPrintConfiguration(
+        ProgramConsumer programConsumer, StringConsumer mappingConsumer) throws Exception {
+      internalRunDefaultMapId(programConsumer, mappingConsumer, true);
+    }
+
+    private void internalRunDefaultMapId(
+        ProgramConsumer programConsumer, StringConsumer mappingConsumer, boolean printConfiguration)
+        throws Exception {
+      List<String> keepRules = getKeepMainRules(getMockClass());
+      if (printConfiguration) {
+        keepRules =
+            ImmutableList.<String>builder().addAll(keepRules).add("-printconfiguration").build();
+      }
       R8.run(
           R8Command.builder()
               .addClassProgramData(getBytesForClass(getMockClass()), Origin.unknown())
-              .addProguardConfiguration(getKeepMainRules(getMockClass()), Origin.unknown())
+              .addProguardConfiguration(keepRules, Origin.unknown())
               .addLibraryFiles(getJava8RuntimeJar())
               .setProgramConsumer(programConsumer)
               .setProguardMapConsumer(mappingConsumer)

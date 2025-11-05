@@ -5,18 +5,52 @@
 package com.android.tools.r8.utils;
 
 import com.android.tools.r8.DiagnosticsHandler;
+import com.android.tools.r8.MapConsumer;
+import com.android.tools.r8.StringConsumer;
 import com.android.tools.r8.naming.ClassNameMapper;
-import com.android.tools.r8.naming.MapConsumer;
+import com.android.tools.r8.naming.InternalMapConsumer;
 import java.util.function.Function;
 
 public class MapConsumerUtils {
 
-  public static MapConsumer wrapExistingMapConsumer(
-      MapConsumer existingMapConsumer, MapConsumer newConsumer) {
+  public static MapConsumer createFromStringConsumer(StringConsumer consumer) {
+    if (consumer == null) {
+      return null;
+    }
+    if (consumer instanceof MapConsumer) {
+      return (MapConsumer) consumer;
+    }
+    return new MapConsumer() {
+
+      @Override
+      public void accept(String string, DiagnosticsHandler handler) {
+        consumer.accept(string, handler);
+      }
+
+      @Override
+      public void finished(DiagnosticsHandler handler) {
+        consumer.finished(handler);
+      }
+    };
+  }
+
+  public static MapConsumer createStandardOutConsumer(MapConsumer consumer) {
+    return new MapConsumer.ForwardingConsumer(consumer) {
+
+      @Override
+      public void accept(String string, DiagnosticsHandler handler) {
+        super.accept(string, handler);
+        System.out.print(string);
+      }
+    };
+  }
+
+  public static InternalMapConsumer wrapExistingInternalMapConsumer(
+      InternalMapConsumer existingMapConsumer, InternalMapConsumer newConsumer) {
     if (existingMapConsumer == null) {
       return newConsumer;
     }
-    return new MapConsumer() {
+    return new InternalMapConsumer() {
       @Override
       public void accept(DiagnosticsHandler diagnosticsHandler, ClassNameMapper classNameMapper) {
         existingMapConsumer.accept(diagnosticsHandler, classNameMapper);
@@ -31,11 +65,13 @@ public class MapConsumerUtils {
     };
   }
 
-  public static <T> MapConsumer wrapExistingMapConsumerIfNotNull(
-      MapConsumer existingMapConsumer, T object, Function<T, MapConsumer> producer) {
+  public static <T> InternalMapConsumer wrapExistingInternalMapConsumerIfNotNull(
+      InternalMapConsumer existingMapConsumer,
+      T object,
+      Function<T, InternalMapConsumer> producer) {
     if (object == null) {
       return existingMapConsumer;
     }
-    return wrapExistingMapConsumer(existingMapConsumer, producer.apply(object));
+    return wrapExistingInternalMapConsumer(existingMapConsumer, producer.apply(object));
   }
 }

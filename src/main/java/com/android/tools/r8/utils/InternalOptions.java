@@ -77,7 +77,7 @@ import com.android.tools.r8.ir.optimize.outliner.bottomup.BottomUpOutlinerOption
 import com.android.tools.r8.metadata.D8BuildMetadata;
 import com.android.tools.r8.metadata.R8BuildMetadata;
 import com.android.tools.r8.naming.ClassNameMapper;
-import com.android.tools.r8.naming.MapConsumer;
+import com.android.tools.r8.naming.InternalMapConsumer;
 import com.android.tools.r8.naming.MapVersion;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.optimize.accessmodification.AccessModifierOptions;
@@ -1319,7 +1319,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   // If null, no proguard map needs to be computed.
   // If non null it must be and passed to the consumer.
-  public MapConsumer mapConsumer = null;
+  public InternalMapConsumer mapConsumer = null;
 
   public boolean hasMappingFileSupport() {
     return mapConsumer != null;
