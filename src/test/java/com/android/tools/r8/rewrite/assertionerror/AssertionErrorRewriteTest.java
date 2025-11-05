@@ -3,12 +3,11 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.rewrite.assertionerror;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -54,15 +53,7 @@ public class AssertionErrorRewriteTest extends TestBase {
         .setMinApi(parameters)
         .disableDesugaring()
         .compile()
-        // TODO(b/247596495): There should be no synthetics.
-        .inspect(
-            inspector ->
-                assertTrue(
-                    inspector.allClasses().stream()
-                        .noneMatch(
-                            clazz ->
-                                SyntheticItemsTestUtils.isExternalSynthetic(
-                                    clazz.getFinalReference()))))
+        .inspect(inspector -> assertEquals(1, inspector.allClasses().size()))
         .run(parameters.getRuntime(), Main.class)
         // None of the VMs we have for testing is missing the two args constructor.
         .assertSuccessWithOutputLines("message", "java.lang.RuntimeException: cause message");

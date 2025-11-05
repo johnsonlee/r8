@@ -6,7 +6,6 @@ package com.android.tools.r8.retrace;
 
 import static com.android.tools.r8.naming.retrace.StackTrace.isSame;
 import static com.android.tools.r8.naming.retrace.StackTrace.isSameExceptForLineNumbers;
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getSyntheticItemsTestUtils;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertFalse;
 
@@ -76,7 +75,7 @@ public class RetraceBackportMethodTest extends TestBase {
                     includeExternalSyntheticFrame,
                     includeJvmModule,
                     doNotCheckLines,
-                    false));
+                    null));
   }
 
   @Test
@@ -87,18 +86,21 @@ public class RetraceBackportMethodTest extends TestBase {
     boolean doNotCheckLines = includeMathFrame;
     testForD8(parameters.getBackend())
         .addProgramClasses(getInputClasses())
+        .collectSyntheticItems()
         .setMinApi(parameters)
         .run(parameters.getRuntime(), CLASS_MAIN)
         .apply(this::checkRunResult)
-        .inspectStackTrace(
-            stackTrace ->
-                checkExpectedStackTrace(
-                    stackTrace,
-                    includeMathFrame,
-                    includeExternalSyntheticFrame,
-                    includeJvmModule,
-                    doNotCheckLines,
-                    false));
+        .apply(
+            rr ->
+                rr.inspectStackTrace(
+                    stackTrace ->
+                        checkExpectedStackTrace(
+                            stackTrace,
+                            includeMathFrame,
+                            includeExternalSyntheticFrame,
+                            includeJvmModule,
+                            doNotCheckLines,
+                            rr.getSyntheticItems())));
   }
 
   @Test
@@ -111,18 +113,21 @@ public class RetraceBackportMethodTest extends TestBase {
         .debug()
         .internalEnableMappingOutput()
         .addProgramClasses(getInputClasses())
+        .collectSyntheticItems()
         .setMinApi(parameters)
         .run(parameters.getRuntime(), CLASS_MAIN)
         .apply(this::checkRunResult)
-        .inspectStackTrace(
-            stackTrace ->
-                checkExpectedStackTrace(
-                    stackTrace,
-                    includeMathFrame,
-                    includeExternalSyntheticFrame,
-                    includeJvmModule,
-                    doNotCheckLines,
-                    false));
+        .apply(
+            rr ->
+                rr.inspectStackTrace(
+                    stackTrace ->
+                        checkExpectedStackTrace(
+                            stackTrace,
+                            includeMathFrame,
+                            includeExternalSyntheticFrame,
+                            includeJvmModule,
+                            doNotCheckLines,
+                            rr.getSyntheticItems())));
   }
 
   @Test
@@ -135,18 +140,21 @@ public class RetraceBackportMethodTest extends TestBase {
         .release()
         .internalEnableMappingOutput()
         .addProgramClasses(getInputClasses())
+        .collectSyntheticItems()
         .setMinApi(parameters)
         .run(parameters.getRuntime(), CLASS_MAIN)
         .apply(this::checkRunResult)
-        .inspectStackTrace(
-            stackTrace ->
-                checkExpectedStackTrace(
-                    stackTrace,
-                    includeMathFrame,
-                    includeExternalSyntheticFrame,
-                    includeJvmModule,
-                    doNotCheckLines,
-                    false));
+        .apply(
+            rr ->
+                rr.inspectStackTrace(
+                    stackTrace ->
+                        checkExpectedStackTrace(
+                            stackTrace,
+                            includeMathFrame,
+                            includeExternalSyntheticFrame,
+                            includeJvmModule,
+                            doNotCheckLines,
+                            rr.getSyntheticItems())));
   }
 
   @Test
@@ -163,18 +171,21 @@ public class RetraceBackportMethodTest extends TestBase {
         .addKeepAttributeLineNumberTable()
         .addOptionsModification(
             options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
+        .collectSyntheticItems()
         .setMinApi(parameters)
         .run(parameters.getRuntime(), CLASS_MAIN)
         .apply(this::checkRunResult)
-        .inspectStackTrace(
-            stackTrace ->
-                checkExpectedStackTrace(
-                    stackTrace,
-                    includeMathFrame,
-                    includeExternalSyntheticFrame,
-                    includeJvmModule,
-                    doNotCheckLines,
-                    true));
+        .apply(
+            rr ->
+                rr.inspectStackTrace(
+                    stackTrace ->
+                        checkExpectedStackTrace(
+                            stackTrace,
+                            includeMathFrame,
+                            includeExternalSyntheticFrame,
+                            includeJvmModule,
+                            doNotCheckLines,
+                            rr.getSyntheticItems())));
   }
 
   private void checkRunResult(SingleTestRunResult<?> runResult) {
@@ -187,7 +198,7 @@ public class RetraceBackportMethodTest extends TestBase {
       boolean includeExternalSyntheticFrame,
       boolean includeJvmModule,
       boolean doNotCheckLines,
-      boolean isR8) {
+      SyntheticItemsTestUtils syntheticItems) {
     StackTrace.Builder builder = StackTrace.builder();
     if (includeMathFrame) {
       assertFalse(includeExternalSyntheticFrame);
@@ -206,8 +217,7 @@ public class RetraceBackportMethodTest extends TestBase {
       builder.add(
           StackTraceLine.builder()
               .setFileName(SyntheticItemsTestUtils.syntheticFileNameD8())
-              .setClassName(
-                  getSyntheticItemsTestUtils(isR8).syntheticBackportClass(CLASS_A, 0).getTypeName())
+              .setClassName(syntheticItems.syntheticBackportClass(CLASS_A, 0).getTypeName())
               .setMethodName(SyntheticItemsTestUtils.syntheticMethodName())
               .setLineNumber(parameters.isCfRuntime() ? -1 : 0)
               .build());

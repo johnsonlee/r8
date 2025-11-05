@@ -61,6 +61,7 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexLibraryClass;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -2331,7 +2332,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public BiConsumer<DexItemFactory, RepackagingLens> repackagingLensConsumer =
         ConsumerUtils.emptyBiConsumer();
 
-    public QuadConsumer<SyntheticKind, Integer, DexType, DexType> syntheticItemsConsumer = null;
+    public QuadConsumer<SyntheticKind, Integer, DexType, DexReference> syntheticItemsConsumer =
+        null;
 
     public BiConsumer<DexItemFactory, EnumDataMap> unboxedEnumsConsumer =
         ConsumerUtils.emptyBiConsumer();

@@ -10,12 +10,12 @@ public class DesugarTestRunResult
     extends TestRunResultCollection<DesugarTestConfiguration, DesugarTestRunResult> {
 
   public static DesugarTestRunResult create(
-      List<Pair<DesugarTestConfiguration, TestRunResult<?>>> runs) {
+      List<Pair<DesugarTestConfiguration, SingleTestRunResult<?>>> runs) {
     assert !runs.isEmpty();
     return new DesugarTestRunResult(runs);
   }
 
-  private DesugarTestRunResult(List<Pair<DesugarTestConfiguration, TestRunResult<?>>> runs) {
+  private DesugarTestRunResult(List<Pair<DesugarTestConfiguration, SingleTestRunResult<?>>> runs) {
     super(runs);
   }
 

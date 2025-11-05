@@ -10,12 +10,12 @@ import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertTrue;
 import static junit.framework.TestCase.fail;
 
+import com.android.tools.r8.D8TestCompileResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.cf.CfVersion;
 import com.android.tools.r8.references.Reference;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.ZipUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
@@ -68,25 +68,27 @@ public class JavaD8CompilationTest extends TestBase {
   @Test
   public void testR8CompiledWithD8ToCf() throws Exception {
     Assume.assumeTrue(JavaBootstrapUtils.exists(r8WithRelocatedDeps));
-    Path r8Desugared =
+    D8TestCompileResult compileResult =
         testForD8(Backend.CF)
             .addProgramFiles(r8WithRelocatedDeps)
             .addLibraryFiles(ToolHelper.getJava8RuntimeJar())
+            .collectSyntheticItems()
             .setMinApi(AndroidApiLevel.B)
             .compile()
-            .inspect(JavaD8CompilationTest::assertNoNests)
-            .writeToZip();
+            .inspect(JavaD8CompilationTest::assertNoNests);
 
     // Check that the desugared classes has the expected class file versions and that no nest
     // related attributes remains.
     ZipUtils.iter(
-        r8Desugared,
+        compileResult.writeToZip(),
         (entry, input) -> {
-          if (SyntheticItemsTestUtils.isExternalStaticInterfaceCall(
-              Reference.classFromBinaryName(
-                  entry
-                      .getName()
-                      .substring(0, entry.getName().length() - CLASS_EXTENSION.length())))) {
+          if (compileResult
+              .getSyntheticItems()
+              .isExternalStaticInterfaceCall(
+                  Reference.classFromBinaryName(
+                      entry
+                          .getName()
+                          .substring(0, entry.getName().length() - CLASS_EXTENSION.length())))) {
             assertEquals(CfVersion.V1_8, extractClassFileVersionAndAssertNoNestAttributes(input));
           } else {
             assertTrue(

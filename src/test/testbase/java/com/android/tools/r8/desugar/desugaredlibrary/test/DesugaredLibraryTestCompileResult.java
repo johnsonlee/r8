@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.desugar.desugaredlibrary.test;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
@@ -78,13 +77,7 @@ public class DesugaredLibraryTestCompileResult<T extends DesugaredLibraryTestBas
   }
 
   public SyntheticItemsTestUtils getSyntheticItems() {
-    if (compileResult.isR8CompileResult()) {
-      return compileResult.asR8CompileResult().getSyntheticItems();
-    } else if (compileResult.isR8PartialCompileResult()) {
-      return compileResult.asR8PartialCompileResult().getSyntheticItems();
-    } else {
-      return getDefaultSyntheticItemsTestUtils();
-    }
+    return compileResult.getSyntheticItems();
   }
 
   public <E extends Throwable> DesugaredLibraryTestCompileResult<T> inspectL8(

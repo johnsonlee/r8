@@ -3,15 +3,16 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.naming;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndRenamed;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 
+import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.references.ClassReference;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
@@ -25,9 +26,8 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class DontObfuscateSyntheticsWithKeptContextTest extends TestBase {
 
-  private ClassReference getLambdaClassReference() {
-    return getSyntheticItemsTestUtils(parameters.getPartialCompilationTestParameters().isNone())
-        .syntheticLambdaClass(Main.class, 0);
+  private static ClassReference getLambdaClassReference(SyntheticItemsTestUtils syntheticItems) {
+    return syntheticItems.syntheticLambdaClass(Main.class, 0);
   }
 
   @Parameter(0)
@@ -49,7 +49,8 @@ public class DontObfuscateSyntheticsWithKeptContextTest extends TestBase {
 
   @Test
   public void test() throws Exception {
-    testForR8(parameters)
+    R8TestBuilder<?, ?, ?> testBuilder = testForR8(parameters);
+    testBuilder
         .addInnerClasses(getClass())
         // Allow access modification to ensure that the lambda is subject to repackaging.
         .addKeepRules("-keep,allowaccessmodification class ** { *; }")
@@ -68,7 +69,8 @@ public class DontObfuscateSyntheticsWithKeptContextTest extends TestBase {
         // Verify repackaging happens when renaming is not restricted.
         .addRepackagingInspector(
             inspector -> {
-              ClassReference lambdaClassReference = getLambdaClassReference();
+              ClassReference lambdaClassReference =
+                  getLambdaClassReference(testBuilder.getState().getSyntheticItems());
               ClassReference repackagedLambdaClassReference =
                   inspector.getTarget(lambdaClassReference);
               if (restrictRenaming) {
@@ -77,13 +79,15 @@ public class DontObfuscateSyntheticsWithKeptContextTest extends TestBase {
                 assertNotEquals(lambdaClassReference, repackagedLambdaClassReference);
               }
             })
+        .collectSyntheticItems()
         .compile()
-        .inspectIf(
-            !parameters.isRandomPartialCompilation(),
-            inspector -> {
-              ClassReference lambdaClassReference = getLambdaClassReference();
-              ClassSubject lambdaClassSubject = inspector.clazz(lambdaClassReference);
-              assertThat(lambdaClassSubject, isPresentAndRenamed(!restrictRenaming));
+        .inspectWithSyntheticItems(
+            (inspector, syntheticItems) -> {
+              if (!parameters.isRandomPartialCompilation()) {
+                ClassReference lambdaClassReference = getLambdaClassReference(syntheticItems);
+                ClassSubject lambdaClassSubject = inspector.clazz(lambdaClassReference);
+                assertThat(lambdaClassSubject, isPresentAndRenamed(!restrictRenaming));
+              }
             })
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("Hello, world!");

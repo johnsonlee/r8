@@ -492,7 +492,7 @@ public class SyntheticNaming {
     if (kind.isFixedSuffixSynthetic()) {
       assert id.isEmpty();
       return createType("", kind, externalSyntheticTypePrefix, id, factory);
-    } else if (options.desugarSpecificOptions().minimizeSyntheticNames) {
+    } else if (options.desugarSpecificOptions().minimizeSyntheticNames && !options.intermediate) {
       return factory.createType(
           DescriptorUtils.getDescriptorFromClassBinaryName(
               externalSyntheticTypePrefix + INNER_CLASS_SEPARATOR + id));

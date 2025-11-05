@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.desugar.backports;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -11,6 +10,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
 import com.android.tools.r8.ByteDataView;
+import com.android.tools.r8.D8TestCompileResult;
 import com.android.tools.r8.DexIndexedConsumer;
 import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.GenerateMainDexListRunResult;
@@ -24,6 +24,7 @@ import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.references.Reference;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.ListUtils;
@@ -109,13 +110,19 @@ public class BackportMainDexTest extends TestBase {
   @Test
   public void testMainDexTracingDex() throws Exception {
     parameters.assumeDexRuntime();
-    Path out = testForD8().addProgramClasses(CLASSES).setMinApi(parameters).compile().writeToZip();
+    D8TestCompileResult compileResult =
+        testForD8()
+            .addProgramClasses(CLASSES)
+            .collectSyntheticItems()
+            .setMinApi(parameters)
+            .compile();
     GenerateMainDexListRunResult mainDexListFromDex =
-        traceMainDex(Collections.emptyList(), Collections.singleton(out));
+        traceMainDex(Collections.emptyList(), Collections.singleton(compileResult.writeToZip()));
     assertEquals(
         Streams.concat(
                 MAIN_DEX_LIST_CLASSES.stream().map(Reference::classFromClass),
-                getMainDexExpectedSynthetics(false).stream().map(MethodReference::getHolderClass))
+                getMainDexExpectedSynthetics(compileResult.getSyntheticItems()).stream()
+                    .map(MethodReference::getHolderClass))
             .collect(Collectors.toSet()),
         ImmutableSet.copyOf(mainDexListFromDex.getMainDexList()));
   }
@@ -147,12 +154,16 @@ public class BackportMainDexTest extends TestBase {
         .addProgramClasses(CLASSES)
         .setMinApi(parameters)
         .addMainDexRules(keepMainProguardConfiguration(TestClass.class))
+        .collectSyntheticItems()
         .setProgramConsumer(mainDexConsumer)
         .compile()
-        .inspect(inspector -> checkExpectedSynthetics(inspector, false))
+        .inspectWithSyntheticItems(
+            (inspector, syntheticItems) -> {
+              checkExpectedSynthetics(inspector, syntheticItems);
+              checkMainDex(mainDexConsumer, syntheticItems);
+            })
         .run(parameters.getRuntime(), TestClass.class, getRunArgs())
         .assertSuccessWithOutput(EXPECTED);
-    checkMainDex(mainDexConsumer, false);
   }
 
   @Test
@@ -177,15 +188,19 @@ public class BackportMainDexTest extends TestBase {
     MainDexConsumer mainDexConsumer = new MainDexConsumer();
     testForD8()
         .addProgramFiles(perClassOutput)
+        .collectSyntheticItems()
         .setMinApi(parameters)
         // Trace the classes run by main which will pick up their dependencies.
         .addMainDexRules(keepMainProguardConfiguration(TestClass.class))
         .setProgramConsumer(mainDexConsumer)
         .compile()
-        .inspect(inspector -> checkExpectedSynthetics(inspector, false))
+        .inspectWithSyntheticItems(
+            (inspector, syntheticItems) -> {
+              checkExpectedSynthetics(inspector, syntheticItems);
+              checkMainDex(mainDexConsumer, syntheticItems);
+            })
         .run(parameters.getRuntime(), TestClass.class, getRunArgs())
         .assertSuccessWithOutput(EXPECTED);
-    checkMainDex(mainDexConsumer, false);
   }
 
   @Test
@@ -225,12 +240,16 @@ public class BackportMainDexTest extends TestBase {
         .addProgramFiles(files)
         .setMinApi(parameters)
         .addMainDexListClassReferences(traceResult.getMainDexList())
+        .collectSyntheticItems()
         .setProgramConsumer(mainDexConsumer)
         .compile()
-        .inspect(inspector -> checkExpectedSynthetics(inspector, false))
+        .inspectWithSyntheticItems(
+            (inspector, syntheticItems) -> {
+              checkExpectedSynthetics(inspector, syntheticItems);
+              checkMainDex(mainDexConsumer, syntheticItems);
+            })
         .run(parameters.getRuntime(), TestClass.class, getRunArgs())
         .assertSuccessWithOutput(EXPECTED);
-    checkMainDex(mainDexConsumer, false);
   }
 
   @Test
@@ -249,16 +268,22 @@ public class BackportMainDexTest extends TestBase {
         .addMainDexRules(keepMainProguardConfiguration(TestClass.class))
         .addOptionsModification(
             options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
+        .collectSyntheticItems()
         .setMinApi(parameters)
+        .compile()
+        .inspectWithSyntheticItems(
+            (inspector, syntheticItems) -> {
+              checkExpectedSynthetics(inspector, syntheticItems);
+              if (mainDexConsumer != null) {
+                checkMainDex(mainDexConsumer, syntheticItems);
+              }
+            })
         .run(parameters.getRuntime(), TestClass.class, getRunArgs())
-        .assertSuccessWithOutput(EXPECTED)
-        .inspect(inspector -> checkExpectedSynthetics(inspector, true));
-    if (mainDexConsumer != null) {
-      checkMainDex(mainDexConsumer, true);
-    }
+        .assertSuccessWithOutput(EXPECTED);
   }
 
-  private void checkMainDex(MainDexConsumer mainDexConsumer, boolean isR8) throws Exception {
+  private void checkMainDex(MainDexConsumer mainDexConsumer, SyntheticItemsTestUtils syntheticItems)
+      throws Exception {
     AndroidApp mainDexApp =
         AndroidApp.builder()
             .addDexProgramData(mainDexConsumer.mainDexBytes, Origin.unknown())
@@ -269,7 +294,8 @@ public class BackportMainDexTest extends TestBase {
     assertThat(mainDexInspector.clazz(MiniAssert.class), isPresent());
     assertThat(mainDexInspector.clazz(TestClass.class), isPresent());
     assertThat(mainDexInspector.clazz(User2.class), isPresent());
-    assertEquals(getMainDexExpectedSynthetics(isR8), getSyntheticMethods(mainDexInspector));
+    assertEquals(
+        getMainDexExpectedSynthetics(syntheticItems), getSyntheticMethods(mainDexInspector));
   }
 
   private Set<MethodReference> getSyntheticMethods(CodeInspector inspector) {
@@ -282,12 +308,15 @@ public class BackportMainDexTest extends TestBase {
     return methods;
   }
 
-  private void checkExpectedSynthetics(CodeInspector inspector, boolean isR8) throws Exception {
+  private void checkExpectedSynthetics(
+      CodeInspector inspector, SyntheticItemsTestUtils syntheticItems) throws Exception {
     if (parameters.getApiLevel() == null) {
       assertEquals(Collections.emptySet(), getSyntheticMethods(inspector));
     } else {
       assertEquals(
-          Sets.union(getMainDexExpectedSynthetics(isR8), getNonMainDexExpectedSynthetics(isR8)),
+          Sets.union(
+              getMainDexExpectedSynthetics(syntheticItems),
+              getNonMainDexExpectedSynthetics(syntheticItems)),
           getSyntheticMethods(inspector));
     }
   }
@@ -298,23 +327,20 @@ public class BackportMainDexTest extends TestBase {
   // check that the compiler generates this deterministically for any single run or merge of
   // intermediates.
 
-  private ImmutableSet<MethodReference> getNonMainDexExpectedSynthetics(boolean isR8)
-      throws NoSuchMethodException {
+  private ImmutableSet<MethodReference> getNonMainDexExpectedSynthetics(
+      SyntheticItemsTestUtils syntheticItems) throws NoSuchMethodException {
     return ImmutableSet.of(
-        getSyntheticItemsTestUtils(isR8)
-            .syntheticBackportMethod(
-                User1.class, 1, Boolean.class.getMethod("compare", boolean.class, boolean.class)));
+        syntheticItems.syntheticBackportMethod(
+            User1.class, 1, Boolean.class.getMethod("compare", boolean.class, boolean.class)));
   }
 
-  private ImmutableSet<MethodReference> getMainDexExpectedSynthetics(boolean isR8)
-      throws NoSuchMethodException {
+  private ImmutableSet<MethodReference> getMainDexExpectedSynthetics(
+      SyntheticItemsTestUtils syntheticItems) throws NoSuchMethodException {
     return ImmutableSet.of(
-        getSyntheticItemsTestUtils(isR8)
-            .syntheticBackportMethod(
-                User1.class, 0, Character.class.getMethod("compare", char.class, char.class)),
-        getSyntheticItemsTestUtils(isR8)
-            .syntheticBackportMethod(
-                User2.class, 0, Integer.class.getMethod("compare", int.class, int.class)));
+        syntheticItems.syntheticBackportMethod(
+            User1.class, 0, Character.class.getMethod("compare", char.class, char.class)),
+        syntheticItems.syntheticBackportMethod(
+            User2.class, 0, Integer.class.getMethod("compare", int.class, int.class)));
   }
 
   static class User1 {

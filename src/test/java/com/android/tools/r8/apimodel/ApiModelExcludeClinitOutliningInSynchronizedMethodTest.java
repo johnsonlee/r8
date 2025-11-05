@@ -14,6 +14,7 @@ import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.StringUtils;
+import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import java.io.IOException;
@@ -46,22 +47,26 @@ public class ApiModelExcludeClinitOutliningInSynchronizedMethodTest extends Test
   public void testD8() throws Exception {
     testForD8(parameters)
         .addProgramClassFileData(getTestClass())
+        .collectSyntheticItems()
         .compile()
-        .inspect(
-            inspector ->
-                assertEquals(
-                    1, // Only one for android.graphics.SurfaceTexture.
-                    inspector
-                        .clazz(TestClass.class)
-                        .uniqueMethodWithOriginalName("constructorArgumentInSynchronizedMethod")
-                        .streamInstructions()
-                        .filter(InstructionSubject::isInvokeStatic)
-                        .map(InstructionSubject::getMethod)
-                        .filter(
-                            dexMethod ->
-                                SyntheticItemsTestUtils.isExternalApiOutlineClass(
-                                    dexMethod.getHolderType().asClassReference()))
-                        .count()))
+        .apply(
+            compileResult -> {
+              CodeInspector inspector = compileResult.inspector();
+              SyntheticItemsTestUtils syntheticItems = compileResult.getSyntheticItems();
+              assertEquals(
+                  1, // Only one for android.graphics.SurfaceTexture.
+                  inspector
+                      .clazz(TestClass.class)
+                      .uniqueMethodWithOriginalName("constructorArgumentInSynchronizedMethod")
+                      .streamInstructions()
+                      .filter(InstructionSubject::isInvokeStatic)
+                      .map(InstructionSubject::getMethod)
+                      .filter(
+                          dexMethod ->
+                              syntheticItems.isExternalApiOutlineClass(
+                                  dexMethod.getHolderType().asClassReference()))
+                      .count());
+            })
         .addRunClasspathClassFileData(getSurfaceTexture())
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);

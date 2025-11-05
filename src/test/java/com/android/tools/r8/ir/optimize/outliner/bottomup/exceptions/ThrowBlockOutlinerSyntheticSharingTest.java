@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize.outliner.bottomup.exceptions;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethod;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -39,17 +38,16 @@ public class ThrowBlockOutlinerSyntheticSharingTest extends BottomUpOutlinerTest
             .compile();
     testForD8(parameters.getBackend())
         .addProgramFiles(compileResult.writeToZip(), otherCompileResult.writeToZip())
+        .collectSyntheticItems()
         .release()
         .setMinApi(parameters)
         .compile()
-        .inspect(
-            inspector -> {
+        .inspectWithSyntheticItems(
+            (inspector, syntheticItems) -> {
               // The output should contain Main, OtherMain, and a *single* synthetic class.
               assertEquals(3, inspector.allClasses().size());
               ClassSubject syntheticClassSubject =
-                  inspector.clazz(
-                      getDefaultSyntheticItemsTestUtils()
-                          .syntheticBottomUpOutlineClass(Main.class, 0));
+                  inspector.clazz(syntheticItems.syntheticBottomUpOutlineClass(Main.class, 0));
               assertThat(syntheticClassSubject, isPresent());
               assertEquals(1, syntheticClassSubject.allMethods().size());
 

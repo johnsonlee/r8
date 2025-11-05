@@ -6,13 +6,13 @@ package com.android.tools.r8.apimodel;
 
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLevelForClass;
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLevelForMethod;
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
 import com.android.tools.r8.CompilationMode;
+import com.android.tools.r8.D8TestBuilder;
 import com.android.tools.r8.GlobalSyntheticsTestingConsumer;
 import com.android.tools.r8.OutputMode;
 import com.android.tools.r8.SingleTestRunResult;
@@ -20,6 +20,7 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestCompilerBuilder;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
@@ -100,7 +101,8 @@ public class ApiModelHorizontalMergeAndD8MergeTest extends TestBase {
     assertFalse(mainGlobals.hasGlobals());
     assertFalse(testCallingFooGlobals.hasGlobals());
     assertFalse(testCallingBarGlobals.hasGlobals());
-    testForD8()
+    D8TestBuilder testBuilder = testForD8();
+    testBuilder
         .setMode(mode)
         .addProgramFiles(paths)
         .apply(this::setupTestCompileBuilder)
@@ -109,13 +111,13 @@ public class ApiModelHorizontalMergeAndD8MergeTest extends TestBase {
               if (isGreaterOrEqualToMockLevel() || mode.isDebug()) {
                 inspector.assertNoClassesMerged();
               } else {
+                SyntheticItemsTestUtils syntheticItems = testBuilder.getState().getSyntheticItems();
                 inspector.assertIsCompleteMergeGroup(
-                    getDefaultSyntheticItemsTestUtils()
-                        .syntheticApiOutlineClass(TestCallingFoo.class, 0),
-                    getDefaultSyntheticItemsTestUtils()
-                        .syntheticApiOutlineClass(TestCallingBar.class, 0));
+                    syntheticItems.syntheticApiOutlineClass(TestCallingFoo.class, 0),
+                    syntheticItems.syntheticApiOutlineClass(TestCallingBar.class, 0));
               }
             })
+        .collectSyntheticItems()
         .compile()
         .inspect(inspector -> inspect(inspector, mode))
         .applyIf(addToBootClasspath(), b -> b.addBootClasspathClasses(LibraryClass.class))

@@ -6,7 +6,6 @@ package com.android.tools.r8.jdk17.records;
 
 import static com.android.tools.r8.ir.desugar.records.RecordFullInstructionDesugaring.EQUALS_RECORD_METHOD_NAME;
 import static com.android.tools.r8.ir.desugar.records.RecordFullInstructionDesugaring.GET_FIELDS_AS_OBJECTS_METHOD_NAME;
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethod;
 import static com.android.tools.r8.utils.codeinspector.Matchers.ifThen;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsentIf;
@@ -79,13 +78,15 @@ public class RecordProfileRewritingTest extends TestBase {
         testForD8(parameters.getBackend())
             .addInnerClassesAndStrippedOuter(getClass())
             .addArtProfileForRewriting(getArtProfile())
+            .collectSyntheticItems()
             .setMinApi(parameters)
             .compile();
     compileResult
         .inspectResidualArtProfile(
             profileInspector ->
                 compileResult.inspectWithOptions(
-                    inspector -> inspectD8(profileInspector, inspector),
+                    inspector ->
+                        inspectD8(profileInspector, inspector, compileResult.getSyntheticItems()),
                     options -> options.testing.disableRecordApplicationReaderMap = true))
         .run(parameters.getRuntime(), MAIN_REFERENCE.getTypeName())
         .applyIf(
@@ -113,6 +114,7 @@ public class RecordProfileRewritingTest extends TestBase {
             .applyIf(
                 parameters.isCfRuntime(),
                 testBuilder -> testBuilder.addLibraryProvider(JdkClassFileProvider.fromSystemJdk()))
+            .collectSyntheticItems()
             .enableProguardTestOptions()
             .noHorizontalClassMergingOfSynthetics()
             .setMinApi(parameters)
@@ -121,7 +123,8 @@ public class RecordProfileRewritingTest extends TestBase {
         .inspectResidualArtProfile(
             profileInspector ->
                 compileResult.inspectWithOptions(
-                    inspector -> inspectR8(profileInspector, inspector),
+                    inspector ->
+                        inspectR8(profileInspector, inspector, compileResult.getSyntheticItems()),
                     options -> options.testing.disableRecordApplicationReaderMap = true))
         .run(parameters.getRuntime(), MAIN_REFERENCE.getTypeName())
         .assertSuccessWithOutput(EXPECTED_RESULT);
@@ -149,20 +152,28 @@ public class RecordProfileRewritingTest extends TestBase {
         .build();
   }
 
-  private void inspectD8(ArtProfileInspector profileInspector, CodeInspector inspector) {
+  private void inspectD8(
+      ArtProfileInspector profileInspector,
+      CodeInspector inspector,
+      SyntheticItemsTestUtils syntheticItems) {
     inspect(
         profileInspector,
         inspector,
+        syntheticItems,
         SyntheticItemsTestUtils.syntheticRecordTagClass(),
         false,
         !isRecordsFullyDesugaredForD8(parameters),
         false);
   }
 
-  private void inspectR8(ArtProfileInspector profileInspector, CodeInspector inspector) {
+  private void inspectR8(
+      ArtProfileInspector profileInspector,
+      CodeInspector inspector,
+      SyntheticItemsTestUtils syntheticItems) {
     inspect(
         profileInspector,
         inspector,
+        syntheticItems,
         RECORD_REFERENCE,
         true,
         !isRecordsFullyDesugaredForR8(parameters),
@@ -172,6 +183,7 @@ public class RecordProfileRewritingTest extends TestBase {
   private void inspect(
       ArtProfileInspector profileInspector,
       CodeInspector inspector,
+      SyntheticItemsTestUtils syntheticItems,
       ClassReference recordClassReference,
       boolean isR8,
       boolean partialDesugaring,
@@ -239,8 +251,7 @@ public class RecordProfileRewritingTest extends TestBase {
 
     // Objects.hashCode(Object) (used by helper generated for record hashCode).
     ClassSubject objectsHashCodeClassSubject =
-        inspector.clazz(
-            getDefaultSyntheticItemsTestUtils().syntheticBackportClass(PERSON_REFERENCE, 0));
+        inspector.syntheticClass(syntheticItems.syntheticBackportClass(PERSON_REFERENCE, 0));
     assertThat(
         objectsHashCodeClassSubject,
         isAbsentIf(recordDesugaringIsOff || canUseJavaUtilObjects(parameters)));
@@ -249,8 +260,7 @@ public class RecordProfileRewritingTest extends TestBase {
 
     // Objects.equals(Object, Object) (used by helper generated for record compare).
     ClassSubject objectsEqualsClassSubject =
-        inspector.clazz(
-            getDefaultSyntheticItemsTestUtils().syntheticBackportClass(PERSON_REFERENCE, 1));
+        inspector.syntheticClass(syntheticItems.syntheticBackportClass(PERSON_REFERENCE, 1));
     assertThat(
         objectsEqualsClassSubject,
         isAbsentIf(recordDesugaringIsOff || canUseJavaUtilObjects(parameters)));
@@ -260,8 +270,8 @@ public class RecordProfileRewritingTest extends TestBase {
 
     // int hashCode()
     ClassSubject hashCodeHelperClassSubject =
-        inspector.clazz(
-            SyntheticItemsTestUtils.syntheticRecordHelperClass(
+        inspector.syntheticClass(
+            syntheticItems.syntheticRecordHelperClass(
                 PERSON_REFERENCE, objectsHashCodeClassSubject.isAbsent() ? 1 : 3));
     assertThat(hashCodeHelperClassSubject, isAbsentIf(recordDesugaringIsOff));
 
@@ -277,8 +287,8 @@ public class RecordProfileRewritingTest extends TestBase {
 
     // String toString()
     ClassSubject toStringHelperClassSubject =
-        inspector.clazz(
-            SyntheticItemsTestUtils.syntheticRecordHelperClass(
+        inspector.syntheticClass(
+            syntheticItems.syntheticRecordHelperClass(
                 PERSON_REFERENCE, objectsHashCodeClassSubject.isAbsent() ? 0 : 2));
     assertThat(toStringHelperClassSubject, isAbsentIf(recordDesugaringIsOff));
 

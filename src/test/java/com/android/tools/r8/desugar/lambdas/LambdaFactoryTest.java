@@ -43,17 +43,18 @@ public class LambdaFactoryTest extends TestBase {
     return method.isSynthetic() && method.isStatic() && method.getFinalName().equals("create");
   }
 
-  private boolean isInvokingLambdaFactoryMethod(InstructionSubject instruction) {
+  private boolean isInvokingLambdaFactoryMethod(
+      InstructionSubject instruction, SyntheticItemsTestUtils syntheticItems) {
     return instruction.isInvokeStatic()
-        && SyntheticItemsTestUtils.isExternalSynthetic(
+        && syntheticItems.isExternalLambda(
             instruction.getMethod().getHolderType().asClassReference())
         && instruction.getMethod().getName().toString().equals("create");
   }
 
-  private void inspectDesugared(CodeInspector inspector) {
+  private void inspectDesugared(CodeInspector inspector, SyntheticItemsTestUtils syntheticItems) {
     inspector.forAllClasses(
         clazz -> {
-          if (SyntheticItemsTestUtils.isExternalSynthetic(clazz.getFinalReference())) {
+          if (syntheticItems.isExternalLambda(clazz.getOriginalReference())) {
             assertTrue(clazz.allMethods().stream().anyMatch(this::isLambdaFactoryMethod));
           }
         });
@@ -63,24 +64,7 @@ public class LambdaFactoryTest extends TestBase {
             .clazz(TestClass.class)
             .mainMethod()
             .streamInstructions()
-            .filter(this::isInvokingLambdaFactoryMethod)
-            .count());
-  }
-
-  private void inspectNotDesugared(CodeInspector inspector) {
-    inspector.forAllClasses(
-        clazz -> {
-          if (SyntheticItemsTestUtils.isExternalSynthetic(clazz.getFinalReference())) {
-            assertTrue(clazz.allMethods().stream().noneMatch(this::isLambdaFactoryMethod));
-          }
-        });
-    assertEquals(
-        0,
-        inspector
-            .clazz(TestClass.class)
-            .mainMethod()
-            .streamInstructions()
-            .filter(this::isInvokingLambdaFactoryMethod)
+            .filter(i -> isInvokingLambdaFactoryMethod(i, syntheticItems))
             .count());
   }
 
@@ -93,16 +77,19 @@ public class LambdaFactoryTest extends TestBase {
               if (builder.isD8TestBuilder()) {
                 builder
                     .asD8TestBuilder()
-                    .addOptionsModification(this::configureAlwaysGenerateLambdaFactoryMethods);
+                    .addOptionsModification(this::configureAlwaysGenerateLambdaFactoryMethods)
+                    .collectSyntheticItems();
               } else if (builder.isD8IntermediateTestBuilder()) {
                 builder
                     .asD8IntermediateTestBuilder()
-                    .addOptionsModification(this::configureAlwaysGenerateLambdaFactoryMethods);
+                    .addOptionsModification(this::configureAlwaysGenerateLambdaFactoryMethods)
+                    .collectSyntheticInputs();
               } else if (builder.isR8PartialTestBuilder()) {
                 builder
                     .asR8PartialTestBuilder()
                     .addR8PartialD8OptionsModification(
-                        this::configureAlwaysGenerateLambdaFactoryMethods);
+                        this::configureAlwaysGenerateLambdaFactoryMethods)
+                    .collectSyntheticItems();
               } else {
                 assert builder.isJvmTestBuilder();
               }
@@ -112,14 +99,8 @@ public class LambdaFactoryTest extends TestBase {
             DesugarTestConfiguration::isDesugared,
             r -> {
               try {
-                r.inspect(this::inspectDesugared);
-              } catch (Exception e) {
-                fail();
-              }
-            },
-            r -> {
-              try {
-                r.inspect(this::inspectNotDesugared);
+                assert r.getSyntheticItems() != null;
+                r.inspect(inspector -> inspectDesugared(inspector, r.getSyntheticItems()));
               } catch (Exception e) {
                 fail();
               }

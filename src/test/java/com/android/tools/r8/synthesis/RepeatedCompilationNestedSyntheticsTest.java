@@ -173,10 +173,10 @@ public class RepeatedCompilationNestedSyntheticsTest extends TestBase {
             intermediateBackend == Backend.CF,
             b -> b.addProgramClassFileData(secondCompilation.values()),
             b -> b.addProgramDexFileData(secondCompilation.values()))
-        .run(parameters.getRuntime(), TestClass.class)
-        .assertSuccessWithOutputLines("1")
-        .inspect(
-            inspector -> {
+        .collectSyntheticItems()
+        .compile()
+        .inspectWithSyntheticItems(
+            (inspector, syntheticItems) -> {
               Set<String> descriptors =
                   inspector.allClasses().stream()
                       .map(c -> c.getFinalReference().getDescriptor())
@@ -189,14 +189,12 @@ public class RepeatedCompilationNestedSyntheticsTest extends TestBase {
                       // The merge step will reestablish the original contexts, thus both the lambda
                       // and the backport are placed under the non-synthetic input class
                       // UsesBackport.
-                      getDefaultSyntheticItemsTestUtils()
-                          .syntheticBackportClass(UsesBackport.class, 0)
-                          .getDescriptor(),
-                      getDefaultSyntheticItemsTestUtils()
-                          .syntheticLambdaClass(UsesBackport.class, 1)
-                          .getDescriptor()),
+                      syntheticItems.syntheticBackportClass(UsesBackport.class, 0).getDescriptor(),
+                      syntheticItems.syntheticLambdaClass(UsesBackport.class, 1).getDescriptor()),
                   descriptors);
-            });
+            })
+        .run(parameters.getRuntime(), TestClass.class)
+        .assertSuccessWithOutputLines("1");
   }
 
   interface I {

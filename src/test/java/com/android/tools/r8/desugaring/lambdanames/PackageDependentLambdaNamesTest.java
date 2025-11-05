@@ -3,12 +3,12 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.desugaring.lambdanames;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static org.junit.Assert.assertEquals;
 
+import com.android.tools.r8.SingleTestRunResult;
 import com.android.tools.r8.TestBase;
+import com.android.tools.r8.TestBuilder;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestRunResult;
 import com.android.tools.r8.transformers.ClassFileTransformer;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.DescriptorUtils;
@@ -39,10 +39,11 @@ public class PackageDependentLambdaNamesTest extends TestBase {
 
   @Test
   public void test() throws Exception {
-    TestRunResult<?> result =
+    SingleTestRunResult<?> result =
         testForRuntime(parameters)
             .addProgramClasses(StringConsumer.class)
             .addProgramClassFileData(getTestClass(), getA(), getB())
+            .applyIf(parameters.isDexRuntime(), TestBuilder::collectSyntheticItems)
             .run(parameters.getRuntime(), TestClass.class)
             .assertSuccessWithOutput(EXPECTED);
     if (parameters.isDexRuntime()) {
@@ -52,9 +53,7 @@ public class PackageDependentLambdaNamesTest extends TestBase {
             assertEquals(
                 2,
                 inspector.allClasses().stream()
-                    .filter(
-                        clazz ->
-                            clazz.isSynthesizedJavaLambdaClass(getDefaultSyntheticItemsTestUtils()))
+                    .filter(clazz -> clazz.isSynthesizedJavaLambdaClass(result.getSyntheticItems()))
                     .count());
           });
     }

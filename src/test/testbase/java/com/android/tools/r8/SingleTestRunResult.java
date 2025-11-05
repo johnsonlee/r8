@@ -12,6 +12,7 @@ import com.android.tools.r8.ToolHelper.DexVm;
 import com.android.tools.r8.ToolHelper.ProcessResult;
 import com.android.tools.r8.debug.DebugTestConfig;
 import com.android.tools.r8.naming.retrace.StackTrace;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.ThrowingConsumer;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
@@ -37,6 +38,10 @@ public abstract class SingleTestRunResult<RR extends SingleTestRunResult<RR>>
     this.app = app;
     this.runtime = runtime;
     this.result = result;
+  }
+
+  public boolean isJvmTestRunResult() {
+    return false;
   }
 
   public boolean isR8TestRunResult() {
@@ -78,6 +83,10 @@ public abstract class SingleTestRunResult<RR extends SingleTestRunResult<RR>>
     } else {
       return StackTrace.extractFromJvm(getStdErr());
     }
+  }
+
+  public SyntheticItemsTestUtils getSyntheticItems() {
+    return getState().getSyntheticItems();
   }
 
   public int getExitCode() {

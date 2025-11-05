@@ -6,6 +6,7 @@ package com.android.tools.r8.maindexlist;
 
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
 import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -17,12 +18,20 @@ import com.android.tools.r8.StringConsumer.FileConsumer;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.references.ClassReference;
+import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
+import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.FileUtils;
+import com.android.tools.r8.utils.StringUtils;
+import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.google.common.collect.ImmutableList;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.stream.Collectors;
+import org.hamcrest.Description;
+import org.hamcrest.TypeSafeMatcher;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -35,7 +44,7 @@ public class MainDexListOutputTest extends TestBase {
     void accept(T element);
   }
 
-  class TestClass {
+  static class TestClass {
     public void f(MyConsumer<String> s) {
       s.accept("asdf");
     }
@@ -45,11 +54,9 @@ public class MainDexListOutputTest extends TestBase {
     }
   }
 
-  private static String testClassMainDexName =
-      "com/android/tools/r8/maindexlist/MainDexListOutputTest$TestClass.class";
-
   private static class TestMainDexListConsumer implements StringConsumer {
     public boolean called = false;
+    public boolean finished = false;
     public StringBuilder builder = new StringBuilder();
 
     @Override
@@ -60,9 +67,28 @@ public class MainDexListOutputTest extends TestBase {
 
     @Override
     public void finished(DiagnosticsHandler handler) {
-      String string = builder.toString();
-      assertThat(string, containsString(testClassMainDexName));
-      assertThat(string, SyntheticItemsTestUtils.containsExternalSyntheticReference());
+      finished = true;
+    }
+
+    public void inspect(CodeInspector inspector, SyntheticItemsTestUtils syntheticItems) {
+      List<ClassReference> mainDexList =
+          StringUtils.splitLines(builder.toString()).stream()
+              .map(line -> Reference.classFromDescriptor(DescriptorUtils.guessTypeDescriptor(line)))
+              .collect(Collectors.toList());
+      assertThat(mainDexList, hasItem(Reference.classFromClass(TestClass.class)));
+      assertThat(
+          mainDexList,
+          hasItem(
+              new TypeSafeMatcher<ClassReference>() {
+
+                @Override
+                public void describeTo(Description description) {}
+
+                @Override
+                protected boolean matchesSafely(ClassReference classReference) {
+                  return syntheticItems.isExternalLambda(classReference);
+                }
+              }));
     }
   }
 
@@ -122,8 +148,11 @@ public class MainDexListOutputTest extends TestBase {
         .addProgramClasses(ImmutableList.of(TestClass.class, MyConsumer.class))
         .addMainDexKeepClassAndMemberRules(TestClass.class)
         .setMainDexListConsumer(consumer)
-        .compile();
+        .collectSyntheticItems()
+        .compile()
+        .inspectWithSyntheticItems(consumer::inspect);
     assertTrue(consumer.called);
+    assertTrue(consumer.finished);
   }
 
   @Test
@@ -143,7 +172,10 @@ public class MainDexListOutputTest extends TestBase {
         .addProgramFiles(dexOutput)
         .addMainDexKeepClassAndMemberRules(TestClass.class)
         .setMainDexListConsumer(consumer)
-        .compile();
+        .collectSyntheticItems()
+        .compile()
+        .inspectWithSyntheticItems(consumer::inspect);
     assertTrue(consumer.called);
+    assertTrue(consumer.finished);
   }
 }

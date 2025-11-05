@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.desugar.lambdas;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -76,23 +75,20 @@ public class LambdaCallTargetAnnotationTest extends TestBase {
         .applyIf(intermediate, b -> b.getBuilder().setGlobalSyntheticsConsumer(globals))
         .addOptionsModification(
             options -> options.testing.forceLambdaAccessorInD8 = forceLambdaAccessor)
+        .collectSyntheticItems()
         .compile()
-        .inspect(
-            inspector -> {
+        .inspectWithSyntheticItems(
+            (inspector, syntheticItems) -> {
               checkAnnotation(
                   inspector
-                      .clazz(
-                          getDefaultSyntheticItemsTestUtils()
-                              .syntheticLambdaClass(LambdaMethod.class, 0))
+                      .clazz(syntheticItems.syntheticLambdaClass(LambdaMethod.class, 0))
                       .annotation("com.android.tools.r8.annotations.LambdaMethod"),
                   prefix + "$" + LambdaMethod.class.getSimpleName() + ";",
                   "lambda$testILambda$0",
                   "()V");
               checkAnnotation(
                   inspector
-                      .clazz(
-                          getDefaultSyntheticItemsTestUtils()
-                              .syntheticLambdaClass(LambdaMethod.class, 1))
+                      .clazz(syntheticItems.syntheticLambdaClass(LambdaMethod.class, 1))
                       .annotation("com.android.tools.r8.annotations.LambdaMethod"),
                   prefix + "$" + LambdaMethod.class.getSimpleName() + ";",
                   "lambda$testJLambda$1",
@@ -101,8 +97,7 @@ public class LambdaCallTargetAnnotationTest extends TestBase {
               checkAnnotation(
                   inspector
                       .clazz(
-                          getDefaultSyntheticItemsTestUtils()
-                              .syntheticLambdaClass(LambdaStaticMethodReference.class, 0))
+                          syntheticItems.syntheticLambdaClass(LambdaStaticMethodReference.class, 0))
                       .annotation("com.android.tools.r8.annotations.LambdaMethod"),
                   prefix + "$" + LambdaStaticMethodReference.class.getSimpleName() + ";",
                   "methodReturningJ",
@@ -110,8 +105,7 @@ public class LambdaCallTargetAnnotationTest extends TestBase {
               checkAnnotation(
                   inspector
                       .clazz(
-                          getDefaultSyntheticItemsTestUtils()
-                              .syntheticLambdaClass(LambdaStaticMethodReference.class, 1))
+                          syntheticItems.syntheticLambdaClass(LambdaStaticMethodReference.class, 1))
                       .annotation("com.android.tools.r8.annotations.LambdaMethod"),
                   prefix + "$" + LambdaStaticMethodReference.class.getSimpleName() + ";",
                   "methodReturningI",
@@ -120,8 +114,8 @@ public class LambdaCallTargetAnnotationTest extends TestBase {
               checkAnnotation(
                   inspector
                       .clazz(
-                          getDefaultSyntheticItemsTestUtils()
-                              .syntheticLambdaClass(LambdaVirtualMethodReference.class, 0))
+                          syntheticItems.syntheticLambdaClass(
+                              LambdaVirtualMethodReference.class, 0))
                       .annotation("com.android.tools.r8.annotations.LambdaMethod"),
                   prefix + "$" + LambdaVirtualMethodReference.class.getSimpleName() + ";",
                   "methodReturningI",
@@ -129,8 +123,8 @@ public class LambdaCallTargetAnnotationTest extends TestBase {
               checkAnnotation(
                   inspector
                       .clazz(
-                          getDefaultSyntheticItemsTestUtils()
-                              .syntheticLambdaClass(LambdaVirtualMethodReference.class, 1))
+                          syntheticItems.syntheticLambdaClass(
+                              LambdaVirtualMethodReference.class, 1))
                       .annotation("com.android.tools.r8.annotations.LambdaMethod"),
                   prefix + "$" + LambdaVirtualMethodReference.class.getSimpleName() + ";",
                   "methodReturningJ",
@@ -138,18 +132,14 @@ public class LambdaCallTargetAnnotationTest extends TestBase {
 
               checkAnnotation(
                   inspector
-                      .clazz(
-                          getDefaultSyntheticItemsTestUtils()
-                              .syntheticLambdaClass(LambdaMethodWithCaptures.class, 0))
+                      .clazz(syntheticItems.syntheticLambdaClass(LambdaMethodWithCaptures.class, 0))
                       .annotation("com.android.tools.r8.annotations.LambdaMethod"),
                   prefix + "$" + LambdaMethodWithCaptures.class.getSimpleName() + ";",
                   "lambda$testILambda$0",
                   "(I)V");
               checkAnnotation(
                   inspector
-                      .clazz(
-                          getDefaultSyntheticItemsTestUtils()
-                              .syntheticLambdaClass(LambdaMethodWithCaptures.class, 1))
+                      .clazz(syntheticItems.syntheticLambdaClass(LambdaMethodWithCaptures.class, 1))
                       .annotation("com.android.tools.r8.annotations.LambdaMethod"),
                   prefix + "$" + LambdaMethodWithCaptures.class.getSimpleName() + ";",
                   "lambda$testJLambda$1",
@@ -157,18 +147,14 @@ public class LambdaCallTargetAnnotationTest extends TestBase {
 
               checkAnnotation(
                   inspector
-                      .clazz(
-                          getDefaultSyntheticItemsTestUtils()
-                              .syntheticLambdaClass(ConstructorReference.class, 0))
+                      .clazz(syntheticItems.syntheticLambdaClass(ConstructorReference.class, 0))
                       .annotation("com.android.tools.r8.annotations.LambdaMethod"),
                   prefix + "$" + IImpl.class.getSimpleName() + ";",
                   "<init>",
                   "()V");
               checkAnnotation(
                   inspector
-                      .clazz(
-                          getDefaultSyntheticItemsTestUtils()
-                              .syntheticLambdaClass(ConstructorReference.class, 1))
+                      .clazz(syntheticItems.syntheticLambdaClass(ConstructorReference.class, 1))
                       .annotation("com.android.tools.r8.annotations.LambdaMethod"),
                   prefix + "$" + ConstructorReference.class.getSimpleName() + ";",
                   "lambda$testInstantiateJ$0",
@@ -177,8 +163,8 @@ public class LambdaCallTargetAnnotationTest extends TestBase {
               checkAnnotation(
                   inspector
                       .clazz(
-                          getDefaultSyntheticItemsTestUtils()
-                              .syntheticLambdaClass(ConstructorReferenceWithCaptures.class, 0))
+                          syntheticItems.syntheticLambdaClass(
+                              ConstructorReferenceWithCaptures.class, 0))
                       .annotation("com.android.tools.r8.annotations.LambdaMethod"),
                   prefix + "$" + ConstructorReferenceWithCaptures.class.getSimpleName() + ";",
                   "lambda$testInstantiateJWithCapture$0",

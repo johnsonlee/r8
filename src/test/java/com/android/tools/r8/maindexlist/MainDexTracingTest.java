@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.maindexlist;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.FileUtils.JAR_EXTENSION;
 import static com.android.tools.r8.utils.FileUtils.ZIP_EXTENSION;
 import static com.android.tools.r8.utils.FileUtils.withNativeFileSeparators;
@@ -209,7 +208,7 @@ public class MainDexTracingTest extends TestBase {
         "multidex004",
         EXAMPLE_O_BUILD_DIR,
         Paths.get(EXAMPLE_SRC_DIR, "multidex", "main-dex-rules.txt"),
-        Paths.get(EXAMPLE_O_SRC_DIR, "multidex004", "ref-list-r8.txt"),
+        Paths.get(EXAMPLE_O_SRC_DIR, "multidex004", "ref-list-1.txt"),
         Paths.get(EXAMPLE_O_SRC_DIR, "multidex004", "ref-list-1.txt"),
         AndroidApiLevel.I,
         builder ->
@@ -365,18 +364,23 @@ public class MainDexTracingTest extends TestBase {
             .collect(Collectors.toList());
 
     // Build main-dex list using D8 & rules.
+    SyntheticItemsTestUtils d8SyntheticItems;
     List<String> mainDexListFromD8;
     {
       final Box<String> mainDexListOutputFromD8 = new Box<>();
-      testForD8(Backend.DEX)
-          .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.K))
-          .addProgramFiles(inputJar)
-          .addProgramFiles(Paths.get(EXAMPLE_BUILD_DIR, "multidexfakeframeworks" + JAR_EXTENSION))
-          .addMainDexRulesFiles(mainDexRules)
-          .setMainDexListConsumer(ToolHelper.consumeString(mainDexListOutputFromD8::set))
-          .setMinApi(minSdk)
-          .allowStdoutMessages()
-          .compile();
+      d8SyntheticItems =
+          testForD8(Backend.DEX)
+              .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.K))
+              .addProgramFiles(inputJar)
+              .addProgramFiles(
+                  Paths.get(EXAMPLE_BUILD_DIR, "multidexfakeframeworks" + JAR_EXTENSION))
+              .addMainDexRulesFiles(mainDexRules)
+              .collectSyntheticItems()
+              .setMainDexListConsumer(ToolHelper.consumeString(mainDexListOutputFromD8::set))
+              .setMinApi(minSdk)
+              .allowStdoutMessages()
+              .compile()
+              .getSyntheticItems();
       mainDexListFromD8 =
           StringUtils.splitLines(mainDexListOutputFromD8.get()).stream()
               .map(this::mainDexStringToDescriptor)
@@ -427,26 +431,25 @@ public class MainDexTracingTest extends TestBase {
       if (mainDexListFromD8.size() <= i) {
         fail("D8 main-dex list is missing '" + reference + "'");
       }
-      checkSameMainDexEntry(
-          reference, mainDexListFromD8.get(i), getDefaultSyntheticItemsTestUtils());
+      checkSameMainDexEntry(reference, mainDexListFromD8.get(i), d8SyntheticItems);
     }
     int nonLambdaOffset = 0;
     for (int i = 0; i < refList.length; i++) {
       String reference = refList[i].trim();
       // The main dex list generator does not do any lambda desugaring.
-      if (!isExternalSyntheticLambda(reference, getDefaultSyntheticItemsTestUtils())) {
+      if (!isExternalSyntheticLambda(reference, d8SyntheticItems)) {
         if (mainDexGeneratorMainDexList.size() <= i - nonLambdaOffset) {
           fail("Main dex list generator is missing '" + reference + "'");
         }
         String fromList = mainDexGeneratorMainDexList.get(i - nonLambdaOffset);
         String fromConsumer = mainDexGeneratorMainDexListFromConsumer.get(i - nonLambdaOffset);
-        if (isExternalSyntheticLambda(fromList, getDefaultSyntheticItemsTestUtils())) {
+        if (isExternalSyntheticLambda(fromList, d8SyntheticItems)) {
           assertEquals(Backend.DEX, backend);
           assertEquals(fromList, fromConsumer);
           nonLambdaOffset--;
         } else {
-          checkSameMainDexEntry(reference, fromList, getDefaultSyntheticItemsTestUtils());
-          checkSameMainDexEntry(reference, fromConsumer, getDefaultSyntheticItemsTestUtils());
+          checkSameMainDexEntry(reference, fromList, d8SyntheticItems);
+          checkSameMainDexEntry(reference, fromConsumer, d8SyntheticItems);
         }
       } else {
         nonLambdaOffset++;

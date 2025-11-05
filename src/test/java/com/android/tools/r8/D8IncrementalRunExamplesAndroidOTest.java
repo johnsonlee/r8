@@ -102,7 +102,7 @@ public abstract class D8IncrementalRunExamplesAndroidOTest
                   || SyntheticItemsTestUtils.isExternalTwrCloseMethod(reference)
                   || SyntheticItemsTestUtils.isMaybeExternalSuppressedExceptionMethod(reference)
                   || getDefaultSyntheticItemsTestUtils().isExternalLambda(reference)
-                  || SyntheticItemsTestUtils.isExternalStaticInterfaceCall(reference)
+                  || getDefaultSyntheticItemsTestUtils().isExternalStaticInterfaceCall(reference)
                   || descriptor.equals(mainClassDescriptor));
         }
         String classDescriptor =

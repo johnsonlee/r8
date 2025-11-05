@@ -8,26 +8,31 @@ import static com.android.tools.r8.desugar.staticinterfacemethod.InvokeStaticDes
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeFalse;
 
 import com.android.tools.r8.DesugarTestConfiguration;
 import com.android.tools.r8.PartialCompilationTestParameters;
+import com.android.tools.r8.SingleTestRunResult;
 import com.android.tools.r8.TestBase;
+import com.android.tools.r8.TestCompileResult;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestRunResult;
 import com.android.tools.r8.ToolHelper.DexVm;
 import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
-import com.android.tools.r8.utils.IntBox;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
+import com.android.tools.r8.utils.codeinspector.FoundClassSubject;
 import com.android.tools.r8.utils.codeinspector.FoundMethodSubject;
 import com.google.common.collect.ImmutableList;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -61,7 +66,7 @@ public class InvokeStaticDesugarTest extends TestBase {
     // Intermediate not used in this test.
     assumeFalse(intermediate);
 
-    final TestRunResult<?> runResult =
+    TestRunResult<?> runResult =
         testForDesugaring(parameters)
             .addLibraryClasses(Library.class)
             .addProgramClasses(Main.class)
@@ -78,20 +83,22 @@ public class InvokeStaticDesugarTest extends TestBase {
   @Test
   public void testDoubleDesugar() throws Exception {
     // Desugar using API level that cannot leave static interface invokes.
-    Path jar =
+    TestCompileResult<?, ?> initialCompileResult =
         testForD8(Backend.CF, PartialCompilationTestParameters.NONE)
             .addLibraryClasses(Library.class)
             .addProgramClasses(Main.class)
+            .collectSyntheticItems()
             .setMinApi(AndroidApiLevel.B)
             .apply(b -> b.asD8TestBuilder().setIntermediate(intermediate))
             .compile()
-            .inspect(i -> assertEquals(1, getSyntheticMethods(i).size()))
-            .writeToZip();
+            .inspectWithSyntheticItems(
+                (i, s) -> assertEquals(1, getSyntheticMethods(i, s, null).size()));
 
     testForDesugaring(parameters)
         .addLibraryClasses(Library.class)
-        .addProgramFiles(jar)
+        .addProgramFiles(initialCompileResult.writeToZip())
         .addRunClasspathFiles(compileRunClassPath())
+        .collectSyntheticItems()
         .run(parameters.getRuntime(), Main.class)
         .applyIf(
             // When double desugaring to API level below L two synthetics are seen.
@@ -105,7 +112,7 @@ public class InvokeStaticDesugarTest extends TestBase {
                             .isNewerThan(DexVm.ART_4_4_4_HOST))
                     && parameters.getApiLevel().isLessThan(AndroidApiLevel.L),
             r -> {
-              assertEquals(intermediate ? 1 : 2, countSynthetics(r));
+              assertEquals(intermediate ? 1 : 2, countSynthetics(r, initialCompileResult));
               r.assertSuccessWithOutputLines(EXPECTED);
             },
             // Don't inspect failing code, as inspection is only supported when run succeeds,
@@ -121,7 +128,7 @@ public class InvokeStaticDesugarTest extends TestBase {
             r -> r.assertFailureWithErrorThatMatches(containsString("java.lang.VerifyError")),
             // When double desugaring to API level L and above one synthetics seen.
             r -> {
-              assertEquals(1, countSynthetics(r));
+              assertEquals(1, countSynthetics(r, initialCompileResult));
               r.assertSuccessWithOutputLines(EXPECTED);
             });
   }
@@ -133,6 +140,7 @@ public class InvokeStaticDesugarTest extends TestBase {
       assert parameters.isDexRuntime();
       return testForD8(Backend.DEX, PartialCompilationTestParameters.NONE)
           .addProgramClasses(Library.class)
+          .collectSyntheticItems()
           .setMinApi(parameters)
           .disableDesugaring()
           .addOptionsModification(
@@ -142,30 +150,41 @@ public class InvokeStaticDesugarTest extends TestBase {
     }
   }
 
-  private int countSynthetics(TestRunResult<?> r) {
-    IntBox box = new IntBox();
+  private int countSynthetics(
+      SingleTestRunResult<?> r, TestCompileResult<?, ?> initialCompileResult) {
     try {
-      r.inspect(inspector -> box.set(getSyntheticMethods(inspector).size()));
-    } catch (Exception e) {
-      box.set(-1);
-      fail();
+      if (r.isJvmTestRunResult()) {
+        return getSyntheticMethods(r.inspector(), initialCompileResult.getSyntheticItems(), null)
+            .size();
+      } else {
+        return getSyntheticMethods(
+                r.inspector(), r.getSyntheticItems(), initialCompileResult.getSyntheticItems())
+            .size();
+      }
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
     }
-    return box.get();
   }
 
-  private Set<FoundMethodSubject> getSyntheticMethods(CodeInspector inspector) {
+  private Set<FoundMethodSubject> getSyntheticMethods(
+      CodeInspector inspector,
+      SyntheticItemsTestUtils syntheticItems,
+      SyntheticItemsTestUtils initialSyntheticItems) {
+    List<FoundClassSubject> syntheticClasses =
+        inspector.allClasses().stream()
+            .filter(
+                c ->
+                    syntheticItems.isExternalStaticInterfaceCall(c.getFinalReference())
+                        || (initialSyntheticItems != null
+                            && initialSyntheticItems.isExternalStaticInterfaceCall(
+                                c.getFinalReference())))
+            .collect(Collectors.toList());
+    assertTrue(
+        inspector.allClasses().size() == 1
+            || (inspector.allClasses().size() == 2 && syntheticClasses.size() == 1)
+            || (inspector.allClasses().size() == 3 && syntheticClasses.size() == 2));
     Set<FoundMethodSubject> methods = new HashSet<>();
-    inspector
-        .allClasses()
-        .forEach(
-            c ->
-                assertTrue(
-                    !SyntheticItemsTestUtils.isExternalSynthetic(c.getFinalReference())
-                        || SyntheticItemsTestUtils.isExternalStaticInterfaceCall(
-                            c.getFinalReference())));
-    inspector.allClasses().stream()
-        .filter(c -> SyntheticItemsTestUtils.isExternalStaticInterfaceCall(c.getFinalReference()))
-        .forEach(c -> methods.addAll(c.allMethods(m -> !m.isInstanceInitializer())));
+    syntheticClasses.forEach(c -> methods.addAll(c.allMethods(m -> !m.isInstanceInitializer())));
     return methods;
   }
 

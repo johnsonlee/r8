@@ -4,13 +4,13 @@
 
 package com.android.tools.r8.desugar;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.D8TestCompileResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -46,11 +46,11 @@ public class DesugarToClassFile extends TestBase {
     }
   }
 
-  private void checkHasLambdaClass(CodeInspector inspector) {
+  private void checkHasLambdaClass(
+      CodeInspector inspector, SyntheticItemsTestUtils syntheticItems) {
     assertTrue(
         inspector.allClasses().stream()
-            .anyMatch(
-                clazz -> clazz.isSynthesizedJavaLambdaClass(getDefaultSyntheticItemsTestUtils())));
+            .anyMatch(clazz -> clazz.isSynthesizedJavaLambdaClass(syntheticItems)));
   }
 
   @Test
@@ -59,10 +59,11 @@ public class DesugarToClassFile extends TestBase {
     D8TestCompileResult desugarCompileResult =
         testForD8(Backend.CF)
             .addInnerClasses(DesugarToClassFile.class)
+            .collectSyntheticItems()
             .setMinApi(parameters)
             .compile()
             .inspect(this::checkHasCompanionClassIfRequired)
-            .inspect(this::checkHasLambdaClass);
+            .inspectWithSyntheticItems(this::checkHasLambdaClass);
 
     if (parameters.getRuntime().isCf()) {
       // Run on the JVM.

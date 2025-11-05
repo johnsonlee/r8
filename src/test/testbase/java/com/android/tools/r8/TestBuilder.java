@@ -317,6 +317,10 @@ public abstract class TestBuilder<RR extends TestRunResult<RR>, T extends TestBu
     return addLibraryClasses(getTestingAnnotations());
   }
 
+  public T collectSyntheticItems() {
+    throw new Unimplemented();
+  }
+
   public static List<Class<?>> getTestingAnnotations() {
     return ImmutableList.of(
         AlwaysInline.class,

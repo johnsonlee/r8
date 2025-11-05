@@ -15,14 +15,15 @@ public class DesugarTestBuilder
 
   public static DesugarTestBuilder create(
       TestState state,
-      List<Pair<DesugarTestConfiguration, TestBuilder<? extends TestRunResult<?>, ?>>>
+      List<Pair<DesugarTestConfiguration, TestBuilder<? extends SingleTestRunResult<?>, ?>>>
           testBuilders) {
     return new DesugarTestBuilder(state, testBuilders);
   }
 
   private DesugarTestBuilder(
       TestState state,
-      List<Pair<DesugarTestConfiguration, TestBuilder<? extends TestRunResult<?>, ?>>> builders) {
+      List<Pair<DesugarTestConfiguration, TestBuilder<? extends SingleTestRunResult<?>, ?>>>
+          builders) {
     super(state, builders);
   }
 
@@ -34,8 +35,9 @@ public class DesugarTestBuilder
   @Override
   public DesugarTestRunResult run(TestRuntime runtime, String mainClass, String... args)
       throws CompilationFailedException, ExecutionException, IOException {
-    List<Pair<DesugarTestConfiguration, TestRunResult<?>>> runs = new ArrayList<>(builders.size());
-    for (Pair<DesugarTestConfiguration, TestBuilder<? extends TestRunResult<?>, ?>> builder :
+    List<Pair<DesugarTestConfiguration, SingleTestRunResult<?>>> runs =
+        new ArrayList<>(builders.size());
+    for (Pair<DesugarTestConfiguration, TestBuilder<? extends SingleTestRunResult<?>, ?>> builder :
         builders) {
       runs.add(new Pair<>(builder.getFirst(), builder.getSecond().run(runtime, mainClass, args)));
     }

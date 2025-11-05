@@ -21,9 +21,9 @@ public abstract class TestRunResultCollection<
         C extends Enum<C>, RR extends TestRunResultCollection<C, RR>>
     extends TestRunResult<RR> {
 
-  private final List<Pair<C, TestRunResult<?>>> runs;
+  private final List<Pair<C, SingleTestRunResult<?>>> runs;
 
-  public TestRunResultCollection(List<Pair<C, TestRunResult<?>>> runs) {
+  public TestRunResultCollection(List<Pair<C, SingleTestRunResult<?>>> runs) {
     this.runs = runs;
   }
 
@@ -64,14 +64,14 @@ public abstract class TestRunResultCollection<
     throw new Unimplemented();
   }
 
-  public RR applyIf(Predicate<C> filter, Consumer<TestRunResult<?>> thenConsumer) {
+  public RR applyIf(Predicate<C> filter, Consumer<SingleTestRunResult<?>> thenConsumer) {
     return applyIf(filter, thenConsumer, r -> {});
   }
 
   public RR applyIf(
       Predicate<C> filter,
-      Consumer<TestRunResult<?>> thenConsumer,
-      Consumer<TestRunResult<?>> elseConsumer) {
+      Consumer<SingleTestRunResult<?>> thenConsumer,
+      Consumer<SingleTestRunResult<?>> elseConsumer) {
     return applyIf(
         filter,
         thenConsumer,
@@ -84,10 +84,10 @@ public abstract class TestRunResultCollection<
 
   public RR applyIf(
       Predicate<C> filter1,
-      Consumer<TestRunResult<?>> thenConsumer1,
+      Consumer<SingleTestRunResult<?>> thenConsumer1,
       Predicate<C> filter2,
-      Consumer<TestRunResult<?>> thenConsumer2,
-      Consumer<TestRunResult<?>> elseConsumer) {
+      Consumer<SingleTestRunResult<?>> thenConsumer2,
+      Consumer<SingleTestRunResult<?>> elseConsumer) {
     return applyIf(
         filter1,
         thenConsumer1,
@@ -102,13 +102,13 @@ public abstract class TestRunResultCollection<
 
   public RR applyIf(
       Predicate<C> filter1,
-      Consumer<TestRunResult<?>> thenConsumer1,
+      Consumer<SingleTestRunResult<?>> thenConsumer1,
       Predicate<C> filter2,
-      Consumer<TestRunResult<?>> thenConsumer2,
+      Consumer<SingleTestRunResult<?>> thenConsumer2,
       Predicate<C> filter3,
-      Consumer<TestRunResult<?>> thenConsumer3,
-      Consumer<TestRunResult<?>> elseConsumer) {
-    for (Pair<C, TestRunResult<?>> run : runs) {
+      Consumer<SingleTestRunResult<?>> thenConsumer3,
+      Consumer<SingleTestRunResult<?>> elseConsumer) {
+    for (Pair<C, SingleTestRunResult<?>> run : runs) {
       if (filter1.test(run.getFirst())) {
         thenConsumer1.accept(run.getSecond());
       } else if (filter2.test(run.getFirst())) {
@@ -125,7 +125,7 @@ public abstract class TestRunResultCollection<
   public <E extends Throwable> RR inspectIf(
       Predicate<C> filter, ThrowingConsumer<CodeInspector, E> consumer)
       throws IOException, ExecutionException, E {
-    for (Pair<C, TestRunResult<?>> run : runs) {
+    for (Pair<C, SingleTestRunResult<?>> run : runs) {
       if (filter.test(run.getFirst())) {
         run.getSecond().inspect(consumer);
       }
@@ -135,7 +135,7 @@ public abstract class TestRunResultCollection<
 
   @Override
   public RR disassemble() throws IOException, ExecutionException {
-    for (Pair<C, TestRunResult<?>> run : runs) {
+    for (Pair<C, SingleTestRunResult<?>> run : runs) {
       String name = run.getFirst().name();
       System.out.println(name + " " + Strings.repeat("=", 80 - name.length() - 1));
       run.getSecond().disassemble();

@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize.outliner.bottomup.exceptions;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethod;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -13,6 +12,7 @@ import com.android.tools.r8.TestCompileResult;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.ir.optimize.outliner.bottomup.BottomUpOutlinerTestBase;
 import com.android.tools.r8.ir.optimize.outliner.bottomup.Outline;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
@@ -28,7 +28,7 @@ public class ThrowBlockOutlinerDebugLocalWriteWithUnusedSrcTest extends BottomUp
             .addInnerClasses(getClass())
             .apply(this::configure)
             .compile()
-            .inspect(this::inspectOutput);
+            .inspectWithSyntheticItems(this::inspectOutput);
     compileResult
         .run(parameters.getRuntime(), Main.class, "0")
         .assertFailureWithErrorThatThrows(IllegalArgumentException.class);
@@ -41,15 +41,14 @@ public class ThrowBlockOutlinerDebugLocalWriteWithUnusedSrcTest extends BottomUp
     assertEquals(1, outlines.size());
   }
 
-  private void inspectOutput(CodeInspector inspector) {
+  private void inspectOutput(CodeInspector inspector, SyntheticItemsTestUtils syntheticItems) {
     assertEquals(2, inspector.allClasses().size());
 
     MethodSubject mainMethodSubject = inspector.clazz(Main.class).mainMethod();
     assertThat(mainMethodSubject, isPresent());
 
     ClassSubject outlineClassSubject =
-        inspector.clazz(
-            getDefaultSyntheticItemsTestUtils().syntheticBottomUpOutlineClass(Main.class, 0));
+        inspector.clazz(syntheticItems.syntheticBottomUpOutlineClass(Main.class, 0));
     assertThat(outlineClassSubject, isPresent());
     assertEquals(1, outlineClassSubject.allMethods().size());
 

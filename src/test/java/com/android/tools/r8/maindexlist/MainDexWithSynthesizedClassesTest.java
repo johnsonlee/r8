@@ -5,14 +5,12 @@ package com.android.tools.r8.maindexlist;
 
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticOrigin;
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticType;
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static org.hamcrest.CoreMatchers.allOf;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.D8TestCompileResult;
-import com.android.tools.r8.OutputMode;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestDiagnosticMessages;
 import com.android.tools.r8.TestParameters;
@@ -21,12 +19,11 @@ import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.errors.UnsupportedMainDexListUsageDiagnostic;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.origin.PathOrigin;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
-import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -65,9 +62,10 @@ public class MainDexWithSynthesizedClassesTest extends TestBase {
           testForD8()
               .addInnerClasses(MainDexWithSynthesizedClassesTest.class)
               .addMainDexKeepClassAndMemberRules(TestClass.class)
+              .collectSyntheticItems()
               .setMinApi(parameters)
               .compile();
-      checkCompilationResult(compileResult);
+      checkCompilationResult(compileResult, compileResult.getSyntheticItems());
     }
   }
 
@@ -84,9 +82,10 @@ public class MainDexWithSynthesizedClassesTest extends TestBase {
         testForD8()
             .addProgramFiles(intermediateResult.writeToZip())
             .addMainDexKeepClassAndMemberRules(TestClass.class)
+            .collectSyntheticItems()
             .setMinApi(parameters)
             .compile();
-    checkCompilationResult(compileResult);
+    checkCompilationResult(compileResult, compileResult.getSyntheticItems());
   }
 
   @Test
@@ -94,12 +93,13 @@ public class MainDexWithSynthesizedClassesTest extends TestBase {
     parameters.assumeDexRuntime();
     // It remains a supported mode to first compile to DEX and then use tracing on the compiled
     // output. Neither the compilation, the trace or the merge should issue any diagnostics.
-    Path dexed =
+    D8TestCompileResult initialCompileResult =
         testForD8()
             .addInnerClasses(MainDexWithSynthesizedClassesTest.class)
+            .collectSyntheticItems()
             .setMinApi(parameters)
-            .compileWithExpectedDiagnostics(TestDiagnosticMessages::assertNoMessages)
-            .writeToZip();
+            .compileWithExpectedDiagnostics(TestDiagnosticMessages::assertNoMessages);
+    Path dexed = initialCompileResult.writeToZip();
 
     Path mainDexFile = temp.newFile("maindex.list").toPath();
     testForMainDexListGenerator()
@@ -115,7 +115,7 @@ public class MainDexWithSynthesizedClassesTest extends TestBase {
             .addMainDexListFiles(mainDexFile)
             .setMinApi(parameters)
             .compileWithExpectedDiagnostics(TestDiagnosticMessages::assertNoMessages);
-    checkCompilationResult(compileResult);
+    checkCompilationResult(compileResult, initialCompileResult.getSyntheticItems());
   }
 
   /**
@@ -155,39 +155,29 @@ public class MainDexWithSynthesizedClassesTest extends TestBase {
                                     diagnosticOrigin(new PathOrigin(mainDexFile))))));
   }
 
-  private void checkCompilationResult(D8TestCompileResult compileResult) throws Exception {
-    checkCompilationResult(compileResult, compileResult.app);
+  private void checkCompilationResult(
+      D8TestCompileResult compileResult, SyntheticItemsTestUtils syntheticItems) {
+    compileResult
+        .inspectMultiDex(
+            inspector -> checkContainsLambdaClasses(inspector, syntheticItems, A.class),
+            inspector -> checkContainsLambdaClasses(inspector, syntheticItems, B.class))
+        .applyIf(
+            parameters.getRuntime().asDex().getMinApiLevel().getLevel()
+                < nativeMultiDexLevel.getLevel(),
+            cr -> cr.runDex2Oat(parameters.getRuntime()).assertNoVerificationErrors(),
+            cr ->
+                cr.run(parameters.getRuntime(), TestClass.class).assertSuccessWithOutput(EXPECTED));
   }
 
-  private void checkCompilationResult(D8TestCompileResult compileResult, AndroidApp app)
-      throws Exception {
-    if (parameters.getRuntime().asDex().getMinApiLevel().getLevel()
-        < nativeMultiDexLevel.getLevel()) {
-      compileResult.runDex2Oat(parameters.getRuntime()).assertNoVerificationErrors();
-    } else {
-      compileResult.run(parameters.getRuntime(), TestClass.class).assertSuccessWithOutput(EXPECTED);
-    }
-    Path out = temp.newFolder().toPath();
-    app.writeToDirectory(out, OutputMode.DexIndexed);
-    Path classes = out.resolve("classes.dex");
-    Path classes2 = out.resolve("classes2.dex");
-    assertTrue(Files.exists(classes));
-    assertTrue(Files.exists(classes2));
-    checkContainsLambdaClasses(new CodeInspector(classes), A.class);
-    checkContainsLambdaClasses(new CodeInspector(classes2), B.class);
-  }
-
-  private void checkContainsLambdaClasses(CodeInspector inspector, Class<?> lambdaHolder) {
+  private void checkContainsLambdaClasses(
+      CodeInspector inspector, SyntheticItemsTestUtils syntheticItems, Class<?> lambdaHolder) {
     assertTrue(
         inspector.allClasses().stream()
             .anyMatch(
                 clazz ->
-                    clazz.isSynthesizedJavaLambdaClass(getDefaultSyntheticItemsTestUtils())
-                        && clazz
-                            .getOriginalReference()
-                            .equals(
-                                getDefaultSyntheticItemsTestUtils()
-                                    .syntheticLambdaClass(lambdaHolder, 0))));
+                    clazz
+                        .getOriginalReference()
+                        .equals(syntheticItems.syntheticLambdaClass(lambdaHolder, 0))));
   }
 
   static class TestClass {
