@@ -17,12 +17,18 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.Set;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 public class ArchiveResourceProviderUtils {
+
+  // Flag to disable the use of one-shot byte resources to support using R8 9.x with AGP 8.y.
+  private static final boolean enableOneShotByteResource =
+      SystemPropertyUtils.parseSystemPropertyOrDefault(
+          "com.android.tools.r8.enableOneShotByteResource", true);
 
   public static List<Kind> readArchive(
       Path archive,
@@ -52,22 +58,15 @@ public class ArchiveResourceProviderUtils {
           Origin entryOrigin = new ArchiveEntryOrigin(name, origin);
           if (ZipUtils.isDexFile(name)) {
             if (predicate.test(name, Kind.DEX)) {
-              ProgramResource resource =
-                  OneShotByteResource.create(
-                      Kind.DEX, entryOrigin, ByteStreams.toByteArray(stream), null);
-              consumer.accept(resource);
+              consumer.accept(createProgramResource(Kind.DEX, entryOrigin, stream, null));
               seenDex.set();
             }
           } else if (ZipUtils.isClassFile(name)) {
             if (predicate.test(name, Kind.CF)) {
               String descriptor = DescriptorUtils.guessTypeDescriptor(name);
-              ProgramResource resource =
-                  OneShotByteResource.create(
-                      Kind.CF,
-                      entryOrigin,
-                      ByteStreams.toByteArray(stream),
-                      Collections.singleton(descriptor));
-              consumer.accept(resource);
+              consumer.accept(
+                  createProgramResource(
+                      Kind.CF, entryOrigin, stream, Collections.singleton(descriptor)));
               seenCf.set();
             }
           }
@@ -82,5 +81,14 @@ public class ArchiveResourceProviderUtils {
       seenKinds.add(Kind.DEX);
     }
     return seenKinds;
+  }
+
+  private static ProgramResource createProgramResource(
+      Kind kind, Origin origin, InputStream inputStream, Set<String> classDescriptors)
+      throws IOException {
+    byte[] bytes = ByteStreams.toByteArray(inputStream);
+    return enableOneShotByteResource
+        ? OneShotByteResource.create(kind, origin, bytes, classDescriptors)
+        : ProgramResource.fromBytes(origin, kind, bytes, classDescriptors);
   }
 }
