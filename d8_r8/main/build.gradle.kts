@@ -22,6 +22,15 @@ plugins {
   id("org.spdx.sbom") version "0.4.0"
 }
 
+// Properties that you can set in your ~/.gradle/gradle.properties:
+
+// Causes builds to not fail on warnings.
+val treatWarningsAsErrors = !project.hasProperty("disable_warnings_as_errors")
+
+// Disable Error Prone checks (can make compiles marginally faster).
+var enableErrorProne = !project.hasProperty("disable_errorprone")
+
+
 java {
   sourceSets.main.configure {
     java.srcDir(getRoot().resolveAll("src", "main", "java"))
@@ -419,40 +428,56 @@ tasks.withType<KotlinCompile> {
   enabled = false
 }
 
+fun enableCheck(task: JavaCompile, warning: String) {
+  if (treatWarningsAsErrors) {
+    task.options.errorprone.error(warning)
+  } else {
+    task.options.errorprone.warn(warning)
+  }
+}
+
 tasks.withType<JavaCompile> {
   dependsOn(gradle.includedBuild("shared").task(":downloadDeps"))
   println("NOTE: Running with JDK: " + org.gradle.internal.jvm.Jvm.current().javaHome)
 
   // Enable error prone for D8/R8 main sources.
-  options.errorprone.isEnabled.set(!project.hasProperty("disable_errorprone"))
+  options.errorprone.isEnabled.set(enableErrorProne)
+
+  if (enableErrorProne) {
+    // Non-default / Experimental checks - explicitly enforced.
+    enableCheck(this, "RemoveUnusedImports")
+    enableCheck(this, "InconsistentOverloads")
+    enableCheck(this, "MissingDefault")
+    enableCheck(this, "MultipleTopLevelClasses")
+    enableCheck(this, "NarrowingCompoundAssignment")
+
+    // Warnings that cause unwanted edits (e.g., inability to write informative asserts).
+    options.errorprone.disable("AlreadyChecked")
+
+    // JavaDoc related warnings. Would be nice to resolve but of no real consequence.
+    options.errorprone.disable("InvalidLink")
+    options.errorprone.disable("InvalidBlockTag")
+    options.errorprone.disable("InvalidInlineTag")
+    options.errorprone.disable("EmptyBlockTag")
+    options.errorprone.disable("MissingSummary")
+    options.errorprone.disable("UnrecognisedJavadocTag")
+    options.errorprone.disable("AlmostJavadoc")
+
+    // Moving away from identity and canonical items is not planned.
+    options.errorprone.disable("IdentityHashMapUsage")
+
+    if (treatWarningsAsErrors) {
+      options.errorprone.allErrorsAsWarnings = true
+    }
+  }
 
   // Make all warnings errors. Warnings that we have chosen not to fix (or suppress) are disabled
   // outright below.
-  options.compilerArgs.add("-Werror")
+  if (treatWarningsAsErrors) {
+    options.compilerArgs.add("-Werror")
+  }
 
   // Increase number of reported errors to 1000 (default is 100).
   options.compilerArgs.add("-Xmaxerrs")
   options.compilerArgs.add("1000")
-
-  // Non-default / Experimental checks - explicitly enforced.
-  options.errorprone.error("RemoveUnusedImports")
-  options.errorprone.error("InconsistentOverloads")
-  options.errorprone.error("MissingDefault")
-  options.errorprone.error("MultipleTopLevelClasses")
-  options.errorprone.error("NarrowingCompoundAssignment")
-
-  // Warnings that cause unwanted edits (e.g., inability to write informative asserts).
-  options.errorprone.disable("AlreadyChecked")
-
-  // JavaDoc related warnings. Would be nice to resolve but of no real consequence.
-  options.errorprone.disable("InvalidLink")
-  options.errorprone.disable("InvalidBlockTag")
-  options.errorprone.disable("InvalidInlineTag")
-  options.errorprone.disable("EmptyBlockTag")
-  options.errorprone.disable("MissingSummary")
-  options.errorprone.disable("UnrecognisedJavadocTag")
-  options.errorprone.disable("AlmostJavadoc")
-
-  // Moving away from identity and canonical items is not planned.
-  options.errorprone.disable("IdentityHashMapUsage")
 }
