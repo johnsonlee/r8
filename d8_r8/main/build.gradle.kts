@@ -281,6 +281,11 @@ tasks {
     exclude("wireless/**")
     exclude("google/protobuf/**")
     exclude("DebugProbesKt.bin")
+
+    // Disabling compression makes this step go from 4s -> 2s as of Nov 2025,
+    // as measured by "gradle --profile".
+    entryCompression = ZipEntryCompression.STORED
+
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     archiveFileName.set("deps.jar")
   }
