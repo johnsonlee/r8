@@ -140,6 +140,8 @@ public class GenerateVarHandleMethods extends MethodGenerationBase {
       proto = factory.createProto(varHandle, proto.parameters);
     } else if (proto.getReturnType() == desugarMethodHandlesLookupStub) {
       proto = factory.createProto(methodHandlesLookup, proto.parameters);
+    } else if (proto.getReturnType().getTypeName().endsWith("$UnsafeStub")) {
+      proto = proto.withReturnType(factory.unsafeType, factory);
     }
     return DexEncodedMethod.syntheticBuilder(method)
         .setMethod(factory.createMethod(holder, proto, factory.createString(name)))

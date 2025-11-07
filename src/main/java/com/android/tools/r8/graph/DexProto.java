@@ -185,4 +185,8 @@ public class DexProto extends IndexedDexItem
     }
     return factory.createProto(returnType, newParameters);
   }
+
+  public DexProto withReturnType(DexType returnType, DexItemFactory factory) {
+    return factory.createProto(returnType, parameters);
+  }
 }

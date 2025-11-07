@@ -365,6 +365,6 @@ public class DexMethod extends DexMember<DexEncodedMethod, DexMethod> {
   }
 
   public DexMethod withReturnType(DexType returnType, DexItemFactory dexItemFactory) {
-    return withProto(dexItemFactory.createProto(returnType, getParameters()), dexItemFactory);
+    return withProto(getProto().withReturnType(returnType, dexItemFactory), dexItemFactory);
   }
 }
