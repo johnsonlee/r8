@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.startup;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getMinimalSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -72,6 +71,7 @@ public class NonStartupInStartupOutlinerTest extends TestBase {
             .addOptionsModification(options -> options.getStartupOptions().setEnableOutlining(true))
             .apply(StartupTestingUtils.addStartupProfile(startupProfile))
             .allowDiagnosticInfoMessages()
+            .collectSyntheticItems()
             .enableInliningAnnotations()
             .enableNeverClassInliningAnnotations()
             .enableNoAccessModificationAnnotationsForMembers()
@@ -80,7 +80,11 @@ public class NonStartupInStartupOutlinerTest extends TestBase {
             .noHorizontalClassMergingOfSynthetics()
             .setMinApi(parameters)
             .compile()
-            .inspectMultiDex(this::inspectPrimaryDex, this::inspectSecondaryDex);
+            .apply(
+                cr ->
+                    cr.inspectMultiDex(
+                        this::inspectPrimaryDex,
+                        inspector -> inspectSecondaryDex(inspector, cr.getSyntheticItems())));
 
     compileResult
         .run(parameters.getRuntime(), StartupMain.class)
@@ -113,10 +117,10 @@ public class NonStartupInStartupOutlinerTest extends TestBase {
         startupMainClassSubject.uniqueMethodWithOriginalName("outlinePinnedStatic"), isPresent());
   }
 
-  private void inspectSecondaryDex(CodeInspector inspector) {
+  private void inspectSecondaryDex(
+      CodeInspector inspector, SyntheticItemsTestUtils syntheticItems) {
     assertThat(inspector.clazz(NonStartupMain.class), isPresent());
 
-    SyntheticItemsTestUtils syntheticItems = getMinimalSyntheticItemsTestUtils();
     ClassSubject movePrivateOutline =
         inspector.clazz(
             syntheticItems.syntheticNonStartupInStartupOutlineClass(StartupMain.class, 0));

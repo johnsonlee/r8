@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize.callsites;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getMinimalSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsentIf;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -41,19 +40,17 @@ public class RestartLambdaPropagationWithDefaultArgumentTest extends TestBase {
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
-        .addOptionsModification(
-            options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
+        .collectSyntheticItems()
         .enableInliningAnnotations()
         .setMinApi(parameters)
         .compile()
-        .inspect(
-            inspector -> {
+        .inspectWithSyntheticItems(
+            (inspector, syntheticItems) -> {
               ClassSubject mainClassSubject = inspector.clazz(Main.class);
               assertThat(mainClassSubject, isPresent());
 
               ClassSubject lambdaClassSubject =
-                  inspector.clazz(
-                      getMinimalSyntheticItemsTestUtils().syntheticLambdaClass(Main.class, 0));
+                  inspector.clazz(syntheticItems.syntheticLambdaClass(Main.class, 0));
               assertThat(lambdaClassSubject, isPresent());
               assertEquals(0, lambdaClassSubject.allInstanceFields().size());
 

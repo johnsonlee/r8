@@ -54,16 +54,6 @@ public abstract class SyntheticItemsTestUtils {
     return new DefaultSyntheticItemsTestUtils();
   }
 
-  public static SyntheticItemsTestUtils getMinimalSyntheticItemsTestUtils() {
-    return new MinimalSyntheticItemsTestUtils();
-  }
-
-  public static SyntheticItemsTestUtils getSyntheticItemsTestUtils(boolean minimalSyntheticNames) {
-    return minimalSyntheticNames
-        ? getMinimalSyntheticItemsTestUtils()
-        : getDefaultSyntheticItemsTestUtils();
-  }
-
   public static String syntheticFileNameD8() {
     return "D8$$SyntheticClass";
   }
@@ -447,104 +437,6 @@ public abstract class SyntheticItemsTestUtils {
     }
   }
 
-  private static class MinimalSyntheticItemsTestUtils extends SyntheticItemsTestUtils {
-
-    @Override
-    public boolean isExternalApiOutlineClass(ClassReference reference) {
-      throw new Unreachable();
-    }
-
-    @Override
-    public boolean isExternalLambda(ClassReference reference) {
-      throw new Unreachable();
-    }
-
-    @Override
-    public boolean isExternalNonFixedInitializerTypeArgument(ClassReference reference) {
-      throw new Unreachable();
-    }
-
-    @Override
-    public boolean isExternalStaticInterfaceCall(ClassReference reference) {
-      throw new Unreachable();
-    }
-
-    @Override
-    public ClassReference syntheticApiConversionClass(ClassReference classReference, int id) {
-      return syntheticClassWithMinimalName(classReference, id);
-    }
-
-    @Override
-    public ClassReference syntheticApiOutlineClass(ClassReference classReference, int id) {
-      return syntheticClassWithMinimalName(classReference, id);
-    }
-
-    @Override
-    public ClassReference syntheticAutoCloseableDispatcherClass(
-        ClassReference classReference, int id) {
-      return syntheticClassWithMinimalName(classReference, id);
-    }
-
-    @Override
-    public ClassReference syntheticAutoCloseableForwarderClass(
-        ClassReference classReference, int id) {
-      return syntheticClassWithMinimalName(classReference, id);
-    }
-
-    @Override
-    public ClassReference syntheticBackportClass(ClassReference classReference, int id) {
-      return syntheticClassWithMinimalName(classReference, id);
-    }
-
-    @Override
-    public MethodReference syntheticBackportMethod(
-        ClassReference classReference, MethodReference originalMethod, int id) {
-      throw new Unreachable();
-    }
-
-    @Override
-    public ClassReference syntheticBackportWithForwardingClass(
-        ClassReference classReference, int id) {
-      return syntheticClassWithMinimalName(classReference, id);
-    }
-
-    @Override
-    public ClassReference syntheticBottomUpOutlineClass(ClassReference classReference, int id) {
-      return syntheticClassWithMinimalName(classReference, id);
-    }
-
-    @Override
-    public ClassReference syntheticLambdaClass(ClassReference classReference, int id) {
-      return syntheticClassWithMinimalName(classReference, id);
-    }
-
-    @Override
-    public ClassReference syntheticNonStartupInStartupOutlineClass(
-        ClassReference classReference, int id) {
-      return SyntheticItemsTestUtils.syntheticClassWithMinimalName(classReference, id);
-    }
-
-    @Override
-    public ClassReference syntheticOutlineClass(ClassReference classReference, int id) {
-      return syntheticClassWithMinimalName(classReference, id);
-    }
-
-    @Override
-    public ClassReference syntheticRecordHelperClass(ClassReference classReference, int id) {
-      return syntheticClassWithMinimalName(classReference, id);
-    }
-
-    @Override
-    public ClassReference syntheticThrowIAEClass(ClassReference classReference, int id) {
-      return syntheticClassWithMinimalName(classReference, id);
-    }
-
-    @Override
-    public ClassReference syntheticTwrCloseResourceClass(ClassReference classReference, int id) {
-      return syntheticClassWithMinimalName(classReference, id);
-    }
-  }
-
   public static class Builder extends SyntheticItemsTestUtils {
 
     private final Map<ClassReference, Map<SyntheticKind, Int2ObjectMap<Set<ClassReference>>>>
@@ -683,7 +575,10 @@ public abstract class SyntheticItemsTestUtils {
 
     @Override
     public ClassReference syntheticApiOutlineClass(ClassReference classReference, int id) {
-      return lookupMethod(classReference, id, naming.API_MODEL_OUTLINE);
+      ClassReference result = lookupMethod(classReference, id, naming.API_MODEL_OUTLINE);
+      return result != null
+          ? result
+          : lookupMethod(classReference, id, naming.API_MODEL_OUTLINE_WITHOUT_GLOBAL_MERGING);
     }
 
     @Override

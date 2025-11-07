@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.kotlin.lambda;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getMinimalSyntheticItemsTestUtils;
 import static junit.framework.TestCase.assertEquals;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
@@ -12,9 +11,11 @@ import static org.junit.Assume.assumeTrue;
 import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
 import com.android.tools.r8.KotlinTestBase;
 import com.android.tools.r8.KotlinTestParameters;
+import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.Reference;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.StringUtils;
@@ -79,7 +80,8 @@ public class KotlinLambdaMergingCapturesKotlinStyleTest extends KotlinTestBase {
         kotlinParameters.getLambdaGeneration().isInvokeDynamic() ? 0 : 26,
         lambdasInInput.getNumberOfKStyleLambdas());
 
-    testForR8(parameters.getBackend())
+    R8FullTestBuilder testBuilder = testForR8(parameters.getBackend());
+    testBuilder
         .addProgramFiles(getProgramFiles())
         .addKeepMainRule(getMainClassName())
         .addHorizontallyMergedClassesInspector(
@@ -87,20 +89,18 @@ public class KotlinLambdaMergingCapturesKotlinStyleTest extends KotlinTestBase {
               if (parameters.isDexRuntime()
                   && parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.L)
                   && kotlinParameters.getLambdaGeneration().isInvokeDynamic()) {
+                SyntheticItemsTestUtils syntheticItems = testBuilder.getState().getSyntheticItems();
                 inspector
                     .assertIsCompleteMergeGroup(
-                        getMinimalSyntheticItemsTestUtils()
-                            .syntheticBottomUpOutlineClass(getMainClassReference(), 0),
-                        getMinimalSyntheticItemsTestUtils()
-                            .syntheticBottomUpOutlineClass(getMainClassReference(), 1))
+                        syntheticItems.syntheticBottomUpOutlineClass(getMainClassReference(), 0),
+                        syntheticItems.syntheticBottomUpOutlineClass(getMainClassReference(), 1))
                     .assertNoOtherClassesMerged();
               } else {
                 inspector.assertNoClassesMerged();
               }
             })
-        .addOptionsModification(
-            options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
         .allowAccessModification(allowAccessModification)
+        .collectSyntheticItems()
         .setMinApi(parameters)
         .compile()
         .inspect(inspector -> inspect(inspector, lambdasInInput))

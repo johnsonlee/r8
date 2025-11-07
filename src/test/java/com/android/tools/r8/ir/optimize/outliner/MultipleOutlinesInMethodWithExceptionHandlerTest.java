@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.ir.optimize.outliner;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getMinimalSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -50,11 +49,10 @@ public class MultipleOutlinesInMethodWithExceptionHandlerTest extends TestBase {
 
   private static final String EXPECTED_OUTPUT = StringUtils.lines("18");
 
-  private void validateOutlining(CodeInspector inspector) {
+  private void validateOutlining(CodeInspector inspector, SyntheticItemsTestUtils syntheticItems) {
     // Validate that an outline of mul, mul, add has been created and called twice in m.
     ClassSubject outlineClass =
-        inspector.clazz(
-            getMinimalSyntheticItemsTestUtils().syntheticOutlineClass(TestClass.class, 0));
+        inspector.clazz(syntheticItems.syntheticOutlineClass(TestClass.class, 0));
     assertThat(outlineClass, isPresent());
     MethodSubject outline0Method =
         outlineClass.method(
@@ -108,13 +106,13 @@ public class MultipleOutlinesInMethodWithExceptionHandlerTest extends TestBase {
         .enableInliningAnnotations()
         .addOptionsModification(
             options -> {
-              options.desugarSpecificOptions().minimizeSyntheticNames = true;
               // To trigger outlining.
               options.outline.threshold = 2;
               options.outline.maxSize = 3;
             })
+        .collectSyntheticItems()
         .compile()
-        .inspect(this::validateOutlining)
+        .inspectWithSyntheticItems(this::validateOutlining)
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }

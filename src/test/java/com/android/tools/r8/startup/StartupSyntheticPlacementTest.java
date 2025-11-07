@@ -6,7 +6,6 @@ package com.android.tools.r8.startup;
 
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticType;
 import static com.android.tools.r8.startup.utils.StartupTestingMatchers.isEqualToClassDataLayout;
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getMinimalSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.notIf;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -29,6 +28,7 @@ import com.android.tools.r8.startup.profile.ExternalStartupItem;
 import com.android.tools.r8.startup.profile.ExternalStartupMethod;
 import com.android.tools.r8.startup.utils.MixedSectionLayoutInspector;
 import com.android.tools.r8.startup.utils.StartupTestingUtils;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.MethodReferenceUtils;
@@ -85,6 +85,7 @@ public class StartupSyntheticPlacementTest extends TestBase {
             .addKeepMainRule(Main.class)
             .addKeepClassAndMembersRules(A.class, B.class, C.class)
             .addDontOptimize()
+            .collectSyntheticItems()
             .setMinApi(parameters)
             .compile();
 
@@ -111,19 +112,27 @@ public class StartupSyntheticPlacementTest extends TestBase {
         .apply(
             runResult ->
                 assertEquals(
-                    getExpectedStartupList(r8CompileResult.inspector(), false), startupList));
+                    getExpectedStartupList(
+                        r8CompileResult.inspector(), r8CompileResult.getSyntheticItems(), false),
+                    startupList));
 
     // Finally rebuild the minified app using D8 and the startup list.
     testForD8(parameters.getBackend())
         .addProgramFiles(optimizedApp)
         .apply(
             testBuilder ->
-                configureStartupOptions(testBuilder, r8CompileResult.inspector(), startupList))
+                configureStartupOptions(
+                    testBuilder,
+                    r8CompileResult.inspector(),
+                    r8CompileResult.getSyntheticItems(),
+                    startupList))
         .release()
         .setMinApi(parameters)
         .compile()
         .inspectMultiDex(
-            r8CompileResult.writeProguardMap(), this::inspectPrimaryDex, this::inspectSecondaryDex)
+            r8CompileResult.writeProguardMap(),
+            inspector -> inspectPrimaryDex(inspector, r8CompileResult.getSyntheticItems()),
+            inspector -> inspectSecondaryDex(inspector, r8CompileResult.getSyntheticItems()))
         .apply(this::checkCompleteness)
         .run(parameters.getRuntime(), Main.class, Boolean.toString(useLambda))
         .assertSuccessWithOutputLines(getExpectedOutput());
@@ -141,6 +150,7 @@ public class StartupSyntheticPlacementTest extends TestBase {
             .apply(
                 StartupTestingUtils.enableStartupInstrumentationForOriginalAppUsingLogcat(
                     parameters))
+            .collectSyntheticItems()
             .release()
             .setMinApi(parameters)
             .compile();
@@ -152,7 +162,12 @@ public class StartupSyntheticPlacementTest extends TestBase {
         .assertSuccessWithOutputLines(getExpectedOutput())
         .apply(
             runResult ->
-                assertEquals(getExpectedStartupList(runResult.inspector(), true), startupList));
+                assertEquals(
+                    getExpectedStartupList(
+                        runResult.inspector(),
+                        instrumentationCompileResult.getSyntheticItems(),
+                        true),
+                    startupList));
 
     // Then build the app using the startup list that is based on original names.
     testForR8(parameters.getBackend())
@@ -163,7 +178,10 @@ public class StartupSyntheticPlacementTest extends TestBase {
         .apply(
             testBuilder ->
                 configureStartupOptions(
-                    testBuilder, instrumentationCompileResult.inspector(), startupList))
+                    testBuilder,
+                    instrumentationCompileResult.inspector(),
+                    testBuilder.collectSyntheticItems().getState().getSyntheticItems(),
+                    startupList))
         .noInliningOfSynthetics()
         .setMinApi(parameters)
         .compile()
@@ -171,7 +189,11 @@ public class StartupSyntheticPlacementTest extends TestBase {
             diagnostics ->
                 diagnostics.assertInfosMatch(
                     diagnosticType(StartupClassesNonStartupFractionDiagnostic.class)))
-        .inspectMultiDex(this::inspectPrimaryDex, this::inspectSecondaryDex)
+        .apply(
+            cr ->
+                cr.inspectMultiDex(
+                    inspector -> inspectPrimaryDex(inspector, cr.getSyntheticItems()),
+                    inspector -> inspectSecondaryDex(inspector, cr.getSyntheticItems())))
         .apply(this::checkCompleteness)
         .run(parameters.getRuntime(), Main.class, Boolean.toString(useLambda))
         .assertSuccessWithOutputLines(getExpectedOutput());
@@ -188,6 +210,7 @@ public class StartupSyntheticPlacementTest extends TestBase {
   private void configureStartupOptions(
       TestCompilerBuilder<?, ?, ?, ?, ?> testBuilder,
       CodeInspector inspector,
+      SyntheticItemsTestUtils syntheticItems,
       Collection<ExternalStartupItem> startupList) {
     testBuilder
         .addOptionsModification(
@@ -199,7 +222,8 @@ public class StartupSyntheticPlacementTest extends TestBase {
               options
                   .getTestingOptions()
                   .setMixedSectionLayoutStrategyInspector(
-                      getMixedSectionLayoutInspector(inspector, testBuilder.isD8TestBuilder()));
+                      getMixedSectionLayoutInspector(
+                          inspector, syntheticItems, testBuilder.isD8TestBuilder()));
             })
         .apply(ignore -> StartupTestingUtils.addStartupProfile(testBuilder, startupList));
   }
@@ -210,7 +234,10 @@ public class StartupSyntheticPlacementTest extends TestBase {
 
   @SuppressWarnings("unchecked")
   private Set<ExternalStartupItem> getExpectedStartupList(
-      CodeInspector inspector, boolean isStartupListForOriginalApp) throws NoSuchMethodException {
+      CodeInspector inspector,
+      SyntheticItemsTestUtils syntheticItems,
+      boolean isStartupListForOriginalApp)
+      throws NoSuchMethodException {
     ImmutableSet.Builder<ExternalStartupItem> builder = ImmutableSet.builder();
     builder.add(
         ExternalStartupClass.builder()
@@ -235,7 +262,8 @@ public class StartupSyntheticPlacementTest extends TestBase {
                   Reference.methodFromMethod(B.class.getDeclaredMethod("synthesize")))
               .build());
       if (isStartupListForOriginalApp) {
-        ClassReference syntheticLambdaClassReference = getSyntheticLambdaClassReference();
+        ClassReference syntheticLambdaClassReference =
+            getSyntheticLambdaClassReference(syntheticItems);
         builder.add(
             ExternalStartupClass.builder().setClassReference(syntheticLambdaClassReference).build(),
             ExternalStartupMethod.builder()
@@ -270,7 +298,7 @@ public class StartupSyntheticPlacementTest extends TestBase {
         assertThat(syntheticLambdaAccessorMethod, isPresent());
 
         ClassSubject externalSyntheticLambdaClassSubject =
-            inspector.clazz(getSyntheticLambdaClassReference());
+            inspector.clazz(getSyntheticLambdaClassReference(syntheticItems));
         assertThat(externalSyntheticLambdaClassSubject, isPresent());
 
         ClassReference externalSyntheticLambdaClassReference =
@@ -311,8 +339,12 @@ public class StartupSyntheticPlacementTest extends TestBase {
   }
 
   private List<ClassReference> getExpectedClassDataLayout(
-      CodeInspector inspector, boolean isD8, int virtualFile) {
-    ClassSubject syntheticLambdaClassSubject = inspector.clazz(getSyntheticLambdaClassReference());
+      CodeInspector inspector,
+      SyntheticItemsTestUtils syntheticItems,
+      boolean isD8,
+      int virtualFile) {
+    ClassSubject syntheticLambdaClassSubject =
+        inspector.clazz(getSyntheticLambdaClassReference(syntheticItems));
 
     // The synthetic lambda should only be placed alongside its synthetic context (B) if it is used.
     // Otherwise, it should be last, or in the second dex file if compiling with minimal startup.
@@ -343,38 +375,41 @@ public class StartupSyntheticPlacementTest extends TestBase {
   }
 
   private MixedSectionLayoutInspector getMixedSectionLayoutInspector(
-      CodeInspector inspector, boolean isD8) {
+      CodeInspector inspector, SyntheticItemsTestUtils syntheticItems, boolean isD8) {
     return new MixedSectionLayoutInspector() {
       @Override
       public void inspectClassDataLayout(int virtualFile, Collection<DexProgramClass> layout) {
         assertThat(
             layout,
-            isEqualToClassDataLayout(getExpectedClassDataLayout(inspector, isD8, virtualFile)));
+            isEqualToClassDataLayout(
+                getExpectedClassDataLayout(inspector, syntheticItems, isD8, virtualFile)));
       }
     };
   }
 
-  private void inspectPrimaryDex(CodeInspector inspector) {
+  private void inspectPrimaryDex(CodeInspector inspector, SyntheticItemsTestUtils syntheticItems) {
     assertThat(inspector.clazz(Main.class), isPresent());
     assertThat(inspector.clazz(A.class), isPresent());
     assertThat(inspector.clazz(B.class), isPresent());
     assertThat(inspector.clazz(C.class), isPresent());
     assertThat(
-        inspector.clazz(getSyntheticLambdaClassReference()),
+        inspector.syntheticClass(getSyntheticLambdaClassReference(syntheticItems)),
         notIf(isPresent(), enableMinimalStartupDex && !useLambda));
   }
 
-  private void inspectSecondaryDex(CodeInspector inspector) {
+  private void inspectSecondaryDex(
+      CodeInspector inspector, SyntheticItemsTestUtils syntheticItems) {
     if (enableMinimalStartupDex && !useLambda) {
       assertEquals(1, inspector.allClasses().size());
-      assertThat(inspector.clazz(getSyntheticLambdaClassReference()), isPresent());
+      assertThat(inspector.clazz(getSyntheticLambdaClassReference(syntheticItems)), isPresent());
     } else {
       assertTrue(inspector.allClasses().isEmpty());
     }
   }
 
-  private static ClassReference getSyntheticLambdaClassReference() {
-    return getMinimalSyntheticItemsTestUtils().syntheticLambdaClass(B.class, 0);
+  private static ClassReference getSyntheticLambdaClassReference(
+      SyntheticItemsTestUtils syntheticItems) {
+    return syntheticItems.syntheticLambdaClass(B.class, 0);
   }
 
   static class Main {

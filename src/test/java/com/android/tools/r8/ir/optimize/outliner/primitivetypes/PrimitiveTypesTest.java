@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.ir.optimize.outliner.primitivetypes;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getMinimalSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static junit.framework.TestCase.assertEquals;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -44,7 +43,11 @@ public class PrimitiveTypesTest extends TestBase {
     this.parameters = parameters;
   }
 
-  private void validateOutlining(CodeInspector inspector, Class<?> testClass, String argumentType) {
+  private void validateOutlining(
+      CodeInspector inspector,
+      SyntheticItemsTestUtils syntheticItems,
+      Class<?> testClass,
+      String argumentType) {
     boolean isStringBuilderOptimized =
         enableArgumentPropagation
             && (argumentType.equals("char") || argumentType.equals("boolean"));
@@ -53,8 +56,7 @@ public class PrimitiveTypesTest extends TestBase {
       return;
     }
 
-    ClassSubject outlineClass =
-        inspector.clazz(getMinimalSyntheticItemsTestUtils().syntheticOutlineClass(testClass, 0));
+    ClassSubject outlineClass = inspector.clazz(syntheticItems.syntheticOutlineClass(testClass, 0));
     MethodSubject outline0Method =
         outlineClass.method(
             "java.lang.String",
@@ -84,12 +86,14 @@ public class PrimitiveTypesTest extends TestBase {
         .addDontObfuscate()
         .addOptionsModification(
             options -> {
-              options.desugarSpecificOptions().minimizeSyntheticNames = true;
               options.outline.threshold = 2;
               options.outline.minSize = 2;
             })
+        .collectSyntheticItems()
         .compile()
-        .inspect(inspector -> validateOutlining(inspector, testClass, argumentType))
+        .inspectWithSyntheticItems(
+            (inspector, syntheticItems) ->
+                validateOutlining(inspector, syntheticItems, testClass, argumentType))
         .run(parameters.getRuntime(), testClass)
         .assertSuccessWithOutput(expectedOutput);
   }

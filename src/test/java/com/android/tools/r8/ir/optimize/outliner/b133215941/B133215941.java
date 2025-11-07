@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.ir.optimize.outliner.b133215941;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getMinimalSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -41,10 +40,9 @@ public class B133215941 extends TestBase {
     this.parameters = parameters;
   }
 
-  private void validateOutlining(CodeInspector inspector) {
+  private void validateOutlining(CodeInspector inspector, SyntheticItemsTestUtils syntheticItems) {
     ClassSubject outlineClass =
-        inspector.clazz(
-            getMinimalSyntheticItemsTestUtils().syntheticOutlineClass(TestClass.class, 0));
+        inspector.clazz(syntheticItems.syntheticOutlineClass(TestClass.class, 0));
     MethodSubject outline0Method =
         outlineClass.method(
             "void",
@@ -73,13 +71,10 @@ public class B133215941 extends TestBase {
         .addKeepClassAndMembersRules(ClassWithStaticMethod.class)
         .setMinApi(parameters)
         .addDontObfuscate()
-        .addOptionsModification(
-            options -> {
-              options.desugarSpecificOptions().minimizeSyntheticNames = true;
-              options.outline.threshold = 2;
-            })
+        .addOptionsModification(options -> options.outline.threshold = 2)
+        .collectSyntheticItems()
         .compile()
-        .inspect(this::validateOutlining)
+        .inspectWithSyntheticItems(this::validateOutlining)
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutput(expectedOutput);
   }

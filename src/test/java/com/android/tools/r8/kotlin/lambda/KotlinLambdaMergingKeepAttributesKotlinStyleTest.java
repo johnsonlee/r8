@@ -7,13 +7,13 @@ package com.android.tools.r8.kotlin.lambda;
 import static com.android.tools.r8.shaking.ProguardKeepAttributes.ENCLOSING_METHOD;
 import static com.android.tools.r8.shaking.ProguardKeepAttributes.INNER_CLASSES;
 import static com.android.tools.r8.shaking.ProguardKeepAttributes.SIGNATURE;
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getMinimalSyntheticItemsTestUtils;
 import static junit.framework.TestCase.assertEquals;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.KotlinTestBase;
 import com.android.tools.r8.KotlinTestParameters;
+import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.Reference;
@@ -84,14 +84,18 @@ public class KotlinLambdaMergingKeepAttributesKotlinStyleTest extends KotlinTest
         kotlinParameters.getLambdaGeneration().isInvokeDynamic() ? 0 : 24,
         lambdasInInput.getNumberOfKStyleLambdas());
 
-    testForR8(parameters.getBackend())
+    R8FullTestBuilder testBuilder = testForR8(parameters.getBackend());
+    testBuilder
         .addProgramFiles(getProgramFiles())
         .addKeepMainRule(getMainClassName())
         .applyIf(!attributes.isEmpty(), builder -> builder.addKeepAttributes(attributes))
-        .addHorizontallyMergedClassesInspector(inspector -> inspect(inspector, lambdasInInput))
+        .addHorizontallyMergedClassesInspector(
+            inspector ->
+                inspect(inspector, lambdasInInput, testBuilder.getState().getSyntheticItems()))
         .addOptionsModification(
             options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
         .allowAccessModification(allowAccessModification)
+        .collectSyntheticItems()
         .noClassInlining()
         .setMinApi(parameters)
         .compile()
@@ -101,7 +105,9 @@ public class KotlinLambdaMergingKeepAttributesKotlinStyleTest extends KotlinTest
   }
 
   private void inspect(
-      HorizontallyMergedClassesInspector inspector, KotlinLambdasInInput lambdasInInput) {
+      HorizontallyMergedClassesInspector inspector,
+      KotlinLambdasInInput lambdasInInput,
+      SyntheticItemsTestUtils syntheticItems) {
     if (parameters.isCfRuntime()) {
       if (kotlinParameters.getLambdaGeneration().isClass()) {
         inspector
@@ -189,34 +195,33 @@ public class KotlinLambdaMergingKeepAttributesKotlinStyleTest extends KotlinTest
             .assertNoOtherClassesMerged();
       } else {
         ClassReference mainKt = Reference.classFromTypeName(getMainClassName());
-        SyntheticItemsTestUtils syntheticItemsTestUtils = getMinimalSyntheticItemsTestUtils();
         List<ClassReference> mergeGroup =
             ImmutableList.of(
-                syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 1),
-                syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 2),
-                syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 3),
-                syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 4),
-                syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 5),
-                syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 6),
-                syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 7),
-                syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 8),
-                syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 9),
-                syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 10),
-                syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 11),
-                syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 12),
-                syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 13),
-                syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 14),
-                syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 15),
-                syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 16),
-                syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 17),
-                syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 18),
-                syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 19),
-                syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 20),
-                syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 21),
-                syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 22),
-                syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 23),
-                syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 24),
-                syntheticItemsTestUtils.syntheticBottomUpOutlineClass(mainKt, 0));
+                syntheticItems.syntheticLambdaClass(mainKt, 1),
+                syntheticItems.syntheticLambdaClass(mainKt, 2),
+                syntheticItems.syntheticLambdaClass(mainKt, 3),
+                syntheticItems.syntheticLambdaClass(mainKt, 4),
+                syntheticItems.syntheticLambdaClass(mainKt, 5),
+                syntheticItems.syntheticLambdaClass(mainKt, 6),
+                syntheticItems.syntheticLambdaClass(mainKt, 7),
+                syntheticItems.syntheticLambdaClass(mainKt, 8),
+                syntheticItems.syntheticLambdaClass(mainKt, 9),
+                syntheticItems.syntheticLambdaClass(mainKt, 10),
+                syntheticItems.syntheticLambdaClass(mainKt, 11),
+                syntheticItems.syntheticLambdaClass(mainKt, 12),
+                syntheticItems.syntheticLambdaClass(mainKt, 13),
+                syntheticItems.syntheticLambdaClass(mainKt, 14),
+                syntheticItems.syntheticLambdaClass(mainKt, 15),
+                syntheticItems.syntheticLambdaClass(mainKt, 16),
+                syntheticItems.syntheticLambdaClass(mainKt, 17),
+                syntheticItems.syntheticLambdaClass(mainKt, 18),
+                syntheticItems.syntheticLambdaClass(mainKt, 19),
+                syntheticItems.syntheticLambdaClass(mainKt, 20),
+                syntheticItems.syntheticLambdaClass(mainKt, 21),
+                syntheticItems.syntheticLambdaClass(mainKt, 22),
+                syntheticItems.syntheticLambdaClass(mainKt, 23),
+                syntheticItems.syntheticLambdaClass(mainKt, 24),
+                syntheticItems.syntheticBottomUpOutlineClass(mainKt, 0));
         inspector.assertIsCompleteMergeGroup(mergeGroup).assertNoOtherClassesMerged();
       }
     }
