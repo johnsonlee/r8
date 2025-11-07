@@ -97,6 +97,10 @@ public final class DesugarVarHandle {
     public int arrayIndexScale(Class<?> clazz) {
       throw new RuntimeException("Stub called.");
     }
+
+    public void storeFence() {
+      throw new RuntimeException("Stub called.");
+    }
   }
 
   private final UnsafeStub U;
@@ -151,7 +155,7 @@ public final class DesugarVarHandle {
   }
 
   // Helpers.
-  Field getUnsafeField() {
+  static Field getUnsafeField() {
     try {
       return UnsafeStub.class.getDeclaredField("theUnsafe");
     } catch (NoSuchFieldException e) {
@@ -743,5 +747,16 @@ public final class DesugarVarHandle {
     }
     long elementOffset = offset + ((long) ct2) * arrayIndexScale;
     return U.compareAndSwapLong(ct1, elementOffset, expetedValue, newValue);
+  }
+
+  public static void releaseFence() {
+    Field theUnsafe = getUnsafeField();
+    theUnsafe.setAccessible(true);
+    try {
+      // Unsafe.storeFence() was added in Android  7 (API level 24).
+      ((UnsafeStub) theUnsafe.get(null)).storeFence();
+    } catch (IllegalArgumentException | IllegalAccessException e) {
+      throw new RuntimeException(e);
+    }
   }
 }

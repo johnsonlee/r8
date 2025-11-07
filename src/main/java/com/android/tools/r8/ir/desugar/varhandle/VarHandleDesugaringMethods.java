@@ -61,7 +61,9 @@ public final class VarHandleDesugaringMethods {
     factory.createSynthesizedType("Ljava/lang/Byte;");
     factory.createSynthesizedType("Ljava/lang/ClassCastException;");
     factory.createSynthesizedType("Ljava/lang/Double;");
+    factory.createSynthesizedType("Ljava/lang/Exception;");
     factory.createSynthesizedType("Ljava/lang/Float;");
+    factory.createSynthesizedType("Ljava/lang/IllegalAccessException;");
     factory.createSynthesizedType("Ljava/lang/IllegalArgumentException;");
     factory.createSynthesizedType("Ljava/lang/Integer;");
     factory.createSynthesizedType("Ljava/lang/Long;");
@@ -317,6 +319,11 @@ public final class VarHandleDesugaringMethods {
             builder.getType(),
             factory.createProto(factory.longType, factory.objectType),
             factory.createString("getVolatile"));
+    DexMethod releaseFence =
+        factory.createMethod(
+            builder.getType(),
+            factory.createProto(factory.voidType),
+            factory.createString("releaseFence"));
     DexMethod set =
         factory.createMethod(
             builder.getType(),
@@ -509,6 +516,24 @@ public final class VarHandleDesugaringMethods {
                         Constants.ACC_PUBLIC | Constants.ACC_SYNTHETIC, true))
                 .setCode(DesugarVarHandle_constructor_3(factory, constructor_3))
                 .disableAndroidApiLevelCheck()
+                .build(),
+            DexEncodedMethod.syntheticBuilder()
+                .setMethod(getUnsafeField)
+                .setAccessFlags(
+                    MethodAccessFlags.fromSharedAccessFlags(
+                        Constants.ACC_PUBLIC | Constants.ACC_STATIC | Constants.ACC_SYNTHETIC,
+                        false))
+                .setCode(DesugarVarHandle_getUnsafeField(factory, getUnsafeField))
+                .disableAndroidApiLevelCheck()
+                .build(),
+            DexEncodedMethod.syntheticBuilder()
+                .setMethod(releaseFence)
+                .setAccessFlags(
+                    MethodAccessFlags.fromSharedAccessFlags(
+                        Constants.ACC_PUBLIC | Constants.ACC_STATIC | Constants.ACC_SYNTHETIC,
+                        false))
+                .setCode(DesugarVarHandle_releaseFence(factory, releaseFence))
+                .disableAndroidApiLevelCheck()
                 .build()));
     builder.setVirtualMethods(
         ImmutableList.of(
@@ -658,14 +683,6 @@ public final class VarHandleDesugaringMethods {
                     MethodAccessFlags.fromSharedAccessFlags(
                         Constants.ACC_PUBLIC | Constants.ACC_SYNTHETIC, false))
                 .setCode(DesugarVarHandle_getLong(factory, getLong))
-                .disableAndroidApiLevelCheck()
-                .build(),
-            DexEncodedMethod.syntheticBuilder()
-                .setMethod(getUnsafeField)
-                .setAccessFlags(
-                    MethodAccessFlags.fromSharedAccessFlags(
-                        Constants.ACC_PUBLIC | Constants.ACC_SYNTHETIC, false))
-                .setCode(DesugarVarHandle_getUnsafeField(factory, getUnsafeField))
                 .disableAndroidApiLevelCheck()
                 .build(),
             DexEncodedMethod.syntheticBuilder()
@@ -1102,9 +1119,8 @@ public final class VarHandleDesugaringMethods {
                     factory.createString("<init>")),
                 false),
             label1,
-            new CfLoad(ValueType.OBJECT, 0),
             new CfInvoke(
-                182,
+                184,
                 factory.createMethod(
                     factory.createType("Ljava/lang/invoke/VarHandle;"),
                     factory.createProto(factory.createType("Ljava/lang/reflect/Field;")),
@@ -1515,9 +1531,8 @@ public final class VarHandleDesugaringMethods {
                     factory.createString("<init>")),
                 false),
             label1,
-            new CfLoad(ValueType.OBJECT, 0),
             new CfInvoke(
-                182,
+                184,
                 factory.createMethod(
                     factory.createType("Ljava/lang/invoke/VarHandle;"),
                     factory.createProto(factory.createType("Ljava/lang/reflect/Field;")),
@@ -4091,7 +4106,7 @@ public final class VarHandleDesugaringMethods {
     return new CfCode(
         method.holder,
         4,
-        6,
+        5,
         ImmutableList.of(
             label0,
             new CfConstClass(factory.createType("Lsun/misc/Unsafe;")),
@@ -4108,17 +4123,11 @@ public final class VarHandleDesugaringMethods {
             new CfReturn(ValueType.OBJECT),
             label2,
             new CfFrame(
-                new Int2ObjectAVLTreeMap<>(
-                    new int[] {0},
-                    new FrameType[] {
-                      FrameType.initializedNonNullReference(
-                          factory.createType("Ljava/lang/invoke/VarHandle;"))
-                    }),
                 new ArrayDeque<>(
                     Arrays.asList(
                         FrameType.initializedNonNullReference(
                             factory.createType("Ljava/lang/NoSuchFieldException;"))))),
-            new CfStore(ValueType.OBJECT, 1),
+            new CfStore(ValueType.OBJECT, 0),
             label3,
             new CfConstClass(factory.createType("Lsun/misc/Unsafe;")),
             new CfInvoke(
@@ -4128,19 +4137,17 @@ public final class VarHandleDesugaringMethods {
                     factory.createProto(factory.createType("[Ljava/lang/reflect/Field;")),
                     factory.createString("getDeclaredFields")),
                 false),
-            new CfStore(ValueType.OBJECT, 2),
-            new CfLoad(ValueType.OBJECT, 2),
+            new CfStore(ValueType.OBJECT, 1),
+            new CfLoad(ValueType.OBJECT, 1),
             new CfArrayLength(),
-            new CfStore(ValueType.INT, 3),
+            new CfStore(ValueType.INT, 2),
             new CfConstNumber(0, ValueType.INT),
-            new CfStore(ValueType.INT, 4),
+            new CfStore(ValueType.INT, 3),
             label4,
             new CfFrame(
                 new Int2ObjectAVLTreeMap<>(
-                    new int[] {0, 1, 2, 3, 4},
+                    new int[] {0, 1, 2, 3},
                     new FrameType[] {
-                      FrameType.initializedNonNullReference(
-                          factory.createType("Ljava/lang/invoke/VarHandle;")),
                       FrameType.initializedNonNullReference(
                           factory.createType("Ljava/lang/NoSuchFieldException;")),
                       FrameType.initializedNonNullReference(
@@ -4148,15 +4155,15 @@ public final class VarHandleDesugaringMethods {
                       FrameType.intType(),
                       FrameType.intType()
                     })),
-            new CfLoad(ValueType.INT, 4),
             new CfLoad(ValueType.INT, 3),
+            new CfLoad(ValueType.INT, 2),
             new CfIfCmp(IfType.GE, ValueType.INT, label9),
-            new CfLoad(ValueType.OBJECT, 2),
-            new CfLoad(ValueType.INT, 4),
+            new CfLoad(ValueType.OBJECT, 1),
+            new CfLoad(ValueType.INT, 3),
             new CfArrayLoad(MemberType.OBJECT),
-            new CfStore(ValueType.OBJECT, 5),
+            new CfStore(ValueType.OBJECT, 4),
             label5,
-            new CfLoad(ValueType.OBJECT, 5),
+            new CfLoad(ValueType.OBJECT, 4),
             new CfInvoke(
                 182,
                 factory.createMethod(
@@ -4173,7 +4180,7 @@ public final class VarHandleDesugaringMethods {
                 false),
             new CfIf(IfType.EQ, ValueType.INT, label8),
             new CfConstClass(factory.createType("Lsun/misc/Unsafe;")),
-            new CfLoad(ValueType.OBJECT, 5),
+            new CfLoad(ValueType.OBJECT, 4),
             label6,
             new CfInvoke(
                 182,
@@ -4191,15 +4198,13 @@ public final class VarHandleDesugaringMethods {
                 false),
             new CfIf(IfType.EQ, ValueType.INT, label8),
             label7,
-            new CfLoad(ValueType.OBJECT, 5),
+            new CfLoad(ValueType.OBJECT, 4),
             new CfReturn(ValueType.OBJECT),
             label8,
             new CfFrame(
                 new Int2ObjectAVLTreeMap<>(
-                    new int[] {0, 1, 2, 3, 4},
+                    new int[] {0, 1, 2, 3},
                     new FrameType[] {
-                      FrameType.initializedNonNullReference(
-                          factory.createType("Ljava/lang/invoke/VarHandle;")),
                       FrameType.initializedNonNullReference(
                           factory.createType("Ljava/lang/NoSuchFieldException;")),
                       FrameType.initializedNonNullReference(
@@ -4207,22 +4212,20 @@ public final class VarHandleDesugaringMethods {
                       FrameType.intType(),
                       FrameType.intType()
                     })),
-            new CfIinc(4, 1),
+            new CfIinc(3, 1),
             new CfGoto(label4),
             label9,
             new CfFrame(
                 new Int2ObjectAVLTreeMap<>(
-                    new int[] {0, 1},
+                    new int[] {0},
                     new FrameType[] {
-                      FrameType.initializedNonNullReference(
-                          factory.createType("Ljava/lang/invoke/VarHandle;")),
                       FrameType.initializedNonNullReference(
                           factory.createType("Ljava/lang/NoSuchFieldException;"))
                     })),
             new CfNew(factory.createType("Ljava/lang/UnsupportedOperationException;")),
             new CfStackInstruction(CfStackInstruction.Opcode.Dup),
             new CfConstString(factory.createString("Couldn't find the Unsafe")),
-            new CfLoad(ValueType.OBJECT, 1),
+            new CfLoad(ValueType.OBJECT, 0),
             new CfInvoke(
                 183,
                 factory.createMethod(
@@ -5460,6 +5463,108 @@ public final class VarHandleDesugaringMethods {
             new CfReturn(ValueType.LONG),
             label5),
         ImmutableList.of(),
+        ImmutableList.of());
+  }
+
+  public static CfCode DesugarVarHandle_releaseFence(DexItemFactory factory, DexMethod method) {
+    CfLabel label0 = new CfLabel();
+    CfLabel label1 = new CfLabel();
+    CfLabel label2 = new CfLabel();
+    CfLabel label3 = new CfLabel();
+    CfLabel label4 = new CfLabel();
+    CfLabel label5 = new CfLabel();
+    CfLabel label6 = new CfLabel();
+    CfLabel label7 = new CfLabel();
+    return new CfCode(
+        method.holder,
+        3,
+        2,
+        ImmutableList.of(
+            label0,
+            new CfInvoke(
+                184,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/invoke/VarHandle;"),
+                    factory.createProto(factory.createType("Ljava/lang/reflect/Field;")),
+                    factory.createString("getUnsafeField")),
+                false),
+            new CfStore(ValueType.OBJECT, 0),
+            label1,
+            new CfLoad(ValueType.OBJECT, 0),
+            new CfConstNumber(1, ValueType.INT),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/reflect/Field;"),
+                    factory.createProto(factory.voidType, factory.booleanType),
+                    factory.createString("setAccessible")),
+                false),
+            label2,
+            new CfLoad(ValueType.OBJECT, 0),
+            new CfConstNull(),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/reflect/Field;"),
+                    factory.createProto(factory.objectType, factory.objectType),
+                    factory.createString("get")),
+                false),
+            new CfCheckCast(factory.createType("Lsun/misc/Unsafe;")),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.createType("Lsun/misc/Unsafe;"),
+                    factory.createProto(factory.voidType),
+                    factory.createString("storeFence")),
+                false),
+            label3,
+            new CfGoto(label6),
+            label4,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0},
+                    new FrameType[] {
+                      FrameType.initializedNonNullReference(
+                          factory.createType("Ljava/lang/reflect/Field;"))
+                    }),
+                new ArrayDeque<>(
+                    Arrays.asList(
+                        FrameType.initializedNonNullReference(
+                            factory.createType("Ljava/lang/Exception;"))))),
+            new CfStore(ValueType.OBJECT, 1),
+            label5,
+            new CfNew(factory.createType("Ljava/lang/RuntimeException;")),
+            new CfStackInstruction(CfStackInstruction.Opcode.Dup),
+            new CfLoad(ValueType.OBJECT, 1),
+            new CfInvoke(
+                183,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/RuntimeException;"),
+                    factory.createProto(factory.voidType, factory.throwableType),
+                    factory.createString("<init>")),
+                false),
+            new CfThrow(),
+            label6,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0},
+                    new FrameType[] {
+                      FrameType.initializedNonNullReference(
+                          factory.createType("Ljava/lang/reflect/Field;"))
+                    })),
+            new CfReturnVoid(),
+            label7),
+        ImmutableList.of(
+            new CfTryCatch(
+                label2,
+                label3,
+                ImmutableList.of(factory.createType("Ljava/lang/IllegalArgumentException;")),
+                ImmutableList.of(label4)),
+            new CfTryCatch(
+                label2,
+                label3,
+                ImmutableList.of(factory.createType("Ljava/lang/IllegalAccessException;")),
+                ImmutableList.of(label4))),
         ImmutableList.of());
   }
 
