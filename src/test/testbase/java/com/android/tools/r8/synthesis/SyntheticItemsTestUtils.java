@@ -309,9 +309,7 @@ public abstract class SyntheticItemsTestUtils {
     return SyntheticNaming.isSynthetic(reference, Phase.EXTERNAL, naming.BACKPORT);
   }
 
-  public static boolean isExternalOutlineClass(ClassReference reference) {
-    return SyntheticNaming.isSynthetic(reference, Phase.EXTERNAL, naming.OUTLINE);
-  }
+  public abstract boolean isExternalOutlineClass(ClassReference reference);
 
   public abstract boolean isExternalApiOutlineClass(ClassReference reference);
 
@@ -339,6 +337,11 @@ public abstract class SyntheticItemsTestUtils {
   }
 
   private static class DefaultSyntheticItemsTestUtils extends SyntheticItemsTestUtils {
+
+    @Override
+    public boolean isExternalOutlineClass(ClassReference reference) {
+      return SyntheticNaming.isSynthetic(reference, Phase.EXTERNAL, naming.OUTLINE);
+    }
 
     @Override
     public boolean isExternalApiOutlineClass(ClassReference reference) {
@@ -535,6 +538,11 @@ public abstract class SyntheticItemsTestUtils {
     @Override
     public boolean isExternalNonFixedInitializerTypeArgument(ClassReference classReference) {
       return isSyntheticClassOfKind(classReference, naming.NON_FIXED_INIT_TYPE_ARGUMENT);
+    }
+
+    @Override
+    public boolean isExternalOutlineClass(ClassReference classReference) {
+      return isSyntheticMethodOfKind(classReference, naming.OUTLINE);
     }
 
     @Override
