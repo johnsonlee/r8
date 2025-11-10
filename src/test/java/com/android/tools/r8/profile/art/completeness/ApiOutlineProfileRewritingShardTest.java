@@ -142,7 +142,7 @@ public class ApiOutlineProfileRewritingShardTest extends TestBase {
       Class<?> mainClass)
       throws Exception {
     // Verify that outlining happened.
-    verifyThat(inspector, parameters, LibraryClass.class)
+    verifyThat(inspector, parameters, LibraryClass.class, syntheticItems)
         .applyIf(
             isLibraryClassAlwaysPresent(),
             verifier ->

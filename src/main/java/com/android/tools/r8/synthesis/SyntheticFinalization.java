@@ -336,7 +336,8 @@ public class SyntheticFinalization {
             return;
           }
           String prefix =
-              SyntheticNaming.getPrefixForExternalSyntheticType(item.getKind(), item.getHolder());
+              SyntheticNaming.getPrefixForExternalSyntheticType(
+                  item.getKind(), item.getHolder(), appView);
           assert !prefix.contains(SyntheticNaming.getPhaseSeparator(Phase.INTERNAL));
           DexType context =
               appView

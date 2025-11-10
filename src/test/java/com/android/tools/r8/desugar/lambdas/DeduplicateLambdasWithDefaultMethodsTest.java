@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.desugar.lambdas;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.TestBase;
@@ -33,22 +32,24 @@ public class DeduplicateLambdasWithDefaultMethodsTest extends TestBase {
 
   @Test
   public void test() throws Exception {
-    assertEquals(
-        ImmutableSet.of(
-            Reference.classFromClass(I.class),
-            Reference.classFromClass(TestClass.class),
-            SyntheticItemsTestUtils.syntheticCompanionClass(I.class),
-            getDefaultSyntheticItemsTestUtils().syntheticLambdaClass(TestClass.class, 0)),
-        testForD8(Backend.CF)
-            .addInnerClasses(getClass())
-            .setIntermediate(true)
-            .setMinApi(AndroidApiLevel.B)
-            .compile()
-            .inspector()
-            .allClasses()
-            .stream()
-            .map(FoundClassSubject::getFinalReference)
-            .collect(Collectors.toSet()));
+    testForD8(Backend.CF)
+        .addInnerClasses(getClass())
+        .collectSyntheticItems()
+        .setIntermediate(true)
+        .setMinApi(AndroidApiLevel.B)
+        .compile()
+        .inspectWithSyntheticItems(
+            (inspector, syntheticItems) -> {
+              assertEquals(
+                  ImmutableSet.of(
+                      Reference.classFromClass(I.class),
+                      Reference.classFromClass(TestClass.class),
+                      SyntheticItemsTestUtils.syntheticCompanionClass(I.class),
+                      syntheticItems.syntheticLambdaClass(TestClass.class, 0)),
+                  inspector.allClasses().stream()
+                      .map(FoundClassSubject::getFinalReference)
+                      .collect(Collectors.toSet()));
+            });
   }
 
   interface I {

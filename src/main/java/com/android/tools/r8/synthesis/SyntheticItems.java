@@ -603,8 +603,11 @@ public class SyntheticItems {
   }
 
   boolean isSyntheticInput(DexProgramClass clazz) {
-    return committed.containsSyntheticInput(clazz.getType())
-        || finalized.containsSyntheticInput(clazz.getType());
+    return isSyntheticInput(clazz.getType());
+  }
+
+  boolean isSyntheticInput(DexType type) {
+    return committed.containsSyntheticInput(type) || finalized.containsSyntheticInput(type);
   }
 
   public FeatureSplit getContextualFeatureSplitOrDefault(DexType type, FeatureSplit defaultValue) {

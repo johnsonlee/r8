@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.apimodel;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.accessesField;
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethod;
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethodWithHolderAndName;
@@ -242,7 +241,7 @@ public abstract class ApiModelingTestHelper {
 
   public static ApiModelingClassVerificationHelper verifyThat(
       CodeInspector inspector, TestParameters parameters, Class<?> clazz) {
-    return verifyThat(inspector, parameters, clazz, getDefaultSyntheticItemsTestUtils());
+    return verifyThat(inspector, parameters, clazz, null);
   }
 
   public static ApiModelingClassVerificationHelper verifyThat(

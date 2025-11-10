@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.synthesis;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -53,15 +52,8 @@ public class RepeatedCompilationNestedSyntheticsAndStrippedMarkerTest extends Te
 
   @Test
   public void test() throws Exception {
-    assertEquals(Backend.DEX, parameters.getBackend());
-
-    ClassReference syntheticLambdaClass =
-        getDefaultSyntheticItemsTestUtils().syntheticLambdaClass(UsesBackport.class, 0);
-    ImmutableSet<String> expectedClassOutputs =
-        ImmutableSet.of(descriptor(UsesBackport.class), syntheticLambdaClass.getDescriptor());
-
     Map<String, byte[]> firstCompilation = new HashMap<>();
-    D8TestCompileResult initialIntermediateCompileResult =
+    SyntheticItemsTestUtils firstSyntheticItems =
         testForD8(Backend.CF)
             // High API level such that only the lambda is desugared.
             .setMinApi(AndroidApiLevel.S)
@@ -84,10 +76,17 @@ public class RepeatedCompilationNestedSyntheticsAndStrippedMarkerTest extends Te
                   @Override
                   public void finished(DiagnosticsHandler handler) {}
                 })
-            .compile();
+            .compile()
+            .getSyntheticItems();
+
+    ClassReference syntheticLambdaClass =
+        firstSyntheticItems.syntheticLambdaClass(UsesBackport.class, 0);
+    ImmutableSet<String> expectedClassOutputs =
+        ImmutableSet.of(descriptor(UsesBackport.class), syntheticLambdaClass.getDescriptor());
     assertEquals(expectedClassOutputs, firstCompilation.keySet());
 
     Map<String, byte[]> secondCompilation = new HashMap<>();
+    SyntheticItemsTestUtils secondSyntheticItems = null;
     ImmutableSet.Builder<String> allDescriptors = ImmutableSet.builder();
     BooleanBox matched = new BooleanBox(false);
     for (Entry<String, byte[]> entry : firstCompilation.entrySet()) {
@@ -99,8 +98,9 @@ public class RepeatedCompilationNestedSyntheticsAndStrippedMarkerTest extends Te
               return entry.getKey();
             }
           };
-      D8TestCompileResult secondIntermediateCompileResult =
+      D8TestCompileResult secondCompileResult =
           testForD8(intermediateBackend)
+              .collectSyntheticItems()
               .setMinApi(parameters)
               .setIntermediate(true)
               .addClasspathClasses(I.class)
@@ -157,6 +157,9 @@ public class RepeatedCompilationNestedSyntheticsAndStrippedMarkerTest extends Te
                             public void finished(DiagnosticsHandler handler) {}
                           }))
               .compile();
+      if (entry.getKey().equals(syntheticLambdaClass.getDescriptor())) {
+        secondSyntheticItems = secondCompileResult.getSyntheticItems();
+      }
     }
     assertTrue(matched.get());
     // The dex file per class file output should maintain the exact same set of primary descriptors.
@@ -165,13 +168,13 @@ public class RepeatedCompilationNestedSyntheticsAndStrippedMarkerTest extends Te
     }
     // The total set of classes should also include the backport. The backport should be
     // hygienically placed under the synthetic lambda (not the context of the lambda!).
+    ClassReference syntheticBackportClass =
+        secondSyntheticItems.syntheticBackportClass(syntheticLambdaClass, 0);
+    assertEquals(syntheticLambdaClass.getTypeName() + "$0", syntheticBackportClass.getTypeName());
     assertEquals(
         ImmutableSet.<String>builder()
             .addAll(expectedClassOutputs)
-            .add(
-                getDefaultSyntheticItemsTestUtils()
-                    .syntheticBackportClass(syntheticLambdaClass, 0)
-                    .getDescriptor())
+            .add(syntheticBackportClass.getDescriptor())
             .build(),
         allDescriptors.build());
 
@@ -210,9 +213,7 @@ public class RepeatedCompilationNestedSyntheticsAndStrippedMarkerTest extends Te
                       .collect(Collectors.toSet());
               // The initial lambda stays as the only item under UsesBackport.
               ClassReference lambdaClass =
-                  initialIntermediateCompileResult
-                      .getSyntheticItems()
-                      .syntheticLambdaClass(UsesBackport.class, 0);
+                  firstSyntheticItems.syntheticLambdaClass(UsesBackport.class, 0);
               // The nested backport has context in the lambda since the lambda was not marked.
               ClassReference backportClass =
                   thirdNonIntermediateCompileResult

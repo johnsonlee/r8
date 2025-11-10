@@ -75,7 +75,8 @@ abstract class SyntheticDefinition<
       // name back to the original context.
       return context.getSynthesizingContextType().toBinaryName();
     }
-    return SyntheticNaming.getPrefixForExternalSyntheticType(getKind(), getHolder().getType());
+    return SyntheticNaming.getPrefixForExternalSyntheticType(
+        getKind(), getHolder().getType(), appView);
   }
 
   public abstract C getHolder();

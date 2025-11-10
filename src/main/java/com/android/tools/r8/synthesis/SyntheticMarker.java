@@ -9,7 +9,6 @@ import com.android.tools.r8.graph.DexAnnotation;
 import com.android.tools.r8.graph.DexAnnotation.SynthesizedAnnotationClassInfo;
 import com.android.tools.r8.graph.DexAnnotationSet;
 import com.android.tools.r8.graph.DexEncodedMethod;
-import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.synthesis.SyntheticNaming.SyntheticKind;
@@ -131,8 +130,7 @@ public class SyntheticMarker {
         return NO_MARKER;
       }
       assert marker.getContext() == null;
-      DexType contextType =
-          getSyntheticContextType(clazz.type, marker.kind, appView.dexItemFactory());
+      DexType contextType = getSyntheticContextType(clazz.type, marker.kind, appView);
       SynthesizingContext context =
           SynthesizingContext.fromSyntheticInputClass(clazz, contextType, appView);
       return new SyntheticMarker(marker.kind, context);
@@ -175,7 +173,7 @@ public class SyntheticMarker {
     }
     clazz.setAnnotations(DexAnnotationSet.empty());
     clazz.forEachMethod(method -> method.setApiLevelForCode(synthesizedInfo.getComputedApiLevel()));
-    DexType context = getSyntheticContextType(clazz.type, kind, appView.dexItemFactory());
+    DexType context = getSyntheticContextType(clazz.type, kind, appView);
     return new SyntheticMarker(
         kind, SynthesizingContext.fromSyntheticInputClass(clazz, context, appView));
   }
@@ -187,12 +185,15 @@ public class SyntheticMarker {
   }
 
   private static DexType getSyntheticContextType(
-      DexType type, SyntheticKind kind, DexItemFactory factory) {
+      DexType type, SyntheticKind kind, AppView<?> appView) {
     if (kind.isGlobal()) {
       return type;
     }
-    String prefix = SyntheticNaming.getOuterContextFromExternalSyntheticType(kind, type);
-    return factory.createType(DescriptorUtils.getDescriptorFromClassBinaryName(prefix));
+    String prefix =
+        SyntheticNaming.getOuterContextFromExternalSyntheticType(kind, type, appView.options());
+    return appView
+        .dexItemFactory()
+        .createType(DescriptorUtils.getDescriptorFromClassBinaryName(prefix));
   }
 
   private static final SyntheticMarker NO_MARKER = new SyntheticMarker(null, null);
