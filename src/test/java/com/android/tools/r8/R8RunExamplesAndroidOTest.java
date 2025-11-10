@@ -4,14 +4,16 @@
 
 package com.android.tools.r8;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static org.junit.Assert.assertEquals;
 
+import com.android.tools.r8.R8Command.Builder;
 import com.android.tools.r8.ToolHelper.DexVm;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.VmTestRunner.IgnoreIfVmOlderThan;
-import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
+import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.OffOrAuto;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
@@ -109,23 +111,68 @@ public class R8RunExamplesAndroidOTest extends RunExamplesAndroidOTest<R8Command
           .put(Version.DEFAULT, ImmutableList.of())
           .build();
 
+  /**
+   * Override test in {@link com.android.tools.r8.RunExamplesAndroidOTest} to allow diagnostic
+   * warning messages.
+   */
+  @Test
+  @Override
+  public void desugarDefaultMethodInAndroidJar25() throws Throwable {
+    test("DefaultMethodInAndroidJar25", "desugaringwithandroidjar25", "DefaultMethodInAndroidJar25")
+        .withBuilder(
+            builder ->
+                builder
+                    .addOptionsModification(
+                        options -> options.interfaceMethodDesugaring = OffOrAuto.Auto)
+                    .allowDiagnosticWarningMessages()
+                    .setMinApi(AndroidApiLevel.K))
+        .withAndroidJar(AndroidApiLevel.O)
+        .withKeepAll()
+        .run();
+  }
+
+  /**
+   * Override test in {@link com.android.tools.r8.RunExamplesAndroidOTest} to allow diagnostic
+   * warning messages.
+   */
+  @Test
+  @Override
+  public void desugarStaticMethodInAndroidJar25() throws Throwable {
+    test("StaticMethodInAndroidJar25", "desugaringwithandroidjar25", "StaticMethodInAndroidJar25")
+        .withBuilder(
+            builder ->
+                builder
+                    .addOptionsModification(
+                        options -> options.interfaceMethodDesugaring = OffOrAuto.Auto)
+                    .allowDiagnosticWarningMessages()
+                    .setMinApi(AndroidApiLevel.K))
+        .withAndroidJar(AndroidApiLevel.O)
+        .withKeepAll()
+        .run();
+  }
+
   @Test
   public void invokeCustomWithShrinking() throws Throwable {
     test("invokecustom-with-shrinking", "invokecustom", "InvokeCustom")
-        .withMinApiLevel(AndroidApiLevel.O)
-        .withBuilderTransformation(builder ->
-            builder.addProguardConfigurationFiles(
-                Paths.get(ToolHelper.EXAMPLES_ANDROID_O_DIR, "invokecustom/keep-rules.txt")))
+        .withBuilder(
+            builder ->
+                builder
+                    .addKeepRuleFiles(
+                        Paths.get(ToolHelper.EXAMPLES_ANDROID_O_DIR, "invokecustom/keep-rules.txt"))
+                    .setMinApi(AndroidApiLevel.O))
         .run();
   }
 
   @Test
   public void invokeCustom2WithShrinking() throws Throwable {
     test("invokecustom2-with-shrinking", "invokecustom2", "InvokeCustom")
-        .withMinApiLevel(AndroidApiLevel.O)
-        .withBuilderTransformation(builder ->
-            builder.addProguardConfigurationFiles(
-                Paths.get(ToolHelper.EXAMPLES_ANDROID_O_DIR, "invokecustom2/keep-rules.txt")))
+        .withBuilder(
+            builder ->
+                builder
+                    .addKeepRuleFiles(
+                        Paths.get(
+                            ToolHelper.EXAMPLES_ANDROID_O_DIR, "invokecustom2/keep-rules.txt"))
+                    .setMinApi(AndroidApiLevel.O))
         .run();
   }
 
@@ -133,18 +180,26 @@ public class R8RunExamplesAndroidOTest extends RunExamplesAndroidOTest<R8Command
   @Test
   public void lambdaDesugaring() throws Throwable {
     test("lambdadesugaring", "lambdadesugaring", "LambdaDesugaring")
-        .withMinApiLevel(ToolHelper.getMinApiLevelForDexVmNoHigherThan(AndroidApiLevel.K))
-        .withOptionConsumer(opts -> opts.enableClassInlining = false)
-        .withBuilderTransformation(
-            b -> b.addProguardConfiguration(PROGUARD_OPTIONS, Origin.unknown()))
-        .withDexCheck(inspector -> checkLambdaCount(inspector, 3, "lambdadesugaring"))
+        .withBuilder(
+            builder ->
+                builder
+                    .addKeepRules(PROGUARD_OPTIONS)
+                    .addOptionsModification(options -> options.enableClassInlining = false)
+                    .setMinApi(ToolHelper.getMinApiLevelForDexVmNoHigherThan(AndroidApiLevel.K)))
+        .withDexCheck(
+            (inspector, syntheticItems) ->
+                checkLambdaCount(inspector, syntheticItems, 3, "lambdadesugaring"))
         .run(Paths.get(ToolHelper.THIRD_PARTY_DIR, "examplesAndroidOLegacy"));
 
     test("lambdadesugaring", "lambdadesugaring", "LambdaDesugaring")
-        .withMinApiLevel(ToolHelper.getMinApiLevelForDexVmNoHigherThan(AndroidApiLevel.K))
-        .withBuilderTransformation(
-            b -> b.addProguardConfiguration(PROGUARD_OPTIONS, Origin.unknown()))
-        .withDexCheck(inspector -> checkLambdaCount(inspector, 0, "lambdadesugaring"))
+        .withBuilder(
+            builder ->
+                builder
+                    .addKeepRules(PROGUARD_OPTIONS)
+                    .setMinApi(ToolHelper.getMinApiLevelForDexVmNoHigherThan(AndroidApiLevel.K)))
+        .withDexCheck(
+            (inspector, syntheticItems) ->
+                checkLambdaCount(inspector, syntheticItems, 0, "lambdadesugaring"))
         .run(Paths.get(ToolHelper.THIRD_PARTY_DIR, "examplesAndroidOLegacy"));
   }
 
@@ -153,17 +208,15 @@ public class R8RunExamplesAndroidOTest extends RunExamplesAndroidOTest<R8Command
     // We can only remove trivial check casts for the lambda objects if we keep track all the
     // multiple interfaces we additionally specified for the lambdas
     test("lambdadesugaring", "lambdadesugaring", "LambdaDesugaring")
-        .withMinApiLevel(ToolHelper.getMinApiLevelForDexVmNoHigherThan(AndroidApiLevel.K))
-        .withBuilderTransformation(
-            b -> b.addProguardConfiguration(PROGUARD_OPTIONS, Origin.unknown()))
-        .withBuilderTransformation(
-            b ->
-                b.addProguardConfiguration(
-                    ImmutableList.of(
+        .withBuilder(
+            builder ->
+                builder
+                    .addKeepRules(PROGUARD_OPTIONS)
+                    .addKeepRules(
                         "-keep class lambdadesugaring.LambdaDesugaring {",
                         "  void testMultipleInterfaces();",
-                        "}"),
-                    Origin.unknown()))
+                        "}")
+                    .setMinApi(ToolHelper.getMinApiLevelForDexVmNoHigherThan(AndroidApiLevel.K)))
         .withDexCheck(inspector -> checkTestMultipleInterfacesCheckCastCount(inspector, 0))
         .run(Paths.get(ToolHelper.THIRD_PARTY_DIR, "examplesAndroidOLegacy"));
   }
@@ -172,18 +225,22 @@ public class R8RunExamplesAndroidOTest extends RunExamplesAndroidOTest<R8Command
   @IgnoreIfVmOlderThan(Version.V7_0_0)
   public void lambdaDesugaringWithDefaultMethods() throws Throwable {
     test("lambdadesugaring", "lambdadesugaring", "LambdaDesugaring")
-        .withMinApiLevel(AndroidApiLevel.N)
-        .withOptionConsumer(opts -> opts.enableClassInlining = false)
-        .withBuilderTransformation(
-            b -> b.addProguardConfiguration(PROGUARD_OPTIONS, Origin.unknown()))
-        .withDexCheck(inspector -> checkLambdaCount(inspector, 3, "lambdadesugaring"))
+        .withBuilder(
+            builder ->
+                builder
+                    .addKeepRules(PROGUARD_OPTIONS)
+                    .addOptionsModification(options -> options.enableClassInlining = false)
+                    .setMinApi(AndroidApiLevel.N))
+        .withDexCheck(
+            (inspector, syntheticItems) ->
+                checkLambdaCount(inspector, syntheticItems, 3, "lambdadesugaring"))
         .run(Paths.get(ToolHelper.THIRD_PARTY_DIR, "examplesAndroidOLegacy"));
 
     test("lambdadesugaring", "lambdadesugaring", "LambdaDesugaring")
-        .withMinApiLevel(AndroidApiLevel.N)
-        .withBuilderTransformation(
-            b -> b.addProguardConfiguration(PROGUARD_OPTIONS, Origin.unknown()))
-        .withDexCheck(inspector -> checkLambdaCount(inspector, 0, "lambdadesugaring"))
+        .withBuilder(builder -> builder.addKeepRules(PROGUARD_OPTIONS).setMinApi(AndroidApiLevel.N))
+        .withDexCheck(
+            (inspector, syntheticItems) ->
+                checkLambdaCount(inspector, syntheticItems, 0, "lambdadesugaring"))
         .run(Paths.get(ToolHelper.THIRD_PARTY_DIR, "examplesAndroidOLegacy"));
   }
 
@@ -200,33 +257,36 @@ public class R8RunExamplesAndroidOTest extends RunExamplesAndroidOTest<R8Command
 
   private void lambdaDesugaringNPlus(boolean enableProguardCompatibilityMode) throws Throwable {
     test("lambdadesugaringnplus", "lambdadesugaringnplus", "LambdasWithStaticAndDefaultMethods")
+        .withBuilder(
+            builder ->
+                builder
+                    .addKeepRules(getProguardOptionsNPlus(enableProguardCompatibilityMode))
+                    .addOptionsModification(
+                        options -> {
+                          options.enableClassInlining = false;
+                          options.interfaceMethodDesugaring = OffOrAuto.Auto;
+                        })
+                    .enableProguardTestOptions()
+                    .setMinApi(ToolHelper.getMinApiLevelForDexVmNoHigherThan(AndroidApiLevel.K)))
         .withProguardCompatibilityMode(enableProguardCompatibilityMode)
-        .withMinApiLevel(ToolHelper.getMinApiLevelForDexVmNoHigherThan(AndroidApiLevel.K))
-        .withInterfaceMethodDesugaring(OffOrAuto.Auto)
-        .withBuilderTransformation(
-            builder -> builder.setEnableExperimentalMissingLibraryApiModeling(true))
-        .withOptionConsumer(opts -> opts.enableClassInlining = false)
-        .withBuilderTransformation(ToolHelper::allowTestProguardOptions)
-        .withBuilderTransformation(
-            b ->
-                b.addProguardConfiguration(
-                    getProguardOptionsNPlus(enableProguardCompatibilityMode), Origin.unknown()))
         .withDexCheck(
-            inspector ->
-                checkLambdaCount(
-                    inspector, enableProguardCompatibilityMode ? 1 : 2, "lambdadesugaringnplus"))
+            (inspector, syntheticItems) ->
+                checkLambdaCount(inspector, syntheticItems, 2, "lambdadesugaringnplus"))
         .run();
 
     test("lambdadesugaringnplus", "lambdadesugaringnplus", "LambdasWithStaticAndDefaultMethods")
+        .withBuilder(
+            builder ->
+                builder
+                    .addKeepRules(getProguardOptionsNPlus(enableProguardCompatibilityMode))
+                    .addOptionsModification(
+                        options -> options.interfaceMethodDesugaring = OffOrAuto.Auto)
+                    .enableProguardTestOptions()
+                    .setMinApi(ToolHelper.getMinApiLevelForDexVmNoHigherThan(AndroidApiLevel.K)))
         .withProguardCompatibilityMode(enableProguardCompatibilityMode)
-        .withMinApiLevel(ToolHelper.getMinApiLevelForDexVmNoHigherThan(AndroidApiLevel.K))
-        .withInterfaceMethodDesugaring(OffOrAuto.Auto)
-        .withBuilderTransformation(ToolHelper::allowTestProguardOptions)
-        .withBuilderTransformation(
-            b ->
-                b.addProguardConfiguration(
-                    getProguardOptionsNPlus(enableProguardCompatibilityMode), Origin.unknown()))
-        .withDexCheck(inspector -> checkLambdaCount(inspector, 0, "lambdadesugaringnplus"))
+        .withDexCheck(
+            (inspector, syntheticItems) ->
+                checkLambdaCount(inspector, syntheticItems, 0, "lambdadesugaringnplus"))
         .run();
   }
 
@@ -245,41 +305,54 @@ public class R8RunExamplesAndroidOTest extends RunExamplesAndroidOTest<R8Command
   private void lambdaDesugaringNPlusWithDefaultMethods(boolean enableProguardCompatibilityMode)
       throws Throwable {
     test("lambdadesugaringnplus", "lambdadesugaringnplus", "LambdasWithStaticAndDefaultMethods")
+        .withBuilder(
+            builder ->
+                builder
+                    .addKeepRules(getProguardOptionsNPlus(enableProguardCompatibilityMode))
+                    .addOptionsModification(
+                        options -> {
+                          options.enableClassInlining = false;
+                          options.interfaceMethodDesugaring = OffOrAuto.Auto;
+                        })
+                    .enableProguardTestOptions()
+                    .setMinApi(AndroidApiLevel.N))
         .withProguardCompatibilityMode(enableProguardCompatibilityMode)
-        .withMinApiLevel(AndroidApiLevel.N)
-        .withInterfaceMethodDesugaring(OffOrAuto.Auto)
-        .withOptionConsumer(opts -> opts.enableClassInlining = false)
-        .withBuilderTransformation(ToolHelper::allowTestProguardOptions)
-        .withBuilderTransformation(
-            builder -> builder.setEnableExperimentalMissingLibraryApiModeling(true))
-        .withBuilderTransformation(
-            b ->
-                b.addProguardConfiguration(
-                    getProguardOptionsNPlus(enableProguardCompatibilityMode), Origin.unknown()))
-        .withDexCheck(inspector -> checkLambdaCount(inspector, 1, "lambdadesugaringnplus"))
+        .withDexCheck(
+            (inspector, syntheticItems) ->
+                checkLambdaCount(inspector, syntheticItems, 1, "lambdadesugaringnplus"))
         .run();
 
     test("lambdadesugaringnplus", "lambdadesugaringnplus", "LambdasWithStaticAndDefaultMethods")
+        .withBuilder(
+            builder ->
+                builder
+                    .addKeepRules(getProguardOptionsNPlus(enableProguardCompatibilityMode))
+                    .addOptionsModification(
+                        options -> options.interfaceMethodDesugaring = OffOrAuto.Auto)
+                    .enableProguardTestOptions()
+                    .setMinApi(AndroidApiLevel.N))
         .withProguardCompatibilityMode(enableProguardCompatibilityMode)
-        .withMinApiLevel(AndroidApiLevel.N)
-        .withInterfaceMethodDesugaring(OffOrAuto.Auto)
-        .withBuilderTransformation(ToolHelper::allowTestProguardOptions)
-        .withBuilderTransformation(
-            b ->
-                b.addProguardConfiguration(
-                    getProguardOptionsNPlus(enableProguardCompatibilityMode), Origin.unknown()))
-        .withDexCheck(inspector -> checkLambdaCount(inspector, 0, "lambdadesugaringnplus"))
+        .withDexCheck(
+            (inspector, syntheticItems) ->
+                checkLambdaCount(inspector, syntheticItems, 0, "lambdadesugaringnplus"))
         .run();
   }
 
-  private void checkLambdaCount(CodeInspector inspector, int maxExpectedCount, String prefix) {
+  private void checkLambdaCount(
+      CodeInspector inspector,
+      SyntheticItemsTestUtils syntheticItems,
+      int maxExpectedCount,
+      String prefix) {
     List<String> found = new ArrayList<>();
     for (FoundClassSubject clazz : inspector.allClasses()) {
-      if (clazz.isSynthesizedJavaLambdaClass(getDefaultSyntheticItemsTestUtils())
+      if (clazz.isSynthesizedJavaLambdaClass(syntheticItems)
           && clazz.getOriginalTypeName().startsWith(prefix)) {
         found.add(clazz.getOriginalTypeName());
       }
     }
+    // lambdadesugaringnplus.LambdasWithStaticAndDefaultMethods$I$1
+    // lambdadesugaringnplus.LambdasWithStaticAndDefaultMethods$0
+    // expected:<1> but was:<2>
     assertEquals(StringUtils.lines(found), maxExpectedCount, found.size());
   }
 
@@ -305,22 +378,30 @@ public class R8RunExamplesAndroidOTest extends RunExamplesAndroidOTest<R8Command
   class R8TestRunner extends TestRunner<R8TestRunner> {
 
     private boolean enableProguardCompatibilityMode = false;
+    private final List<Consumer<R8CompatTestBuilder>> testBuilderConsumers = new ArrayList<>();
 
     R8TestRunner(String testName, String packageName, String mainClass) {
       super(testName, packageName, mainClass);
     }
 
+    R8TestRunner withBuilder(Consumer<R8CompatTestBuilder> consumer) {
+      testBuilderConsumers.add(consumer);
+      return self();
+    }
+
+    @Override
+    R8TestRunner withBuilderTransformation(Consumer<Builder> builderTransformation) {
+      throw new Unreachable();
+    }
+
     @Override
     R8TestRunner withMinApiLevel(AndroidApiLevel minApiLevel) {
-      return withBuilderTransformation(builder -> builder.setMinApiLevel(minApiLevel.getLevel()));
+      return withBuilder(builder -> builder.setMinApi(minApiLevel));
     }
 
     @Override R8TestRunner withKeepAll() {
-      return withBuilderTransformation(builder ->
-          builder
-              .setDisableTreeShaking(true)
-              .setDisableMinification(true)
-              .addProguardConfiguration(ImmutableList.of("-keepattributes *"), Origin.unknown()));
+      return withBuilder(
+          builder -> builder.addDontObfuscate().addDontShrink().addKeepAllAttributes());
     }
 
     public R8TestRunner withProguardCompatibilityMode(boolean enableProguardCompatibilityMode) {
@@ -329,18 +410,35 @@ public class R8RunExamplesAndroidOTest extends RunExamplesAndroidOTest<R8Command
     }
 
     @Override
-    void build(Path inputFile, Path out, OutputMode mode) throws Throwable {
-      CompatProguardCommandBuilder builder =
-          new CompatProguardCommandBuilder(enableProguardCompatibilityMode);
-      builder.setOutput(out, mode);
-      for (Consumer<R8Command.Builder> transformation : builderTransformations) {
-        transformation.accept(builder);
+    void build(
+        Path inputFile, Path out, Box<SyntheticItemsTestUtils> syntheticItemsBox, OutputMode mode)
+        throws Throwable {
+      Backend backend;
+      if (mode == OutputMode.ClassFile) {
+        backend = Backend.CF;
+      } else {
+        assert mode == OutputMode.DexIndexed;
+        backend = Backend.DEX;
       }
-      builder.addLibraryFiles(ToolHelper.getAndroidJar(
-          androidJarVersion == null ? builder.getMinApiLevel() : androidJarVersion.getLevel()));
-      visitFiles(getLegacyClassesRoot(inputFile, packageName), builder::addProgramFiles);
-      R8Command command = builder.addProgramFiles(inputFile).build();
-      ToolHelper.runR8(command, this::combinedOptionConsumer);
+      testForR8Compat(backend, enableProguardCompatibilityMode)
+          .addProgramFiles(inputFile)
+          .addOptionsModification(this::combinedOptionConsumer)
+          .apply(
+              b -> {
+                for (Consumer<R8CompatTestBuilder> testBuilderConsumer : testBuilderConsumers) {
+                  testBuilderConsumer.accept(b);
+                }
+                visitFiles(getLegacyClassesRoot(inputFile, packageName), b::addProgramFiles);
+                b.addLibraryFiles(
+                    ToolHelper.getAndroidJar(
+                        androidJarVersion == null
+                            ? b.getMinApiLevel()
+                            : androidJarVersion.getLevel()));
+              })
+          .collectSyntheticItems()
+          .compile()
+          .apply(cr -> syntheticItemsBox.set(cr.getSyntheticItems()))
+          .writeToZip(out);
     }
 
     @Override

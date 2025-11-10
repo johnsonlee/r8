@@ -20,6 +20,7 @@ import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.AndroidApp;
+import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.OffOrAuto;
 import com.android.tools.r8.utils.StringUtils;
@@ -60,7 +61,9 @@ public abstract class D8IncrementalRunExamplesAndroidOTest
     }
 
     @Override
-    void build(Path testJarFile, Path out, OutputMode mode) throws Throwable {
+    void build(
+        Path testJarFile, Path out, Box<SyntheticItemsTestUtils> syntheticItemsBox, OutputMode mode)
+        throws Throwable {
       Map<String, ProgramResource> files = compileClassesTogether(testJarFile, null);
       mergeClassFiles(Lists.newArrayList(files.values()), out, mode);
     }

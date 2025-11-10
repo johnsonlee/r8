@@ -8,7 +8,6 @@ import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpec
 import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.JDK11;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.JDK11_MINIMAL;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.JDK11_PATH;
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -20,6 +19,7 @@ import com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpeci
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.references.Reference;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
@@ -59,23 +59,22 @@ public class ConcurrentLinkedQueueTest extends DesugaredLibraryTestBase {
         SPECIFICATIONS_WITH_CF2CF);
   }
 
-  private void inspect(CodeInspector inspector) {
+  private void inspect(CodeInspector inspector, SyntheticItemsTestUtils syntheticItems) {
     // Right now we only expect one backport coming out of DesugarVarHandle - the backport with
     // forwarding of Unsafe.compareAndSwapObject.
     MethodReference firstBackportFromDesugarVarHandle =
-        getDefaultSyntheticItemsTestUtils()
-            .syntheticBackportWithForwardingMethod(
-                Reference.classFromDescriptor("Lj$/com/android/tools/r8/DesugarVarHandle;"),
-                0,
-                Reference.method(
-                    Reference.classFromDescriptor("Lsun/misc/Unsafe;"),
-                    "compareAndSwapObject",
-                    ImmutableList.of(
-                        Reference.typeFromDescriptor("Ljava/lang/Object;"),
-                        Reference.LONG,
-                        Reference.typeFromDescriptor("Ljava/lang/Object;"),
-                        Reference.typeFromDescriptor("Ljava/lang/Object;")),
-                    Reference.BOOL));
+        syntheticItems.syntheticBackportWithForwardingMethod(
+            Reference.classFromDescriptor("Lj$/com/android/tools/r8/DesugarVarHandle;"),
+            0,
+            Reference.method(
+                Reference.classFromDescriptor("Lsun/misc/Unsafe;"),
+                "compareAndSwapObject",
+                ImmutableList.of(
+                    Reference.typeFromDescriptor("Ljava/lang/Object;"),
+                    Reference.LONG,
+                    Reference.typeFromDescriptor("Ljava/lang/Object;"),
+                    Reference.typeFromDescriptor("Ljava/lang/Object;")),
+                Reference.BOOL));
 
     assertThat(
         inspector.clazz(
@@ -135,8 +134,9 @@ public class ConcurrentLinkedQueueTest extends DesugaredLibraryTestBase {
     testForDesugaredLibrary(parameters, libraryDesugaringSpecification, compilationSpecification)
         .addInnerClasses(getClass())
         .addKeepMainRule(Executor.class)
+        .collectL8SyntheticItems()
         .compile()
-        .inspectL8(this::inspect)
+        .inspectL8WithSyntheticItems(this::inspect)
         .run(parameters.getRuntime(), Executor.class)
         .assertSuccessWithOutputLines("Hello, world!");
   }

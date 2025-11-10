@@ -15,8 +15,10 @@ import com.android.tools.r8.TestRuntime.CfRuntime;
 import com.android.tools.r8.ToolHelper.DexVm;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.AndroidApp;
+import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.OffOrAuto;
@@ -49,6 +51,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -73,7 +76,8 @@ public abstract class RunExamplesAndroidOTest<
     AndroidApiLevel androidJarVersion = null;
 
     final List<Consumer<InternalOptions>> optionConsumers = new ArrayList<>();
-    final List<Consumer<CodeInspector>> dexInspectorChecks = new ArrayList<>();
+    final List<BiConsumer<CodeInspector, SyntheticItemsTestUtils>> dexInspectorChecks =
+        new ArrayList<>();
     final List<Consumer<B>> builderTransformations = new ArrayList<>();
 
     TestRunner(String testName, String packageName, String mainClass) {
@@ -85,6 +89,10 @@ public abstract class RunExamplesAndroidOTest<
     abstract C self();
 
     C withDexCheck(Consumer<CodeInspector> check) {
+      return withDexCheck((inspector, syntheticItems) -> check.accept(inspector));
+    }
+
+    C withDexCheck(BiConsumer<CodeInspector, SyntheticItemsTestUtils> check) {
       dexInspectorChecks.add(check);
       return self();
     }
@@ -162,7 +170,7 @@ public abstract class RunExamplesAndroidOTest<
       Path inputFile = getInputJar();
       Path out = temp.getRoot().toPath().resolve(testName + ZIP_EXTENSION);
 
-      build(inputFile, out);
+      build(inputFile, out, new Box<>());
       return out;
     }
 
@@ -179,7 +187,8 @@ public abstract class RunExamplesAndroidOTest<
       Path inputFile = getInputJar();
       Path out = temp.getRoot().toPath().resolve(testName + ZIP_EXTENSION);
 
-      build(inputFile, out);
+      Box<SyntheticItemsTestUtils> syntheticItemsBox = new Box<>();
+      build(inputFile, out, syntheticItemsBox);
 
       if (!ToolHelper.artSupported() && !ToolHelper.dealsWithGoldenFiles()) {
         return;
@@ -187,8 +196,9 @@ public abstract class RunExamplesAndroidOTest<
 
       if (!dexInspectorChecks.isEmpty()) {
         CodeInspector inspector = new CodeInspector(out);
-        for (Consumer<CodeInspector> check : dexInspectorChecks) {
-          check.accept(inspector);
+        SyntheticItemsTestUtils syntheticItems = syntheticItemsBox.get();
+        for (BiConsumer<CodeInspector, SyntheticItemsTestUtils> check : dexInspectorChecks) {
+          check.accept(inspector, syntheticItems);
         }
       }
 
@@ -211,11 +221,14 @@ public abstract class RunExamplesAndroidOTest<
       return self();
     }
 
-    void build(Path inputFile, Path out) throws Throwable {
-      build(inputFile, out, OutputMode.DexIndexed);
+    void build(Path inputFile, Path out, Box<SyntheticItemsTestUtils> syntheticItemsBox)
+        throws Throwable {
+      build(inputFile, out, syntheticItemsBox, OutputMode.DexIndexed);
     }
 
-    abstract void build(Path inputFile, Path out, OutputMode mode) throws Throwable;
+    abstract void build(
+        Path inputFile, Path out, Box<SyntheticItemsTestUtils> syntheticItemsBox, OutputMode mode)
+        throws Throwable;
   }
 
   private static List<String> minSdkErrorExpected = ImmutableList.of();
@@ -462,6 +475,7 @@ public abstract class RunExamplesAndroidOTest<
   public void testTryWithResourcesDesugared() throws Throwable {
     test("try-with-resources-simplified", "trywithresources", "TryWithResourcesDesugaredTests")
         .withAndroidJar(AndroidApiLevel.K)
+        .withMinApiLevel(AndroidApiLevel.B)
         .withTryWithResourcesDesugaring(OffOrAuto.Auto)
         .withInstructionCheck(
             InstructionSubject::isInvoke,
@@ -547,7 +561,7 @@ public abstract class RunExamplesAndroidOTest<
             .withMainDexKeepClassRules(mainDexClasses)
             .withKeepAll();
     Path fullDexes = temp.getRoot().toPath().resolve(packageName + "full" + ZIP_EXTENSION);
-    full.build(input, fullDexes);
+    full.build(input, fullDexes, new Box<>());
 
     // Builds with intermediate in both output mode.
     Path dexesThroughIndexedIntermediate =
@@ -630,7 +644,7 @@ public abstract class RunExamplesAndroidOTest<
 
     Path dexesThroughIntermediate =
         temp.getRoot().toPath().resolve(packageName + "dex" + ZIP_EXTENSION);
-    end.build(intermediateDex, dexesThroughIntermediate);
+    end.build(intermediateDex, dexesThroughIntermediate, new Box<>());
     return dexesThroughIntermediate;
   }
 
