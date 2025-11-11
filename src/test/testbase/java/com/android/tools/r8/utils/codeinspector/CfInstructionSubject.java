@@ -390,6 +390,12 @@ public class CfInstructionSubject implements InstructionSubject {
   }
 
   @Override
+  public boolean isDivision() {
+    return instruction instanceof CfArithmeticBinop
+        && ((CfArithmeticBinop) instruction).getOpcode() == CfArithmeticBinop.Opcode.Div;
+  }
+
+  @Override
   public boolean isMonitorEnter() {
     if (!(instruction instanceof CfMonitor)) {
       return false;

@@ -156,6 +156,8 @@ public interface InstructionSubject {
 
   boolean isMultiplication();
 
+  boolean isDivision();
+
   boolean isNewArray();
 
   boolean isArrayLength();
