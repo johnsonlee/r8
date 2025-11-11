@@ -18,7 +18,8 @@ import com.android.tools.r8.ir.desugar.desugaredlibrary.legacyspecification.Lega
 import com.android.tools.r8.ir.desugar.desugaredlibrary.legacyspecification.LegacyRewritingFlags;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.legacyspecification.LegacyTopLevelFlags;
 import com.android.tools.r8.origin.Origin;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
+import com.android.tools.r8.references.ClassReference;
+import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.PredicateUtils;
@@ -82,9 +83,10 @@ public class RetargetAndBackportTest extends DesugaredLibraryTestBase implements
         .addLibraryFiles(libraryDesugaringSpecification.getLibraryFiles())
         .setDesugaredLibrarySpecification(libraryDesugaringSpecification.getSpecification())
         .addOptionsModifier(RetargetAndBackportTest::specifyDesugaredLibrary)
+        .collectSyntheticItems()
         .compile()
-        .inspect(
-            inspector -> {
+        .inspectWithSyntheticItems(
+            (inspector, syntheticItems) -> {
               MethodSubject toMillisMethod =
                   inspector.clazz("j$.time.Duration").uniqueMethodWithOriginalName("toMillis");
               assertThat(toMillisMethod, isPresent());
@@ -92,16 +94,18 @@ public class RetargetAndBackportTest extends DesugaredLibraryTestBase implements
               MethodSubject firstBackportMethod =
                   inspector
                       .clazz(
-                          SyntheticItemsTestUtils.syntheticClassWithMinimalName(
-                              toMillisMethod.getFinalReference().getHolderClass(), 1))
+                          javaToJ$(
+                              syntheticItems.syntheticBackportClass(
+                                  Reference.classFromTypeName("java.time.Duration"), 1)))
                       .uniqueMethod();
               assertThat(firstBackportMethod, isPresent());
 
               MethodSubject secondBackportMethod =
                   inspector
                       .clazz(
-                          SyntheticItemsTestUtils.syntheticClassWithMinimalName(
-                              toMillisMethod.getFinalReference().getHolderClass(), 2))
+                          javaToJ$(
+                              syntheticItems.syntheticBackportClass(
+                                  Reference.classFromTypeName("java.time.Duration"), 2)))
                       .uniqueMethod();
               assertThat(secondBackportMethod, isPresent());
 
@@ -116,6 +120,11 @@ public class RetargetAndBackportTest extends DesugaredLibraryTestBase implements
                               isInvokeWithTarget(firstBackportMethod),
                               isInvokeWithTarget(secondBackportMethod))));
             });
+  }
+
+  private static ClassReference javaToJ$(ClassReference classReference) {
+    assert classReference.getTypeName().startsWith("java.");
+    return Reference.classFromTypeName("j$." + classReference.getTypeName().substring(5));
   }
 
   // Dump of java.time.Duration from JDK 11 based desugared library input built from

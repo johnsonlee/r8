@@ -64,11 +64,6 @@ public abstract class SyntheticItemsTestUtils {
         InterfaceDesugaringForTesting.getCompanionClassDescriptor(clazz.getDescriptor()));
   }
 
-  @Deprecated
-  public static ClassReference syntheticClassWithMinimalName(ClassReference clazz, int id) {
-    return SyntheticNaming.makeMinimalSyntheticReferenceForTest(clazz, Integer.toString(id));
-  }
-
   public static MethodReference syntheticInvokeSpecialMethod(Method method) {
     MethodReference originalMethod = Reference.methodFromMethod(method);
     return Reference.method(
