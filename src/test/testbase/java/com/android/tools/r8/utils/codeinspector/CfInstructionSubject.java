@@ -382,11 +382,8 @@ public class CfInstructionSubject implements InstructionSubject {
 
   @Override
   public boolean isMultiplication() {
-    if (!(instruction instanceof CfArithmeticBinop)) {
-      return false;
-    }
-    int opcode = ((CfArithmeticBinop) instruction).getAsmOpcode();
-    return Opcodes.IMUL <= opcode && opcode <= Opcodes.DMUL;
+    return instruction instanceof CfArithmeticBinop
+        && ((CfArithmeticBinop) instruction).getOpcode() == CfArithmeticBinop.Opcode.Mul;
   }
 
   @Override
