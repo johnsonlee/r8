@@ -7,7 +7,6 @@ package com.android.tools.r8;
 import static com.android.tools.r8.utils.FileUtils.JAR_EXTENSION;
 import static org.junit.Assert.assertTrue;
 
-import com.android.tools.r8.D8Command.Builder;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.FileUtils;
@@ -20,6 +19,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.junit.Test;
 
@@ -36,19 +36,25 @@ public class D8LazyRunExamplesAndroidOTest
     }
 
     @Override
-    void addClasspathReference(Path testJarFile, D8Command.Builder builder) {
-      addClasspathPath(getClassesRoot(testJarFile), builder);
-      addClasspathPath(getLegacyClassesRoot(testJarFile, packageName), builder);
+    void addClasspathReference(
+        Path testJarFile,
+        Consumer<Path> pathConsumer,
+        Consumer<ClassFileResourceProvider> providerConsumer) {
+      addClasspathPath(getClassesRoot(testJarFile), providerConsumer);
+      addClasspathPath(getLegacyClassesRoot(testJarFile, packageName), providerConsumer);
     }
 
-    private void addClasspathPath(Path location, D8Command.Builder builder) {
-      builder.addClasspathResourceProvider(
-          DirectoryClassFileProvider.fromDirectory(location.resolve("..")));
+    private void addClasspathPath(Path location, Consumer<ClassFileResourceProvider> fn) {
+      fn.accept(DirectoryClassFileProvider.fromDirectory(location.resolve("..")));
     }
 
     @Override
-    void addLibraryReference(Builder builder, Path location) throws IOException {
-      builder.addLibraryResourceProvider(new ArchiveClassFileProvider(location));
+    void addLibraryReference(
+        Path location,
+        Consumer<Path> pathConsumer,
+        Consumer<ClassFileResourceProvider> providerConsumer)
+        throws IOException {
+      providerConsumer.accept(new ArchiveClassFileProvider(location));
     }
 
     @Override
@@ -126,5 +132,4 @@ public class D8LazyRunExamplesAndroidOTest
     AndroidApp mergedResult = ToolHelper.runD8(builder, options -> options.setMarker(null));
     return mergedResult;
   }
-
 }

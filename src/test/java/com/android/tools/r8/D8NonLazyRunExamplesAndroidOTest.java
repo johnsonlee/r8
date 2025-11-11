@@ -5,6 +5,7 @@
 package com.android.tools.r8;
 
 import java.nio.file.Path;
+import java.util.function.Consumer;
 
 public class D8NonLazyRunExamplesAndroidOTest extends D8IncrementalRunExamplesAndroidOTest {
   class D8LazyTestRunner extends D8IncrementalTestRunner {
@@ -14,14 +15,19 @@ public class D8NonLazyRunExamplesAndroidOTest extends D8IncrementalRunExamplesAn
     }
 
     @Override
-    void addClasspathReference(Path testJarFile, D8Command.Builder builder) {
-      builder.addClasspathFiles(testJarFile);
+    void addClasspathReference(
+        Path testJarFile,
+        Consumer<Path> pathConsumer,
+        Consumer<ClassFileResourceProvider> providerConsumer) {
+      pathConsumer.accept(testJarFile);
     }
 
     @Override
-    void addLibraryReference(D8Command.Builder builder, Path location) {
-      builder.addLibraryFiles(ToolHelper.getAndroidJar(
-          androidJarVersion == null ? builder.getMinApiLevel() : androidJarVersion.getLevel()));
+    void addLibraryReference(
+        Path location,
+        Consumer<Path> pathConsumer,
+        Consumer<ClassFileResourceProvider> providerConsumer) {
+      pathConsumer.accept(location);
     }
 
     @Override
