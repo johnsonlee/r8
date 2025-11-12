@@ -573,6 +573,7 @@ public class DexInstructionSubject implements InstructionSubject {
     return instruction instanceof DexSparseSwitch;
   }
 
+  @Override
   public boolean isIntArithmeticBinop() {
     return instruction instanceof DexMulInt
         || instruction instanceof DexMulIntLit8
@@ -596,6 +597,7 @@ public class DexInstructionSubject implements InstructionSubject {
         || instruction instanceof DexRemInt2Addr;
   }
 
+  @Override
   public boolean isLongArithmeticBinop() {
     return instruction instanceof DexMulLong
         || instruction instanceof DexMulLong2Addr
@@ -609,6 +611,7 @@ public class DexInstructionSubject implements InstructionSubject {
         || instruction instanceof DexRemLong2Addr;
   }
 
+  @Override
   public boolean isIntLogicalBinop() {
     return instruction instanceof DexAndInt
         || instruction instanceof DexAndIntLit8
@@ -633,6 +636,7 @@ public class DexInstructionSubject implements InstructionSubject {
         || instruction instanceof DexUshrInt2Addr;
   }
 
+  @Override
   public boolean isLongLogicalBinop() {
     return instruction instanceof DexAndLong
         || instruction instanceof DexAndLong2Addr
