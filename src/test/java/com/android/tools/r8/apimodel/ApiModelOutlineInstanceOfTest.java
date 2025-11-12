@@ -119,8 +119,6 @@ public class ApiModelOutlineInstanceOfTest extends TestBase {
     testForR8(parameters.getBackend())
         .apply(this::setupTestBuilder)
         .addKeepMainRule(Main.class)
-        .addOptionsModification(
-            options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
         .collectSyntheticItems()
         .compile()
         .apply(

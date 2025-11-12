@@ -65,10 +65,7 @@ public class LambdaStaticLibraryMethodImplementationProfileRewritingTest extends
         .addArtProfileForRewriting(getArtProfile())
         .addOptionsModification(InlinerOptions::disableInlining)
         .addOptionsModification(
-            options -> {
-              options.callSiteOptimizationOptions().setEnableMethodStaticizing(false);
-              options.desugarSpecificOptions().minimizeSyntheticNames = true;
-            })
+            options -> options.callSiteOptimizationOptions().setEnableMethodStaticizing(false))
         .collectSyntheticItems()
         .setMinApi(parameters)
         .compile()

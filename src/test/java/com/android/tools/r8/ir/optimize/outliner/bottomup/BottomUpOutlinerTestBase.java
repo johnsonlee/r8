@@ -71,10 +71,6 @@ public abstract class BottomUpOutlinerTestBase extends TestBase {
                   };
               outlinerOptions.outlineStrategyForTesting = this::shouldOutline;
             })
-        .applyIfR8(
-            b ->
-                b.addOptionsModification(
-                    options -> options.desugarSpecificOptions().minimizeSyntheticNames = true))
         .collectSyntheticItems()
         .setMode(mode);
   }

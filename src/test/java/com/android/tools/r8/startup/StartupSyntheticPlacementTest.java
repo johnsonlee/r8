@@ -145,8 +145,6 @@ public class StartupSyntheticPlacementTest extends TestBase {
     D8TestCompileResult instrumentationCompileResult =
         testForD8(parameters.getBackend())
             .addInnerClasses(getClass())
-            .addOptionsModification(
-                options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
             .apply(
                 StartupTestingUtils.enableStartupInstrumentationForOriginalAppUsingLogcat(
                     parameters))

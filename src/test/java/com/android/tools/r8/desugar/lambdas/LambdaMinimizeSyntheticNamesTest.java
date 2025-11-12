@@ -37,7 +37,6 @@ public class LambdaMinimizeSyntheticNamesTest extends TestBase {
     TestCompileResult<?, ?> compileResult =
         testForD8(parameters)
             .addInnerClasses(getClass())
-            .addOptionsModification(this::configure)
             .collectSyntheticItems()
             .release()
             .compile();
@@ -51,14 +50,9 @@ public class LambdaMinimizeSyntheticNamesTest extends TestBase {
             .addInnerClasses(getClass())
             .addKeepMainRule(Main.class)
             .addDontObfuscate()
-            .addOptionsModification(this::configure)
             .collectSyntheticItems()
             .compile();
     compileResult.inspect(inspector -> inspect(inspector, compileResult.getSyntheticItems()));
-  }
-
-  private void configure(InternalOptions options) {
-    options.desugarSpecificOptions().minimizeSyntheticNames = true;
   }
 
   private void inspect(CodeInspector inspector, SyntheticItemsTestUtils syntheticItems) {

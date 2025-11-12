@@ -64,8 +64,6 @@ public class BackportProfileRewritingTest extends TestBase {
         .addKeepMainRule(Main.class)
         .addArtProfileForRewriting(getArtProfile())
         .addOptionsModification(InlinerOptions::disableInlining)
-        .addOptionsModification(
-            options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
         .collectSyntheticItems()
         .setMinApi(parameters)
         .compile()

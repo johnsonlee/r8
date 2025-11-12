@@ -93,8 +93,6 @@ public class KotlinLambdaMergingTrivialJavaStyleTest extends KotlinTestBase {
         .addHorizontallyMergedClassesInspector(
             inspector ->
                 inspect(inspector, lambdasInInput, testBuilder.getState().getSyntheticItems()))
-        .addOptionsModification(
-            options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
         .allowAccessModification(allowAccessModification)
         .collectSyntheticItems()
         .setMinApi(parameters)

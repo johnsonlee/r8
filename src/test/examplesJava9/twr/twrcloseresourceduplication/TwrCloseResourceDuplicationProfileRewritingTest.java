@@ -70,11 +70,7 @@ public class TwrCloseResourceDuplicationProfileRewritingTest
         .addKeepClassAndMembersRules(FOO, BAR)
         .addArtProfileForRewriting(getArtProfile())
         .addOptionsModification(InlinerOptions::disableInlining)
-        .addOptionsModification(
-            options -> {
-              options.desugarSpecificOptions().minimizeSyntheticNames = true;
-              options.testing.enableSyntheticSharing = false;
-            })
+        .addOptionsModification(options -> options.testing.enableSyntheticSharing = false)
         .applyIf(
             parameters.isCfRuntime(),
             testBuilder ->

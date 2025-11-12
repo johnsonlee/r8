@@ -102,8 +102,6 @@ public class ApiOutlineProfileRewritingTest extends TestBase {
         .addDefaultRuntimeLibrary(parameters)
         .addKeepMainRule(Main.class)
         .addArtProfileForRewriting(getArtProfile())
-        .addOptionsModification(
-            options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
         .apply(setMockApiLevelForClass(LibraryClass.class, classApiLevel))
         .collectSyntheticItems()
         .setMinApi(parameters)

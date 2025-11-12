@@ -44,9 +44,6 @@ public class SyntheticContextsConsumerTest extends CompilerApiTestRunner {
     D8TestCompileResult compileResult =
         testForD8(Backend.CF)
             .addProgramClasses(UsesBackport.class)
-            // Disable since the external compilation runs with non-minimal synthetic names.
-            .addOptionsModification(
-                options -> options.desugarSpecificOptions().minimizeSyntheticNames = false)
             .collectSyntheticItems()
             .setIntermediate(true)
             .setMinApi(1)

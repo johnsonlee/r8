@@ -1680,7 +1680,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
         System.getProperty("com.android.tools.r8.lambdaClassFieldsNotFinal") == null;
     public boolean minimizeSyntheticNames =
         SystemPropertyUtils.parseSystemPropertyOrDefault(
-            "com.android.tools.r8.desugar.minimizeSyntheticNames", false);
+            "com.android.tools.r8.desugar.minimizeSyntheticNames", true);
   }
 
   public class RewriteArrayOptions {

@@ -64,7 +64,6 @@ public abstract class TestCompilerBuilder<
 
   public static final Consumer<InternalOptions> DEFAULT_OPTIONS =
       options -> {
-        options.desugarSpecificOptions().minimizeSyntheticNames = true;
         options.testing.enableTestAssertions = true;
         options.getBottomUpOutlinerOptions().enable = true;
         options.getBottomUpOutlinerOptions().enableStringBuilderOutlining = true;
@@ -75,7 +74,6 @@ public abstract class TestCompilerBuilder<
   public static final Consumer<InternalOptions> DEFAULT_R8_OPTIONS =
       DEFAULT_OPTIONS.andThen(
           options -> {
-            options.desugarSpecificOptions().minimizeSyntheticNames = true;
             options.testing.allowUnusedDontWarnRules = false;
             options.testing.allowUnnecessaryDontWarnWildcards = false;
             options.testing.forcePruneMetaInfManifestMf = true;

@@ -232,8 +232,6 @@ public final class L8Command extends BaseCompilerCommand {
       internal.threadCount = getThreadCount();
     }
 
-    internal.desugarSpecificOptions().minimizeSyntheticNames = true;
-
     // Disable global optimizations.
     internal.disableGlobalOptimizations();
     internal

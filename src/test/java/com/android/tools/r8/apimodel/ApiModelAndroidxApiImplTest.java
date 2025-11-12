@@ -140,8 +140,6 @@ public class ApiModelAndroidxApiImplTest extends TestBase {
             .addKeepMainRule(Main.class)
             .addHorizontallyMergedClassesInspector(
                 HorizontallyMergedClassesInspector::assertNoClassesMerged)
-            .addOptionsModification(
-                options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
             .collectSyntheticItems()
             .compile();
     compileResult

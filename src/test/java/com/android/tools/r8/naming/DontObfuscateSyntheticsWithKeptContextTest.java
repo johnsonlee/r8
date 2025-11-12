@@ -54,13 +54,6 @@ public class DontObfuscateSyntheticsWithKeptContextTest extends TestBase {
         .addInnerClasses(getClass())
         // Allow access modification to ensure that the lambda is subject to repackaging.
         .addKeepRules("-keep,allowaccessmodification class ** { *; }")
-        .apply(
-            b -> {
-              if (!b.isR8PartialTestBuilder()) {
-                b.addOptionsModification(
-                    options -> options.desugarSpecificOptions().minimizeSyntheticNames = true);
-              }
-            })
         .applyIf(enableRepackaging, b -> b.addKeepRules("-repackageclasses"))
         .applyIf(
             parameters.getPartialCompilationTestParameters().isSome(),

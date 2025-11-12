@@ -55,8 +55,6 @@ public class DesugarLambdaContextDuplicateInLibraryTest extends TestBase {
         .addProgramClasses(LIBRARY)
         .addKeepMainRule(MAIN)
         .addKeepMethodRules(pinnedPrintLn())
-        .addOptionsModification(
-            options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
         .setMinApi(parameters)
         .addHorizontallyMergedClassesInspector(
             inspector -> {
