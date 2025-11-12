@@ -448,7 +448,7 @@ public class SyntheticNaming {
     } else {
       // If this synthetic class was present on input from an intermediate compilation then it
       // won't have the $$InternalSynthetic marker.
-      if (appView.options().desugarSpecificOptions().minimizeSyntheticNames
+      if (!appView.options().desugarSpecificOptions().enableVerboseSyntheticNames
           && appView.getSyntheticItems().isSyntheticInput(type)) {
         index = binaryName.lastIndexOf(INNER_CLASS_SEPARATOR);
       } else {
@@ -468,10 +468,10 @@ public class SyntheticNaming {
     int index;
     if (kind.isFixedSuffixSynthetic()) {
       index = binaryName.lastIndexOf(kind.descriptor);
-    } else if (options.desugarSpecificOptions().minimizeSyntheticNames) {
-      index = binaryName.lastIndexOf(INNER_CLASS_SEPARATOR);
-    } else {
+    } else if (options.desugarSpecificOptions().enableVerboseSyntheticNames) {
       index = binaryName.lastIndexOf(EXTERNAL_SYNTHETIC_CLASS_SEPARATOR + kind.getDescriptor());
+    } else {
+      index = binaryName.lastIndexOf(INNER_CLASS_SEPARATOR);
     }
     if (index < 0) {
       throw new Unreachable(
@@ -507,13 +507,13 @@ public class SyntheticNaming {
     if (kind.isFixedSuffixSynthetic()) {
       assert id.isEmpty();
       return createType("", kind, externalSyntheticTypePrefix, id, factory);
-    } else if (options.desugarSpecificOptions().minimizeSyntheticNames) {
+    } else if (options.desugarSpecificOptions().enableVerboseSyntheticNames) {
+      return createType(
+          EXTERNAL_SYNTHETIC_CLASS_SEPARATOR, kind, externalSyntheticTypePrefix, id, factory);
+    } else {
       return factory.createType(
           DescriptorUtils.getDescriptorFromClassBinaryName(
               externalSyntheticTypePrefix + INNER_CLASS_SEPARATOR + id));
-    } else {
-      return createType(
-          EXTERNAL_SYNTHETIC_CLASS_SEPARATOR, kind, externalSyntheticTypePrefix, id, factory);
     }
   }
 

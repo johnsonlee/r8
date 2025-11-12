@@ -724,6 +724,16 @@ public final class R8Command extends BaseCompilerCommand {
       return this;
     }
 
+    /**
+     * By default, R8 uses the same naming scheme for synthetic classes as javac uses for anonymous
+     * inner classes. By enabling verbose synthetic names, the synthetic classes will include a
+     * "$$ExternalSynthetic" marker, which includes the synthetic kind (e.g., "Lambda").
+     */
+    @Override
+    public Builder setEnableVerboseSyntheticNames(boolean enableVerboseSyntheticNames) {
+      return super.setEnableVerboseSyntheticNames(enableVerboseSyntheticNames);
+    }
+
     @Override
     void validate() {
       if (isPrintHelp()) {
@@ -874,6 +884,7 @@ public final class R8Command extends BaseCompilerCommand {
               desugaring,
               configuration.isShrinking(),
               configuration.isObfuscating(),
+              enableVerboseSyntheticNames,
               forceProguardCompatibility,
               protectApiSurface,
               includeDataResources,
@@ -1243,6 +1254,7 @@ public final class R8Command extends BaseCompilerCommand {
       DesugarState enableDesugaring,
       boolean enableTreeShaking,
       boolean enableMinification,
+      boolean enableVerboseSyntheticNames,
       boolean forceProguardCompatibility,
       boolean protectApiSurface,
       Optional<Boolean> includeDataResources,
@@ -1301,7 +1313,8 @@ public final class R8Command extends BaseCompilerCommand {
         artProfilesForRewriting,
         startupProfileProviders,
         classConflictResolver,
-        cancelCompilationChecker);
+        cancelCompilationChecker,
+        enableVerboseSyntheticNames);
     assert proguardConfiguration != null;
     assert mainDexKeepRules != null;
     this.mainDexKeepRules = mainDexKeepRules;
@@ -1391,6 +1404,7 @@ public final class R8Command extends BaseCompilerCommand {
     internal.programConsumer = getProgramConsumer();
     internal.setMinApiLevel(AndroidApiLevel.getAndroidApiLevel(getMinApiLevel()));
     internal.desugarState = getDesugarState();
+    internal.desugarSpecificOptions().enableVerboseSyntheticNames = enableVerboseSyntheticNames;
     assert internal.isShrinking() == getEnableTreeShaking();
     assert internal.isMinifying() == getEnableMinification();
     assert !internal.ignoreMissingClasses;

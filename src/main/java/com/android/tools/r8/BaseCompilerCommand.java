@@ -68,6 +68,7 @@ public abstract class BaseCompilerCommand extends BaseCommand {
   private final List<StartupProfileProvider> startupProfileProviders;
   private final ClassConflictResolver classConflictResolver;
   private final CancelCompilationChecker cancelCompilationChecker;
+  final boolean enableVerboseSyntheticNames;
 
   BaseCompilerCommand(boolean printHelp, boolean printVersion) {
     super(printHelp, printVersion);
@@ -91,6 +92,7 @@ public abstract class BaseCompilerCommand extends BaseCommand {
     startupProfileProviders = null;
     classConflictResolver = null;
     cancelCompilationChecker = null;
+    enableVerboseSyntheticNames = false;
   }
 
   BaseCompilerCommand(
@@ -114,7 +116,8 @@ public abstract class BaseCompilerCommand extends BaseCommand {
       List<ArtProfileForRewriting> artProfilesForRewriting,
       List<StartupProfileProvider> startupProfileProviders,
       ClassConflictResolver classConflictResolver,
-      CancelCompilationChecker cancelCompilationChecker) {
+      CancelCompilationChecker cancelCompilationChecker,
+      boolean enableVerboseSyntheticNames) {
     super(app);
     assert minApiLevel > 0;
     assert mode != null;
@@ -138,6 +141,7 @@ public abstract class BaseCompilerCommand extends BaseCommand {
     this.startupProfileProviders = startupProfileProviders;
     this.classConflictResolver = classConflictResolver;
     this.cancelCompilationChecker = cancelCompilationChecker;
+    this.enableVerboseSyntheticNames = enableVerboseSyntheticNames;
   }
 
   /**
@@ -287,6 +291,7 @@ public abstract class BaseCompilerCommand extends BaseCommand {
 
     private int threadCount = ThreadUtils.NOT_SPECIFIED;
     protected DesugarState desugarState = DesugarState.ON;
+    boolean enableVerboseSyntheticNames = false;
     private final List<StringResource> desugaredLibrarySpecificationResources = new ArrayList<>();
     private boolean includeClassesChecksum = false;
     private boolean optimizeMultidexForLinearAlloc = false;
@@ -640,6 +645,16 @@ public abstract class BaseCompilerCommand extends BaseCommand {
 
     DesugarState getDesugaringState() {
       return desugarState;
+    }
+
+    /**
+     * By default, the compiler uses the same naming scheme for synthetic classes as javac uses for
+     * anonymous inner classes. By enabling verbose synthetic names, the synthetic classes will
+     * include a "$$ExternalSynthetic" marker, which includes the synthetic kind (e.g., "Lambda").
+     */
+    B setEnableVerboseSyntheticNames(boolean enableVerboseSyntheticNames) {
+      this.enableVerboseSyntheticNames = enableVerboseSyntheticNames;
+      return self();
     }
 
     /** Set a custom provider for defining the map id for the build. */
