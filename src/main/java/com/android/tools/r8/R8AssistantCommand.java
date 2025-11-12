@@ -64,7 +64,8 @@ public class R8AssistantCommand extends BaseCompilerCommand {
         Collections.emptyList(),
         Collections.emptyList(),
         null,
-        null);
+        null,
+        false);
     this.reflectiveReceiverDescriptor = reflectiveReceiverDescriptor;
   }
 

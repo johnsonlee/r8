@@ -4,7 +4,6 @@
 package com.android.tools.r8;
 
 import com.android.tools.r8.BaseCommand.LibraryInputOrigin;
-import com.android.tools.r8.D8Command.Builder;
 import com.android.tools.r8.dex.Marker.Tool;
 import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.errors.DexFileOverflowDiagnostic;
