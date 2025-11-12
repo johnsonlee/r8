@@ -755,8 +755,7 @@ public class DefaultInliningOracle implements InliningOracle {
               && (options.canUseJavaLangVarHandleStoreStoreFence(appView)
                   || inlinerOptions.skipStoreStoreFenceInConstructorInlining)
               && methodProcessor.hasWaves()
-              && target.isProgramField()
-              && appView.getKeepInfo(target.asProgramField()).isOptimizationAllowed(options)) {
+              && canUnsetFinalFlag(target)) {
             actionBuilder.setShouldEnsureStoreStoreFence(target.asProgramField());
           } else {
             whyAreYouNotInliningReporter.reportUnsafeConstructorInliningDueToFinalFieldAssignment(
@@ -818,6 +817,12 @@ public class DefaultInliningOracle implements InliningOracle {
 
     inliningIRProvider.cacheInliningIR(invoke, inlinee);
     return true;
+  }
+
+  private boolean canUnsetFinalFlag(DexClassAndField field) {
+    return field.isProgramField()
+        && !field.getHolder().isRecord()
+        && appView.getKeepInfo(field.asProgramField()).isOptimizationAllowed(options);
   }
 
   @Override
