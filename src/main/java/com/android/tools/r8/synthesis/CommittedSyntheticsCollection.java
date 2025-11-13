@@ -237,8 +237,12 @@ public class CommittedSyntheticsCollection {
     return empty;
   }
 
+  public boolean containsMethod(DexType type) {
+    return methods.containsKey(type);
+  }
+
   public boolean containsType(DexType type) {
-    return methods.containsKey(type) || classes.containsKey(type);
+    return containsMethod(type) || classes.containsKey(type);
   }
 
   @SuppressWarnings("ReferenceEquality")
