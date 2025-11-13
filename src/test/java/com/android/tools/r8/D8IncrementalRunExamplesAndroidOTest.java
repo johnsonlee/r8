@@ -108,6 +108,7 @@ public abstract class D8IncrementalRunExamplesAndroidOTest
           ClassReference reference = Reference.classFromDescriptor(descriptor);
           Assert.assertTrue(
               descriptor.endsWith(getCompanionClassNameSuffix() + ";")
+                  || syntheticItems.isExternalApiOutlineClass(reference)
                   || syntheticItems.isExternalTwrCloseMethod(reference)
                   || syntheticItems.isMaybeExternalSuppressedExceptionMethod(reference)
                   || syntheticItems.isExternalLambda(reference)
