@@ -117,6 +117,9 @@ public abstract class MethodGenerationBase extends CodeGenerationBase {
                 if (methodName.equals("<init>")) {
                   methodName = "constructor_" + method.getProto().getArity();
                 }
+                if (methodName.equals("<clinit>")) {
+                  methodName = "clinit";
+                }
                 String generatedMethodName = holderName + "_" + methodName;
                 CfCode code = getCode(holderName, methodName, method.getCode().asCfCode());
                 if (code != null) {
@@ -165,7 +168,7 @@ public abstract class MethodGenerationBase extends CodeGenerationBase {
     String name =
         method.isInstanceInitializer()
             ? "constructor_" + method.getProto().getArity()
-            : method.getName().toString();
+            : (method.isClassInitializer() ? "clinit" : method.getName().toString());
     requiredImports.add("com.android.tools.r8.graph.DexEncodedMethod");
     requiredImports.add("com.android.tools.r8.graph.MethodAccessFlags");
     requiredImports.add("com.android.tools.r8.dex.Constants");
@@ -174,12 +177,15 @@ public abstract class MethodGenerationBase extends CodeGenerationBase {
         + name
         + ")\n"
         + "        .setAccessFlags(\n"
-        + "            MethodAccessFlags.fromSharedAccessFlags(\n"
-        + "                Constants.ACC_PUBLIC "
-        + (method.isStatic() ? "| Constants.ACC_STATIC" : "")
-        + "| Constants.ACC_SYNTHETIC, "
-        + (method.isInstanceInitializer())
-        + "))\n"
+        + (method.isClassInitializer()
+            ? "MethodAccessFlags.createForClassInitializer()\n"
+            : "            MethodAccessFlags.fromSharedAccessFlags(\n"
+                + "                Constants.ACC_PUBLIC "
+                + (method.isStatic() ? "| Constants.ACC_STATIC " : "")
+                + "| Constants.ACC_SYNTHETIC, "
+                + (method.isInstanceInitializer())
+                + ")\n")
+        + ")\n"
         + "        .setCode("
         + codeGenerator
         + "(factory, "
@@ -226,7 +232,7 @@ public abstract class MethodGenerationBase extends CodeGenerationBase {
             String name =
                 method.isInstanceInitializer()
                     ? "constructor_" + method.getProto().getArity()
-                    : method.getName().toString();
+                    : (method.isClassInitializer() ? "clinit" : method.getName().toString());
             printer.println("DexMethod " + name + " = " + generateCreateMethod(mapMethod(method)));
           }
         });
@@ -258,11 +264,17 @@ public abstract class MethodGenerationBase extends CodeGenerationBase {
   private String buildSyntheticField(DexEncodedField field, Set<String> requiredImports) {
     requiredImports.add("com.android.tools.r8.graph.DexEncodedField");
     requiredImports.add("com.android.tools.r8.graph.FieldAccessFlags");
+    String accessFlags =
+        field.isStatic()
+            ? "FieldAccessFlags.createPublicStaticFinalSynthetic()"
+            : "FieldAccessFlags.createPublicFinalSynthetic()";
     return "            DexEncodedField.syntheticBuilder()\n"
         + "                .setField("
         + createField(field)
         + ")\n"
-        + "                .setAccessFlags(FieldAccessFlags.createPublicFinalSynthetic())\n"
+        + "                .setAccessFlags("
+        + accessFlags
+        + ")\n"
         + "                .disableAndroidApiLevelCheck()\n"
         + "                .build()\n";
   }
@@ -271,11 +283,13 @@ public abstract class MethodGenerationBase extends CodeGenerationBase {
       List<DexEncodedField> fields,
       Set<String> requiredImports,
       PrintStream printer,
-      Class<?> clazz) {
+      Class<?> clazz,
+      Predicate<DexEncodedField> filter) {
     printer.println("ImmutableList.of(");
     BooleanBox first = new BooleanBox(true);
     for (DexEncodedField field : fields) {
-      if (field.getHolderType().toSourceString().equals(clazz.getCanonicalName())) {
+      if (field.getHolderType().toSourceString().equals(clazz.getCanonicalName())
+          && filter.test(field)) {
         if (!first.get()) {
           printer.println(",\n");
         }
@@ -313,8 +327,11 @@ public abstract class MethodGenerationBase extends CodeGenerationBase {
           "public static void generate"
               + simpleName
               + "Class(SyntheticProgramClassBuilder builder, DexItemFactory factory) {");
+      printer.println("builder.setStaticFields(");
+      generateFieldList(classFields, requiredImports, printer, clazz, DexEncodedField::isStatic);
+      printer.println(");");
       printer.println("builder.setInstanceFields(");
-      generateFieldList(classFields, requiredImports, printer, clazz);
+      generateFieldList(classFields, requiredImports, printer, clazz, field -> !field.isStatic());
       printer.println(");");
       generateDexMethodLocals(classMethods, printer, clazz);
       if (clazz.getSuperclass() != Object.class) {

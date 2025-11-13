@@ -1678,9 +1678,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     // See b/182065081 for why this is here.
     public boolean lambdaClassFieldsFinal =
         System.getProperty("com.android.tools.r8.lambdaClassFieldsNotFinal") == null;
-    public boolean minimizeSyntheticNames =
-        SystemPropertyUtils.parseSystemPropertyOrDefault(
-            "com.android.tools.r8.desugar.minimizeSyntheticNames", false);
+    public boolean enableVerboseSyntheticNames = false;
   }
 
   public class RewriteArrayOptions {

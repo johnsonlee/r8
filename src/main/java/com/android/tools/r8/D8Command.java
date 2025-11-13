@@ -471,6 +471,16 @@ public final class D8Command extends BaseCompilerCommand {
       return self();
     }
 
+    /**
+     * By default, D8 uses the same naming scheme for synthetic classes as javac uses for anonymous
+     * inner classes. By enabling verbose synthetic names, the synthetic classes will include a
+     * "$$ExternalSynthetic" marker, which includes the synthetic kind (e.g., "Lambda").
+     */
+    @Override
+    public Builder setEnableVerboseSyntheticNames(boolean enableVerboseSyntheticNames) {
+      return super.setEnableVerboseSyntheticNames(enableVerboseSyntheticNames);
+    }
+
     @Override
     void validate() {
       if (isPrintHelp()) {
@@ -595,6 +605,7 @@ public final class D8Command extends BaseCompilerCommand {
           partitionMapConsumer,
           enableMissingLibraryApiModeling,
           enableRewritingOfArtProfilesIsNopCheck,
+          enableVerboseSyntheticNames,
           buildMetadataConsumer,
           getAndroidPlatformBuild(),
           getArtProfilesForRewriting(),
@@ -695,6 +706,7 @@ public final class D8Command extends BaseCompilerCommand {
       PartitionMapConsumer partitionMapConsumer,
       boolean enableMissingLibraryApiModeling,
       boolean enableRewritingOfArtProfilesIsNopCheck,
+      boolean enableVerboseSyntheticNames,
       Consumer<? super D8BuildMetadata> buildMetadataConsumer,
       boolean isAndroidPlatformBuild,
       List<ArtProfileForRewriting> artProfilesForRewriting,
@@ -723,7 +735,8 @@ public final class D8Command extends BaseCompilerCommand {
         artProfilesForRewriting,
         startupProfileProviders,
         classConflictResolver,
-        cancelCompilationChecker);
+        cancelCompilationChecker,
+        enableVerboseSyntheticNames);
     this.intermediate = intermediate;
     this.globalSyntheticsConsumer = globalSyntheticsConsumer;
     this.syntheticInfoConsumer = syntheticInfoConsumer;
@@ -815,6 +828,7 @@ public final class D8Command extends BaseCompilerCommand {
     assert !internal.enableTreeShakingOfLibraryMethodOverrides;
 
     internal.desugarState = getDesugarState();
+    internal.desugarSpecificOptions().enableVerboseSyntheticNames = enableVerboseSyntheticNames;
     internal.encodeChecksums = getIncludeClassesChecksum();
     internal.dexClassChecksumFilter = getDexClassChecksumFilter();
     internal.enableInheritanceClassInDexDistributor = isOptimizeMultidexForLinearAlloc();

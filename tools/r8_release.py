@@ -64,29 +64,63 @@ def prepare_release(args):
 
     def make_release(args):
         commithash = args.dev_release
+        if not commithash:
+            commithash = args.dev_release_to_90
+            if not commithash:
+                print("Missing commithash for merge")
+                sys.exit(1)
+            answer = input(
+                "WARNING: You are about to merge -dev code to the 9.0 release branch. Continue? [y/N]:")
+            if answer != 'y':
+                print("Aborted release")
+                sys.exit(1)
 
         with utils.TempDir() as temp:
-            with utils.ChangedWorkingDirectory(checkout_r8(temp,
-                                                           R8_DEV_BRANCH)):
+            R8_90_BRANCH = "9.0"
+            with utils.ChangedWorkingDirectory(
+                checkout_r8(temp, R8_DEV_BRANCH if args.dev_release else R8_90_BRANCH)):
                 # Compute the current and new version on the branch.
                 result = None
-                for line in open(R8_VERSION_FILE, 'r'):
-                    result = re.match(
-                        r'.*LABEL = "%s\.(\d+)\-dev";' % R8_DEV_BRANCH, line)
-                    if result:
-                        break
-                if not result or not result.group(1):
-                    print(r'Failed to find version label matching %s(\d+)-dev'\
-                          % R8_DEV_BRANCH)
-                    sys.exit(1)
-                try:
-                    patch_version = int(result.group(1))
-                except ValueError:
-                    print('Failed to convert version to integer: %s' %
-                          result.group(1))
+                old_version = None
+                version  = None
+                if args.dev_release_to_90:
+                    # TODO(b/460058422): Remove when AGP 9.0 goes stable.
+                    for line in open(R8_VERSION_FILE, 'r'):
+                        result = re.match(
+                            r'.*LABEL = "%s\.(\d+)";' % R8_90_BRANCH, line)
+                        if result:
+                            break
+                    if not result or not result.group(1):
+                        print(r'ERROR: Failed to find version label matching %s(\d+)'\
+                              % R8_90_BRANCH)
+                        sys.exit(1)
+                    try:
+                        patch_version = int(result.group(1))
+                    except ValueError:
+                        print('ERROR: Failed to convert version to integer: %s' %
+                              result.group(1))
 
-                old_version = '%s.%s-dev' % (R8_DEV_BRANCH, patch_version)
-                version = '%s.%s-dev' % (R8_DEV_BRANCH, patch_version + 1)
+                    old_version = '%s.%s' % (R8_90_BRANCH, patch_version)
+                    version = '%s.%s' % (R8_90_BRANCH, patch_version + 1)
+
+                else:
+                    for line in open(R8_VERSION_FILE, 'r'):
+                        result = re.match(
+                            r'.*LABEL = "%s\.(\d+)\-dev";' % R8_DEV_BRANCH, line)
+                        if result:
+                            break
+                    if not result or not result.group(1):
+                        print(r'ERROR: Failed to find version label matching %s(\d+)-dev'\
+                              % R8_DEV_BRANCH)
+                        sys.exit(1)
+                    try:
+                        patch_version = int(result.group(1))
+                    except ValueError:
+                        print('ERROR: Failed to convert version to integer: %s' %
+                              result.group(1))
+
+                    old_version = '%s.%s-dev' % (R8_DEV_BRANCH, patch_version)
+                    version = '%s.%s-dev' % (R8_DEV_BRANCH, patch_version + 1)
 
                 # Verify that the merge point from main is not empty.
                 merge_diff_output = subprocess.check_output(
@@ -918,6 +952,10 @@ def parse_options():
     group.add_argument('--dev-release',
                        metavar=('<main hash>'),
                        help='The hash to use for the new dev version of R8')
+    # TODO(b/460058422): Remove when AGP 9.0 goes stable.
+    group.add_argument('--dev-release-to-90',
+                       metavar=('<main hash>'),
+                       help='The hash to use for the new dev version of R8')
     group.add_argument(
         '--version',
         metavar=('<version(s)>'),
@@ -1019,6 +1057,12 @@ def main():
         targets_to_run.append(prepare_branch(args))
 
     if args.dev_release:
+        if args.google3 or args.maven:
+            print('Cannot create a dev release and roll at the same time.')
+            sys.exit(1)
+        targets_to_run.append(prepare_release(args))
+
+    if args.dev_release_to_90:
         if args.google3 or args.maven:
             print('Cannot create a dev release and roll at the same time.')
             sys.exit(1)

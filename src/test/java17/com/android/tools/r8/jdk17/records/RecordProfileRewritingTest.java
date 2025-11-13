@@ -108,9 +108,6 @@ public class RecordProfileRewritingTest extends TestBase {
                 "-neverpropagatevalue class " + PERSON_REFERENCE.getTypeName() + " { <fields>; }")
             .addArtProfileForRewriting(getArtProfile())
             .addOptionsModification(InlinerOptions::disableInlining)
-            // Explicitly disable minimal synthetic names for robust detection of synthetics.
-            .addOptionsModification(
-                options -> options.desugarSpecificOptions().minimizeSyntheticNames = false)
             .applyIf(
                 parameters.isCfRuntime(),
                 testBuilder -> testBuilder.addLibraryProvider(JdkClassFileProvider.fromSystemJdk()))

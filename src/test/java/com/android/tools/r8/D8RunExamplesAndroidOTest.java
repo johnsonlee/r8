@@ -6,7 +6,9 @@ package com.android.tools.r8;
 
 import static org.hamcrest.CoreMatchers.containsString;
 
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
+import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.OffOrAuto;
 import java.nio.file.Path;
 import java.util.function.Consumer;
@@ -32,7 +34,9 @@ public class D8RunExamplesAndroidOTest extends RunExamplesAndroidOTest<D8Command
     }
 
     @Override
-    void build(Path inputFile, Path out, OutputMode mode) throws CompilationFailedException {
+    void build(
+        Path inputFile, Path out, Box<SyntheticItemsTestUtils> syntheticItemsBox, OutputMode mode)
+        throws CompilationFailedException {
       D8Command.Builder builder = D8Command.builder().setOutput(out, mode);
       for (Consumer<D8Command.Builder> transformation : builderTransformations) {
         transformation.accept(builder);

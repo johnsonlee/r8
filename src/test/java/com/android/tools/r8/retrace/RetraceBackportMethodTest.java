@@ -169,8 +169,6 @@ public class RetraceBackportMethodTest extends TestBase {
         .addKeepMainRule(CLASS_MAIN)
         .addKeepAttributeSourceFile()
         .addKeepAttributeLineNumberTable()
-        .addOptionsModification(
-            options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
         .collectSyntheticItems()
         .setMinApi(parameters)
         .run(parameters.getRuntime(), CLASS_MAIN)

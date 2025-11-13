@@ -5,22 +5,18 @@
 package com.android.tools.r8;
 
 import static com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringForTesting.getCompanionClassNameSuffix;
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.FileUtils.JAR_EXTENSION;
 import static org.junit.Assert.assertEquals;
 
-import com.android.tools.r8.D8Command.Builder;
 import com.android.tools.r8.Disassemble.DisassembleCommand;
-import com.android.tools.r8.errors.CompilationError;
-import com.android.tools.r8.errors.InternalCompilerError;
-import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
-import com.android.tools.r8.utils.AndroidApp;
+import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.DescriptorUtils;
+import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.OffOrAuto;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.Lists;
@@ -28,6 +24,7 @@ import com.google.common.io.ByteStreams;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -41,6 +38,7 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Test;
@@ -50,19 +48,29 @@ public abstract class D8IncrementalRunExamplesAndroidOTest
 
   abstract class D8IncrementalTestRunner extends TestRunner<D8IncrementalTestRunner> {
 
+    private final List<Consumer<D8TestBuilder>> testBuilderConsumers = new ArrayList<>();
+
     D8IncrementalTestRunner(String testName, String packageName, String mainClass) {
       super(testName, packageName, mainClass);
     }
 
-    @Override
-    D8IncrementalTestRunner withMinApiLevel(AndroidApiLevel minApiLevel) {
-      return withBuilderTransformation(builder -> builder.setMinApiLevel(minApiLevel.getLevel()));
+    D8IncrementalTestRunner withBuilder(Consumer<D8TestBuilder> consumer) {
+      testBuilderConsumers.add(consumer);
+      return this;
     }
 
     @Override
-    void build(Path testJarFile, Path out, OutputMode mode) throws Throwable {
+    D8IncrementalTestRunner withMinApiLevel(AndroidApiLevel minApiLevel) {
+      return withBuilder(builder -> builder.setMinApi(minApiLevel));
+    }
+
+    @Override
+    void build(
+        Path testJarFile, Path out, Box<SyntheticItemsTestUtils> syntheticItemsBox, OutputMode mode)
+        throws Throwable {
+      assert mode == OutputMode.DexIndexed;
       Map<String, ProgramResource> files = compileClassesTogether(testJarFile, null);
-      mergeClassFiles(Lists.newArrayList(files.values()), out, mode);
+      mergeDexFiles(Lists.newArrayList(files.values())).writeToZip(out);
     }
 
     // Dex classes separately.
@@ -70,13 +78,13 @@ public abstract class D8IncrementalRunExamplesAndroidOTest
       TreeMap<String, ProgramResource> fileToResource = new TreeMap<>();
       List<String> classFiles = collectClassFiles(testJarFile);
       for (String classFile : classFiles) {
-        AndroidApp app =
+        D8TestCompileResult compileResult =
             compileClassFilesInIntermediate(
                 testJarFile, Collections.singletonList(classFile), null, OutputMode.DexIndexed);
-        assert app.getDexProgramResourcesForTesting().size() == 1;
+        assert compileResult.getApp().getDexProgramResourcesForTesting().size() == 1;
         fileToResource.put(
             makeRelative(testJarFile, Paths.get(classFile)).toString(),
-            app.getDexProgramResourcesForTesting().get(0));
+            compileResult.getApp().getDexProgramResourcesForTesting().get(0));
       }
       return fileToResource;
     }
@@ -86,12 +94,13 @@ public abstract class D8IncrementalRunExamplesAndroidOTest
         throws Throwable {
       TreeMap<String, ProgramResource> fileToResource = new TreeMap<>();
       List<String> classFiles = collectClassFiles(testJarFile);
-      AndroidApp app =
+      D8TestCompileResult compileResult =
           compileClassFilesInIntermediate(
               testJarFile, classFiles, output, OutputMode.DexFilePerClassFile);
-      for (ProgramResource resource : app.getDexProgramResourcesForTesting()) {
+      SyntheticItemsTestUtils syntheticItems = compileResult.getSyntheticItems();
+      for (ProgramResource resource : compileResult.getApp().getDexProgramResourcesForTesting()) {
         Set<String> descriptors = resource.getClassDescriptors();
-        String mainClassDescriptor = app.getPrimaryClassDescriptor(resource);
+        String mainClassDescriptor = compileResult.getApp().getPrimaryClassDescriptor(resource);
         Assert.assertNotNull(mainClassDescriptor);
         for (String descriptor : descriptors) {
           // classes are either lambda classes used by the main class, companion classes of the main
@@ -99,10 +108,11 @@ public abstract class D8IncrementalRunExamplesAndroidOTest
           ClassReference reference = Reference.classFromDescriptor(descriptor);
           Assert.assertTrue(
               descriptor.endsWith(getCompanionClassNameSuffix() + ";")
-                  || SyntheticItemsTestUtils.isExternalTwrCloseMethod(reference)
-                  || SyntheticItemsTestUtils.isMaybeExternalSuppressedExceptionMethod(reference)
-                  || getDefaultSyntheticItemsTestUtils().isExternalLambda(reference)
-                  || getDefaultSyntheticItemsTestUtils().isExternalStaticInterfaceCall(reference)
+                  || syntheticItems.isExternalApiOutlineClass(reference)
+                  || syntheticItems.isExternalTwrCloseMethod(reference)
+                  || syntheticItems.isMaybeExternalSuppressedExceptionMethod(reference)
+                  || syntheticItems.isExternalLambda(reference)
+                  || syntheticItems.isExternalStaticInterfaceCall(reference)
                   || descriptor.equals(mainClassDescriptor));
         }
         String classDescriptor =
@@ -160,74 +170,75 @@ public abstract class D8IncrementalRunExamplesAndroidOTest
       return Paths.get(ToolHelper.THIRD_PARTY_DIR, sourceSet + "Generated", packageName);
     }
 
-    AndroidApp compileClassFilesInIntermediate(
+    D8TestCompileResult compileClassFilesInIntermediate(
         Path testJarFile, List<String> inputFiles, Path outputPath, OutputMode outputMode)
         throws Throwable {
-      D8Command.Builder builder = D8Command.builder();
-      addClasspathReference(testJarFile, builder);
-      for (String inputFile : inputFiles) {
-        builder.addProgramFiles(Paths.get(inputFile));
-      }
-      for (Consumer<D8Command.Builder> transformation : builderTransformations) {
-        transformation.accept(builder);
-      }
-      if (outputPath != null) {
-        builder.setOutput(outputPath, outputMode);
-      } else if (outputMode == OutputMode.DexIndexed) {
-        builder.setProgramConsumer(DexIndexedConsumer.emptyConsumer());
-      } else if (outputMode == OutputMode.DexFilePerClassFile) {
-        builder.setProgramConsumer(DexFilePerClassFileConsumer.emptyConsumer());
-      } else {
-        throw new Unreachable("Unexpected output mode " + outputMode);
-      }
-      builder.setIntermediate(true);
-      addLibraryReference(builder, ToolHelper.getAndroidJar(
-          androidJarVersion == null ? builder.getMinApiLevel() : androidJarVersion.getLevel()));
-      try {
-        return ToolHelper.runD8(builder, this::combinedOptionConsumer);
-      } catch (Unimplemented | CompilationError | InternalCompilerError re) {
-        throw re;
-      } catch (RuntimeException re) {
-        throw re.getCause() == null ? re : re.getCause();
-      }
+      assert builderTransformations.isEmpty();
+      assert outputMode == OutputMode.DexIndexed || outputMode == OutputMode.DexFilePerClassFile;
+      return testForD8(Backend.DEX)
+          .addProgramFiles(inputFiles.stream().map(Paths::get).collect(Collectors.toList()))
+          .addOptionsModification(this::combinedOptionConsumer)
+          .apply(
+              b -> {
+                for (Consumer<D8TestBuilder> testBuilderConsumer : testBuilderConsumers) {
+                  testBuilderConsumer.accept(b);
+                }
+                addClasspathReference(
+                    testJarFile, b::addClasspathFiles, b::addClasspathResourceProviders);
+                addLibraryReference(
+                    androidJarVersion != null || b.getMinApiLevel() >= 0
+                        ? ToolHelper.getAndroidJar(
+                            androidJarVersion != null
+                                ? androidJarVersion.getLevel()
+                                : b.getMinApiLevel())
+                        : ToolHelper.getMostRecentAndroidJar(),
+                    b::addLibraryFiles,
+                    b::addLibraryResourceProviders);
+                if (outputPath != null) {
+                  assert outputMode == OutputMode.DexFilePerClassFile;
+                  b.setProgramConsumer(
+                      FileUtils.isArchive(outputPath)
+                          ? new DexFilePerClassFileConsumer.ArchiveConsumer(outputPath)
+                          : new DexFilePerClassFileConsumer.DirectoryConsumer(outputPath));
+                } else if (outputMode == OutputMode.DexIndexed) {
+                  b.setProgramConsumer(DexIndexedConsumer.emptyConsumer());
+                } else {
+                  assert outputMode == OutputMode.DexFilePerClassFile;
+                  b.setProgramConsumer(DexFilePerClassFileConsumer.emptyConsumer());
+                }
+              })
+          .collectSyntheticItems()
+          .setIntermediate(true)
+          .compile();
     }
 
-    AndroidApp mergeClassFiles(List<ProgramResource> dexFiles, Path out) throws Throwable {
-      return mergeClassFiles(dexFiles, out, OutputMode.DexIndexed);
+    D8TestCompileResult mergeDexFiles(List<ProgramResource> dexFiles) throws Throwable {
+      assert builderTransformations.isEmpty();
+      return testForD8()
+          .addProgramDexFileData(
+              dexFiles.stream()
+                  .map(D8IncrementalRunExamplesAndroidOTest::readResource)
+                  .collect(Collectors.toList()))
+          .addOptionsModification(this::combinedOptionConsumer)
+          .apply(
+              b -> {
+                for (Consumer<D8TestBuilder> testBuilderConsumer : testBuilderConsumers) {
+                  testBuilderConsumer.accept(b);
+                }
+              })
+          .compile();
     }
 
-    AndroidApp mergeClassFiles(
-        List<ProgramResource> dexFiles, Path outputPath, OutputMode outputMode) throws Throwable {
-      Builder builder = D8Command.builder();
-      for (ProgramResource dexFile : dexFiles) {
-        builder.addDexProgramData(readResource(dexFile), dexFile.getOrigin());
-      }
-      for (Consumer<D8Command.Builder> transformation : builderTransformations) {
-        transformation.accept(builder);
-      }
-      if (outputPath != null) {
-        builder.setOutput(outputPath, outputMode);
-      } else if (outputMode == OutputMode.DexIndexed) {
-        builder.setProgramConsumer(DexIndexedConsumer.emptyConsumer());
-      } else if (outputMode == OutputMode.DexFilePerClassFile) {
-        builder.setProgramConsumer(DexFilePerClassFileConsumer.emptyConsumer());
-      } else {
-        throw new Unreachable("Unexpected output mode " + outputMode);
-      }
-      try {
-        AndroidApp app = ToolHelper.runD8(builder, this::combinedOptionConsumer);
-        assert app.getDexProgramResourcesForTesting().size() == 1;
-        return app;
-      } catch (Unimplemented | CompilationError | InternalCompilerError re) {
-        throw re;
-      } catch (RuntimeException re) {
-        throw re.getCause() == null ? re : re.getCause();
-      }
-    }
+    abstract void addClasspathReference(
+        Path testJarFile,
+        Consumer<Path> pathConsumer,
+        Consumer<ClassFileResourceProvider> providerConsumer);
 
-    abstract void addClasspathReference(Path testJarFile, D8Command.Builder builder);
-
-    abstract void addLibraryReference(Builder builder, Path location) throws IOException;
+    abstract void addLibraryReference(
+        Path location,
+        Consumer<Path> pathConsumer,
+        Consumer<ClassFileResourceProvider> providerConsumer)
+        throws IOException;
   }
 
   @Test
@@ -250,16 +261,18 @@ public abstract class D8IncrementalRunExamplesAndroidOTest
       Assert.assertArrayEquals(readResource(entry.getValue()), readResource(otherResource));
     }
 
-    AndroidApp mergedFromCompiledSeparately =
-        test.mergeClassFiles(Lists.newArrayList(compiledSeparately.values()), null);
-    AndroidApp mergedFromCompiledTogether =
-        test.mergeClassFiles(Lists.newArrayList(compiledTogether.values()), null);
+    D8TestCompileResult mergedFromCompiledSeparately =
+        test.mergeDexFiles(Lists.newArrayList(compiledSeparately.values()));
+    D8TestCompileResult mergedFromCompiledTogether =
+        test.mergeDexFiles(Lists.newArrayList(compiledTogether.values()));
 
     // TODO(b/123504206): Add a main method and test the output runs.
 
     Assert.assertArrayEquals(
-        readResource(mergedFromCompiledSeparately.getDexProgramResourcesForTesting().get(0)),
-        readResource(mergedFromCompiledTogether.getDexProgramResourcesForTesting().get(0)));
+        readResource(
+            mergedFromCompiledSeparately.getApp().getDexProgramResourcesForTesting().get(0)),
+        readResource(
+            mergedFromCompiledTogether.getApp().getDexProgramResourcesForTesting().get(0)));
   }
 
   @Test
@@ -273,19 +286,17 @@ public abstract class D8IncrementalRunExamplesAndroidOTest
     D8IncrementalTestRunner test = test(testName, testPackage, mainClass);
     test.withInterfaceMethodDesugaring(OffOrAuto.Auto);
 
-    AndroidApp mergedFromCompiledSeparately =
-        test.mergeClassFiles(
-            Lists.newArrayList(test.compileClassesSeparately(inputJarFile).values()), null);
-    AndroidApp mergedFromCompiledTogether =
-        test.mergeClassFiles(
-            Lists.newArrayList(test.compileClassesTogether(inputJarFile, null).values()), null);
+    D8TestCompileResult mergedFromCompiledSeparately =
+        test.mergeDexFiles(
+            Lists.newArrayList(test.compileClassesSeparately(inputJarFile).values()));
+    D8TestCompileResult mergedFromCompiledTogether =
+        test.mergeDexFiles(
+            Lists.newArrayList(test.compileClassesTogether(inputJarFile, null).values()));
 
-    Path out1 = temp.newFolder().toPath().resolve("out-together.zip");
-    mergedFromCompiledTogether.writeToZipForTesting(out1, OutputMode.DexIndexed);
+    Path out1 = mergedFromCompiledTogether.writeToZip();
     ToolHelper.runArtNoVerificationErrors(out1.toString(), testPackage + "." + mainClass);
 
-    Path out2 = temp.newFolder().toPath().resolve("out-separate.zip");
-    mergedFromCompiledSeparately.writeToZipForTesting(out2, OutputMode.DexIndexed);
+    Path out2 = mergedFromCompiledSeparately.writeToZip();
     ToolHelper.runArtNoVerificationErrors(out2.toString(), testPackage + "." + mainClass);
 
     Path dissasemble1 = temp.newFolder().toPath().resolve("disassemble1.txt");
@@ -299,8 +310,10 @@ public abstract class D8IncrementalRunExamplesAndroidOTest
     assertEquals(content1, content2);
 
     Assert.assertArrayEquals(
-        readResource(mergedFromCompiledSeparately.getDexProgramResourcesForTesting().get(0)),
-        readResource(mergedFromCompiledTogether.getDexProgramResourcesForTesting().get(0)));
+        readResource(
+            mergedFromCompiledSeparately.getApp().getDexProgramResourcesForTesting().get(0)),
+        readResource(
+            mergedFromCompiledTogether.getApp().getDexProgramResourcesForTesting().get(0)));
   }
 
   @Test
@@ -314,18 +327,20 @@ public abstract class D8IncrementalRunExamplesAndroidOTest
     D8IncrementalTestRunner test = test(testName, testPackage, mainClass);
     test.withInterfaceMethodDesugaring(OffOrAuto.Auto);
 
-    AndroidApp mergedFromCompiledSeparately =
-        test.mergeClassFiles(
-            Lists.newArrayList(test.compileClassesSeparately(inputJarFile).values()), null);
-    AndroidApp mergedFromCompiledTogether =
-        test.mergeClassFiles(
-            Lists.newArrayList(test.compileClassesTogether(inputJarFile, null).values()), null);
+    D8TestCompileResult mergedFromCompiledSeparately =
+        test.mergeDexFiles(
+            Lists.newArrayList(test.compileClassesSeparately(inputJarFile).values()));
+    D8TestCompileResult mergedFromCompiledTogether =
+        test.mergeDexFiles(
+            Lists.newArrayList(test.compileClassesTogether(inputJarFile, null).values()));
 
     // TODO(b/123504206): This test throws an index out of bounds exception.
     // Re-write or verify running fails in the expected way.
     Assert.assertArrayEquals(
-        readResource(mergedFromCompiledSeparately.getDexProgramResourcesForTesting().get(0)),
-        readResource(mergedFromCompiledTogether.getDexProgramResourcesForTesting().get(0)));
+        readResource(
+            mergedFromCompiledSeparately.getApp().getDexProgramResourcesForTesting().get(0)),
+        readResource(
+            mergedFromCompiledTogether.getApp().getDexProgramResourcesForTesting().get(0)));
   }
 
   @Test
@@ -384,9 +399,13 @@ public abstract class D8IncrementalRunExamplesAndroidOTest
     throw new Unreachable();
   }
 
-  static byte[] readResource(ProgramResource resource) throws IOException, ResourceException {
+  static byte[] readResource(ProgramResource resource) {
     try (InputStream input = resource.getByteStream()) {
       return ByteStreams.toByteArray(input);
+    } catch (ResourceException e) {
+      throw new RuntimeException(e);
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
     }
   }
 }

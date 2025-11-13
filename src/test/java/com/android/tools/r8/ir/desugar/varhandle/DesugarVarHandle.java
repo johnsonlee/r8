@@ -103,7 +103,7 @@ public final class DesugarVarHandle {
     }
   }
 
-  private final UnsafeStub U;
+  private static UnsafeStub U = getUnsafe();
   private final Class<?> recv;
   private final Class<?> type;
   private final long offset;
@@ -111,9 +111,6 @@ public final class DesugarVarHandle {
 
   DesugarVarHandle(Class<?> recv, String name, Class<?> type)
       throws NoSuchFieldException, IllegalAccessException {
-    Field theUnsafe = getUnsafeField();
-    theUnsafe.setAccessible(true);
-    U = (UnsafeStub) theUnsafe.get(null);
     this.recv = recv;
     Field field = recv.getDeclaredField(name);
     this.type = field.getType();
@@ -130,9 +127,6 @@ public final class DesugarVarHandle {
   }
 
   DesugarVarHandle(Class<?> arrayType) throws Exception {
-    Field theUnsafe = getUnsafeField();
-    theUnsafe.setAccessible(true);
-    U = (UnsafeStub) theUnsafe.get(null);
     if (!arrayType.isArray()) {
       throw new IllegalArgumentException("not an array " + arrayType.getSimpleName());
     }
@@ -155,17 +149,24 @@ public final class DesugarVarHandle {
   }
 
   // Helpers.
-  static Field getUnsafeField() {
+  static UnsafeStub getUnsafe() {
+    Field theUnsafe;
     try {
-      return UnsafeStub.class.getDeclaredField("theUnsafe");
+      theUnsafe = UnsafeStub.class.getDeclaredField("theUnsafe");
     } catch (NoSuchFieldException e) {
       for (Field field : UnsafeStub.class.getDeclaredFields()) {
         if (Modifier.isStatic(field.getModifiers())
             && UnsafeStub.class.isAssignableFrom(field.getType())) {
-          return field;
+          theUnsafe = field;
         }
       }
       throw new UnsupportedOperationException("Couldn't find the Unsafe", e);
+    }
+    theUnsafe.setAccessible(true);
+    try {
+      return (UnsafeStub) theUnsafe.get(null);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
     }
   }
 
@@ -750,13 +751,7 @@ public final class DesugarVarHandle {
   }
 
   public static void releaseFence() {
-    Field theUnsafe = getUnsafeField();
-    theUnsafe.setAccessible(true);
-    try {
-      // Unsafe.storeFence() was added in Android  7 (API level 24).
-      ((UnsafeStub) theUnsafe.get(null)).storeFence();
-    } catch (IllegalArgumentException | IllegalAccessException e) {
-      throw new RuntimeException(e);
-    }
+    // Unsafe.storeFence() was added in Android 7 (API level 24).
+    U.storeFence();
   }
 }

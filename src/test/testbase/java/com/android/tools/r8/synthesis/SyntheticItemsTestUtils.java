@@ -13,7 +13,6 @@ import static com.android.tools.r8.ir.desugar.nest.NestBasedAccessDesugaring.NES
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 import static org.hamcrest.CoreMatchers.containsString;
 
-import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexReference;
@@ -42,17 +41,11 @@ import java.util.Set;
 import java.util.function.Function;
 import org.hamcrest.Matcher;
 
-// TODO(b/454846973): Instantiate this based on an output from D8/R8 so that this is completely
-//  independent of the naming used.
 public abstract class SyntheticItemsTestUtils {
 
   // Private copy of the synthetic namings. This is not the compiler instance, but checking on the
   // id/descriptor content is safe.
   private static final SyntheticNaming naming = new SyntheticNaming();
-
-  public static SyntheticItemsTestUtils getDefaultSyntheticItemsTestUtils() {
-    return new DefaultSyntheticItemsTestUtils();
-  }
 
   public static String syntheticFileNameD8() {
     return "D8$$SyntheticClass";
@@ -71,12 +64,13 @@ public abstract class SyntheticItemsTestUtils {
         InterfaceDesugaringForTesting.getCompanionClassDescriptor(clazz.getDescriptor()));
   }
 
-  public static ClassReference syntheticClassWithMinimalName(ClassReference clazz, int id) {
-    return SyntheticNaming.makeMinimalSyntheticReferenceForTest(clazz, Integer.toString(id));
-  }
-
-  private static ClassReference syntheticClass(ClassReference clazz, SyntheticKind kind, int id) {
-    return SyntheticNaming.makeSyntheticReferenceForTest(clazz, kind, "" + id);
+  public static MethodReference syntheticInvokeSpecialMethod(Method method) {
+    MethodReference originalMethod = Reference.methodFromMethod(method);
+    return Reference.method(
+        originalMethod.getHolderClass(),
+        InvokeSpecialToSelfDesugaring.INVOKE_SPECIAL_BRIDGE_PREFIX + method.getName(),
+        originalMethod.getFormalTypes(),
+        originalMethod.getReturnType());
   }
 
   public final MethodReference syntheticBackportMethod(Class<?> clazz, int id, Method method) {
@@ -87,15 +81,6 @@ public abstract class SyntheticItemsTestUtils {
       ClassReference classReference, int id, Method method) {
     MethodReference originalMethod = Reference.methodFromMethod(method);
     return syntheticBackportMethod(classReference, originalMethod, id);
-  }
-
-  public static MethodReference syntheticInvokeSpecialMethod(Method method) {
-    MethodReference originalMethod = Reference.methodFromMethod(method);
-    return Reference.method(
-        originalMethod.getHolderClass(),
-        InvokeSpecialToSelfDesugaring.INVOKE_SPECIAL_BRIDGE_PREFIX + method.getName(),
-        originalMethod.getFormalTypes(),
-        originalMethod.getReturnType());
   }
 
   public final MethodReference syntheticBackportWithForwardingMethod(
@@ -300,14 +285,14 @@ public abstract class SyntheticItemsTestUtils {
 
   public abstract boolean isExternalStaticInterfaceCall(ClassReference reference);
 
-  public static boolean isExternalTwrCloseMethod(ClassReference reference) {
-    return SyntheticNaming.isSynthetic(reference, Phase.EXTERNAL, naming.TWR_CLOSE_RESOURCE);
+  public abstract boolean isExternalTwrCloseMethod(ClassReference reference);
+
+  public final boolean isMaybeExternalSuppressedExceptionMethod(ClassReference reference) {
+    // The suppressed exception methods are grouped with the backports.
+    return isExternalBackportClass(reference);
   }
 
-  public static boolean isMaybeExternalSuppressedExceptionMethod(ClassReference reference) {
-    // The suppressed exception methods are grouped with the backports.
-    return SyntheticNaming.isSynthetic(reference, Phase.EXTERNAL, naming.BACKPORT);
-  }
+  public abstract boolean isExternalBackportClass(ClassReference reference);
 
   public abstract boolean isExternalOutlineClass(ClassReference reference);
 
@@ -328,116 +313,8 @@ public abstract class SyntheticItemsTestUtils {
     return containsString(SyntheticNaming.getPhaseSeparator(Phase.INTERNAL));
   }
 
-  public static Matcher<String> containsExternalSyntheticReference() {
-    return containsString(SyntheticNaming.getPhaseSeparator(Phase.EXTERNAL));
-  }
-
   public static boolean isInternalThrowNSME(MethodReference method) {
     return SyntheticNaming.isSynthetic(method.getHolderClass(), Phase.INTERNAL, naming.THROW_NSME);
-  }
-
-  private static class DefaultSyntheticItemsTestUtils extends SyntheticItemsTestUtils {
-
-    @Override
-    public boolean isExternalOutlineClass(ClassReference reference) {
-      return SyntheticNaming.isSynthetic(reference, Phase.EXTERNAL, naming.OUTLINE);
-    }
-
-    @Override
-    public boolean isExternalApiOutlineClass(ClassReference reference) {
-      return SyntheticNaming.isSynthetic(reference, Phase.EXTERNAL, naming.API_MODEL_OUTLINE);
-    }
-
-    @Override
-    public boolean isExternalLambda(ClassReference reference) {
-      return SyntheticNaming.isSynthetic(reference, Phase.EXTERNAL, naming.LAMBDA);
-    }
-
-    @Override
-    public boolean isExternalNonFixedInitializerTypeArgument(ClassReference reference) {
-      return SyntheticNaming.isSynthetic(
-          reference, Phase.EXTERNAL, naming.NON_FIXED_INIT_TYPE_ARGUMENT);
-    }
-
-    @Override
-    public boolean isExternalStaticInterfaceCall(ClassReference reference) {
-      return SyntheticNaming.isSynthetic(reference, Phase.EXTERNAL, naming.STATIC_INTERFACE_CALL);
-    }
-
-    @Override
-    public ClassReference syntheticApiConversionClass(ClassReference classReference, int id) {
-      return syntheticClass(classReference, naming.API_CONVERSION, id);
-    }
-
-    @Override
-    public ClassReference syntheticApiOutlineClass(ClassReference classReference, int id) {
-      return syntheticClass(classReference, naming.API_MODEL_OUTLINE, id);
-    }
-
-    @Override
-    public ClassReference syntheticAutoCloseableDispatcherClass(
-        ClassReference classReference, int id) {
-      return syntheticClass(classReference, naming.AUTOCLOSEABLE_DISPATCHER, id);
-    }
-
-    @Override
-    public ClassReference syntheticAutoCloseableForwarderClass(
-        ClassReference classReference, int id) {
-      return syntheticClass(classReference, naming.AUTOCLOSEABLE_FORWARDER, id);
-    }
-
-    @Override
-    public ClassReference syntheticBackportClass(ClassReference classReference, int id) {
-      return syntheticClass(classReference, naming.BACKPORT, id);
-    }
-
-    @Override
-    public MethodReference syntheticBackportMethod(
-        ClassReference classReference, MethodReference originalMethod, int id) {
-      throw new Unreachable();
-    }
-
-    @Override
-    public ClassReference syntheticBackportWithForwardingClass(
-        ClassReference classReference, int id) {
-      return syntheticClass(classReference, naming.BACKPORT_WITH_FORWARDING, id);
-    }
-
-    @Override
-    public ClassReference syntheticBottomUpOutlineClass(ClassReference clazz, int id) {
-      return syntheticClass(clazz, naming.BOTTOM_UP_OUTLINE, id);
-    }
-
-    @Override
-    public ClassReference syntheticLambdaClass(ClassReference clazz, int id) {
-      return syntheticClass(clazz, naming.LAMBDA, id);
-    }
-
-    @Override
-    public ClassReference syntheticNonStartupInStartupOutlineClass(
-        ClassReference reference, int id) {
-      return syntheticClass(reference, naming.NON_STARTUP_IN_STARTUP_OUTLINE, id);
-    }
-
-    @Override
-    public ClassReference syntheticOutlineClass(ClassReference clazz, int id) {
-      return syntheticClass(clazz, naming.OUTLINE, id);
-    }
-
-    @Override
-    public ClassReference syntheticRecordHelperClass(ClassReference reference, int id) {
-      return syntheticClass(reference, naming.RECORD_HELPER, id);
-    }
-
-    @Override
-    public ClassReference syntheticThrowIAEClass(ClassReference classReference, int id) {
-      return syntheticClass(classReference, naming.THROW_IAE, id);
-    }
-
-    @Override
-    public ClassReference syntheticTwrCloseResourceClass(ClassReference reference, int id) {
-      return syntheticClass(reference, naming.TWR_CLOSE_RESOURCE, id);
-    }
   }
 
   public static class Builder extends SyntheticItemsTestUtils {
@@ -531,6 +408,11 @@ public abstract class SyntheticItemsTestUtils {
     }
 
     @Override
+    public boolean isExternalBackportClass(ClassReference classReference) {
+      return isSyntheticMethodOfKind(classReference, naming.BACKPORT);
+    }
+
+    @Override
     public boolean isExternalLambda(ClassReference classReference) {
       return isSyntheticClassOfKind(classReference, naming.LAMBDA);
     }
@@ -548,6 +430,11 @@ public abstract class SyntheticItemsTestUtils {
     @Override
     public boolean isExternalStaticInterfaceCall(ClassReference classReference) {
       return isSyntheticMethodOfKind(classReference, naming.STATIC_INTERFACE_CALL);
+    }
+
+    @Override
+    public boolean isExternalTwrCloseMethod(ClassReference classReference) {
+      return isSyntheticMethodOfKind(classReference, naming.TWR_CLOSE_RESOURCE);
     }
 
     private boolean isSyntheticClassOfKind(ClassReference classReference, SyntheticKind kind) {

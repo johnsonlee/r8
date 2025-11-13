@@ -60,6 +60,7 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
   private final TestCompilerBuilder<?, ?, ?, ? extends SingleTestRunResult<?>, ?> builder;
   private final List<ArtProfileForRewriting> l8ArtProfilesForRewriting = new ArrayList<>();
   private final List<String> l8ExtraKeepRules = new ArrayList<>();
+  private Consumer<L8TestBuilder> l8TestBuilderConsumer = emptyConsumer();
   private Consumer<InternalOptions> l8OptionModifier = emptyConsumer();
   private boolean l8FinalPrefixVerification = true;
   private boolean overrideDefaultLibrary = false;
@@ -593,6 +594,7 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
             artProfileForRewriting.getResidualArtProfileConsumer());
       }
     }
+    l8TestBuilderConsumer.accept(l8Builder);
   }
 
   public String collectKeepRulesWithTraceReferences(
@@ -631,6 +633,11 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
 
   public DesugaredLibraryTestBuilder<T> collectSyntheticItems() {
     builder.collectSyntheticItems();
+    return this;
+  }
+
+  public DesugaredLibraryTestBuilder<T> collectL8SyntheticItems() {
+    l8TestBuilderConsumer = l8TestBuilderConsumer.andThen(L8TestBuilder::collectSyntheticItems);
     return this;
   }
 

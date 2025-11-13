@@ -96,6 +96,12 @@ def GetJavacExecutable(jdkHome=None):
     return os.path.join(jdkHome, 'bin', executable) if jdkHome else executable
 
 
+def GetJstackExecutable(jdkHome=None):
+    jdkHome = jdkHome if jdkHome else GetDefaultJdkHome()
+    executable = 'jstack.exe' if defines.IsWindows() else 'jstack'
+    return os.path.join(jdkHome, 'bin', executable) if jdkHome else executable
+
+
 def Main():
     print(GetDefaultJdkHome())
 

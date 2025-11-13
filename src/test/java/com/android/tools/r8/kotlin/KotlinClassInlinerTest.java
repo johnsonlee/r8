@@ -229,8 +229,6 @@ public class KotlinClassInlinerTest extends AbstractR8KotlinTestBase {
                                 .assertNoOtherClassesMerged();
                           }
                         })
-                    .addOptionsModification(
-                        options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
                     .collectSyntheticItems()
                     .noClassInlining())
         .inspect(

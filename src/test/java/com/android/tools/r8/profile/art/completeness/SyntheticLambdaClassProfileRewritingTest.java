@@ -232,8 +232,6 @@ public class SyntheticLambdaClassProfileRewritingTest extends TestBase {
         .addKeepRules(
             "-neverinline class " + Main.class.getTypeName() + " { void lambda$main$*(); }")
         .addArtProfileForRewriting(artProfileInputOutput.getArtProfile())
-        .addOptionsModification(
-            options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
         .collectSyntheticItems()
         .enableProguardTestOptions()
         .noHorizontalClassMergingOfSynthetics()

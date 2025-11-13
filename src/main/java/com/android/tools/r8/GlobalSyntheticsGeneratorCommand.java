@@ -41,6 +41,7 @@ public final class GlobalSyntheticsGeneratorCommand {
   private final int minMinorApiLevel;
 
   private final boolean classfileDesugaringOnly;
+  private final boolean enableVerboseSyntheticNames;
 
   private final boolean printHelp;
   private final boolean printVersion;
@@ -55,12 +56,14 @@ public final class GlobalSyntheticsGeneratorCommand {
       Reporter reporter,
       int minMajorApiLevel,
       int minMinorApiLevel,
-      boolean classfileDesugaringOnly) {
+      boolean classfileDesugaringOnly,
+      boolean enableVerboseSyntheticNames) {
     this.inputApp = inputApp;
     this.globalsConsumer = globalsConsumer;
     this.minMajorApiLevel = minMajorApiLevel;
     this.minMinorApiLevel = minMinorApiLevel;
     this.classfileDesugaringOnly = classfileDesugaringOnly;
+    this.enableVerboseSyntheticNames = enableVerboseSyntheticNames;
     this.reporter = reporter;
     this.printHelp = false;
     this.printVersion = false;
@@ -75,6 +78,7 @@ public final class GlobalSyntheticsGeneratorCommand {
     this.minMajorApiLevel = AndroidApiLevel.B.getLevel();
     this.minMinorApiLevel = 0;
     this.classfileDesugaringOnly = false;
+    this.enableVerboseSyntheticNames = false;
 
     reporter = new Reporter();
   }
@@ -168,6 +172,7 @@ public final class GlobalSyntheticsGeneratorCommand {
 
     internal.tool = Tool.GlobalSyntheticsGenerator;
     internal.desugarState = DesugarState.ON;
+    internal.desugarSpecificOptions().enableVerboseSyntheticNames = enableVerboseSyntheticNames;
     internal.enableVarHandleDesugaring = true;
 
     internal.getArtProfileOptions().setEnableCompletenessCheckForTesting(false);
@@ -215,6 +220,7 @@ public final class GlobalSyntheticsGeneratorCommand {
     private int minMajorApiLevel = AndroidApiLevel.B.getLevel();
     private int minMinorApiLevel = 0;
     private boolean classfileDesugaringOnly = false;
+    private boolean enableVerboseSyntheticNames = false;
     private boolean printHelp = false;
     private boolean printVersion = false;
     private final AndroidApp.Builder appBuilder = AndroidApp.builder();
@@ -306,6 +312,16 @@ public final class GlobalSyntheticsGeneratorCommand {
       return this;
     }
 
+    /**
+     * By default, the compiler uses the same naming scheme for synthetic classes as javac uses for
+     * anonymous inner classes. By enabling verbose synthetic names, the synthetic classes will
+     * include a "$$ExternalSynthetic" marker, which includes the synthetic kind (e.g., "Lambda").
+     */
+    public Builder setEnableVerboseSyntheticNames(boolean enableVerboseSyntheticNames) {
+      this.enableVerboseSyntheticNames = enableVerboseSyntheticNames;
+      return this;
+    }
+
     public GlobalSyntheticsGeneratorCommand build() {
       validate();
       if (isPrintHelpOrPrintVersion()) {
@@ -317,7 +333,8 @@ public final class GlobalSyntheticsGeneratorCommand {
           reporter,
           minMajorApiLevel,
           minMinorApiLevel,
-          classfileDesugaringOnly);
+          classfileDesugaringOnly,
+          enableVerboseSyntheticNames);
     }
 
     private boolean isPrintHelpOrPrintVersion() {

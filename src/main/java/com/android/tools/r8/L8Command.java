@@ -103,7 +103,8 @@ public final class L8Command extends BaseCompilerCommand {
       MapIdProvider mapIdProvider,
       ClassConflictResolver classConflictResolver,
       CancelCompilationChecker cancelCompilationChecker,
-      DexItemFactory factory) {
+      DexItemFactory factory,
+      boolean enableVerboseSyntheticNames) {
     super(
         inputApp,
         mode,
@@ -125,7 +126,8 @@ public final class L8Command extends BaseCompilerCommand {
         Collections.emptyList(),
         Collections.emptyList(),
         classConflictResolver,
-        cancelCompilationChecker);
+        cancelCompilationChecker,
+        enableVerboseSyntheticNames);
     this.d8Command = d8Command;
     this.r8Command = r8Command;
     this.desugaredLibrarySpecification = desugaredLibrarySpecification;
@@ -204,6 +206,7 @@ public final class L8Command extends BaseCompilerCommand {
     assert internal.desugarState == DesugarState.ON;
     assert internal.enableInheritanceClassInDexDistributor;
     internal.enableInheritanceClassInDexDistributor = false;
+    internal.desugarSpecificOptions().enableVerboseSyntheticNames = enableVerboseSyntheticNames;
 
     internal
         .getLibraryDesugaringOptions()
@@ -231,8 +234,6 @@ public final class L8Command extends BaseCompilerCommand {
       assert internal.threadCount == ThreadUtils.NOT_SPECIFIED;
       internal.threadCount = getThreadCount();
     }
-
-    internal.desugarSpecificOptions().minimizeSyntheticNames = true;
 
     // Disable global optimizations.
     internal.disableGlobalOptimizations();
@@ -332,6 +333,16 @@ public final class L8Command extends BaseCompilerCommand {
       throw getReporter().fatalError("L8 does not support configuring Android platform builds.");
     }
 
+    /**
+     * By default, L8 uses the same naming scheme for synthetic classes as javac uses for anonymous
+     * inner classes. By enabling verbose synthetic names, the synthetic classes will include a
+     * "$$ExternalSynthetic" marker, which includes the synthetic kind (e.g., "Lambda").
+     */
+    @Override
+    public Builder setEnableVerboseSyntheticNames(boolean enableVerboseSyntheticNames) {
+      return super.setEnableVerboseSyntheticNames(enableVerboseSyntheticNames);
+    }
+
     @Override
     void validate() {
       if (isPrintHelp()) {
@@ -401,7 +412,8 @@ public final class L8Command extends BaseCompilerCommand {
                 .setMode(getMode())
                 .setIncludeClassesChecksum(getIncludeClassesChecksum())
                 .setDexClassChecksumFilter(getDexClassChecksumFilter())
-                .setProgramConsumer(getProgramConsumer());
+                .setProgramConsumer(getProgramConsumer())
+                .setEnableVerboseSyntheticNames(enableVerboseSyntheticNames);
         for (ArtProfileForRewriting artProfileForRewriting : getArtProfilesForRewriting()) {
           r8Builder.addArtProfileForRewriting(artProfileForRewriting);
         }
@@ -441,7 +453,8 @@ public final class L8Command extends BaseCompilerCommand {
                 .setIncludeClassesChecksum(getIncludeClassesChecksum())
                 .setDexClassChecksumFilter(getDexClassChecksumFilter())
                 .setProgramConsumer(getProgramConsumer())
-                .setEnableRewritingOfArtProfilesIsNopCheck();
+                .setEnableRewritingOfArtProfilesIsNopCheck()
+                .setEnableVerboseSyntheticNames(enableVerboseSyntheticNames);
         for (ClassFileResourceProvider libraryResourceProvider :
             inputs.getLibraryResourceProviders()) {
           d8Builder.addLibraryResourceProvider(libraryResourceProvider);
@@ -473,7 +486,8 @@ public final class L8Command extends BaseCompilerCommand {
           getMapIdProvider(),
           getClassConflictResolver(),
           getCancelCompilationChecker(),
-          factory);
+          factory,
+          enableVerboseSyntheticNames);
     }
   }
 

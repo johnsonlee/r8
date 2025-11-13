@@ -92,7 +92,6 @@ public class StartupSyntheticWithoutContextTest extends TestBase {
         .addKeepClassAndMembersRules(A.class, C.class)
         .addOptionsModification(
             options -> {
-              options.desugarSpecificOptions().minimizeSyntheticNames = true;
               options
                   .getStartupOptions()
                   .setEnableMinimalStartupDex(enableMinimalStartupDex)

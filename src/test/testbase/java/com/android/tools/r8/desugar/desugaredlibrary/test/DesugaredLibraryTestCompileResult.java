@@ -94,6 +94,13 @@ public class DesugaredLibraryTestCompileResult<T extends DesugaredLibraryTestBas
     return this;
   }
 
+  public <E extends Throwable> DesugaredLibraryTestCompileResult<T> inspectL8WithSyntheticItems(
+      ThrowingBiConsumer<CodeInspector, SyntheticItemsTestUtils, E> consumer)
+      throws IOException, E {
+    l8Compile.inspect(inspector -> consumer.accept(inspector, l8Compile.getSyntheticItems()));
+    return this;
+  }
+
   public <E extends Throwable> DesugaredLibraryTestCompileResult<T> inspect(
       ThrowingConsumer<CodeInspector, E> consumer) throws IOException, E {
     compileResult.inspect(consumer);

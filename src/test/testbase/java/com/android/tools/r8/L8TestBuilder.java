@@ -15,6 +15,7 @@ import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibrarySpecific
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.profile.art.ArtProfileConsumer;
 import com.android.tools.r8.profile.art.ArtProfileProvider;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.AndroidAppConsumers;
 import com.android.tools.r8.utils.ConsumerUtils;
@@ -139,6 +140,14 @@ public class L8TestBuilder {
       elseConsumer.acceptWithRuntimeException(this);
     }
     return this;
+  }
+
+  public L8TestBuilder collectSyntheticItems() {
+    assert state.getSyntheticItems() == null;
+    SyntheticItemsTestUtils.Builder syntheticItemsBuilder = new SyntheticItemsTestUtils.Builder();
+    state.setSyntheticItems(syntheticItemsBuilder);
+    return addOptionsModifier(
+        options -> options.testing.syntheticItemsConsumer = syntheticItemsBuilder::add);
   }
 
   public TestDiagnosticMessages getDiagnosticMessages() {

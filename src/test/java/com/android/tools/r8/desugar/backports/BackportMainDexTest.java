@@ -266,8 +266,6 @@ public class BackportMainDexTest extends TestBase {
             Reference.methodFromMethod(User1.class.getMethod("testBooleanCompare")),
             Reference.methodFromMethod(User1.class.getMethod("testCharacterCompare")))
         .addMainDexRules(keepMainProguardConfiguration(TestClass.class))
-        .addOptionsModification(
-            options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
         .collectSyntheticItems()
         .setMinApi(parameters)
         .compile()
