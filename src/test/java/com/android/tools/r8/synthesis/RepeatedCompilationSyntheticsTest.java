@@ -3,17 +3,18 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.synthesis;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
 import com.android.tools.r8.ByteDataView;
 import com.android.tools.r8.ClassFileConsumer;
+import com.android.tools.r8.D8TestCompileResult;
 import com.android.tools.r8.DexFilePerClassFileConsumer;
 import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.utils.AndroidApiLevel;
+import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -61,87 +62,87 @@ public class RepeatedCompilationSyntheticsTest extends TestBase {
 
   @Test
   public void test() throws Exception {
-    assertEquals(Backend.DEX, parameters.getBackend());
-
     Map<String, byte[]> firstCompilation = new HashMap<>();
-    testForD8(Backend.CF)
-        // High API level such that only the compareUnsigned is desugared.
-        .setMinApi(API_WITH_BYTE_COMPARE)
-        .setIntermediate(true)
-        .addProgramClassFileData(getTransformedUsesBackport())
-        .setProgramConsumer(
-            new ClassFileConsumer() {
-              @Override
-              public synchronized void accept(
-                  ByteDataView data, String descriptor, DiagnosticsHandler handler) {
-                byte[] old = firstCompilation.put(descriptor, data.copyByteData());
-                assertNull("Duplicate " + descriptor, old);
-              }
+    SyntheticItemsTestUtils firstSyntheticItems =
+        testForD8(Backend.CF)
+            .collectSyntheticItems()
+            // High API level such that only the compareUnsigned is desugared.
+            .setMinApi(API_WITH_BYTE_COMPARE)
+            .setIntermediate(true)
+            .addProgramClassFileData(getTransformedUsesBackport())
+            .setProgramConsumer(
+                new ClassFileConsumer() {
+                  @Override
+                  public synchronized void accept(
+                      ByteDataView data, String descriptor, DiagnosticsHandler handler) {
+                    byte[] old = firstCompilation.put(descriptor, data.copyByteData());
+                    assertNull("Duplicate " + descriptor, old);
+                  }
 
-              @Override
-              public void finished(DiagnosticsHandler handler) {}
-            })
-        .compile();
+                  @Override
+                  public void finished(DiagnosticsHandler handler) {}
+                })
+            .compile()
+            .getSyntheticItems();
     assertEquals(
         ImmutableSet.of(
             descriptor(UsesBackport.class),
-            getDefaultSyntheticItemsTestUtils()
-                .syntheticBackportClass(UsesBackport.class, 0)
-                .getDescriptor()),
+            firstSyntheticItems.syntheticBackportClass(UsesBackport.class, 0).getDescriptor()),
         firstCompilation.keySet());
 
     List<String> secondCompilation = new ArrayList<>();
+    SyntheticItemsTestUtils secondSyntheticItems = null;
     for (Entry<String, byte[]> entry : firstCompilation.entrySet()) {
       byte[] bytes = entry.getValue();
-      testForD8(intermediateBackend)
-          .setMinApi(parameters)
-          .setIntermediate(true)
-          .addProgramClassFileData(bytes)
-          .applyIf(
-              intermediateBackend == Backend.CF,
-              b ->
-                  b.setProgramConsumer(
-                      new ClassFileConsumer() {
-                        @Override
-                        public synchronized void accept(
-                            ByteDataView data, String descriptor, DiagnosticsHandler handler) {
-                          secondCompilation.add(descriptor);
-                        }
+      D8TestCompileResult secondCompileResult =
+          testForD8(intermediateBackend)
+              .collectSyntheticItems()
+              .setMinApi(parameters)
+              .setIntermediate(true)
+              .addProgramClassFileData(bytes)
+              .applyIf(
+                  intermediateBackend == Backend.CF,
+                  b ->
+                      b.setProgramConsumer(
+                          new ClassFileConsumer() {
+                            @Override
+                            public synchronized void accept(
+                                ByteDataView data, String descriptor, DiagnosticsHandler handler) {
+                              secondCompilation.add(descriptor);
+                            }
 
-                        @Override
-                        public void finished(DiagnosticsHandler handler) {}
-                      }),
-              b ->
-                  b.setProgramConsumer(
-                      new DexFilePerClassFileConsumer() {
-                        @Override
-                        public void accept(
-                            String primaryClassDescriptor,
-                            ByteDataView data,
-                            Set<String> descriptors,
-                            DiagnosticsHandler handler) {
-                          secondCompilation.addAll(descriptors);
-                        }
+                            @Override
+                            public void finished(DiagnosticsHandler handler) {}
+                          }),
+                  b ->
+                      b.setProgramConsumer(
+                          new DexFilePerClassFileConsumer() {
+                            @Override
+                            public void accept(
+                                String primaryClassDescriptor,
+                                ByteDataView data,
+                                Set<String> descriptors,
+                                DiagnosticsHandler handler) {
+                              secondCompilation.addAll(descriptors);
+                            }
 
-                        @Override
-                        public void finished(DiagnosticsHandler handler) {}
-                      }))
-          .compile();
+                            @Override
+                            public void finished(DiagnosticsHandler handler) {}
+                          }))
+              .compile();
+      if (entry.getKey().equals(descriptor(UsesBackport.class))) {
+        secondSyntheticItems = secondCompileResult.getSyntheticItems();
+      }
     }
 
     // TODO(b/271235788): The repeated compilation is unsound and we have duplicate definitions of
     //  the backports both using the same type name.
-    secondCompilation.sort(String::compareTo);
     assertEquals(
         ImmutableList.of(
-            getDefaultSyntheticItemsTestUtils()
-                .syntheticBackportClass(UsesBackport.class, 0)
-                .getDescriptor(),
-            getDefaultSyntheticItemsTestUtils()
-                .syntheticBackportClass(UsesBackport.class, 0)
-                .getDescriptor(),
+            firstSyntheticItems.syntheticBackportClass(UsesBackport.class, 0).getDescriptor(),
+            secondSyntheticItems.syntheticBackportClass(UsesBackport.class, 0).getDescriptor(),
             descriptor(UsesBackport.class)),
-        secondCompilation);
+        ListUtils.destructiveSort(secondCompilation, String::compareTo));
   }
 
   private byte[] getTransformedUsesBackport() throws Exception {

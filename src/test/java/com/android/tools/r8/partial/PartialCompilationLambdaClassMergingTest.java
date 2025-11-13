@@ -9,7 +9,6 @@ import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -34,9 +33,10 @@ public class PartialCompilationLambdaClassMergingTest extends TestBase {
         .addR8IncludedClasses(Main.class, I.class)
         .addR8IncludedClasses(false, NeverInline.class)
         .addKeepClassAndMembersRules(Main.class)
+        .collectSyntheticItems()
         .compile()
-        .inspect(
-            inspector -> {
+        .inspectWithSyntheticItems(
+            (inspector, syntheticItems) -> {
               // The output has three classes: Main, I and a lambda.
               assertEquals(3, inspector.allClasses().size());
               // The output has a single synthetic lambda due to class merging.
@@ -44,9 +44,7 @@ public class PartialCompilationLambdaClassMergingTest extends TestBase {
                   1,
                   inspector.allClasses().stream()
                       .filter(
-                          clazz ->
-                              SyntheticItemsTestUtils.isExternalLambda(
-                                  clazz.getOriginalReference()))
+                          clazz -> syntheticItems.isExternalLambda(clazz.getOriginalReference()))
                       .count());
             })
         .run(parameters.getRuntime(), Main.class)

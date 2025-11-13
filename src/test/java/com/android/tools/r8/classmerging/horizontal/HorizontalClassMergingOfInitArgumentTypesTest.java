@@ -10,9 +10,9 @@ import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.NoHorizontalClassMerging;
+import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.BooleanUtils;
 import java.util.List;
 import org.junit.Test;
@@ -38,18 +38,23 @@ public class HorizontalClassMergingOfInitArgumentTypesTest extends TestBase {
 
   @Test
   public void test() throws Exception {
-    testForR8(parameters.getBackend())
-        .addInnerClasses(getClass())
-        .addKeepMainRule(Main.class)
-        .addOptionsModification(
-            options -> {
-              options.callSiteOptimizationOptions().setForceSyntheticsForInstanceInitializers(true);
-              options.horizontalClassMergerOptions().enableIf(enableHorizontalClassMerging);
-            })
-        .enableInliningAnnotations()
-        .enableNoHorizontalClassMergingAnnotations()
-        .setMinApi(parameters)
-        .compile()
+    R8TestCompileResult compileResult =
+        testForR8(parameters.getBackend())
+            .addInnerClasses(getClass())
+            .addKeepMainRule(Main.class)
+            .addOptionsModification(
+                options -> {
+                  options
+                      .callSiteOptimizationOptions()
+                      .setForceSyntheticsForInstanceInitializers(true);
+                  options.horizontalClassMergerOptions().enableIf(enableHorizontalClassMerging);
+                })
+            .collectSyntheticItems()
+            .enableInliningAnnotations()
+            .enableNoHorizontalClassMergingAnnotations()
+            .setMinApi(parameters)
+            .compile();
+    compileResult
         .inspect(
             inspector -> {
               int expectedNumberOfSynthetics =
@@ -63,8 +68,10 @@ public class HorizontalClassMergingOfInitArgumentTypesTest extends TestBase {
                   inspector.allClasses().stream()
                       .filter(
                           clazz ->
-                              SyntheticItemsTestUtils.isExternalNonFixedInitializerTypeArgument(
-                                  clazz.getOriginalReference()))
+                              compileResult
+                                  .getSyntheticItems()
+                                  .isExternalNonFixedInitializerTypeArgument(
+                                      clazz.getOriginalReference()))
                       .count());
             })
         .run(parameters.getRuntime(), Main.class)

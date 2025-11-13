@@ -475,10 +475,10 @@ public class FoundClassSubject extends ClassSubject {
   }
 
   @Override
-  public boolean isSynthesizedJavaLambdaClass() {
+  public boolean isSynthesizedJavaLambdaClass(SyntheticItemsTestUtils syntheticItems) {
     // TODO(141287349): Make this precise based on the map input.
-    return SyntheticItemsTestUtils.isExternalLambda(getOriginalReference())
-        || SyntheticItemsTestUtils.isExternalLambda(getFinalReference());
+    return syntheticItems.isExternalLambda(getOriginalReference())
+        || syntheticItems.isExternalLambda(getFinalReference());
   }
 
   @Override

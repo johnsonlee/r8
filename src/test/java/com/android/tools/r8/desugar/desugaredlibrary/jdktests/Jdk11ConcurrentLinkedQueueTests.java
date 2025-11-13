@@ -12,6 +12,7 @@ import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpec
 import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.JDK11;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.JDK11_MINIMAL;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.JDK11_PATH;
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.FileUtils.CLASS_EXTENSION;
 import static com.android.tools.r8.utils.FileUtils.JAVA_EXTENSION;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
@@ -32,7 +33,6 @@ import com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpeci
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.references.Reference;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.StringUtils;
@@ -104,18 +104,19 @@ public class Jdk11ConcurrentLinkedQueueTests extends DesugaredLibraryTestBase {
     // Right now we only expect one backport coming out of DesugarVarHandle - the backport with
     // forwarding of Unsafe.compareAndSwapObject.
     MethodReference firstBackportFromDesugarVarHandle =
-        SyntheticItemsTestUtils.syntheticBackportWithForwardingMethod(
-            Reference.classFromDescriptor("Lj$/com/android/tools/r8/DesugarVarHandle;"),
-            0,
-            Reference.method(
-                Reference.classFromDescriptor("Lsun/misc/Unsafe;"),
-                "compareAndSwapObject",
-                ImmutableList.of(
-                    Reference.typeFromDescriptor("Ljava/lang/Object;"),
-                    Reference.LONG,
-                    Reference.typeFromDescriptor("Ljava/lang/Object;"),
-                    Reference.typeFromDescriptor("Ljava/lang/Object;")),
-                Reference.BOOL));
+        getDefaultSyntheticItemsTestUtils()
+            .syntheticBackportWithForwardingMethod(
+                Reference.classFromDescriptor("Lj$/com/android/tools/r8/DesugarVarHandle;"),
+                0,
+                Reference.method(
+                    Reference.classFromDescriptor("Lsun/misc/Unsafe;"),
+                    "compareAndSwapObject",
+                    ImmutableList.of(
+                        Reference.typeFromDescriptor("Ljava/lang/Object;"),
+                        Reference.LONG,
+                        Reference.typeFromDescriptor("Ljava/lang/Object;"),
+                        Reference.typeFromDescriptor("Ljava/lang/Object;")),
+                    Reference.BOOL));
 
     assertThat(
         inspector.clazz(

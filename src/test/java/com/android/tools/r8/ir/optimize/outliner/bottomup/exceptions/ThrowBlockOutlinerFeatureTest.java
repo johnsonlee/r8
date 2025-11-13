@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize.outliner.bottomup.exceptions;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getMinimalSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -13,6 +12,7 @@ import com.android.tools.r8.R8TestCompileResultBase;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.ir.optimize.outliner.bottomup.BottomUpOutlinerTestBase;
 import com.android.tools.r8.ir.optimize.outliner.bottomup.Outline;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import java.util.Collection;
@@ -33,7 +33,12 @@ public class ThrowBlockOutlinerFeatureTest extends BottomUpOutlinerTestBase {
             .apply(this::configure)
             .noInliningOfSynthetics()
             .compile()
-            .inspect(this::inspectOutput, this::inspectFeature1Output, this::inspectFeature2Output)
+            .apply(
+                cr ->
+                    cr.inspect(
+                        inspector -> inspectOutput(inspector, cr.getSyntheticItems()),
+                        inspector -> inspectFeature1Output(inspector, cr.getSyntheticItems()),
+                        inspector -> inspectFeature2Output(inspector, cr.getSyntheticItems())))
             .addFeatureSplitsToRunClasspathFiles();
     compileResult
         .run(parameters.getRuntime(), Main.class)
@@ -75,29 +80,29 @@ public class ThrowBlockOutlinerFeatureTest extends BottomUpOutlinerTestBase {
         containsString(Feature2.class.getTypeName()));
   }
 
-  private void inspectOutput(CodeInspector inspector) {
+  private void inspectOutput(CodeInspector inspector, SyntheticItemsTestUtils syntheticItems) {
     assertEquals(2, inspector.allClasses().size());
     assertThat(inspector.clazz(Main.class), isPresent());
 
     ClassSubject outlineClassSubject =
-        inspector.clazz(
-            getMinimalSyntheticItemsTestUtils().syntheticBottomUpOutlineClass(Main.class, 0));
+        inspector.clazz(syntheticItems.syntheticBottomUpOutlineClass(Main.class, 0));
     assertThat(outlineClassSubject, isPresent());
     assertEquals(1, outlineClassSubject.allMethods().size());
   }
 
-  private void inspectFeature1Output(CodeInspector inspector) {
+  private void inspectFeature1Output(
+      CodeInspector inspector, SyntheticItemsTestUtils syntheticItems) {
     assertEquals(1, inspector.allClasses().size());
     assertThat(inspector.clazz(Feature1.class), isPresent());
   }
 
-  private void inspectFeature2Output(CodeInspector inspector) {
+  private void inspectFeature2Output(
+      CodeInspector inspector, SyntheticItemsTestUtils syntheticItems) {
     assertEquals(2, inspector.allClasses().size());
     assertThat(inspector.clazz(Feature2.class), isPresent());
 
     ClassSubject outlineClassSubject =
-        inspector.clazz(
-            getMinimalSyntheticItemsTestUtils().syntheticBottomUpOutlineClass(Feature2.class, 0));
+        inspector.clazz(syntheticItems.syntheticBottomUpOutlineClass(Feature2.class, 0));
     assertThat(outlineClassSubject, isPresent());
     assertEquals(1, outlineClassSubject.allMethods().size());
   }

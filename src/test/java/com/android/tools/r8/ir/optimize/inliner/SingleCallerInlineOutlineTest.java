@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize.inliner;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getMinimalSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethod;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.CoreMatchers.allOf;
@@ -44,16 +43,16 @@ public class SingleCallerInlineOutlineTest extends TestBase {
         .addKeepMainRule(Main.class)
         .addOptionsModification(
             options -> {
-              options.desugarSpecificOptions().minimizeSyntheticNames = true;
               options.outline.threshold = 2;
               options.outline.minSize = 2;
               options.getTestingOptions().allowInliningOfOutlines = allowInliningOfOutlines;
             })
+        .collectSyntheticItems()
         .enableInliningAnnotations()
         .setMinApi(parameters)
         .compile()
-        .inspect(
-            inspector -> {
+        .inspectWithSyntheticItems(
+            (inspector, syntheticItems) -> {
               ClassSubject printerClassSubject = inspector.clazz(Printer.class);
               assertThat(printerClassSubject, isPresent());
 
@@ -73,8 +72,7 @@ public class SingleCallerInlineOutlineTest extends TestBase {
               assertThat(outlineCandidateMethodSubject, isPresent());
 
               ClassSubject outlineClassSubject =
-                  inspector.clazz(
-                      getMinimalSyntheticItemsTestUtils().syntheticOutlineClass(Main.class, 0));
+                  inspector.clazz(syntheticItems.syntheticOutlineClass(Main.class, 0));
               // Note that the outline class is present even when `allowInliningOfOutlines`
               // is true, since we do not run another round of tree shaking after the single
               // caller inliner pass.

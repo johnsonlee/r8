@@ -300,9 +300,7 @@ public class VarHandleDesugaring implements CfInstructionDesugaring, CfClassSynt
 
     if (method.getHolderType() == factory.varHandleType) {
       if (!invoke.isInvokeVirtual()) {
-        // Right now only <init> should be hit from MethodHandles.Lookup desugaring creating
-        // a VarHandle instance.
-        assert invoke.isInvokeSpecial();
+        assert invoke.isInvokeSpecial() || invoke.isInvokeStatic();
         return DesugarDescription.nothing();
       }
       assert invoke.isInvokeVirtual();

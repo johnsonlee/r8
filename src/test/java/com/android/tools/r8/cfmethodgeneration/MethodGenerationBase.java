@@ -175,7 +175,9 @@ public abstract class MethodGenerationBase extends CodeGenerationBase {
         + ")\n"
         + "        .setAccessFlags(\n"
         + "            MethodAccessFlags.fromSharedAccessFlags(\n"
-        + "                Constants.ACC_PUBLIC | Constants.ACC_SYNTHETIC, "
+        + "                Constants.ACC_PUBLIC "
+        + (method.isStatic() ? "| Constants.ACC_STATIC" : "")
+        + "| Constants.ACC_SYNTHETIC, "
         + (method.isInstanceInitializer())
         + "))\n"
         + "        .setCode("
@@ -323,11 +325,19 @@ public abstract class MethodGenerationBase extends CodeGenerationBase {
       }
       printer.println("builder.setDirectMethods(");
       generateSyntheticMethodsList(
-          classMethods, requiredImports, printer, clazz, DexEncodedMethod::isInstanceInitializer);
+          classMethods,
+          requiredImports,
+          printer,
+          clazz,
+          method -> method.isInstanceInitializer() || method.isStatic());
       printer.println(");");
       printer.println("builder.setVirtualMethods(");
       generateSyntheticMethodsList(
-          allMethods, requiredImports, printer, clazz, method -> !method.isInstanceInitializer());
+          allMethods,
+          requiredImports,
+          printer,
+          clazz,
+          method -> !method.isInstanceInitializer() && !method.isStatic());
       printer.println(");");
       printer.println("}");
     }

@@ -436,28 +436,43 @@ public class SyntheticNaming {
   /** Method name when generating synthetic methods in a class. */
   static final String INTERNAL_SYNTHETIC_METHOD_NAME = "m";
 
-  static String getPrefixForExternalSyntheticType(SyntheticKind kind, DexType type) {
+  static String getPrefixForExternalSyntheticType(
+      SyntheticKind kind, DexType type, AppView<?> appView) {
     String binaryName = type.toBinaryName();
     if (kind.isGlobal()) {
       return binaryName;
     }
-    int index =
-        binaryName.lastIndexOf(
-            kind.isFixedSuffixSynthetic() ? kind.descriptor : SYNTHETIC_CLASS_SEPARATOR);
+    int index;
+    if (kind.isFixedSuffixSynthetic()) {
+      index = binaryName.lastIndexOf(kind.descriptor);
+    } else {
+      // If this synthetic class was present on input from an intermediate compilation then it
+      // won't have the $$InternalSynthetic marker.
+      if (appView.options().desugarSpecificOptions().minimizeSyntheticNames
+          && appView.getSyntheticItems().isSyntheticInput(type)) {
+        index = binaryName.lastIndexOf(INNER_CLASS_SEPARATOR);
+      } else {
+        index = binaryName.lastIndexOf(SYNTHETIC_CLASS_SEPARATOR);
+      }
+    }
     if (index < 0) {
       throw new Unreachable("Unexpected failure to compute a synthetic prefix for " + binaryName);
     }
     return binaryName.substring(0, index);
   }
 
-  static String getOuterContextFromExternalSyntheticType(SyntheticKind kind, DexType type) {
+  static String getOuterContextFromExternalSyntheticType(
+      SyntheticKind kind, DexType type, InternalOptions options) {
     assert !kind.isGlobal();
     String binaryName = type.toBinaryName();
-    int index =
-        binaryName.lastIndexOf(
-            kind.isFixedSuffixSynthetic()
-                ? kind.descriptor
-                : EXTERNAL_SYNTHETIC_CLASS_SEPARATOR + kind.getDescriptor());
+    int index;
+    if (kind.isFixedSuffixSynthetic()) {
+      index = binaryName.lastIndexOf(kind.descriptor);
+    } else if (options.desugarSpecificOptions().minimizeSyntheticNames) {
+      index = binaryName.lastIndexOf(INNER_CLASS_SEPARATOR);
+    } else {
+      index = binaryName.lastIndexOf(EXTERNAL_SYNTHETIC_CLASS_SEPARATOR + kind.getDescriptor());
+    }
     if (index < 0) {
       throw new Unreachable(
           "Unexpected failure to determine the context of synthetic class: " + binaryName);

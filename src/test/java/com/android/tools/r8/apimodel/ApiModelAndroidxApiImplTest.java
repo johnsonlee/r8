@@ -6,13 +6,14 @@ package com.android.tools.r8.apimodel;
 
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLevelForClass;
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLevelForMethod;
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.notIf;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.CompilationMode;
+import com.android.tools.r8.D8TestCompileResult;
+import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.SingleTestRunResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestCompileResult;
@@ -98,13 +99,16 @@ public class ApiModelAndroidxApiImplTest extends TestBase {
   @Test
   public void testD8Debug() throws Exception {
     parameters.assumeDexRuntime();
-    testForD8(parameters.getBackend())
-        .setMode(CompilationMode.DEBUG)
-        .apply(this::setupTestBuilder)
-        .addHorizontallyMergedClassesInspector(
-            HorizontallyMergedClassesInspector::assertNoClassesMerged)
-        .compile()
-        .inspect(inspector -> inspect(inspector, false))
+    D8TestCompileResult compileResult =
+        testForD8(parameters.getBackend())
+            .setMode(CompilationMode.DEBUG)
+            .apply(this::setupTestBuilder)
+            .addHorizontallyMergedClassesInspector(
+                HorizontallyMergedClassesInspector::assertNoClassesMerged)
+            .collectSyntheticItems()
+            .compile();
+    compileResult
+        .inspect(inspector -> inspect(inspector, false, compileResult.getSyntheticItems()))
         .apply(this::setupRuntime)
         .run(parameters.getRuntime(), Main.class)
         .apply(this::checkOutput);
@@ -113,13 +117,16 @@ public class ApiModelAndroidxApiImplTest extends TestBase {
   @Test
   public void testD8Release() throws Exception {
     parameters.assumeDexRuntime();
-    testForD8(parameters.getBackend())
-        .setMode(CompilationMode.RELEASE)
-        .apply(this::setupTestBuilder)
-        .addHorizontallyMergedClassesInspector(
-            HorizontallyMergedClassesInspector::assertNoClassesMerged)
-        .compile()
-        .inspect(inspector -> inspect(inspector, false))
+    D8TestCompileResult compileResult =
+        testForD8(parameters.getBackend())
+            .setMode(CompilationMode.RELEASE)
+            .apply(this::setupTestBuilder)
+            .addHorizontallyMergedClassesInspector(
+                HorizontallyMergedClassesInspector::assertNoClassesMerged)
+            .collectSyntheticItems()
+            .compile();
+    compileResult
+        .inspect(inspector -> inspect(inspector, false, compileResult.getSyntheticItems()))
         .apply(this::setupRuntime)
         .run(parameters.getRuntime(), Main.class)
         .apply(this::checkOutput);
@@ -127,37 +134,40 @@ public class ApiModelAndroidxApiImplTest extends TestBase {
 
   @Test
   public void testR8() throws Exception {
-    testForR8(parameters.getBackend())
-        .apply(this::setupTestBuilder)
-        .addKeepMainRule(Main.class)
-        .addHorizontallyMergedClassesInspector(
-            HorizontallyMergedClassesInspector::assertNoClassesMerged)
-        .addOptionsModification(
-            options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
-        .compile()
-        .inspect(inspector -> inspect(inspector, true))
+    R8TestCompileResult compileResult =
+        testForR8(parameters.getBackend())
+            .apply(this::setupTestBuilder)
+            .addKeepMainRule(Main.class)
+            .addHorizontallyMergedClassesInspector(
+                HorizontallyMergedClassesInspector::assertNoClassesMerged)
+            .addOptionsModification(
+                options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
+            .collectSyntheticItems()
+            .compile();
+    compileResult
+        .inspect(inspector -> inspect(inspector, true, compileResult.getSyntheticItems()))
         .apply(this::setupRuntime)
         .run(parameters.getRuntime(), Main.class)
         .apply(this::checkOutput);
   }
 
-  private void inspect(CodeInspector inspector, boolean isR8) {
+  private void inspect(
+      CodeInspector inspector, boolean isR8, SyntheticItemsTestUtils syntheticItems) {
     assertThat(inspector.clazz(Main.class), isPresent());
     ClassReference classReference = Reference.classFromDescriptor(newTestApi26Descriptor);
     if (parameters.isCfRuntime()) {
       assertThat(inspector.clazz(classReference), isPresent());
     } else {
-      SyntheticItemsTestUtils syntheticItemsTestUtils = getSyntheticItemsTestUtils(isR8);
       assertThat(
           inspector.clazz(classReference),
           notIf(
               isPresent(),
               isR8 && parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.O)));
       assertThat(
-          inspector.clazz(syntheticItemsTestUtils.syntheticApiOutlineClass(classReference, 0)),
+          inspector.syntheticClass(syntheticItems.syntheticApiOutlineClass(classReference, 0)),
           notIf(isPresent(), parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.R)));
       assertThat(
-          inspector.clazz(syntheticItemsTestUtils.syntheticApiOutlineClass(classReference, 1)),
+          inspector.syntheticClass(syntheticItems.syntheticApiOutlineClass(classReference, 1)),
           isAbsent());
     }
   }

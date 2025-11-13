@@ -61,6 +61,7 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexLibraryClass;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -77,7 +78,7 @@ import com.android.tools.r8.ir.optimize.outliner.bottomup.BottomUpOutlinerOption
 import com.android.tools.r8.metadata.D8BuildMetadata;
 import com.android.tools.r8.metadata.R8BuildMetadata;
 import com.android.tools.r8.naming.ClassNameMapper;
-import com.android.tools.r8.naming.MapConsumer;
+import com.android.tools.r8.naming.InternalMapConsumer;
 import com.android.tools.r8.naming.MapVersion;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.optimize.accessmodification.AccessModifierOptions;
@@ -182,7 +183,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     }
   }
 
-  public static final CfVersion SUPPORTED_CF_VERSION = CfVersion.V26;
+  public static final CfVersion SUPPORTED_CF_VERSION = CfVersion.V27;
 
   public static final int SUPPORTED_DEX_VERSION =
       AndroidApiLevel.LATEST.getDexVersion().getIntValue();
@@ -1319,7 +1320,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   // If null, no proguard map needs to be computed.
   // If non null it must be and passed to the consumer.
-  public MapConsumer mapConsumer = null;
+  public InternalMapConsumer mapConsumer = null;
 
   public boolean hasMappingFileSupport() {
     return mapConsumer != null;
@@ -2331,7 +2332,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public BiConsumer<DexItemFactory, RepackagingLens> repackagingLensConsumer =
         ConsumerUtils.emptyBiConsumer();
 
-    public QuadConsumer<SyntheticKind, Integer, DexType, DexType> syntheticItemsConsumer = null;
+    public QuadConsumer<SyntheticKind, Integer, DexType, DexReference> syntheticItemsConsumer =
+        null;
 
     public BiConsumer<DexItemFactory, EnumDataMap> unboxedEnumsConsumer =
         ConsumerUtils.emptyBiConsumer();

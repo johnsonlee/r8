@@ -12,6 +12,7 @@ import com.android.tools.r8.naming.ClassNamingForNameMapper;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.retrace.RetraceClassElement;
 import com.android.tools.r8.retrace.RetraceClassResult;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -204,7 +205,7 @@ public class AbsentClassSubject extends ClassSubject {
   }
 
   @Override
-  public boolean isSynthesizedJavaLambdaClass() {
+  public boolean isSynthesizedJavaLambdaClass(SyntheticItemsTestUtils syntheticItems) {
     throw new Unreachable("Cannot determine if an absent class is a synthesized lambda class");
   }
 

@@ -84,11 +84,6 @@ public class DesugarLambdaContextDuplicateInLibraryTest extends TestBase {
         .addDefaultRuntimeLibrary(parameters)
         .addKeepMainRule(MAIN)
         .addKeepMethodRules(pinnedPrintLn())
-        // Explicitly disable minimal synthetic names to ensure collision of synthetics. In
-        // particular, note that this test compiles and adds the LIBRARY using D8 below at the call
-        // to addRunClasspathClasses.
-        .addOptionsModification(
-            options -> options.desugarSpecificOptions().minimizeSyntheticNames = false)
         .setMinApi(parameters)
         // Use a checksum filter to simulate the classes being found on bootclasspath by removing
         // then from the program output.

@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.synthesis;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -11,6 +10,7 @@ import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.ByteDataView;
 import com.android.tools.r8.ClassFileConsumer;
+import com.android.tools.r8.D8TestCompileResult;
 import com.android.tools.r8.DesugarGraphConsumer;
 import com.android.tools.r8.DexFilePerClassFileConsumer;
 import com.android.tools.r8.DiagnosticsHandler;
@@ -52,34 +52,37 @@ public class RepeatedCompilationNestedSyntheticsTest extends TestBase {
 
   @Test
   public void test() throws Exception {
-    assertEquals(Backend.DEX, parameters.getBackend());
+    Map<String, byte[]> firstCompilation = new HashMap<>();
+    SyntheticItemsTestUtils firstSyntheticItems =
+        testForD8(Backend.CF)
+            .collectSyntheticItems()
+            // High API level such that only the lambda is desugared.
+            .setMinApi(AndroidApiLevel.S)
+            .setIntermediate(true)
+            .addClasspathClasses(I.class)
+            .addProgramClasses(UsesBackport.class)
+            .setProgramConsumer(
+                new ClassFileConsumer() {
+                  @Override
+                  public void accept(
+                      ByteDataView data, String descriptor, DiagnosticsHandler handler) {
+                    firstCompilation.put(descriptor, data.copyByteData());
+                  }
+
+                  @Override
+                  public void finished(DiagnosticsHandler handler) {}
+                })
+            .compile()
+            .getSyntheticItems();
 
     ClassReference syntheticLambdaClass =
-        getDefaultSyntheticItemsTestUtils().syntheticLambdaClass(UsesBackport.class, 0);
+        firstSyntheticItems.syntheticLambdaClass(UsesBackport.class, 0);
     ImmutableSet<String> expectedClassOutputs =
         ImmutableSet.of(descriptor(UsesBackport.class), syntheticLambdaClass.getDescriptor());
-
-    Map<String, byte[]> firstCompilation = new HashMap<>();
-    testForD8(Backend.CF)
-        // High API level such that only the lambda is desugared.
-        .setMinApi(AndroidApiLevel.S)
-        .setIntermediate(true)
-        .addClasspathClasses(I.class)
-        .addProgramClasses(UsesBackport.class)
-        .setProgramConsumer(
-            new ClassFileConsumer() {
-              @Override
-              public void accept(ByteDataView data, String descriptor, DiagnosticsHandler handler) {
-                firstCompilation.put(descriptor, data.copyByteData());
-              }
-
-              @Override
-              public void finished(DiagnosticsHandler handler) {}
-            })
-        .compile();
     assertEquals(expectedClassOutputs, firstCompilation.keySet());
 
     Map<String, byte[]> secondCompilation = new HashMap<>();
+    SyntheticItemsTestUtils secondSyntheticItems = null;
     ImmutableSet.Builder<String> allDescriptors = ImmutableSet.builder();
     BooleanBox matched = new BooleanBox(false);
     for (Entry<String, byte[]> entry : firstCompilation.entrySet()) {
@@ -91,63 +94,68 @@ public class RepeatedCompilationNestedSyntheticsTest extends TestBase {
               return entry.getKey();
             }
           };
-      testForD8(intermediateBackend)
-          .setMinApi(parameters)
-          .setIntermediate(true)
-          .addClasspathClasses(I.class)
-          .apply(b -> b.getBuilder().addClassProgramData(bytes, origin))
-          .apply(
-              b ->
-                  b.getBuilder()
-                      .setDesugarGraphConsumer(
-                          new DesugarGraphConsumer() {
+      D8TestCompileResult secondCompileResult =
+          testForD8(intermediateBackend)
+              .collectSyntheticItems()
+              .setMinApi(parameters)
+              .setIntermediate(true)
+              .addClasspathClasses(I.class)
+              .apply(b -> b.getBuilder().addClassProgramData(bytes, origin))
+              .apply(
+                  b ->
+                      b.getBuilder()
+                          .setDesugarGraphConsumer(
+                              new DesugarGraphConsumer() {
 
+                                @Override
+                                public void accept(Origin dependent, Origin dependency) {
+                                  assertThat(
+                                      dependency.toString(), containsString(binaryName(I.class)));
+                                  assertThat(
+                                      dependent.toString(),
+                                      containsString(syntheticLambdaClass.getBinaryName()));
+                                  matched.set(true);
+                                }
+
+                                @Override
+                                public void finished() {}
+                              }))
+              .applyIf(
+                  intermediateBackend == Backend.CF,
+                  b ->
+                      b.setProgramConsumer(
+                          new ClassFileConsumer() {
                             @Override
-                            public void accept(Origin dependent, Origin dependency) {
-                              assertThat(
-                                  dependency.toString(), containsString(binaryName(I.class)));
-                              assertThat(
-                                  dependent.toString(),
-                                  containsString(syntheticLambdaClass.getBinaryName()));
-                              matched.set(true);
+                            public void accept(
+                                ByteDataView data, String descriptor, DiagnosticsHandler handler) {
+                              secondCompilation.put(descriptor, data.copyByteData());
+                              allDescriptors.add(descriptor);
                             }
 
                             @Override
-                            public void finished() {}
+                            public void finished(DiagnosticsHandler handler) {}
+                          }),
+                  b ->
+                      b.setProgramConsumer(
+                          new DexFilePerClassFileConsumer() {
+
+                            @Override
+                            public void accept(
+                                String primaryClassDescriptor,
+                                ByteDataView data,
+                                Set<String> descriptors,
+                                DiagnosticsHandler handler) {
+                              secondCompilation.put(primaryClassDescriptor, data.copyByteData());
+                              allDescriptors.addAll(descriptors);
+                            }
+
+                            @Override
+                            public void finished(DiagnosticsHandler handler) {}
                           }))
-          .applyIf(
-              intermediateBackend == Backend.CF,
-              b ->
-                  b.setProgramConsumer(
-                      new ClassFileConsumer() {
-                        @Override
-                        public void accept(
-                            ByteDataView data, String descriptor, DiagnosticsHandler handler) {
-                          secondCompilation.put(descriptor, data.copyByteData());
-                          allDescriptors.add(descriptor);
-                        }
-
-                        @Override
-                        public void finished(DiagnosticsHandler handler) {}
-                      }),
-              b ->
-                  b.setProgramConsumer(
-                      new DexFilePerClassFileConsumer() {
-
-                        @Override
-                        public void accept(
-                            String primaryClassDescriptor,
-                            ByteDataView data,
-                            Set<String> descriptors,
-                            DiagnosticsHandler handler) {
-                          secondCompilation.put(primaryClassDescriptor, data.copyByteData());
-                          allDescriptors.addAll(descriptors);
-                        }
-
-                        @Override
-                        public void finished(DiagnosticsHandler handler) {}
-                      }))
-          .compile();
+              .compile();
+      if (entry.getKey().equals(syntheticLambdaClass.getDescriptor())) {
+        secondSyntheticItems = secondCompileResult.getSyntheticItems();
+      }
     }
     assertTrue(matched.get());
     // The dex file per class file output should maintain the exact same set of primary descriptors.
@@ -156,13 +164,13 @@ public class RepeatedCompilationNestedSyntheticsTest extends TestBase {
     }
     // The total set of classes should also include the backport. The backport should be
     // hygienically placed under the synthetic lambda (not the context of the lambda!).
+    ClassReference syntheticBackportClass =
+        secondSyntheticItems.syntheticBackportClass(UsesBackport.class, 0);
+    assertEquals(syntheticLambdaClass.getTypeName() + "$0", syntheticBackportClass.getTypeName());
     assertEquals(
         ImmutableSet.<String>builder()
             .addAll(expectedClassOutputs)
-            .add(
-                getDefaultSyntheticItemsTestUtils()
-                    .syntheticBackportClass(syntheticLambdaClass, 0)
-                    .getDescriptor())
+            .add(syntheticBackportClass.getDescriptor())
             .build(),
         allDescriptors.build());
 
@@ -173,10 +181,10 @@ public class RepeatedCompilationNestedSyntheticsTest extends TestBase {
             intermediateBackend == Backend.CF,
             b -> b.addProgramClassFileData(secondCompilation.values()),
             b -> b.addProgramDexFileData(secondCompilation.values()))
-        .run(parameters.getRuntime(), TestClass.class)
-        .assertSuccessWithOutputLines("1")
-        .inspect(
-            inspector -> {
+        .collectSyntheticItems()
+        .compile()
+        .inspectWithSyntheticItems(
+            (inspector, syntheticItems) -> {
               Set<String> descriptors =
                   inspector.allClasses().stream()
                       .map(c -> c.getFinalReference().getDescriptor())
@@ -189,14 +197,12 @@ public class RepeatedCompilationNestedSyntheticsTest extends TestBase {
                       // The merge step will reestablish the original contexts, thus both the lambda
                       // and the backport are placed under the non-synthetic input class
                       // UsesBackport.
-                      getDefaultSyntheticItemsTestUtils()
-                          .syntheticBackportClass(UsesBackport.class, 0)
-                          .getDescriptor(),
-                      getDefaultSyntheticItemsTestUtils()
-                          .syntheticLambdaClass(UsesBackport.class, 1)
-                          .getDescriptor()),
+                      syntheticItems.syntheticBackportClass(UsesBackport.class, 0).getDescriptor(),
+                      syntheticItems.syntheticLambdaClass(UsesBackport.class, 1).getDescriptor()),
                   descriptors);
-            });
+            })
+        .run(parameters.getRuntime(), TestClass.class)
+        .assertSuccessWithOutputLines("1");
   }
 
   interface I {

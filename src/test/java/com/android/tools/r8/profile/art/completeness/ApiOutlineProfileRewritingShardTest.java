@@ -5,9 +5,10 @@ package com.android.tools.r8.profile.art.completeness;
 
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLevelForClass;
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.verifyThat;
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsentIf;
+import static org.hamcrest.CoreMatchers.anyOf;
+import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 
@@ -19,6 +20,7 @@ import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.profile.art.model.ExternalArtProfile;
 import com.android.tools.r8.profile.art.utils.ArtProfileInspector;
 import com.android.tools.r8.references.Reference;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.MethodReferenceUtils;
@@ -73,13 +75,17 @@ public class ApiOutlineProfileRewritingShardTest extends TestBase {
         .addDefaultRuntimeLibrary(parameters)
         .addArtProfileForRewriting(getArtProfile(mainClass))
         .apply(setMockApiLevelForClass(LibraryClass.class, classApiLevel))
+        .collectSyntheticItems()
         .release()
         .setIntermediate(true)
         .setMinApi(parameters)
         .compile()
-        .inspectResidualArtProfile(
-            (profileInspector, inspector) ->
-                inspectIntermediateProfile(profileInspector, inspector, mainClass));
+        .apply(
+            cr ->
+                cr.inspectResidualArtProfile(
+                    (profileInspector, inspector) ->
+                        inspectIntermediateProfile(
+                            profileInspector, inspector, cr.getSyntheticItems(), mainClass)));
   }
 
   private void mergeDex(
@@ -94,10 +100,15 @@ public class ApiOutlineProfileRewritingShardTest extends TestBase {
         .addArtProfileForRewriting(
             buildIntermediateArtProfile(intermediateCompileResult, otherIntermediateCompileResult))
         .apply(setMockApiLevelForClass(LibraryClass.class, classApiLevel))
+        .collectSyntheticItems()
         .release()
         .setMinApi(parameters)
         .compile()
-        .inspectResidualArtProfile(this::inspectMergedProfile)
+        .apply(
+            cr ->
+                cr.inspectResidualArtProfile(
+                    (profileInspector, inspector) ->
+                        inspectMergedProfile(profileInspector, inspector, cr.getSyntheticItems())))
         .applyIf(
             isLibraryClassPresentInCurrentRuntime(),
             testBuilder -> testBuilder.addBootClasspathClasses(LibraryClass.class))
@@ -125,10 +136,13 @@ public class ApiOutlineProfileRewritingShardTest extends TestBase {
   }
 
   private void inspectIntermediateProfile(
-      ArtProfileInspector profileInspector, CodeInspector inspector, Class<?> mainClass)
+      ArtProfileInspector profileInspector,
+      CodeInspector inspector,
+      SyntheticItemsTestUtils syntheticItems,
+      Class<?> mainClass)
       throws Exception {
     // Verify that outlining happened.
-    verifyThat(inspector, parameters, LibraryClass.class)
+    verifyThat(inspector, parameters, LibraryClass.class, syntheticItems)
         .applyIf(
             isLibraryClassAlwaysPresent(),
             verifier ->
@@ -138,7 +152,7 @@ public class ApiOutlineProfileRewritingShardTest extends TestBase {
 
     // Check outline was added to program.
     ClassSubject apiOutlineClassSubject =
-        inspector.clazz(getDefaultSyntheticItemsTestUtils().syntheticApiOutlineClass(mainClass, 0));
+        inspector.syntheticClass(syntheticItems.syntheticApiOutlineClass(mainClass, 0));
     assertThat(apiOutlineClassSubject, isAbsentIf(isLibraryClassAlwaysPresent()));
 
     MethodSubject apiOutlineMethodSubject = apiOutlineClassSubject.uniqueMethod();
@@ -156,23 +170,24 @@ public class ApiOutlineProfileRewritingShardTest extends TestBase {
         .assertContainsNoOtherRules();
   }
 
-  private void inspectMergedProfile(ArtProfileInspector profileInspector, CodeInspector inspector) {
+  private void inspectMergedProfile(
+      ArtProfileInspector profileInspector,
+      CodeInspector inspector,
+      SyntheticItemsTestUtils syntheticItems) {
     // Due to deduplication of the synthetic outlines we expect only three classes when outlining.
     assertEquals(
         2 + BooleanUtils.intValue(!isLibraryClassAlwaysPresent()), inspector.allClasses().size());
 
     ClassSubject apiOutlineClassSubject =
-        inspector.clazz(
-            getDefaultSyntheticItemsTestUtils().syntheticApiOutlineClass(Main.class, 0));
+        inspector.syntheticClass(syntheticItems.syntheticApiOutlineClass(Main.class, 0));
     assertThat(apiOutlineClassSubject, isAbsentIf(isLibraryClassAlwaysPresent()));
 
     MethodSubject apiOutlineMethodSubject = apiOutlineClassSubject.uniqueMethod();
     assertThat(apiOutlineMethodSubject, isAbsentIf(isLibraryClassAlwaysPresent()));
 
     ClassSubject otherApiOutlineClassSubject =
-        inspector.clazz(
-            getDefaultSyntheticItemsTestUtils().syntheticApiOutlineClass(OtherMain.class, 0));
-    assertThat(otherApiOutlineClassSubject, isAbsent());
+        inspector.syntheticClass(syntheticItems.syntheticApiOutlineClass(OtherMain.class, 0));
+    assertThat(otherApiOutlineClassSubject, anyOf(isAbsent(), equalTo(apiOutlineClassSubject)));
 
     // Verify the residual profile contains the outline method and its holder when present.
     profileInspector

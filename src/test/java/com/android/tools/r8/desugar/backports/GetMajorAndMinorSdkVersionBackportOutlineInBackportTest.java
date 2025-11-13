@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.desugar.backports;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.AndroidApiLevel.BAKLAVA;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -88,9 +87,11 @@ public class GetMajorAndMinorSdkVersionBackportOutlineInBackportTest extends Tes
       testForD8()
           .addProgramClassFileData(getTransformedMainClass())
           .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.BAKLAVA))
+          .collectSyntheticItems()
           .setMinApi(apiLevel)
           .compile()
-          .inspect(inspector -> inspectD8(inspector, apiLevel));
+          .inspectWithSyntheticItems(
+              (inspector, syntheticItems) -> inspectD8(inspector, syntheticItems, apiLevel));
     }
   }
 
@@ -106,14 +107,17 @@ public class GetMajorAndMinorSdkVersionBackportOutlineInBackportTest extends Tes
           .addProgramClassFileData(getTransformedMainClass())
           .addKeepMainRule(TestClass.class)
           .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.BAKLAVA))
+          .collectSyntheticItems()
           .setMinApi(apiLevel)
           .addDontObfuscate()
           .compile()
-          .inspect(inspector -> inspectR8(inspector, apiLevel));
+          .inspectWithSyntheticItems(
+              (inspector, syntheticItems) -> inspectR8(inspector, syntheticItems, apiLevel));
     }
   }
 
-  private void inspectD8(CodeInspector inspector, AndroidApiLevel apiLevel) {
+  private void inspectD8(
+      CodeInspector inspector, SyntheticItemsTestUtils syntheticItems, AndroidApiLevel apiLevel) {
     if (apiLevel.isGreaterThanOrEqualTo(BAKLAVA)) {
       // From BAKLAVA calls to getMajorSdkVersion() and getMinorSdkVersion() stays.
       assertEquals(
@@ -129,21 +133,19 @@ public class GetMajorAndMinorSdkVersionBackportOutlineInBackportTest extends Tes
       // are backported, and the invoke to these methods (which is part of the backport) is
       // outlined from the backport as well.
       ClassSubject apiOutline0 =
-          inspector.clazz(
-              getDefaultSyntheticItemsTestUtils().syntheticApiOutlineClass(TestClass.class, 0));
+          inspector.clazz(syntheticItems.syntheticApiOutlineClass(TestClass.class, 0));
       assertEquals(
           1,
           countInvokeStaticToMethod(apiOutline0.uniqueMethod(), getGetMinorSdkVersion(inspector)));
       ClassSubject apiOutline1 =
-          inspector.clazz(
-              getDefaultSyntheticItemsTestUtils().syntheticApiOutlineClass(TestClass.class, 1));
+          inspector.clazz(syntheticItems.syntheticApiOutlineClass(TestClass.class, 1));
       assertEquals(
           1,
           countInvokeStaticToMethod(apiOutline1.uniqueMethod(), getGetMajorSdkVersion(inspector)));
       for (int i = 2; i < 3; i++) {
         ClassSubject backport =
             inspector.clazz(
-                SyntheticItemsTestUtils.syntheticBackportWithForwardingClass(TestClass.class, i));
+                syntheticItems.syntheticBackportWithForwardingClass(TestClass.class, i));
         assertThat(backport, isPresent());
         assertEquals(
             1,
@@ -160,7 +162,8 @@ public class GetMajorAndMinorSdkVersionBackportOutlineInBackportTest extends Tes
     }
   }
 
-  private void inspectR8(CodeInspector inspector, AndroidApiLevel apiLevel) {
+  private void inspectR8(
+      CodeInspector inspector, SyntheticItemsTestUtils syntheticItems, AndroidApiLevel apiLevel) {
     if (apiLevel.isGreaterThanOrEqualTo(BAKLAVA)) {
       // From BAKLAVA calls to getMajorSdkVersion() and getMinorSdkVersion() stays.
       assertEquals(
@@ -173,8 +176,7 @@ public class GetMajorAndMinorSdkVersionBackportOutlineInBackportTest extends Tes
               inspector.clazz(TestClass.class).mainMethod(), getGetMinorSdkVersion(inspector)));
     } else {
       ClassSubject apiOutline0 =
-          inspector.clazz(
-              getDefaultSyntheticItemsTestUtils().syntheticApiOutlineClass(TestClass.class, 0));
+          inspector.clazz(syntheticItems.syntheticApiOutlineClass(TestClass.class, 0));
       assertEquals(4, apiOutline0.allMethods().size());
       MethodSubject main = inspector.clazz(TestClass.class).mainMethod();
       assertEquals(

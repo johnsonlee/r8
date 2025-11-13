@@ -13,6 +13,7 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestCompilerBuilder;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.testing.AndroidBuildVersion;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
@@ -75,8 +76,10 @@ public class ApiModelOutlineConstClassTest extends TestBase {
     testForD8()
         .setMode(CompilationMode.DEBUG)
         .apply(this::setupTestBuilder)
+        .collectSyntheticItems()
         .compile()
-        .inspect(inspector -> inspect(inspector, false))
+        .apply(
+            compileResult -> inspect(compileResult.inspector(), compileResult.getSyntheticItems()))
         .applyIf(addToBootClasspath(), b -> b.addBootClasspathClasses(LibraryClass.class))
         .run(parameters.getRuntime(), Main.class)
         .apply(this::checkOutput);
@@ -88,8 +91,10 @@ public class ApiModelOutlineConstClassTest extends TestBase {
     testForD8()
         .setMode(CompilationMode.RELEASE)
         .apply(this::setupTestBuilder)
+        .collectSyntheticItems()
         .compile()
-        .inspect(inspector -> inspect(inspector, false))
+        .apply(
+            compileResult -> inspect(compileResult.inspector(), compileResult.getSyntheticItems()))
         .applyIf(addToBootClasspath(), b -> b.addBootClasspathClasses(LibraryClass.class))
         .run(parameters.getRuntime(), Main.class)
         .apply(this::checkOutput);
@@ -103,15 +108,18 @@ public class ApiModelOutlineConstClassTest extends TestBase {
         .addKeepMainRule(Main.class)
         .addOptionsModification(
             options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
+        .collectSyntheticItems()
         .compile()
-        .inspect(inspector -> inspect(inspector, true))
+        .apply(
+            compileResult -> inspect(compileResult.inspector(), compileResult.getSyntheticItems()))
         .applyIf(addToBootClasspath(), b -> b.addBootClasspathClasses(LibraryClass.class))
         .run(parameters.getRuntime(), Main.class)
         .apply(this::checkOutput);
   }
 
-  private void inspect(CodeInspector inspector, boolean isR8) throws Exception {
-    verifyThat(inspector, parameters, LibraryClass.class, isR8)
+  private void inspect(CodeInspector inspector, SyntheticItemsTestUtils syntheticItems)
+      throws Exception {
+    verifyThat(inspector, parameters, LibraryClass.class, syntheticItems)
         .hasConstClassOutlinedFromUntil(
             Main.class.getMethod("main", String[].class), classApiLevel);
   }

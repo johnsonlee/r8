@@ -19,6 +19,15 @@ public class RepackagingInspector {
     this.repackagingLens = repackagingLens;
   }
 
+  public ClassReference getSource(ClassReference classReference) {
+    return getSource(ClassReferenceUtils.toDexType(classReference, dexItemFactory));
+  }
+
+  public ClassReference getSource(DexType targetType) {
+    DexType sourceType = repackagingLens.getPreviousClassType(targetType);
+    return sourceType.asClassReference();
+  }
+
   public ClassReference getTarget(ClassReference classReference) {
     DexType sourceType = ClassReferenceUtils.toDexType(classReference, dexItemFactory);
     DexType targetType = repackagingLens.getNextClassType(sourceType);

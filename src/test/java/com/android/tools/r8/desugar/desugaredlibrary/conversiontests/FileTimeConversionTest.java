@@ -64,15 +64,19 @@ public class FileTimeConversionTest extends DesugaredLibraryTestBase {
         .setCustomLibrarySpecification(
             new CustomLibrarySpecification(CustomLibClass.class, MIN_SUPPORTED))
         .addKeepMainRule(Executor.class)
+        .collectSyntheticItems()
         .compile()
-        .inspect(this::assertCallsToConversion)
+        .apply(
+            cr ->
+                cr.inspect(inspector -> assertCallsToConversion(inspector, cr.getSyntheticItems())))
         .run(parameters.getRuntime(), Executor.class)
         .assertSuccessWithOutput(EXPECTED_RESULT);
   }
 
-  private void assertCallsToConversion(CodeInspector inspector) {
+  private void assertCallsToConversion(
+      CodeInspector inspector, SyntheticItemsTestUtils syntheticItems) {
     ClassSubject apiConversionClass =
-        inspector.clazz(SyntheticItemsTestUtils.syntheticApiConversionClass(Executor.class, 0));
+        inspector.clazz(syntheticItems.syntheticApiConversionClass(Executor.class, 0));
     assertThat(apiConversionClass, isPresent());
     if (compilationSpecification.isProgramShrink() || compilationSpecification.isR8Partial()) {
       assertThat(apiConversionClass, isPresentAndRenamed());

@@ -55,6 +55,9 @@ public class GlobalSyntheticsEnsureClassesOutputTest extends TestBase {
         .apply(
             b ->
                 b.getBuilder().addGlobalSyntheticsResourceProviders(globalsConsumer.getProviders()))
+        // Enable when enabled in GlobalSyntheticsGenerator above.
+        .addOptionsModification(
+            options -> options.desugarSpecificOptions().minimizeSyntheticNames = false)
         .setMinApi(AndroidApiLevel.K)
         .compile()
         .inspect(
@@ -122,6 +125,9 @@ public class GlobalSyntheticsEnsureClassesOutputTest extends TestBase {
         .apply(
             b ->
                 b.getBuilder().addGlobalSyntheticsResourceProviders(globalsConsumer.getProviders()))
+        // Remove this when intermediate mode uses minimal synthetic names.
+        .addOptionsModification(
+            options -> options.desugarSpecificOptions().minimizeSyntheticNames = false)
         .setMinApi(AndroidApiLevel.K)
         .compile()
         .inspect(

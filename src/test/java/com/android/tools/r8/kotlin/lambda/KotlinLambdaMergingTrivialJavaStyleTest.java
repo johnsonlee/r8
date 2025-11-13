@@ -6,7 +6,6 @@ package com.android.tools.r8.kotlin.lambda;
 
 import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_5_0;
 import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_2_0_20;
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getMinimalSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.PredicateUtils.not;
 import static junit.framework.TestCase.assertEquals;
 import static org.junit.Assume.assumeFalse;
@@ -15,6 +14,7 @@ import static org.junit.Assume.assumeTrue;
 import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
 import com.android.tools.r8.KotlinTestBase;
 import com.android.tools.r8.KotlinTestParameters;
+import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.Reference;
@@ -86,13 +86,17 @@ public class KotlinLambdaMergingTrivialJavaStyleTest extends KotlinTestBase {
         hasKotlinCGeneratedLambdaClasses() ? 39 : 0, lambdasInInput.getNumberOfJStyleLambdas());
     assertEquals(0, lambdasInInput.getNumberOfKStyleLambdas());
 
-    testForR8(parameters.getBackend())
+    R8FullTestBuilder testBuilder = testForR8(parameters.getBackend());
+    testBuilder
         .addProgramFiles(getProgramFiles())
         .addKeepMainRule(getMainClassName())
-        .addHorizontallyMergedClassesInspector(inspector -> inspect(inspector, lambdasInInput))
+        .addHorizontallyMergedClassesInspector(
+            inspector ->
+                inspect(inspector, lambdasInInput, testBuilder.getState().getSyntheticItems()))
         .addOptionsModification(
             options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
         .allowAccessModification(allowAccessModification)
+        .collectSyntheticItems()
         .setMinApi(parameters)
         .compile()
         .inspect(inspector -> inspect(inspector, lambdasInInput))
@@ -101,7 +105,9 @@ public class KotlinLambdaMergingTrivialJavaStyleTest extends KotlinTestBase {
   }
 
   private void inspect(
-      HorizontallyMergedClassesInspector inspector, KotlinLambdasInInput lambdasInInput) {
+      HorizontallyMergedClassesInspector inspector,
+      KotlinLambdasInInput lambdasInInput,
+      SyntheticItemsTestUtils syntheticItems) {
     if (kotlinParameters.getCompilerVersion().isLessThan(KOTLINC_2_0_20)) {
       // Don't inspect the output for Kotlin 1.9 and older.
       return;
@@ -137,42 +143,27 @@ public class KotlinLambdaMergingTrivialJavaStyleTest extends KotlinTestBase {
       ClassReference mainClassReference = Reference.classFromTypeName(getTestName() + ".MainKt");
       ClassReference innerClassReference =
           Reference.classFromTypeName(getTestName() + ".inner.InnerKt");
-      SyntheticItemsTestUtils syntheticItemsTestUtils = getMinimalSyntheticItemsTestUtils();
       if (parameters.isCfRuntime()) {
-        inspector.assertClassReferencesNotMerged(
-            syntheticItemsTestUtils.syntheticLambdaClass(innerClassReference, 0),
-            syntheticItemsTestUtils.syntheticLambdaClass(innerClassReference, 1),
-            syntheticItemsTestUtils.syntheticLambdaClass(innerClassReference, 2),
-            syntheticItemsTestUtils.syntheticLambdaClass(innerClassReference, 3));
-        for (int id = 0; id < 30; id++) {
-          inspector.assertClassReferencesNotMerged(
-              syntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, id));
-        }
+        // There are no lambda classes when compiling to class files.
       } else if (parameters.canUseDefaultAndStaticInterfaceMethods()) {
         inspector
             .assertIsCompleteMergeGroup(
-                syntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 3),
-                syntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 4),
-                syntheticItemsTestUtils.syntheticLambdaClass(innerClassReference, 0))
+                syntheticItems.syntheticLambdaClass(mainClassReference, 3),
+                syntheticItems.syntheticLambdaClass(mainClassReference, 4),
+                syntheticItems.syntheticLambdaClass(innerClassReference, 0))
             .assertIsCompleteMergeGroup(
-                syntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 7),
-                syntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 8),
-                syntheticItemsTestUtils.syntheticLambdaClass(innerClassReference, 2))
+                syntheticItems.syntheticLambdaClass(mainClassReference, 7),
+                syntheticItems.syntheticLambdaClass(mainClassReference, 8),
+                syntheticItems.syntheticLambdaClass(innerClassReference, 2))
             .assertIsCompleteMergeGroup(
-                syntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 5),
-                syntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, 6),
-                syntheticItemsTestUtils.syntheticLambdaClass(innerClassReference, 1))
+                syntheticItems.syntheticLambdaClass(mainClassReference, 5),
+                syntheticItems.syntheticLambdaClass(mainClassReference, 6),
+                syntheticItems.syntheticLambdaClass(innerClassReference, 1))
             .assertIsCompleteMergeGroup(
-                syntheticItemsTestUtils.syntheticBottomUpOutlineClass(mainClassReference, 0),
-                syntheticItemsTestUtils.syntheticBottomUpOutlineClass(mainClassReference, 1),
-                syntheticItemsTestUtils.syntheticBottomUpOutlineClass(mainClassReference, 2));
-        for (int id = 4; id < 30; id++) {
-          inspector.assertClassReferencesNotMerged(
-              syntheticItemsTestUtils.syntheticLambdaClass(mainClassReference, id));
-        }
-        inspector.assertClassReferencesNotMerged(
-            syntheticItemsTestUtils.syntheticLambdaClass(innerClassReference, 2),
-            syntheticItemsTestUtils.syntheticLambdaClass(innerClassReference, 3));
+                syntheticItems.syntheticBottomUpOutlineClass(mainClassReference, 0),
+                syntheticItems.syntheticBottomUpOutlineClass(mainClassReference, 1),
+                syntheticItems.syntheticBottomUpOutlineClass(mainClassReference, 2))
+            .assertNoOtherClassesMerged();
       } else {
         assertEquals(10, inspector.getMergeGroups().size());
         assertEquals(

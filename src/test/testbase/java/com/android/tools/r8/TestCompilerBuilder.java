@@ -64,6 +64,7 @@ public abstract class TestCompilerBuilder<
 
   public static final Consumer<InternalOptions> DEFAULT_OPTIONS =
       options -> {
+        options.desugarSpecificOptions().minimizeSyntheticNames = true;
         options.testing.enableTestAssertions = true;
         options.getBottomUpOutlinerOptions().enable = true;
         options.getBottomUpOutlinerOptions().enableStringBuilderOutlining = true;
@@ -74,6 +75,7 @@ public abstract class TestCompilerBuilder<
   public static final Consumer<InternalOptions> DEFAULT_R8_OPTIONS =
       DEFAULT_OPTIONS.andThen(
           options -> {
+            options.desugarSpecificOptions().minimizeSyntheticNames = true;
             options.testing.allowUnusedDontWarnRules = false;
             options.testing.allowUnnecessaryDontWarnWildcards = false;
             options.testing.forcePruneMetaInfManifestMf = true;
@@ -116,7 +118,6 @@ public abstract class TestCompilerBuilder<
   private PrintStream oldStderr = null;
   protected OutputMode outputMode = OutputMode.DexIndexed;
   private boolean isBenchmarkRunner = false;
-  private SyntheticItemsTestUtils.Builder syntheticItemsBuilder;
 
   private Optional<Integer> isAndroidBuildVersionAdded = null;
 
@@ -299,10 +300,18 @@ public abstract class TestCompilerBuilder<
   }
 
   public T collectSyntheticItems() {
-    assert syntheticItemsBuilder == null;
-    this.syntheticItemsBuilder = new SyntheticItemsTestUtils.Builder();
-    return addOptionsModification(
-        options -> options.testing.syntheticItemsConsumer = syntheticItemsBuilder::add);
+    assert getState().getSyntheticItems() == null;
+    SyntheticItemsTestUtils.Builder syntheticItemsBuilder = new SyntheticItemsTestUtils.Builder();
+    getState().setSyntheticItems(syntheticItemsBuilder);
+    if (isR8PartialTestBuilder()) {
+      return addR8PartialD8OptionsModification(
+              options -> options.testing.syntheticItemsConsumer = syntheticItemsBuilder::add)
+          .addR8PartialR8OptionsModification(
+              options -> options.testing.syntheticItemsConsumer = syntheticItemsBuilder::add);
+    } else {
+      return addOptionsModification(
+          options -> options.testing.syntheticItemsConsumer = syntheticItemsBuilder::add);
+    }
   }
 
   public CR benchmarkCompile(BenchmarkResults results) throws CompilationFailedException {
@@ -442,9 +451,6 @@ public abstract class TestCompilerBuilder<
         getState().setStderr(stderr.toString());
       }
       System.setErr(oldStderr);
-      if (syntheticItemsBuilder != null) {
-        getState().setSyntheticItems(syntheticItemsBuilder);
-      }
     }
   }
 

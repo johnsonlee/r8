@@ -18,6 +18,7 @@ import com.android.tools.r8.TestRuntime;
 import com.android.tools.r8.desugar.desugaredlibrary.DesugaredLibraryTestBase;
 import com.android.tools.r8.profile.art.model.ExternalArtProfile;
 import com.android.tools.r8.profile.art.utils.ArtProfileInspector;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.ThrowingBiConsumer;
 import com.android.tools.r8.utils.ThrowingConsumer;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
@@ -73,6 +74,10 @@ public class DesugaredLibraryTestCompileResult<T extends DesugaredLibraryTestBas
       fail();
       return null;
     }
+  }
+
+  public SyntheticItemsTestUtils getSyntheticItems() {
+    return compileResult.getSyntheticItems();
   }
 
   public <E extends Throwable> DesugaredLibraryTestCompileResult<T> inspectL8(

@@ -81,7 +81,6 @@ import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.AndroidAppConsumers;
 import com.android.tools.r8.utils.DescriptorUtils;
-import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.Pair;
@@ -133,7 +132,6 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.jar.JarOutputStream;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
@@ -383,20 +381,20 @@ public class TestBase {
       Predicate<DesugarTestConfiguration> filter) {
     assert parameters.hasApiLevel()
         : "No API level. Add .withAllApiLevelsAlsoForCf() to test parameters?";
-    TestState state = new TestState(temp);
     ImmutableList.Builder<
-            Pair<DesugarTestConfiguration, TestBuilder<? extends TestRunResult<?>, ?>>>
+            Pair<DesugarTestConfiguration, TestBuilder<? extends SingleTestRunResult<?>, ?>>>
         builders = ImmutableList.builder();
     if (parameters.isCfRuntime()) {
       assumeTrue(parameters.getPartialCompilationTestParameters().isNone());
       if (filter.test(DesugarTestConfiguration.JAVAC)) {
-        builders.add(new Pair<>(DesugarTestConfiguration.JAVAC, JvmTestBuilder.create(state)));
+        builders.add(
+            new Pair<>(DesugarTestConfiguration.JAVAC, JvmTestBuilder.create(new TestState(temp))));
       }
       if (filter.test(DesugarTestConfiguration.D8_CF)) {
         builders.add(
             new Pair<>(
                 DesugarTestConfiguration.D8_CF,
-                D8TestBuilder.create(state, Backend.CF)
+                D8TestBuilder.create(new TestState(temp), Backend.CF)
                     .setMinApi(parameters)
                     .addOptionsModification(optionsModification)));
       }
@@ -410,7 +408,7 @@ public class TestBase {
           builders.add(
               new Pair<>(
                   DesugarTestConfiguration.D8_DEX,
-                  D8TestBuilder.create(state, Backend.DEX)
+                  D8TestBuilder.create(new TestState(temp), Backend.DEX)
                       .setMinApi(parameters)
                       .addOptionsModification(optionsModification)));
         }
@@ -418,7 +416,7 @@ public class TestBase {
           builders.add(
               new Pair<>(
                   DesugarTestConfiguration.D8_CF_D8_DEX,
-                  IntermediateCfD8TestBuilder.create(state, parameters.getApiLevel())
+                  IntermediateCfD8TestBuilder.create(new TestState(temp), parameters.getApiLevel())
                       .addOptionsModification(optionsModification)));
         }
       } else {
@@ -428,11 +426,11 @@ public class TestBase {
           builders.add(
               new Pair<>(
                   DesugarTestConfiguration.R8_PARTIAL_EXCLUDE_DEX,
-                  R8PartialTestBuilder.create(state).setMinApi(parameters)));
+                  R8PartialTestBuilder.create(new TestState(temp)).setMinApi(parameters)));
         }
       }
     }
-    return DesugarTestBuilder.create(state, builders.build());
+    return DesugarTestBuilder.create(null, builders.build());
   }
 
   /** @deprecated use {@link #testForProguard(ProguardVersion)} instead. */

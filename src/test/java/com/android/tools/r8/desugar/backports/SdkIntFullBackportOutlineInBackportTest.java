@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.desugar.backports;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.AndroidApiLevel.BAKLAVA;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
@@ -70,9 +69,11 @@ public class SdkIntFullBackportOutlineInBackportTest extends TestBase {
           .addProgramClassFileData(getTransformedMainClass())
           .addLibraryClassFileData(getTransformedBuildVersionClass())
           .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.BAKLAVA))
+          .collectSyntheticItems()
           .setMinApi(apiLevel)
           .compile()
-          .inspect(inspector -> inspectD8(inspector, apiLevel));
+          .inspectWithSyntheticItems(
+              (inspector, syntheticItems) -> inspectD8(inspector, syntheticItems, apiLevel));
     }
   }
 
@@ -84,20 +85,22 @@ public class SdkIntFullBackportOutlineInBackportTest extends TestBase {
           || apiLevel.isGreaterThanOrEqualTo(AndroidApiLevel.LATEST)) {
         continue;
       }
-      System.out.println(apiLevel);
       testForR8(Backend.DEX)
           .addProgramClassFileData(getTransformedMainClass())
           .addKeepMainRule(TestClass.class)
           .addLibraryClassFileData(getTransformedBuildVersionClass())
           .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.BAKLAVA))
+          .collectSyntheticItems()
           .setMinApi(apiLevel)
           .addDontObfuscate()
           .compile()
-          .inspect(inspector -> inspectR8(inspector, apiLevel));
+          .inspectWithSyntheticItems(
+              (inspector, syntheticItems) -> inspectR8(inspector, syntheticItems, apiLevel));
     }
   }
 
-  private void inspectD8(CodeInspector inspector, AndroidApiLevel apiLevel) {
+  private void inspectD8(
+      CodeInspector inspector, SyntheticItemsTestUtils syntheticItems, AndroidApiLevel apiLevel) {
     if (apiLevel.isGreaterThanOrEqualTo(BAKLAVA)) {
       // From BAKLAVA the SDK_INT_FULL get stays.
       assertEquals(
@@ -109,8 +112,7 @@ public class SdkIntFullBackportOutlineInBackportTest extends TestBase {
       // Before BAKLAVA the SDK_INT_FULL static get is backported and the SDK_INT_FULL static get
       // is outlined from the backport as well.
       ClassSubject backport =
-          inspector.clazz(
-              SyntheticItemsTestUtils.syntheticBackportWithForwardingClass(TestClass.class, 1));
+          inspector.clazz(syntheticItems.syntheticBackportWithForwardingClass(TestClass.class, 1));
       assertThat(backport, isPresent());
       assertEquals(
           2,
@@ -123,8 +125,7 @@ public class SdkIntFullBackportOutlineInBackportTest extends TestBase {
               backport.uniqueMethod(),
               inspector.getFactory().androidOsBuildVersionMembers.SDK_INT_FULL));
       ClassSubject apiOutline =
-          inspector.clazz(
-              getDefaultSyntheticItemsTestUtils().syntheticApiOutlineClass(TestClass.class, 0));
+          inspector.clazz(syntheticItems.syntheticApiOutlineClass(TestClass.class, 0));
       assertThat(apiOutline.uniqueMethod(), isPresent());
       assertEquals(
           1,
@@ -134,7 +135,8 @@ public class SdkIntFullBackportOutlineInBackportTest extends TestBase {
     }
   }
 
-  private void inspectR8(CodeInspector inspector, AndroidApiLevel apiLevel) {
+  private void inspectR8(
+      CodeInspector inspector, SyntheticItemsTestUtils syntheticItems, AndroidApiLevel apiLevel) {
     if (apiLevel.isGreaterThanOrEqualTo(BAKLAVA)) {
       // From BAKLAVA the SDK_INT_FULL get stays.
       assertEquals(
@@ -147,8 +149,8 @@ public class SdkIntFullBackportOutlineInBackportTest extends TestBase {
       // is outlined from the backport as well. With just one use of the backport it is inlined
       // into main.
       ClassSubject backport =
-          inspector.clazz(
-              SyntheticItemsTestUtils.syntheticBackportWithForwardingClass(TestClass.class, 1));
+          inspector.syntheticClass(
+              syntheticItems.syntheticBackportWithForwardingClass(TestClass.class, 1));
       assertThat(backport, isAbsent());
       assertEquals(
           1,
@@ -161,8 +163,7 @@ public class SdkIntFullBackportOutlineInBackportTest extends TestBase {
               inspector.clazz(TestClass.class).mainMethod(),
               inspector.getFactory().androidOsBuildVersionMembers.SDK_INT_FULL));
       ClassSubject apiOutline =
-          inspector.clazz(
-              getDefaultSyntheticItemsTestUtils().syntheticApiOutlineClass(TestClass.class, 0));
+          inspector.clazz(syntheticItems.syntheticApiOutlineClass(TestClass.class, 0));
       assertThat(apiOutline.uniqueMethod(), isPresent());
       assertEquals(
           1,

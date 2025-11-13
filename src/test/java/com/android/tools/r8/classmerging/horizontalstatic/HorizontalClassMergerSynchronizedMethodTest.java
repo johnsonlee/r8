@@ -4,15 +4,16 @@
 
 package com.android.tools.r8.classmerging.horizontalstatic;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getMinimalSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.CompilationFailedException;
+import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import java.io.IOException;
 import java.lang.Thread.State;
 import java.util.concurrent.ExecutionException;
@@ -48,22 +49,24 @@ public class HorizontalClassMergerSynchronizedMethodTest extends TestBase {
   @Test
   public void testNoMergingOfClassUsedInMonitor()
       throws IOException, CompilationFailedException, ExecutionException {
-    testForR8(parameters.getBackend())
+    R8FullTestBuilder testBuilder = testForR8(parameters.getBackend());
+    testBuilder
         .addInnerClasses(HorizontalClassMergerSynchronizedMethodTest.class)
         .addKeepMainRule(Main.class)
         .addHorizontallyMergedClassesInspector(
-            inspector ->
-                inspector
-                    .applyIf(
-                        parameters.canHaveIssueWithInlinedMonitors(),
-                        i -> i.assertIsCompleteMergeGroup(AcquireOne.class, AcquireThree.class))
-                    .assertIsCompleteMergeGroup(
-                        getMinimalSyntheticItemsTestUtils().syntheticLambdaClass(Main.class, 0),
-                        getMinimalSyntheticItemsTestUtils().syntheticLambdaClass(Main.class, 1),
-                        getMinimalSyntheticItemsTestUtils().syntheticLambdaClass(Main.class, 2))
-                    .assertNoOtherClassesMerged())
-        .addOptionsModification(
-            options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
+            inspector -> {
+              SyntheticItemsTestUtils syntheticItems = testBuilder.getState().getSyntheticItems();
+              inspector
+                  .applyIf(
+                      parameters.canHaveIssueWithInlinedMonitors(),
+                      i -> i.assertIsCompleteMergeGroup(AcquireOne.class, AcquireThree.class))
+                  .assertIsCompleteMergeGroup(
+                      syntheticItems.syntheticLambdaClass(Main.class, 0),
+                      syntheticItems.syntheticLambdaClass(Main.class, 1),
+                      syntheticItems.syntheticLambdaClass(Main.class, 2))
+                  .assertNoOtherClassesMerged();
+            })
+        .collectSyntheticItems()
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), Main.class)

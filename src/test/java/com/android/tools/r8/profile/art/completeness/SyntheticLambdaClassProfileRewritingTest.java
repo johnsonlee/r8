@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.profile.art.completeness;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethod;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.notIf;
@@ -15,6 +14,7 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.profile.art.model.ExternalArtProfile;
 import com.android.tools.r8.profile.art.utils.ArtProfileInspector;
 import com.android.tools.r8.references.Reference;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.MethodReferenceUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
@@ -68,6 +68,7 @@ public class SyntheticLambdaClassProfileRewritingTest extends TestBase {
     public void inspect(
         ArtProfileInspector profileInspector,
         CodeInspector inspector,
+        SyntheticItemsTestUtils syntheticItems,
         boolean canHaveNonReboundConstructorInvoke,
         boolean canUseLambdas,
         boolean canAccessModifyLambdaImplementationMethods,
@@ -104,7 +105,7 @@ public class SyntheticLambdaClassProfileRewritingTest extends TestBase {
 
       // Check the presence of the first lambda class and its methods.
       ClassSubject lambdaClassSubject =
-          inspector.clazz(getSyntheticItemsTestUtils(isR8).syntheticLambdaClass(Main.class, 0));
+          inspector.syntheticClass(syntheticItems.syntheticLambdaClass(Main.class, 0));
       assertThat(lambdaClassSubject, notIf(isPresent(), canUseLambdas));
 
       MethodSubject lambdaInitializerSubject = lambdaClassSubject.uniqueInstanceInitializer();
@@ -118,7 +119,7 @@ public class SyntheticLambdaClassProfileRewritingTest extends TestBase {
 
       // Check the presence of the second lambda class and its methods.
       ClassSubject otherLambdaClassSubject =
-          inspector.clazz(getSyntheticItemsTestUtils(isR8).syntheticLambdaClass(Main.class, 1));
+          inspector.syntheticClass(syntheticItems.syntheticLambdaClass(Main.class, 1));
       assertThat(otherLambdaClassSubject, notIf(isPresent(), canUseLambdas));
 
       MethodSubject otherLambdaInitializerSubject =
@@ -209,10 +210,15 @@ public class SyntheticLambdaClassProfileRewritingTest extends TestBase {
     testForD8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addArtProfileForRewriting(artProfileInputOutput.getArtProfile())
+        .collectSyntheticItems()
         .noHorizontalClassMergingOfSynthetics()
         .setMinApi(parameters)
         .compile()
-        .inspectResidualArtProfile(this::inspectD8)
+        .apply(
+            cr ->
+                cr.inspectResidualArtProfile(
+                    (profileInspector, inspector) ->
+                        inspectD8(profileInspector, inspector, cr.getSyntheticItems())))
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("Hello, world!");
   }
@@ -228,23 +234,36 @@ public class SyntheticLambdaClassProfileRewritingTest extends TestBase {
         .addArtProfileForRewriting(artProfileInputOutput.getArtProfile())
         .addOptionsModification(
             options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
+        .collectSyntheticItems()
         .enableProguardTestOptions()
         .noHorizontalClassMergingOfSynthetics()
         .setMinApi(parameters)
         .compile()
-        .inspectResidualArtProfile(this::inspectR8)
+        .apply(
+            cr ->
+                cr.inspectResidualArtProfile(
+                    (profileInspector, inspector) ->
+                        inspectR8(profileInspector, inspector, cr.getSyntheticItems())))
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("Hello, world!");
   }
 
-  private void inspectD8(ArtProfileInspector profileInspector, CodeInspector inspector) {
-    artProfileInputOutput.inspect(profileInspector, inspector, false, false, true, false);
+  private void inspectD8(
+      ArtProfileInspector profileInspector,
+      CodeInspector inspector,
+      SyntheticItemsTestUtils syntheticItems) {
+    artProfileInputOutput.inspect(
+        profileInspector, inspector, syntheticItems, false, false, true, false);
   }
 
-  private void inspectR8(ArtProfileInspector profileInspector, CodeInspector inspector) {
+  private void inspectR8(
+      ArtProfileInspector profileInspector,
+      CodeInspector inspector,
+      SyntheticItemsTestUtils syntheticItems) {
     artProfileInputOutput.inspect(
         profileInspector,
         inspector,
+        syntheticItems,
         parameters.canHaveNonReboundConstructorInvoke(),
         parameters.isCfRuntime(),
         parameters.isAccessModificationEnabledByDefault(),

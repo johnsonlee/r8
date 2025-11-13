@@ -13,7 +13,7 @@ import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexProgramClass;
-import com.android.tools.r8.naming.MapConsumer;
+import com.android.tools.r8.naming.InternalMapConsumer;
 import com.android.tools.r8.synthesis.SyntheticItems.GlobalSyntheticsStrategy;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.AndroidAppConsumers;
@@ -183,7 +183,7 @@ public class Bisect {
     InternalOptions options = app.options;
     // Save the original consumers, so they can be unwrapped after write.
     ProgramConsumer programConsumer = options.programConsumer;
-    MapConsumer mapConsumer = options.mapConsumer;
+    InternalMapConsumer mapConsumer = options.mapConsumer;
     AndroidAppConsumers compatSink = new AndroidAppConsumers(options);
     ApplicationWriter writer =
         ApplicationWriter.create(

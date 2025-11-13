@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package twr.twrcloseresourceduplication;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getMinimalSyntheticItemsTestUtils;
 import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.TestBase;
@@ -145,14 +144,12 @@ public class TwrCloseResourceDuplicationTest extends TestBase {
         .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.LATEST))
         .addKeepMainRule(MAIN)
         .addKeepClassAndMembersRules(FOO, BAR)
-        .addOptionsModification(
-            options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
+        .collectSyntheticItems()
         .setMinApi(parameters)
         .addDontObfuscate()
-        .run(parameters.getRuntime(), MAIN, getZipFile())
-        .assertSuccessWithOutput(EXPECTED)
-        .inspect(
-            inspector -> {
+        .compile()
+        .inspectWithSyntheticItems(
+            (inspector, syntheticItems) -> {
               List<FoundClassSubject> foundClassSubjects = inspector.allClasses();
               Set<String> foundClasses =
                   foundClassSubjects.stream()
@@ -164,7 +161,7 @@ public class TwrCloseResourceDuplicationTest extends TestBase {
               if (!hasTwrCloseResourceSupport(parameters.isDexRuntime())) {
                 Set<String> classOutputWithSynthetics = new HashSet<>(nonSyntheticClassOutput);
                 classOutputWithSynthetics.add(
-                    getMinimalSyntheticItemsTestUtils()
+                    syntheticItems
                         .syntheticApiOutlineClass(Reference.classFromTypeName(BAR), 0)
                         .getTypeName());
                 assertEquals(classOutputWithSynthetics, foundClasses);
@@ -173,19 +170,21 @@ public class TwrCloseResourceDuplicationTest extends TestBase {
                 if (parameters.getApiLevel().isLessThan(AndroidApiLevel.N)) {
                   // Above N, the forwarder is inlined in the dispatcher.
                   classOutputWithSynthetics.add(
-                      getMinimalSyntheticItemsTestUtils()
+                      syntheticItems
                           .syntheticAutoCloseableForwarderClass(Reference.classFromTypeName(BAR), 1)
                           .getTypeName());
                 }
                 if (!parameters.corelibWithExecutorServiceImplementingAutoClosable()) {
                   classOutputWithSynthetics.add(
-                      getMinimalSyntheticItemsTestUtils()
+                      syntheticItems
                           .syntheticAutoCloseableDispatcherClass(
                               Reference.classFromTypeName(BAR), 0)
                           .getTypeName());
                 }
                 assertEquals(classOutputWithSynthetics, foundClasses);
               }
-            });
+            })
+        .run(parameters.getRuntime(), MAIN, getZipFile())
+        .assertSuccessWithOutput(EXPECTED);
   }
 }

@@ -5,14 +5,14 @@ package com.android.tools.r8.desugaring.lambdanames;
 
 import static org.junit.Assert.assertEquals;
 
+import com.android.tools.r8.SingleTestRunResult;
 import com.android.tools.r8.TestBase;
+import com.android.tools.r8.TestBuilder;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestRunResult;
 import com.android.tools.r8.transformers.ClassFileTransformer;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.StringUtils;
-import com.android.tools.r8.utils.codeinspector.FoundClassSubject;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -39,10 +39,11 @@ public class PackageDependentLambdaNamesTest extends TestBase {
 
   @Test
   public void test() throws Exception {
-    TestRunResult<?> result =
+    SingleTestRunResult<?> result =
         testForRuntime(parameters)
             .addProgramClasses(StringConsumer.class)
             .addProgramClassFileData(getTestClass(), getA(), getB())
+            .applyIf(parameters.isDexRuntime(), TestBuilder::collectSyntheticItems)
             .run(parameters.getRuntime(), TestClass.class)
             .assertSuccessWithOutput(EXPECTED);
     if (parameters.isDexRuntime()) {
@@ -52,7 +53,7 @@ public class PackageDependentLambdaNamesTest extends TestBase {
             assertEquals(
                 2,
                 inspector.allClasses().stream()
-                    .filter(FoundClassSubject::isSynthesizedJavaLambdaClass)
+                    .filter(clazz -> clazz.isSynthesizedJavaLambdaClass(result.getSyntheticItems()))
                     .count());
           });
     }

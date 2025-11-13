@@ -3,7 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.utils;
 
-import static com.android.tools.r8.utils.MapConsumerUtils.wrapExistingMapConsumer;
+import static com.android.tools.r8.utils.MapConsumerUtils.wrapExistingInternalMapConsumer;
 
 import com.android.tools.r8.BaseCompilerCommand;
 import com.android.tools.r8.ByteDataView;
@@ -15,11 +15,11 @@ import com.android.tools.r8.DexFilePerClassFileConsumer;
 import com.android.tools.r8.DexIndexedConsumer;
 import com.android.tools.r8.DexIndexedConsumer.ForwardingConsumer;
 import com.android.tools.r8.DiagnosticsHandler;
+import com.android.tools.r8.MapConsumer;
 import com.android.tools.r8.ProgramConsumer;
 import com.android.tools.r8.ResourceException;
-import com.android.tools.r8.StringConsumer;
-import com.android.tools.r8.naming.MapConsumer;
-import com.android.tools.r8.naming.ProguardMapStringConsumer;
+import com.android.tools.r8.naming.InternalMapConsumer;
+import com.android.tools.r8.naming.InternalMapConsumerImpl;
 import com.android.tools.r8.origin.Origin;
 import com.google.common.io.ByteStreams;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceAVLTreeMap;
@@ -37,7 +37,7 @@ public class AndroidAppConsumers {
   private boolean closed = false;
 
   private ProgramConsumer programConsumer = null;
-  private MapConsumer mapConsumer = null;
+  private InternalMapConsumer mapConsumer = null;
 
   public AndroidAppConsumers() {
     // Nothing to do.
@@ -69,15 +69,15 @@ public class AndroidAppConsumers {
     return programConsumer;
   }
 
-  public MapConsumer wrapProguardMapConsumer(MapConsumer consumer) {
+  public InternalMapConsumer wrapProguardMapConsumer(InternalMapConsumer consumer) {
     assert mapConsumer == null;
     if (consumer != null) {
       mapConsumer =
-          wrapExistingMapConsumer(
+          wrapExistingInternalMapConsumer(
               consumer,
-              ProguardMapStringConsumer.builder()
-                  .setStringConsumer(
-                      new StringConsumer() {
+              InternalMapConsumerImpl.builder()
+                  .setMapConsumer(
+                      new MapConsumer() {
                         StringBuilder stringBuilder = null;
 
                         @Override

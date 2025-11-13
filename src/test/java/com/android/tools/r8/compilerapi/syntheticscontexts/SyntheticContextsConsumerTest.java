@@ -3,13 +3,13 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.compilerapi.syntheticscontexts;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.ByteDataView;
 import com.android.tools.r8.ClassFileConsumer;
 import com.android.tools.r8.D8;
 import com.android.tools.r8.D8Command;
+import com.android.tools.r8.D8TestCompileResult;
 import com.android.tools.r8.DexFilePerClassFileConsumer;
 import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.SyntheticInfoConsumer;
@@ -40,26 +40,31 @@ public class SyntheticContextsConsumerTest extends CompilerApiTestRunner {
   @Test
   public void test() throws Exception {
     // First compile to CF such that we have an input class that has a synthetic context.
-    ClassReference backport =
-        getDefaultSyntheticItemsTestUtils().syntheticBackportClass(UsesBackport.class, 0);
     Map<String, byte[]> outputs = new HashMap<>();
-    testForD8(Backend.CF)
-        .addProgramClasses(UsesBackport.class)
-        .setIntermediate(true)
-        .setMinApi(1)
-        .setProgramConsumer(
-            new ClassFileConsumer() {
+    D8TestCompileResult compileResult =
+        testForD8(Backend.CF)
+            .addProgramClasses(UsesBackport.class)
+            // Disable since the external compilation runs with non-minimal synthetic names.
+            .addOptionsModification(
+                options -> options.desugarSpecificOptions().minimizeSyntheticNames = false)
+            .collectSyntheticItems()
+            .setIntermediate(true)
+            .setMinApi(1)
+            .setProgramConsumer(
+                new ClassFileConsumer() {
 
-              @Override
-              public void accept(ByteDataView data, String descriptor, DiagnosticsHandler handler) {
-                outputs.put(descriptor, data.copyByteData());
-              }
+                  @Override
+                  public void accept(
+                      ByteDataView data, String descriptor, DiagnosticsHandler handler) {
+                    outputs.put(descriptor, data.copyByteData());
+                  }
 
-              @Override
-              public void finished(DiagnosticsHandler handler) {}
-            })
-        .compile()
-        .writeToZip();
+                  @Override
+                  public void finished(DiagnosticsHandler handler) {}
+                })
+            .compile();
+    ClassReference backport =
+        compileResult.getSyntheticItems().syntheticBackportClass(UsesBackport.class, 0);
     // Run using the API test to obtain the backport context.
     new ApiTest(ApiTest.PARAMETERS)
         .run(

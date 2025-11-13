@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize.outliner;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getMinimalSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -55,12 +54,14 @@ public class OutlinesWithNonNullTest extends TestBase {
         .addDontObfuscate()
         .addOptionsModification(
             options -> {
-              options.desugarSpecificOptions().minimizeSyntheticNames = true;
               options.outline.threshold = 2;
               options.outline.minSize = 2;
             })
+        .collectSyntheticItems()
         .compile()
-        .inspect(inspector -> validateOutlining(inspector, TestClassWithNonNullOnOneSide.class))
+        .inspectWithSyntheticItems(
+            (inspector, syntheticItems) ->
+                validateOutlining(inspector, syntheticItems, TestClassWithNonNullOnOneSide.class))
         .run(parameters.getRuntime(), TestClassWithNonNullOnOneSide.class)
         .assertSuccessWithOutput(JVM_OUTPUT);
   }
@@ -77,19 +78,21 @@ public class OutlinesWithNonNullTest extends TestBase {
         .addDontObfuscate()
         .addOptionsModification(
             options -> {
-              options.desugarSpecificOptions().minimizeSyntheticNames = true;
               options.outline.threshold = 2;
               options.outline.minSize = 2;
             })
+        .collectSyntheticItems()
         .compile()
-        .inspect(inspector -> validateOutlining(inspector, TestClassWithNonNullOnBothSides.class))
+        .inspectWithSyntheticItems(
+            (inspector, syntheticItems) ->
+                validateOutlining(inspector, syntheticItems, TestClassWithNonNullOnBothSides.class))
         .run(parameters.getRuntime(), TestClassWithNonNullOnBothSides.class)
         .assertSuccessWithOutput(JVM_OUTPUT);
   }
 
-  private void validateOutlining(CodeInspector inspector, Class<?> main) {
-    ClassSubject outlineClass =
-        inspector.clazz(getMinimalSyntheticItemsTestUtils().syntheticOutlineClass(main, 0));
+  private void validateOutlining(
+      CodeInspector inspector, SyntheticItemsTestUtils syntheticItems, Class<?> main) {
+    ClassSubject outlineClass = inspector.clazz(syntheticItems.syntheticOutlineClass(main, 0));
     MethodSubject outlineMethod =
         outlineClass.uniqueMethodWithOriginalName(SyntheticItemsTestUtils.syntheticMethodName());
     assertThat(outlineMethod, isPresent());

@@ -4,6 +4,8 @@
 
 package com.android.tools.r8;
 
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
+
 public abstract class TestBaseResult<
     CR extends TestBaseResult<CR, RR>, RR extends TestRunResult<RR>> {
 
@@ -22,5 +24,9 @@ public abstract class TestBaseResult<
   public <T extends Throwable> CR apply(ThrowableConsumer<? super CR> fn) {
     fn.acceptWithRuntimeException(self());
     return self();
+  }
+
+  public SyntheticItemsTestUtils getSyntheticItems() {
+    return state.getSyntheticItems();
   }
 }

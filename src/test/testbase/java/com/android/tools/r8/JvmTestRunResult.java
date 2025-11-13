@@ -15,6 +15,11 @@ public class JvmTestRunResult extends SingleTestRunResult<JvmTestRunResult> {
   }
 
   @Override
+  public boolean isJvmTestRunResult() {
+    return true;
+  }
+
+  @Override
   protected JvmTestRunResult self() {
     return this;
   }

@@ -100,7 +100,7 @@ public abstract class VarHandleDesugaringTestBase extends TestBase {
     return parameters.isDexRuntime() && parameters.getApiLevel().isLessThan(AndroidApiLevel.T);
   }
 
-  private void inspect(CodeInspector inspector) {
+  private void inspect(CodeInspector inspector, SyntheticItemsTestUtils syntheticItems) {
     IntBox unsafeCompareAndSwapInt = new IntBox();
     IntBox unsafeCompareAndSwapLong = new IntBox();
     IntBox unsafeCompareAndSwapObject = new IntBox();
@@ -109,9 +109,9 @@ public abstract class VarHandleDesugaringTestBase extends TestBase {
     DexString compareAndSwapObject = inspector.getFactory().createString("compareAndSwapObject");
     // Right now we only expect one backport coming out of DesugarVarHandle - the backport with
     // forwarding of Unsafe.compareAndSwapObject.
-    MethodReference firstBackportFromDesugarVarHandle =
-        SyntheticItemsTestUtils.syntheticBackportWithForwardingMethod(
-            Reference.classFromDescriptor("Lcom/android/tools/r8/DesugarVarHandle;"),
+    MethodReference firstBackportFromVarHandle =
+        syntheticItems.syntheticBackportWithForwardingMethod(
+            Reference.classFromDescriptor("Ljava/lang/invoke/VarHandle;"),
             0,
             Reference.method(
                 Reference.classFromDescriptor("Lsun/misc/Unsafe;"),
@@ -122,6 +122,22 @@ public abstract class VarHandleDesugaringTestBase extends TestBase {
                     Reference.typeFromDescriptor("Ljava/lang/Object;"),
                     Reference.typeFromDescriptor("Ljava/lang/Object;")),
                 Reference.BOOL));
+    // The synthesizing context is java.lang.invoke.VarHandle, which is rewritten to
+    // com.android.tools.r8.DesugarVarHandle using a NamingLens (but D8 does not emit a mapping
+    // file).
+    MethodReference firstBackportFromDesugarVarHandle;
+    if (firstBackportFromVarHandle != null) {
+      assertEquals(
+          "Ljava/lang/invoke/VarHandle$0;",
+          firstBackportFromVarHandle.getHolderClass().getDescriptor());
+      firstBackportFromDesugarVarHandle =
+          Reference.methodFromDescriptor(
+              Reference.classFromDescriptor("Lcom/android/tools/r8/DesugarVarHandle$0;"),
+              firstBackportFromVarHandle.getMethodName(),
+              firstBackportFromVarHandle.getMethodDescriptor());
+    } else {
+      firstBackportFromDesugarVarHandle = null;
+    }
     inspector.forAllClasses(
         clazz -> {
           clazz.forAllMethods(
@@ -183,6 +199,7 @@ public abstract class VarHandleDesugaringTestBase extends TestBase {
         .addProgramClassFileData(getProgramClassFileData())
         .setMinApi(parameters)
         .addOptionsModification(options -> options.enableVarHandleDesugaring = true)
+        .collectSyntheticItems()
         .run(parameters.getRuntime(), getMainClass())
         .applyIf(
             parameters.isDexRuntime()
@@ -196,7 +213,7 @@ public abstract class VarHandleDesugaringTestBase extends TestBase {
                             && parameters.getDexRuntimeVersion().isNewerThanOrEqual(Version.V13_0_0)
                         ? getExpectedOutputForArtImplementation()
                         : getExpectedOutputForDesugaringImplementation()))
-        .inspect(this::inspect);
+        .apply(runResult -> inspect(runResult.inspector(), runResult.getSyntheticItems()));
   }
 
   @Test

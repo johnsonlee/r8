@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.apimodel;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getMinimalSyntheticItemsTestUtils;
 import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.NeverInline;
@@ -14,6 +13,7 @@ import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.StringUtils;
+import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import java.io.IOException;
@@ -50,22 +50,26 @@ public class ApiModelExcludeClinitOutliningWhereArgumentsCouldCauseSideEffectsTe
   public void testD8() throws Exception {
     testForD8(parameters)
         .addProgramClassFileData(getTestClass())
+        .collectSyntheticItems()
         .compile()
-        .inspect(
-            inspector ->
-                assertEquals(
-                    1, // Only one for android.graphics.SurfaceTexture.
-                    inspector
-                        .clazz(TestClass.class)
-                        .uniqueMethodWithOriginalName("constructorArgumentCouldCauseSideEffects")
-                        .streamInstructions()
-                        .filter(InstructionSubject::isInvokeStatic)
-                        .map(InstructionSubject::getMethod)
-                        .filter(
-                            dexMethod ->
-                                SyntheticItemsTestUtils.isExternalApiOutlineClass(
-                                    dexMethod.getHolderType().asClassReference()))
-                        .count()))
+        .apply(
+            compileResult -> {
+              CodeInspector inspector = compileResult.inspector();
+              SyntheticItemsTestUtils syntheticItems = compileResult.getSyntheticItems();
+              assertEquals(
+                  1, // Only one for android.graphics.SurfaceTexture.
+                  inspector
+                      .clazz(TestClass.class)
+                      .uniqueMethodWithOriginalName("constructorArgumentCouldCauseSideEffects")
+                      .streamInstructions()
+                      .filter(InstructionSubject::isInvokeStatic)
+                      .map(InstructionSubject::getMethod)
+                      .filter(
+                          dexMethod ->
+                              syntheticItems.isExternalApiOutlineClass(
+                                  dexMethod.getHolderType().asClassReference()))
+                      .count());
+            })
         .addRunClasspathClassFileData(getSurfaceTexture())
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
@@ -76,12 +80,11 @@ public class ApiModelExcludeClinitOutliningWhereArgumentsCouldCauseSideEffectsTe
     testForR8(parameters)
         .addProgramClassFileData(getTestClass())
         .addKeepMainRule(TestClass.class)
-        .addOptionsModification(
-            options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
+        .collectSyntheticItems()
         .enableInliningAnnotations()
         .compile()
-        .inspect(
-            inspector -> {
+        .inspectWithSyntheticItems(
+            (inspector, syntheticItems) -> {
               MethodSubject constructorArgumentCouldCauseSideEffects =
                   inspector
                       .clazz(TestClass.class)
@@ -99,7 +102,7 @@ public class ApiModelExcludeClinitOutliningWhereArgumentsCouldCauseSideEffectsTe
                                   .getTypeName()
                                   .equals(
                                       inspector.getObfuscatedTypeName(
-                                          getMinimalSyntheticItemsTestUtils()
+                                          syntheticItems
                                               .syntheticApiOutlineClass(TestClass.class, 0)
                                               .getTypeName())))
                       .count());

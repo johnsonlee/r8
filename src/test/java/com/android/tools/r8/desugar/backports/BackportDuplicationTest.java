@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.desugar.backports;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -28,6 +27,7 @@ import com.android.tools.r8.desugar.backports.AbstractBackportTest.MiniAssert;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.references.Reference;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.synthesis.SyntheticNaming;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
@@ -100,11 +100,13 @@ public class BackportDuplicationTest extends TestBase {
   public void testD8() throws Exception {
     testForD8(parameters.getBackend())
         .addProgramClasses(CLASSES)
+        .collectSyntheticItems()
         .setMinApi(parameters)
-        .run(parameters.getRuntime(), TestClass.class)
-        .assertSuccessWithOutput(EXPECTED)
+        .compile()
         .inspect(this::checkNoOriginalsAndNoInternalSynthetics)
-        .inspect(this::checkExpectedSynthetics);
+        .inspectWithSyntheticItems(this::checkExpectedSynthetics)
+        .run(parameters.getRuntime(), TestClass.class)
+        .assertSuccessWithOutput(EXPECTED);
   }
 
   @Test
@@ -163,21 +165,23 @@ public class BackportDuplicationTest extends TestBase {
     // Finally do a non-intermediate merge.
     testForD8(parameters.getBackend())
         .addProgramFiles(out3)
+        .collectSyntheticItems()
         .setMinApi(parameters)
-        .run(parameters.getRuntime(), TestClass.class)
-        .assertSuccessWithOutput(EXPECTED)
+        .compile()
         .inspect(this::checkNoOriginalsAndNoInternalSynthetics)
-        .inspect(
-            inspector -> {
+        .inspectWithSyntheticItems(
+            (inspector, syntheticItems) -> {
               if (intermediate) {
                 // If all previous builds where intermediate then synthetics are merged.
-                checkExpectedSynthetics(inspector);
+                checkExpectedSynthetics(inspector, syntheticItems);
               } else {
                 // Otherwise merging non-intermediate artifacts, synthetics will not be identified.
                 // Check that they are exactly as in the part inputs.
                 assertEquals(syntheticsInParts, getSyntheticMethods(inspector));
               }
-            });
+            })
+        .run(parameters.getRuntime(), TestClass.class)
+        .assertSuccessWithOutput(EXPECTED);
   }
 
   @Test
@@ -202,11 +206,13 @@ public class BackportDuplicationTest extends TestBase {
             .writeToZip();
     testForD8()
         .addProgramFiles(perClassOutput)
+        .collectSyntheticItems()
         .setMinApi(parameters)
-        .run(parameters.getRuntime(), TestClass.class)
-        .assertSuccessWithOutput(EXPECTED)
+        .compile()
         .inspect(this::checkNoOriginalsAndNoInternalSynthetics)
-        .inspect(this::checkExpectedSynthetics);
+        .inspectWithSyntheticItems(this::checkExpectedSynthetics)
+        .run(parameters.getRuntime(), TestClass.class)
+        .assertSuccessWithOutput(EXPECTED);
   }
 
   @Test
@@ -327,28 +333,31 @@ public class BackportDuplicationTest extends TestBase {
     Set<MethodReference> methods = new HashSet<>();
     inspector.allClasses().stream()
         .filter(c -> !CLASS_TYPE_NAMES.contains(c.getFinalName()))
-        .forEach(c -> c.allMethods().forEach(m -> methods.add(m.asMethodReference())));
+        .forEach(
+            c ->
+                c.allMethods()
+                    .forEach(
+                        m ->
+                            methods.add(
+                                m.getOriginalDexMethod(inspector.getFactory())
+                                    .asMethodReference())));
     return methods;
   }
 
-  private void checkExpectedSynthetics(CodeInspector inspector) throws Exception {
+  private void checkExpectedSynthetics(
+      CodeInspector inspector, SyntheticItemsTestUtils syntheticItems) throws Exception {
     // Hardcoded set of expected synthetics in a "final" build. This set could change if the
     // compiler makes any changes to the naming, sorting or grouping of synthetics. It is hard-coded
     // here to check that the compiler generates this deterministically for any single run or merge
     // of intermediates.
     Set<MethodReference> expectedSynthetics =
         ImmutableSet.of(
-            getDefaultSyntheticItemsTestUtils()
-                .syntheticBackportMethod(
-                    User1.class,
-                    1,
-                    Boolean.class.getMethod("compare", boolean.class, boolean.class)),
-            getDefaultSyntheticItemsTestUtils()
-                .syntheticBackportMethod(
-                    User1.class, 0, Character.class.getMethod("compare", char.class, char.class)),
-            getDefaultSyntheticItemsTestUtils()
-                .syntheticBackportMethod(
-                    User2.class, 0, Integer.class.getMethod("compare", int.class, int.class)));
+            syntheticItems.syntheticBackportMethod(
+                User1.class, 1, Boolean.class.getMethod("compare", boolean.class, boolean.class)),
+            syntheticItems.syntheticBackportMethod(
+                User1.class, 0, Character.class.getMethod("compare", char.class, char.class)),
+            syntheticItems.syntheticBackportMethod(
+                User2.class, 0, Integer.class.getMethod("compare", int.class, int.class)));
     assertEquals(expectedSynthetics, getSyntheticMethods(inspector));
   }
 
@@ -453,12 +462,14 @@ public class BackportDuplicationTest extends TestBase {
         .addProgramDexFileData(out1.data.get(user1))
         .addProgramDexFileData(out2.data.values())
         .addProgramFiles(out3)
+        .collectSyntheticItems()
         .setMinApi(parameters)
         .setIntermediate(false)
-        .run(parameters.getRuntime(), TestClass.class)
-        .assertSuccessWithOutput(EXPECTED)
+        .compile()
         .inspect(this::checkNoOriginalsAndNoInternalSynthetics)
-        .inspect(this::checkExpectedSynthetics);
+        .inspectWithSyntheticItems(this::checkExpectedSynthetics)
+        .run(parameters.getRuntime(), TestClass.class)
+        .assertSuccessWithOutput(EXPECTED);
   }
 
   static class User1 {

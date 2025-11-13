@@ -4,7 +4,7 @@
 package com.android.tools.r8;
 
 import static com.android.tools.r8.utils.InternalOptions.DETERMINISTIC_DEBUGGING;
-import static com.android.tools.r8.utils.MapConsumerUtils.wrapExistingMapConsumerIfNotNull;
+import static com.android.tools.r8.utils.MapConsumerUtils.wrapExistingInternalMapConsumerIfNotNull;
 
 import com.android.build.shrinker.r8integration.LegacyResourceShrinker;
 import com.android.tools.r8.ProgramResource.Kind;
@@ -28,8 +28,8 @@ import com.android.tools.r8.keepanno.keeprules.KeepRuleExtractor;
 import com.android.tools.r8.metadata.R8BuildMetadata;
 import com.android.tools.r8.naming.ClassNameMapper;
 import com.android.tools.r8.naming.ClassNamingForNameMapper;
-import com.android.tools.r8.naming.MapConsumer;
-import com.android.tools.r8.naming.ProguardMapStringConsumer;
+import com.android.tools.r8.naming.InternalMapConsumer;
+import com.android.tools.r8.naming.InternalMapConsumerImpl;
 import com.android.tools.r8.naming.SourceFileRewriter;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.origin.PathOrigin;
@@ -61,6 +61,7 @@ import com.android.tools.r8.utils.InternalOptions.LineNumberOptimization;
 import com.android.tools.r8.utils.InternalOptions.MappingComposeOptions;
 import com.android.tools.r8.utils.InternalProgramClassProvider;
 import com.android.tools.r8.utils.ListUtils;
+import com.android.tools.r8.utils.MapConsumerUtils;
 import com.android.tools.r8.utils.ProgramClassCollection;
 import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.SemanticVersion;
@@ -345,6 +346,9 @@ public final class R8Command extends BaseCompilerCommand {
 
     /**
      * Set a consumer for receiving the proguard-map content.
+     *
+     * <p>It is possible to also retrieve the map id by passing an instance of {@link
+     * com.android.tools.r8.MapConsumer}.
      *
      * <p>Note that any subsequent call to this method or {@link #setProguardMapOutputPath} will
      * override the previous setting.
@@ -1155,7 +1159,7 @@ public final class R8Command extends BaseCompilerCommand {
   private final boolean forceProguardCompatibility;
   private final boolean protectApiSurface;
   private final Optional<Boolean> includeDataResources;
-  private final StringConsumer proguardMapConsumer;
+  private final MapConsumer proguardMapConsumer;
   private final PartitionMapConsumer partitionMapConsumer;
   private final StringConsumer proguardUsageConsumer;
   private final StringConsumer proguardSeedsConsumer;
@@ -1242,7 +1246,7 @@ public final class R8Command extends BaseCompilerCommand {
       boolean forceProguardCompatibility,
       boolean protectApiSurface,
       Optional<Boolean> includeDataResources,
-      StringConsumer proguardMapConsumer,
+      MapConsumer proguardMapConsumer,
       PartitionMapConsumer partitionMapConsumer,
       StringConsumer proguardUsageConsumer,
       StringConsumer proguardSeedsConsumer,
@@ -1423,24 +1427,24 @@ public final class R8Command extends BaseCompilerCommand {
     }
 
     // Amend the proguard-map consumer with options from the proguard configuration.
-    StringConsumer stringConsumer =
-        wrapStringConsumer(
+    MapConsumer mapConsumer =
+        wrapMapConsumer(
             proguardMapConsumer,
             proguardConfiguration.isPrintMapping(),
             proguardConfiguration.getPrintMappingFile());
-    MapConsumer mapConsumer =
-        wrapExistingMapConsumerIfNotNull(
+    InternalMapConsumer internalMapConsumer =
+        wrapExistingInternalMapConsumerIfNotNull(
             internal.mapConsumer, partitionMapConsumer, MapConsumerToPartitionMapConsumer::new);
-    mapConsumer =
-        wrapExistingMapConsumerIfNotNull(
+    internalMapConsumer =
+        wrapExistingInternalMapConsumerIfNotNull(
+            internalMapConsumer,
             mapConsumer,
-            stringConsumer,
             nonNullStringConsumer ->
-                ProguardMapStringConsumer.builder().setStringConsumer(stringConsumer).build());
+                InternalMapConsumerImpl.builder().setMapConsumer(mapConsumer).build());
 
     internal.mapConsumer =
-        wrapExistingMapConsumerIfNotNull(
-            mapConsumer,
+        wrapExistingInternalMapConsumerIfNotNull(
+            internalMapConsumer,
             androidResourceConsumer,
             nonNulStringConsumer -> new ResourceShrinkerMapStringConsumer(internal));
     // Amend the usage information consumer with options from the proguard configuration.
@@ -1563,6 +1567,18 @@ public final class R8Command extends BaseCompilerCommand {
     return internal;
   }
 
+  private static MapConsumer wrapMapConsumer(
+      MapConsumer consumer, boolean optionsFlag, Path optionFile) {
+    if (optionsFlag) {
+      if (optionFile != null) {
+        return new MapConsumer.FileConsumer(optionFile, consumer);
+      } else {
+        return MapConsumerUtils.createStandardOutConsumer(consumer);
+      }
+    }
+    return consumer;
+  }
+
   private static StringConsumer wrapStringConsumer(
       StringConsumer optionConsumer, boolean optionsFlag, Path optionFile) {
     if (optionsFlag) {
@@ -1575,7 +1591,7 @@ public final class R8Command extends BaseCompilerCommand {
     return optionConsumer;
   }
 
-  private static class ResourceShrinkerMapStringConsumer implements MapConsumer {
+  private static class ResourceShrinkerMapStringConsumer implements InternalMapConsumer {
 
     private final InternalOptions internal;
     private final Predicate<String> classNamePredicate;

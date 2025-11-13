@@ -24,6 +24,7 @@ import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.profile.art.utils.ArtProfileInspector;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.DescriptorUtils;
@@ -524,6 +525,13 @@ public abstract class TestCompileResult<
       ThrowingConsumer<CodeInspector, E> consumer, Consumer<InternalOptions> debugOptionsConsumer)
       throws IOException, E {
     consumer.accept(inspector(debugOptionsConsumer));
+    return self();
+  }
+
+  public <E extends Throwable> CR inspectWithSyntheticItems(
+      ThrowingBiConsumer<CodeInspector, SyntheticItemsTestUtils, E> consumer)
+      throws IOException, E {
+    consumer.accept(inspector(), getSyntheticItems());
     return self();
   }
 

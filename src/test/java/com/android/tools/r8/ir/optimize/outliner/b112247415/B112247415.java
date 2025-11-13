@@ -4,18 +4,16 @@
 
 package com.android.tools.r8.ir.optimize.outliner.b112247415;
 
-import static org.junit.Assert.assertNotEquals;
+import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethod;
+import static org.hamcrest.CoreMatchers.not;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.graph.DexMethod;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.StringUtils;
-import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.FoundClassSubject;
-import com.android.tools.r8.utils.codeinspector.InstructionSubject;
-import java.util.stream.Stream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -70,53 +68,50 @@ public class B112247415 extends TestBase {
   public TestParameters parameters;
 
   @Test
-  public void test() throws Exception {
-    if (parameters.isCfRuntime()) {
-      testForJvm(parameters)
-          .addTestClasspath()
-          .run(parameters.getRuntime(), TestClass.class)
-          .assertSuccessWithOutput(EXPECTED);
-    }
-
-    CodeInspector inspector =
-        testForR8(parameters.getBackend())
-            .addDontObfuscate()
-            .setMinApi(parameters)
-            .addProgramClassesAndInnerClasses(TestClass.class)
-            .addKeepMainRule(TestClass.class)
-            .addOptionsModification(
-                options -> {
-                  // To trigger outliner, set # of expected outline candidate as threshold.
-                  options.outline.threshold = 2;
-                  options.inlinerOptions().enableInlining = false;
-                  // Disable minimize synthetic names for robust detection of synthetic kinds.
-                  options.desugarSpecificOptions().minimizeSyntheticNames = false;
-                })
-            .noHorizontalClassMergingOfSynthetics()
-            .run(parameters.getRuntime(), TestClass.class)
-            .assertSuccessWithOutput(EXPECTED)
-            .inspector();
-
-    for (FoundClassSubject clazz : inspector.allClasses()) {
-      if (!SyntheticItemsTestUtils.isExternalOutlineClass(clazz.getFinalReference())) {
-        clazz.forAllMethods(
-            method -> {
-              if (method.hasCode()) {
-                verifyAbsenceOfStringBuilderAppend(method.streamInstructions());
-              }
-            });
-      }
-    }
+  public void testJvm() throws Exception {
+    parameters.assumeJvmTestParameters();
+    testForJvm(parameters)
+        .addTestClasspath()
+        .run(parameters.getRuntime(), TestClass.class)
+        .assertSuccessWithOutput(EXPECTED);
   }
 
-  private void verifyAbsenceOfStringBuilderAppend(Stream<InstructionSubject> instructions) {
-    instructions
-        .filter(InstructionSubject::isInvokeVirtual)
-        .forEach(instr -> {
-          DexMethod invokedMethod = instr.getMethod();
-          if (invokedMethod.holder.getName().endsWith("StringBuilder")) {
-            assertNotEquals("append", invokedMethod.name.toString());
-          }
-        });
+  @Test
+  public void test() throws Exception {
+    testForR8(parameters.getBackend())
+        .addDontObfuscate()
+        .addProgramClassesAndInnerClasses(TestClass.class)
+        .addKeepMainRule(TestClass.class)
+        .addOptionsModification(
+            options -> {
+              // To trigger outliner, set # of expected outline candidate as threshold.
+              options.outline.threshold = 2;
+              options.inlinerOptions().enableInlining = false;
+            })
+        .collectSyntheticItems()
+        .noHorizontalClassMergingOfSynthetics()
+        .setMinApi(parameters)
+        .compile()
+        .inspectWithSyntheticItems(
+            (inspector, syntheticItems) -> {
+              int numOutlineClasses = 0;
+              for (FoundClassSubject clazz : inspector.allClasses()) {
+                if (syntheticItems.isExternalOutlineClass(clazz.getFinalReference())) {
+                  numOutlineClasses++;
+                } else {
+                  clazz.forAllMethods(
+                      method ->
+                          assertThat(
+                              method,
+                              not(invokesMethod(null, "java.lang.StringBuilder", "append", null))));
+                }
+              }
+              assertEquals(
+                  parameters.canUseDefaultAndStaticInterfaceMethods() ? 5 : 4,
+                  inspector.allClasses().size());
+              assertEquals(1, numOutlineClasses);
+            })
+        .run(parameters.getRuntime(), TestClass.class)
+        .assertSuccessWithOutput(EXPECTED);
   }
 }

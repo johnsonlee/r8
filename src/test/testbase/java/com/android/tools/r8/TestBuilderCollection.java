@@ -16,10 +16,10 @@ public abstract class TestBuilderCollection<
         T extends TestBuilderCollection<C, RR, T>>
     extends TestBuilder<RR, T> {
 
-  final List<Pair<C, TestBuilder<? extends TestRunResult<?>, ?>>> builders;
+  final List<Pair<C, TestBuilder<? extends SingleTestRunResult<?>, ?>>> builders;
 
   TestBuilderCollection(
-      TestState state, List<Pair<C, TestBuilder<? extends TestRunResult<?>, ?>>> builders) {
+      TestState state, List<Pair<C, TestBuilder<? extends SingleTestRunResult<?>, ?>>> builders) {
     super(state);
     assert !builders.isEmpty();
     this.builders = builders;
@@ -28,6 +28,24 @@ public abstract class TestBuilderCollection<
   public T allowDiagnosticWarningMessages() {
     forEach(b -> b.applyIfR8(R8TestBuilder::allowDiagnosticWarningMessages));
     return self();
+  }
+
+  @Override
+  public T collectSyntheticItems() {
+    return forEach(
+        b -> {
+          if (b.isD8TestBuilder()) {
+            b.asD8TestBuilder().collectSyntheticItems();
+          } else if (b.isD8IntermediateTestBuilder()) {
+            b.asD8IntermediateTestBuilder().collectSyntheticInputs();
+          } else if (b.isR8TestBuilder()) {
+            b.asR8TestBuilder().collectSyntheticItems();
+          } else if (b.isR8PartialTestBuilder()) {
+            b.asR8PartialTestBuilder().collectSyntheticItems();
+          } else {
+            assert b.isJvmTestBuilder();
+          }
+        });
   }
 
   public T forEach(Consumer<TestBuilder<? extends TestRunResult<?>, ?>> fn) {

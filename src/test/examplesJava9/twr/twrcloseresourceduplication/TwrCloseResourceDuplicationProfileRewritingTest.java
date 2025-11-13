@@ -5,7 +5,6 @@
 package twr.twrcloseresourceduplication;
 
 import static com.android.tools.r8.desugar.LibraryFilesHelper.getJdk11LibraryFiles;
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentIf;
 import static com.android.tools.r8.utils.codeinspector.Matchers.notIf;
@@ -19,7 +18,6 @@ import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.references.TypeReference;
 import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
-import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.InternalOptions.InlinerOptions;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
@@ -50,10 +48,15 @@ public class TwrCloseResourceDuplicationProfileRewritingTest
                     .addDefaultRuntimeLibrary(parameters),
             testBuilder ->
                 testBuilder.addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.LATEST)))
+        .collectSyntheticItems()
         .noHorizontalClassMergingOfSynthetics()
         .setMinApi(parameters)
         .compile()
-        .inspectResidualArtProfile(this::inspectD8)
+        .apply(
+            cr ->
+                cr.inspectResidualArtProfile(
+                    (profileInspector, inspector) ->
+                        inspectD8(profileInspector, inspector, cr.getSyntheticItems())))
         .run(parameters.getRuntime(), MAIN, getZipFile())
         .assertSuccessWithOutput(TwrCloseResourceDuplicationTest.EXPECTED);
   }
@@ -61,7 +64,6 @@ public class TwrCloseResourceDuplicationProfileRewritingTest
   @Test
   public void testR8ProfileRewriting() throws Exception {
     parameters.assumeR8TestParameters();
-    Box<SyntheticItemsTestUtils> syntheticItems = new Box<>();
     testForR8(parameters.getBackend())
         .addProgramClassFileData(TwrCloseResourceDuplicationTest.getProgramInputs())
         .addKeepMainRule(MAIN)
@@ -88,10 +90,11 @@ public class TwrCloseResourceDuplicationProfileRewritingTest
         .noHorizontalClassMergingOfSynthetics()
         .setMinApi(parameters)
         .compile()
-        .inspectSyntheticItems(syntheticItems::set)
-        .inspectResidualArtProfile(
-            (profileInspector, inspector) ->
-                inspectR8(profileInspector, inspector, syntheticItems.get()))
+        .apply(
+            cr ->
+                cr.inspectResidualArtProfile(
+                    (profileInspector, inspector) ->
+                        inspectR8(profileInspector, inspector, cr.getSyntheticItems())))
         .run(parameters.getRuntime(), MAIN, getZipFile())
         .assertSuccessWithOutput(TwrCloseResourceDuplicationTest.EXPECTED);
   }
@@ -131,12 +134,11 @@ public class TwrCloseResourceDuplicationProfileRewritingTest
         .build();
   }
 
-  private void inspectD8(ArtProfileInspector profileInspector, CodeInspector inspector) {
-    inspect(
-        profileInspector,
-        inspector,
-        hasTwrCloseResourceSupport(true),
-        getDefaultSyntheticItemsTestUtils());
+  private void inspectD8(
+      ArtProfileInspector profileInspector,
+      CodeInspector inspector,
+      SyntheticItemsTestUtils syntheticItems) {
+    inspect(profileInspector, inspector, hasTwrCloseResourceSupport(true), syntheticItems);
   }
 
   private void inspectR8(

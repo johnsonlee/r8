@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.ir.optimize.outliner.b149971007;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getMinimalSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethod;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
@@ -18,6 +17,8 @@ import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.dexsplitter.SplitterTestBase;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.FoundMethodSubject;
@@ -65,14 +66,13 @@ public class B149971007 extends SplitterTestBase {
     return false;
   }
 
-  private ClassSubject checkOutlineFromFeature(CodeInspector inspector) {
+  private ClassSubject checkOutlineFromFeature(
+      CodeInspector inspector, SyntheticItemsTestUtils syntheticItems) {
     // There are two expected outlines, in a single single class after horizontal class merging.
     ClassSubject classSubject0 =
-        inspector.clazz(
-            getMinimalSyntheticItemsTestUtils().syntheticOutlineClass(FeatureClass.class, 0));
+        inspector.syntheticClass(syntheticItems.syntheticOutlineClass(FeatureClass.class, 0));
     ClassSubject classSubject1 =
-        inspector.clazz(
-            getMinimalSyntheticItemsTestUtils().syntheticOutlineClass(FeatureClass.class, 1));
+        inspector.clazz(syntheticItems.syntheticOutlineClass(FeatureClass.class, 1));
     assertThat(classSubject1, notIf(isPresent(), classSubject0.isPresent()));
 
     ClassSubject classSubject = classSubject0.isPresent() ? classSubject0 : classSubject1;
@@ -93,16 +93,14 @@ public class B149971007 extends SplitterTestBase {
             .addProgramClasses(TestClass.class, FeatureAPI.class, FeatureClass.class)
             .addKeepClassAndMembersRules(TestClass.class)
             .addKeepClassAndMembersRules(FeatureClass.class)
+            .collectSyntheticItems()
             .setMinApi(parameters)
-            .addOptionsModification(
-                options -> {
-                  options.desugarSpecificOptions().minimizeSyntheticNames = true;
-                  options.outline.threshold = 2;
-                })
+            .addOptionsModification(this::configure)
             .compile();
 
     CodeInspector inspector = compileResult.inspector();
-    ClassSubject outlineClass = checkOutlineFromFeature(inspector);
+    ClassSubject outlineClass =
+        checkOutlineFromFeature(inspector, compileResult.getSyntheticItems());
 
     // Check that parts of method1, ..., method4 in FeatureClass was outlined.
     ClassSubject featureClass = inspector.clazz(FeatureClass.class);
@@ -125,16 +123,15 @@ public class B149971007 extends SplitterTestBase {
     compileResult.run(parameters.getRuntime(), TestClass.class).assertSuccessWithOutput("123456");
   }
 
-  private void checkNoOutlineFromFeature(CodeInspector inspector) {
+  private void checkNoOutlineFromFeature(
+      CodeInspector inspector, SyntheticItemsTestUtils syntheticItems) {
     // The features do not give rise to an outline.
     ClassSubject featureOutlineClass =
-        inspector.clazz(
-            getMinimalSyntheticItemsTestUtils().syntheticOutlineClass(FeatureClass.class, 0));
+        inspector.syntheticClass(syntheticItems.syntheticOutlineClass(FeatureClass.class, 0));
     assertThat(featureOutlineClass, isAbsent());
     // The main TestClass entry does.
     ClassSubject mainOutlineClazz =
-        inspector.clazz(
-            getMinimalSyntheticItemsTestUtils().syntheticOutlineClass(TestClass.class, 0));
+        inspector.clazz(syntheticItems.syntheticOutlineClass(TestClass.class, 0));
     assertThat(mainOutlineClazz, isPresent());
     assertEquals(1, mainOutlineClazz.allMethods().size());
     assertTrue(mainOutlineClazz.allMethods().stream().noneMatch(this::referenceFeatureClass));
@@ -153,18 +150,14 @@ public class B149971007 extends SplitterTestBase {
             .setMinApi(parameters)
             .addFeatureSplit(
                 builder -> simpleSplitProvider(builder, featureCode, temp, FeatureClass.class))
-            .addOptionsModification(
-                options -> {
-                  options.desugarSpecificOptions().minimizeSyntheticNames = true;
-                  options.outline.threshold = 2;
-                })
+            .addOptionsModification(this::configure)
             .compile()
-            .inspect(this::checkNoOutlineFromFeature);
+            .inspectWithSyntheticItems(this::checkNoOutlineFromFeature);
 
     MethodSubject outlineMethod =
         compileResult
             .inspector()
-            .clazz(compileResult.getSyntheticItems().syntheticOutlineClass(TestClass.class, 1))
+            .clazz(compileResult.getSyntheticItems().syntheticOutlineClass(TestClass.class, 0))
             .uniqueMethod();
     assertThat(outlineMethod, isPresent());
 
@@ -189,6 +182,11 @@ public class B149971007 extends SplitterTestBase {
         .addRunClasspathFiles(featureCode)
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutput("123456");
+  }
+
+  private void configure(InternalOptions options) {
+    options.getBottomUpOutlinerOptions().enable = false;
+    options.outline.threshold = 2;
   }
 
   public static class TestClass {

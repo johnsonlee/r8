@@ -53,14 +53,14 @@ public class LambdaReturnTypeBridgeTest extends TestBase {
       throws IOException, CompilationFailedException, ExecutionException {
     builder
         .addInnerClasses(LambdaWithMultipleImplementingInterfaces.class)
+        .collectSyntheticItems()
         .setMinApi(parameters)
-        .run(parameters.getRuntime(), LambdaWithMultipleImplementingInterfaces.class)
-        .assertSuccessWithOutputLines("Hello World!", "Hello World!")
-        .inspect(
-            codeInspector -> {
+        .compile()
+        .inspectWithSyntheticItems(
+            (inspector, syntheticItems) -> {
               boolean foundBridge = false;
-              for (FoundClassSubject clazz : codeInspector.allClasses()) {
-                if (clazz.isSynthesizedJavaLambdaClass()) {
+              for (FoundClassSubject clazz : inspector.allClasses()) {
+                if (clazz.isSynthesizedJavaLambdaClass(syntheticItems)) {
                   // Find bridge method and check whether or not it has a cast.
                   for (FoundMethodSubject bridge : clazz.allMethods(FoundMethodSubject::isBridge)) {
                     foundBridge = true;
@@ -71,6 +71,8 @@ public class LambdaReturnTypeBridgeTest extends TestBase {
                 }
               }
               assertTrue(foundBridge);
-            });
+            })
+        .run(parameters.getRuntime(), LambdaWithMultipleImplementingInterfaces.class)
+        .assertSuccessWithOutputLines("Hello World!", "Hello World!");
   }
 }

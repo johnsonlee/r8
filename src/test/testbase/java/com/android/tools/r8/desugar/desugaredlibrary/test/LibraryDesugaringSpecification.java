@@ -324,6 +324,10 @@ public class LibraryDesugaringSpecification {
         RELEASED_1_0_9, RELEASED_1_0_10, RELEASED_1_1_0, RELEASED_1_1_1, RELEASED_1_1_5);
   }
 
+  public static List<LibraryDesugaringSpecification> getJdk11() {
+    return ImmutableList.of(JDK11);
+  }
+
   public static List<LibraryDesugaringSpecification> getJdk8Jdk11() {
     return ImmutableList.of(JDK8, JDK11);
   }

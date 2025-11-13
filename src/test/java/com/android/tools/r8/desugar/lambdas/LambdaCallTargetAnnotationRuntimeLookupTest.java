@@ -3,9 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.desugar.lambdas;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
-
 import com.android.tools.r8.D8TestBuilder;
+import com.android.tools.r8.D8TestCompileResult;
 import com.android.tools.r8.GlobalSyntheticsTestingConsumer;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -13,7 +12,6 @@ import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
 import java.lang.annotation.Annotation;
-import java.nio.file.Path;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -43,25 +41,32 @@ public class LambdaCallTargetAnnotationRuntimeLookupTest extends TestBase {
             .addInnerClasses(LambdaCallTargetAnnotationRuntimeLookupTest.class)
             .setMinApi(AndroidApiLevel.L)
             .debug()
-            .setIntermediate(intermediate)
-            .addOptionsModification(options -> options.emitLambdaMethodAnnotations = true);
+            .addOptionsModification(options -> options.emitLambdaMethodAnnotations = true)
+            .applyIf(
+                intermediate,
+                b -> b.setIntermediate(true).getBuilder().setGlobalSyntheticsConsumer(globals))
+            .collectSyntheticItems();
+    D8TestCompileResult desugarCompileResult = builder.compile();
+    D8TestCompileResult compileResult;
     if (intermediate) {
       // Merge the global synthetics to be able to run the code.
-      builder.getBuilder().setGlobalSyntheticsConsumer(globals);
-      Path intermediateOutput = builder.compile().writeToZip();
-      builder =
+      compileResult =
           testForD8()
               .setMinApi(AndroidApiLevel.L)
               .debug()
-              .addProgramFiles(intermediateOutput)
+              .addProgramFiles(desugarCompileResult.writeToZip())
               .apply(
-                  b -> b.getBuilder().addGlobalSyntheticsResourceProviders(globals.getProviders()));
+                  b -> b.getBuilder().addGlobalSyntheticsResourceProviders(globals.getProviders()))
+              .compile();
+    } else {
+      compileResult = desugarCompileResult;
     }
-    builder
+    compileResult
         .run(
             parameters.getRuntime(),
             TestClass.class,
-            getDefaultSyntheticItemsTestUtils()
+            desugarCompileResult
+                .getSyntheticItems()
                 .syntheticLambdaClass(TestClass.class, 0)
                 .getTypeName())
         .assertSuccessWithOutputLines(

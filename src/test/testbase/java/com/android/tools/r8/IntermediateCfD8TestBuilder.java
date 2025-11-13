@@ -36,6 +36,11 @@ public class IntermediateCfD8TestBuilder
     return self();
   }
 
+  public IntermediateCfD8TestBuilder collectSyntheticInputs() {
+    cf2cf.collectSyntheticItems();
+    return self();
+  }
+
   @Override
   public boolean isD8IntermediateTestBuilder() {
     return true;
@@ -54,7 +59,11 @@ public class IntermediateCfD8TestBuilder
   @Override
   public D8TestRunResult run(TestRuntime runtime, String mainClass, String... args)
       throws CompilationFailedException, ExecutionException, IOException {
-    return cf2dex.addProgramFiles(cf2cf.compile().writeToZip()).run(runtime, mainClass, args);
+    D8TestCompileResult cf2cfCompileResult = cf2cf.compile();
+    D8TestRunResult runResult =
+        cf2dex.addProgramFiles(cf2cfCompileResult.writeToZip()).run(runtime, mainClass, args);
+    runResult.getState().setSyntheticItems(cf2cfCompileResult.getSyntheticItems());
+    return runResult;
   }
 
   @Override

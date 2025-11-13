@@ -75,6 +75,7 @@ public abstract class BottomUpOutlinerTestBase extends TestBase {
             b ->
                 b.addOptionsModification(
                     options -> options.desugarSpecificOptions().minimizeSyntheticNames = true))
+        .collectSyntheticItems()
         .setMode(mode);
   }
 

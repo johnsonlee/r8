@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.apimodel;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.accessesField;
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethod;
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethodWithHolderAndName;
@@ -23,6 +22,7 @@ import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.FieldReference;
 import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.references.Reference;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ThrowingConsumer;
@@ -241,16 +241,15 @@ public abstract class ApiModelingTestHelper {
 
   public static ApiModelingClassVerificationHelper verifyThat(
       CodeInspector inspector, TestParameters parameters, Class<?> clazz) {
-    return verifyThat(inspector, parameters, clazz, false);
+    return verifyThat(inspector, parameters, clazz, null);
   }
 
   public static ApiModelingClassVerificationHelper verifyThat(
       CodeInspector inspector,
       TestParameters parameters,
       Class<?> clazz,
-      boolean minimalSyntheticNames) {
-    return new ApiModelingClassVerificationHelper(
-        inspector, parameters, clazz, minimalSyntheticNames);
+      SyntheticItemsTestUtils syntheticItems) {
+    return new ApiModelingClassVerificationHelper(inspector, parameters, clazz, syntheticItems);
   }
 
   static ApiModelingMethodVerificationHelper verifyThat(
@@ -289,22 +288,17 @@ public abstract class ApiModelingTestHelper {
     private final CodeInspector inspector;
     private final Class<?> classOfInterest;
     private final TestParameters parameters;
-    private final boolean minimalSyntheticNames;
-
-    public ApiModelingClassVerificationHelper(
-        CodeInspector inspector, TestParameters parameters, Class<?> classOfInterest) {
-      this(inspector, parameters, classOfInterest, false);
-    }
+    private final SyntheticItemsTestUtils syntheticItems;
 
     public ApiModelingClassVerificationHelper(
         CodeInspector inspector,
         TestParameters parameters,
         Class<?> classOfInterest,
-        boolean minimalSyntheticNames) {
+        SyntheticItemsTestUtils syntheticItems) {
       this.inspector = inspector;
       this.parameters = parameters;
       this.classOfInterest = classOfInterest;
-      this.minimalSyntheticNames = minimalSyntheticNames;
+      this.syntheticItems = syntheticItems;
     }
 
     public <E1 extends Exception, E2 extends Exception> ApiModelingClassVerificationHelper applyIf(
@@ -395,12 +389,7 @@ public abstract class ApiModelingTestHelper {
       List<FoundMethodSubject> outlinedMethod =
           inspector.allClasses().stream()
               .filter(
-                  clazz ->
-                      clazz
-                          .getOriginalTypeName()
-                          .startsWith(
-                              getSyntheticItemsTestUtils(minimalSyntheticNames)
-                                  .syntheticApiOutlineClassPrefix(method.getDeclaringClass())))
+                  clazz -> syntheticItems.isExternalApiOutlineClass(clazz.getOriginalReference()))
               .flatMap(clazz -> clazz.allMethods().stream())
               .filter(
                   methodSubject ->

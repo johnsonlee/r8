@@ -225,9 +225,15 @@ please navigate to https://r8-review.googlesource.com/ and sign in with the
 account used to sign the CLA. First time you do that you will be asked to
 _Create Gerrit Account_. Plase follow that process.
 
-You can now upload your patches. Once you have a
-change that you are happy with you should make sure that it passes
-all tests and then upload the change to our code review tool using:
+To create a branch for a change we recommend to use the `new-branch` git command from the
+Chromium `depot_tools`:
+
+    $ git new-branch my-change
+
+This will make a branch of `origin/main`, so remember to run `git fetch origin main` first.
+Make you changes and commit locally. Once you have a change that you are happy with
+you should make sure that it passes all tests and then upload the change to our code
+review tool using:
 
     $ git cl upload
 

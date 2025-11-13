@@ -43,6 +43,10 @@ import com.android.tools.r8.dex.code.DexConstWide;
 import com.android.tools.r8.dex.code.DexConstWide16;
 import com.android.tools.r8.dex.code.DexConstWide32;
 import com.android.tools.r8.dex.code.DexConstWideHigh16;
+import com.android.tools.r8.dex.code.DexDivDouble;
+import com.android.tools.r8.dex.code.DexDivDouble2Addr;
+import com.android.tools.r8.dex.code.DexDivFloat;
+import com.android.tools.r8.dex.code.DexDivFloat2Addr;
 import com.android.tools.r8.dex.code.DexDivInt;
 import com.android.tools.r8.dex.code.DexDivInt2Addr;
 import com.android.tools.r8.dex.code.DexDivIntLit16;
@@ -656,6 +660,20 @@ public class DexInstructionSubject implements InstructionSubject {
         || instruction instanceof DexMulLong2Addr
         || instruction instanceof DexMulDouble
         || instruction instanceof DexMulDouble2Addr;
+  }
+
+  @Override
+  public boolean isDivision() {
+    return instruction instanceof DexDivInt
+        || instruction instanceof DexDivIntLit8
+        || instruction instanceof DexDivIntLit16
+        || instruction instanceof DexDivInt2Addr
+        || instruction instanceof DexDivFloat
+        || instruction instanceof DexDivFloat2Addr
+        || instruction instanceof DexDivLong
+        || instruction instanceof DexDivLong2Addr
+        || instruction instanceof DexDivDouble
+        || instruction instanceof DexDivDouble2Addr;
   }
 
   @Override

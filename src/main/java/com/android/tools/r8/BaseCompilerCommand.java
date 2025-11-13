@@ -22,6 +22,7 @@ import com.android.tools.r8.utils.DumpInputFlags;
 import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.InternalOptions.DesugarState;
 import com.android.tools.r8.utils.ListUtils;
+import com.android.tools.r8.utils.MapConsumerUtils;
 import com.android.tools.r8.utils.PartitionMapZipContainer;
 import com.android.tools.r8.utils.ProgramConsumerUtils;
 import com.android.tools.r8.utils.Reporter;
@@ -292,7 +293,7 @@ public abstract class BaseCompilerCommand extends BaseCommand {
     private BiPredicate<String, Long> dexClassChecksumFilter = (name, checksum) -> true;
     private final List<AssertionsConfiguration> assertionsConfiguration = new ArrayList<>();
     private final List<Consumer<Inspector>> outputInspections = new ArrayList<>();
-    protected StringConsumer proguardMapConsumer = null;
+    protected MapConsumer proguardMapConsumer = null;
     protected PartitionMapConsumer partitionMapConsumer = null;
     private DumpInputFlags dumpInputFlags = DumpInputFlags.getDefault();
     private MapIdProvider mapIdProvider = null;
@@ -372,7 +373,7 @@ public abstract class BaseCompilerCommand extends BaseCommand {
     /**
      * Set an output destination to which proguard-map content should be written.
      *
-     * <p>This is a short-hand for setting a {@link StringConsumer.FileConsumer} using {@link
+     * <p>This is a short-hand for setting a {@link MapConsumer.FileConsumer} using {@link
      * #setProguardMapConsumer}. Note that any subsequent call to this method or {@link
      * #setProguardMapConsumer} will override the previous setting.
      *
@@ -380,11 +381,14 @@ public abstract class BaseCompilerCommand extends BaseCommand {
      */
     B setProguardMapOutputPath(Path proguardMapOutput) {
       assert proguardMapOutput != null;
-      return setProguardMapConsumer(new StringConsumer.FileConsumer(proguardMapOutput));
+      return setProguardMapConsumer(new MapConsumer.FileConsumer(proguardMapOutput));
     }
 
     /**
      * Set a consumer for receiving the proguard-map content.
+     *
+     * <p>It is possible to also retrieve the map id by passing an instance of {@link
+     * com.android.tools.r8.MapConsumer}.
      *
      * <p>Note that any subsequent call to this method or {@link #setProguardMapOutputPath} will
      * override the previous setting.
@@ -392,7 +396,7 @@ public abstract class BaseCompilerCommand extends BaseCommand {
      * @param proguardMapConsumer Consumer to receive the content once produced.
      */
     B setProguardMapConsumer(StringConsumer proguardMapConsumer) {
-      this.proguardMapConsumer = proguardMapConsumer;
+      this.proguardMapConsumer = MapConsumerUtils.createFromStringConsumer(proguardMapConsumer);
       return self();
     }
 

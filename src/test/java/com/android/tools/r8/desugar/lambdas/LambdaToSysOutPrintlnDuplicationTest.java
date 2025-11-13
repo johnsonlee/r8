@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.desugar.lambdas;
 
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getDefaultSyntheticItemsTestUtils;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -72,9 +71,6 @@ public class LambdaToSysOutPrintlnDuplicationTest extends TestBase {
         .addKeepMainRule(TestClass.class)
         .setMinApi(parameters)
         .addDontObfuscateUnless(minify)
-        // Disable minimal synthetic names to ensure robust detection of synthetics.
-        .addOptionsModification(
-            options -> options.desugarSpecificOptions().minimizeSyntheticNames = false)
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutput(EXPECTED)
         .inspect(this::checkNoOriginalsAndNoInternalSynthetics);
@@ -84,11 +80,13 @@ public class LambdaToSysOutPrintlnDuplicationTest extends TestBase {
   public void testD8() throws Exception {
     testForD8(parameters.getBackend())
         .addProgramClasses(CLASSES)
+        .collectSyntheticItems()
         .setMinApi(parameters)
-        .run(parameters.getRuntime(), TestClass.class)
-        .assertSuccessWithOutput(EXPECTED)
+        .compile()
         .inspect(this::checkNoOriginalsAndNoInternalSynthetics)
-        .inspect(this::checkExpectedSynthetics);
+        .inspectWithSyntheticItems(this::checkExpectedSynthetics)
+        .run(parameters.getRuntime(), TestClass.class)
+        .assertSuccessWithOutput(EXPECTED);
     ;
   }
 
@@ -151,21 +149,23 @@ public class LambdaToSysOutPrintlnDuplicationTest extends TestBase {
     // Finally do a non-intermediate merge.
     testForD8(parameters.getBackend())
         .addProgramFiles(out3)
+        .collectSyntheticItems()
         .setMinApi(parameters)
-        .run(parameters.getRuntime(), TestClass.class)
-        .assertSuccessWithOutput(EXPECTED)
+        .compile()
         .inspect(this::checkNoOriginalsAndNoInternalSynthetics)
-        .inspect(
-            inspector -> {
+        .inspectWithSyntheticItems(
+            (inspector, syntheticItems) -> {
               if (intermediate) {
                 // If all previous builds where intermediate then synthetics are merged.
-                checkExpectedSynthetics(inspector);
+                checkExpectedSynthetics(inspector, syntheticItems);
               } else {
                 // Otherwise merging non-intermediate artifacts, synthetics will not be identified.
                 // Check that they are exactly as in the part inputs.
                 assertEquals(syntheticsInParts, getSyntheticMethods(inspector));
               }
-            });
+            })
+        .run(parameters.getRuntime(), TestClass.class)
+        .assertSuccessWithOutput(EXPECTED);
   }
 
   @Test
@@ -190,11 +190,13 @@ public class LambdaToSysOutPrintlnDuplicationTest extends TestBase {
             .writeToZip();
     testForD8()
         .addProgramFiles(perClassOutput)
+        .collectSyntheticItems()
         .setMinApi(parameters)
-        .run(parameters.getRuntime(), TestClass.class)
-        .assertSuccessWithOutput(EXPECTED)
+        .compile()
         .inspect(this::checkNoOriginalsAndNoInternalSynthetics)
-        .inspect(this::checkExpectedSynthetics);
+        .inspectWithSyntheticItems(this::checkExpectedSynthetics)
+        .run(parameters.getRuntime(), TestClass.class)
+        .assertSuccessWithOutput(EXPECTED);
   }
 
   private void checkNoOriginalsAndNoInternalSynthetics(CodeInspector inspector) {
@@ -223,16 +225,16 @@ public class LambdaToSysOutPrintlnDuplicationTest extends TestBase {
     return methods;
   }
 
-  private void checkExpectedSynthetics(CodeInspector inspector) throws Exception {
+  private void checkExpectedSynthetics(
+      CodeInspector inspector, SyntheticItemsTestUtils syntheticItems) throws Exception {
     // Hardcoded set of expected synthetics in a "final" build. This set could change if the
     // compiler makes any changes to the naming, sorting or grouping of synthetics. It is hard-coded
     // here to check that the compiler generates this deterministically for any single run or merge
     // of intermediates.
     Set<MethodReference> expectedSynthetics =
         ImmutableSet.of(
-            getDefaultSyntheticItemsTestUtils()
-                .syntheticLambdaMethod(
-                    User1.class, 0, MyConsumer.class.getMethod("accept", Object.class)));
+            syntheticItems.syntheticLambdaMethod(
+                User1.class, 0, MyConsumer.class.getMethod("accept", Object.class)));
     assertEquals(expectedSynthetics, getSyntheticMethods(inspector));
   }
 

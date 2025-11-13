@@ -6,7 +6,6 @@ package com.android.tools.r8.kotlin.lambda;
 
 import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_5_0;
 import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_6_0;
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getMinimalSyntheticItemsTestUtils;
 import static junit.framework.TestCase.assertEquals;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
@@ -14,6 +13,7 @@ import static org.junit.Assume.assumeTrue;
 import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
 import com.android.tools.r8.KotlinTestBase;
 import com.android.tools.r8.KotlinTestParameters;
+import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.Reference;
@@ -82,13 +82,15 @@ public class KotlinLambdaMergingTrivialKotlinStyleTest extends KotlinTestBase {
         kotlinParameters.getLambdaGeneration().isInvokeDynamic() ? 0 : 28,
         lambdasInInput.getNumberOfKStyleLambdas());
 
-    testForR8(parameters.getBackend())
+    R8FullTestBuilder testBuilder = testForR8(parameters.getBackend());
+    testBuilder
         .addProgramFiles(getProgramFiles())
         .addKeepMainRule(getMainClassName())
-        .addHorizontallyMergedClassesInspector(inspector -> inspect(inspector, lambdasInInput))
-        .addOptionsModification(
-            options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
+        .addHorizontallyMergedClassesInspector(
+            inspector ->
+                inspect(inspector, lambdasInInput, testBuilder.getState().getSyntheticItems()))
         .allowAccessModification(allowAccessModification)
+        .collectSyntheticItems()
         .setMinApi(parameters)
         .compile()
         .inspect(inspector -> inspect(inspector, lambdasInInput))
@@ -97,7 +99,9 @@ public class KotlinLambdaMergingTrivialKotlinStyleTest extends KotlinTestBase {
   }
 
   private void inspect(
-      HorizontallyMergedClassesInspector inspector, KotlinLambdasInInput lambdasInInput) {
+      HorizontallyMergedClassesInspector inspector,
+      KotlinLambdasInInput lambdasInInput,
+      SyntheticItemsTestUtils syntheticItems) {
     if (parameters.isCfRuntime()) {
       inspector.applyIf(
           kotlinParameters.getLambdaGeneration().isInvokeDynamic(),
@@ -111,7 +115,6 @@ public class KotlinLambdaMergingTrivialKotlinStyleTest extends KotlinTestBase {
                   .assertNoOtherClassesMerged());
     } else {
       ClassReference mainKt = Reference.classFromTypeName(getMainClassName());
-      SyntheticItemsTestUtils syntheticItemsTestUtils = getMinimalSyntheticItemsTestUtils();
       inspector
           .applyIf(
               kotlinParameters.getLambdaGeneration().isClass(),
@@ -134,8 +137,8 @@ public class KotlinLambdaMergingTrivialKotlinStyleTest extends KotlinTestBase {
               },
               i ->
                   i.assertIsCompleteMergeGroup(
-                      syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 0),
-                      syntheticItemsTestUtils.syntheticLambdaClass(mainKt, 1)))
+                      syntheticItems.syntheticLambdaClass(mainKt, 0),
+                      syntheticItems.syntheticLambdaClass(mainKt, 1)))
           .assertNoOtherClassesMerged();
     }
   }

@@ -14,6 +14,7 @@ import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -335,7 +336,8 @@ public class SyntheticFinalization {
             return;
           }
           String prefix =
-              SyntheticNaming.getPrefixForExternalSyntheticType(item.getKind(), item.getHolder());
+              SyntheticNaming.getPrefixForExternalSyntheticType(
+                  item.getKind(), item.getHolder(), appView);
           assert !prefix.contains(SyntheticNaming.getPhaseSeparator(Phase.INTERNAL));
           DexType context =
               appView
@@ -905,15 +907,27 @@ public class SyntheticFinalization {
         externalType = null;
       }
     } while (externalType == null);
-    QuadConsumer<SyntheticKind, Integer, DexType, DexType> syntheticItemsConsumer =
+    QuadConsumer<SyntheticKind, Integer, DexType, DexReference> syntheticItemsConsumer =
         options.getTestingOptions().syntheticItemsConsumer;
     if (syntheticItemsConsumer != null) {
+      DexReference externalReference;
+      if (group.getRepresentative().isMethodDefinition()) {
+        externalReference =
+            group
+                .getRepresentative()
+                .asMethodDefinition()
+                .getMethod()
+                .getReference()
+                .withHolder(externalType, factory);
+      } else {
+        externalReference = externalType;
+      }
       for (SyntheticDefinition<?, ?, ?> member : group.getRepresentativeAndMembers()) {
         syntheticItemsConsumer.accept(
             kind,
             generator.peekPrevious(),
             member.getContext().getSynthesizingContextType(),
-            externalType);
+            externalReference);
       }
     }
     return externalType;

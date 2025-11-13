@@ -4,7 +4,7 @@
 package com.android.tools.r8;
 
 import static com.android.tools.r8.utils.InternalOptions.DETERMINISTIC_DEBUGGING;
-import static com.android.tools.r8.utils.MapConsumerUtils.wrapExistingMapConsumerIfNotNull;
+import static com.android.tools.r8.utils.MapConsumerUtils.wrapExistingInternalMapConsumerIfNotNull;
 
 import com.android.tools.r8.dex.Marker.Tool;
 import com.android.tools.r8.dump.DumpOptions;
@@ -15,8 +15,8 @@ import com.android.tools.r8.inspector.internal.InspectorImpl;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibrarySpecification;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
 import com.android.tools.r8.metadata.D8BuildMetadata;
-import com.android.tools.r8.naming.MapConsumer;
-import com.android.tools.r8.naming.ProguardMapStringConsumer;
+import com.android.tools.r8.naming.InternalMapConsumer;
+import com.android.tools.r8.naming.InternalMapConsumerImpl;
 import com.android.tools.r8.origin.ArchiveEntryOrigin;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.origin.PathOrigin;
@@ -614,7 +614,7 @@ public final class D8Command extends BaseCompilerCommand {
   private final boolean enableMainDexListCheck;
   private final boolean minimalMainDex;
   private final ImmutableList<ProguardConfigurationRule> mainDexKeepRules;
-  private final StringConsumer proguardMapConsumer;
+  private final MapConsumer proguardMapConsumer;
   private final PartitionMapConsumer partitionMapConsumer;
   private final boolean enableMissingLibraryApiModeling;
   private final boolean enableRewritingOfArtProfilesIsNopCheck;
@@ -691,7 +691,7 @@ public final class D8Command extends BaseCompilerCommand {
       int threadCount,
       DumpInputFlags dumpInputFlags,
       MapIdProvider mapIdProvider,
-      StringConsumer proguardMapConsumer,
+      MapConsumer proguardMapConsumer,
       PartitionMapConsumer partitionMapConsumer,
       boolean enableMissingLibraryApiModeling,
       boolean enableRewritingOfArtProfilesIsNopCheck,
@@ -787,15 +787,15 @@ public final class D8Command extends BaseCompilerCommand {
     internal.setSyntheticInfoConsumer(syntheticInfoConsumer);
     internal.desugarGraphConsumer = desugarGraphConsumer;
     internal.mainDexKeepRules = mainDexKeepRules;
-    MapConsumer mapConsumer =
-        wrapExistingMapConsumerIfNotNull(
+    InternalMapConsumer mapConsumer =
+        wrapExistingInternalMapConsumerIfNotNull(
             internal.mapConsumer, partitionMapConsumer, MapConsumerToPartitionMapConsumer::new);
     internal.mapConsumer =
-        wrapExistingMapConsumerIfNotNull(
+        wrapExistingInternalMapConsumerIfNotNull(
             mapConsumer,
             proguardMapConsumer,
             nonNullStringConsumer ->
-                ProguardMapStringConsumer.builder().setStringConsumer(proguardMapConsumer).build());
+                InternalMapConsumerImpl.builder().setMapConsumer(proguardMapConsumer).build());
     internal.lineNumberOptimization =
         !internal.debug && proguardMapConsumer != null
             ? LineNumberOptimization.ON

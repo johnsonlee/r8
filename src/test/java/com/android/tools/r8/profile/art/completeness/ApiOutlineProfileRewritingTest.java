@@ -6,7 +6,6 @@ package com.android.tools.r8.profile.art.completeness;
 
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLevelForClass;
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.verifyThat;
-import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.getSyntheticItemsTestUtils;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.notIf;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -20,6 +19,7 @@ import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.profile.art.model.ExternalArtProfile;
 import com.android.tools.r8.profile.art.utils.ArtProfileInspector;
 import com.android.tools.r8.references.Reference;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.MethodReferenceUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
@@ -78,9 +78,14 @@ public class ApiOutlineProfileRewritingTest extends TestBase {
         .addDefaultRuntimeLibrary(parameters)
         .addArtProfileForRewriting(getArtProfile())
         .apply(setMockApiLevelForClass(LibraryClass.class, classApiLevel))
+        .collectSyntheticItems()
         .setMinApi(parameters)
         .compile()
-        .inspectResidualArtProfile(this::inspectD8)
+        .apply(
+            compileResult ->
+                compileResult.inspectResidualArtProfile(
+                    (profileInspector, inspector) ->
+                        inspect(profileInspector, inspector, compileResult.getSyntheticItems())))
         .applyIf(
             isLibraryClassPresentInCurrentRuntime(),
             testBuilder -> testBuilder.addBootClasspathClasses(LibraryClass.class))
@@ -100,9 +105,14 @@ public class ApiOutlineProfileRewritingTest extends TestBase {
         .addOptionsModification(
             options -> options.desugarSpecificOptions().minimizeSyntheticNames = true)
         .apply(setMockApiLevelForClass(LibraryClass.class, classApiLevel))
+        .collectSyntheticItems()
         .setMinApi(parameters)
         .compile()
-        .inspectResidualArtProfile(this::inspectR8)
+        .apply(
+            compileResult ->
+                compileResult.inspectResidualArtProfile(
+                    (profileInspector, inspector) ->
+                        inspect(profileInspector, inspector, compileResult.getSyntheticItems())))
         .applyIf(
             isLibraryClassPresentInCurrentRuntime(),
             testBuilder -> testBuilder.addBootClasspathClasses(LibraryClass.class))
@@ -116,20 +126,13 @@ public class ApiOutlineProfileRewritingTest extends TestBase {
         .build();
   }
 
-  private void inspectD8(ArtProfileInspector profileInspector, CodeInspector inspector)
-      throws Exception {
-    inspect(profileInspector, inspector, false);
-  }
-
-  private void inspectR8(ArtProfileInspector profileInspector, CodeInspector inspector)
-      throws Exception {
-    inspect(profileInspector, inspector, true);
-  }
-
-  private void inspect(ArtProfileInspector profileInspector, CodeInspector inspector, boolean isR8)
+  private void inspect(
+      ArtProfileInspector profileInspector,
+      CodeInspector inspector,
+      SyntheticItemsTestUtils syntheticItems)
       throws Exception {
     // Verify that outlining happened.
-    verifyThat(inspector, parameters, LibraryClass.class, isR8)
+    verifyThat(inspector, parameters, LibraryClass.class, syntheticItems)
         .applyIf(
             isLibraryClassAlwaysPresent(),
             verifier ->
@@ -139,7 +142,7 @@ public class ApiOutlineProfileRewritingTest extends TestBase {
 
     // Check outline was added to program.
     ClassSubject apiOutlineClassSubject =
-        inspector.clazz(getSyntheticItemsTestUtils(isR8).syntheticApiOutlineClass(Main.class, 0));
+        inspector.syntheticClass(syntheticItems.syntheticApiOutlineClass(Main.class, 0));
     assertThat(apiOutlineClassSubject, notIf(isPresent(), isLibraryClassAlwaysPresent()));
 
     MethodSubject apiOutlineMethodSubject = apiOutlineClassSubject.uniqueMethod();
