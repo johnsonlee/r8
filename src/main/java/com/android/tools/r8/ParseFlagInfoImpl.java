@@ -7,6 +7,7 @@ import static com.android.tools.r8.BaseCompilerCommandParser.ART_PROFILE_FLAG;
 import static com.android.tools.r8.BaseCompilerCommandParser.MAP_DIAGNOSTICS;
 import static com.android.tools.r8.BaseCompilerCommandParser.MIN_API_FLAG;
 import static com.android.tools.r8.BaseCompilerCommandParser.THREAD_COUNT_FLAG;
+import static com.android.tools.r8.BaseCompilerCommandParser.VERBOSE_SYNTHETIC_NAMES;
 import static com.android.tools.r8.D8CommandParser.STARTUP_PROFILE_FLAG;
 import static com.android.tools.r8.R8CommandParser.ISOLATED_SPLITS_FLAG;
 
@@ -198,6 +199,12 @@ public class ParseFlagInfoImpl implements ParseFlagInfo {
 
   public static ParseFlagInfoImpl getStartupProfile() {
     return flag1(STARTUP_PROFILE_FLAG, "<file>", "Startup profile <file> to use for dex layout.");
+  }
+
+  public static ParseFlagInfoImpl getVerboseSyntheticNames() {
+    return flag0(
+        VERBOSE_SYNTHETIC_NAMES,
+        "Enable verbose synthetic names that use the `$$ExternalSynthetic` marker.");
   }
 
   public static ParseFlagInfoImpl getIsolatedSplits() {
