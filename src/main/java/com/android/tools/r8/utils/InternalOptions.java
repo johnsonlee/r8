@@ -1069,6 +1069,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   public List<ProguardConfigurationRule> mainDexKeepRules = ImmutableList.of();
   public boolean minimalMainDex;
+
   /**
    * Enable usage of InheritanceClassInDexDistributor for multidex legacy builds. This allows
    * distribution of classes to minimize DexOpt LinearAlloc usage by minimizing linking errors
@@ -1260,8 +1261,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   private final Map<Origin, List<TypeVersionPair>> missingEnclosingMembers = new HashMap<>();
 
-  private final Map<Origin, List<InvalidParameterAnnotationInfo>> warningInvalidParameterAnnotations
-      = new HashMap<>();
+  private final Map<Origin, List<InvalidParameterAnnotationInfo>>
+      warningInvalidParameterAnnotations = new HashMap<>();
 
   private final Map<Origin, List<Pair<ProgramMethod, String>>> warningInvalidDebugInfo =
       new HashMap<>();
@@ -2191,6 +2192,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean enableNumberUnboxer = false;
     public boolean printNumberUnboxed = false;
     public boolean roundtripThroughLir = false;
+
     public boolean canUseLir(AppView<?> appView) {
       return appView.enableWholeProgramOptimizations()
           || appView.options().partialSubCompilationConfiguration != null;
