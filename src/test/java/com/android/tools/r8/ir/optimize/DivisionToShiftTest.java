@@ -4,7 +4,7 @@
 
 package com.android.tools.r8.ir.optimize;
 
-import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -15,9 +15,6 @@ import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeMatchers;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterators;
-import org.hamcrest.Matcher;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -26,7 +23,39 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class DivisionToShiftTest extends TestBase {
 
-  private static final String EXPECTED_OUTPUT = StringUtils.lines("10");
+  private static final String EXPECTED_OUTPUT =
+      StringUtils.lines(
+          "61728394",
+          "30864197",
+          "15432098",
+          "7716049",
+          "3858024",
+          "1929012",
+          "964506",
+          "482253",
+          "241126",
+          "120563",
+          "60281",
+          "30140",
+          "15070",
+          "7535",
+          "3767",
+          "1883",
+          "941",
+          "470",
+          "235",
+          "117",
+          "58",
+          "29",
+          "14",
+          "7",
+          "3",
+          "1",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0");
 
   @Parameterized.Parameter() public TestParameters parameters;
 
@@ -34,10 +63,6 @@ public class DivisionToShiftTest extends TestBase {
   public static TestParametersCollection data() {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
   }
-
-  private static final Matcher<MethodSubject> invokesIntegerDivideUnsigned =
-      CodeMatchers.invokesMethod(
-          "int", "java.lang.Integer", "divideUnsigned", ImmutableList.of("int", "int"));
 
   private boolean isIntegerDivideUnsignedSupported() {
     return parameters.isCfRuntime()
@@ -63,12 +88,12 @@ public class DivisionToShiftTest extends TestBase {
             inspector -> {
               MethodSubject mainMethod = inspector.clazz(Main.class).mainMethod();
               if (isIntegerDivideUnsignedSupported()) {
-                assertThat(mainMethod, invokesIntegerDivideUnsigned);
+                assertEquals(31, divideUnsignedCallCount(mainMethod));
               } else {
-                assertThat(
-                    "uses inlined backport division",
-                    Iterators.any(
-                        mainMethod.iterateInstructions(), InstructionSubject::isDivision));
+                // `java.lang.Integer::divideUnsigned` is backported and then inlined
+                long divisionCount =
+                    mainMethod.streamInstructions().filter(InstructionSubject::isDivision).count();
+                assertEquals(31, divisionCount);
               }
             })
         .run(parameters.getRuntime(), Main.class)
@@ -86,14 +111,19 @@ public class DivisionToShiftTest extends TestBase {
             (inspector, syntheticItemsTestUtils) -> {
               MethodSubject mainMethod = inspector.clazz(Main.class).mainMethod();
               if (isIntegerDivideUnsignedSupported()) {
-                assertThat(mainMethod, invokesIntegerDivideUnsigned);
+                assertEquals(31, divideUnsignedCallCount(mainMethod));
               } else {
                 MethodReference backportMethod =
                     syntheticItemsTestUtils.syntheticBackportMethod(
                         Main.class,
                         0,
                         Integer.class.getMethod("divideUnsigned", int.class, int.class));
-                assertThat(mainMethod, CodeMatchers.invokesMethod(backportMethod));
+                long backportCallCount =
+                    mainMethod
+                        .streamInstructions()
+                        .filter(CodeMatchers.isInvokeWithTarget(backportMethod))
+                        .count();
+                assertEquals(31, backportCallCount);
               }
             })
         .run(parameters.getRuntime(), Main.class)
@@ -101,9 +131,46 @@ public class DivisionToShiftTest extends TestBase {
     ;
   }
 
+  private static long divideUnsignedCallCount(MethodSubject method) {
+    return method
+        .streamInstructions()
+        .filter(CodeMatchers.isInvokeWithTarget("java.lang.Integer", "divideUnsigned"))
+        .count();
+  }
+
   public static class Main {
     public static void main(String[] args) {
-      System.out.println(Integer.divideUnsigned(84, 8));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000000000000010));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000000000000100));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000000000001000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000000000010000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000000000100000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000000001000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000000010000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000000100000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000001000000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000010000000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000100000000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000001000000000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000010000000000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000100000000000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000001000000000000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000010000000000000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000100000000000000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000001000000000000000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000010000000000000000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000100000000000000000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000001000000000000000000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000010000000000000000000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000100000000000000000000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000001000000000000000000000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000010000000000000000000000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000100000000000000000000000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00001000000000000000000000000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00010000000000000000000000000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00100000000000000000000000000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b01000000000000000000000000000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b10000000000000000000000000000000));
     }
   }
 }
