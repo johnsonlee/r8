@@ -46,6 +46,7 @@ public class SameFilePolicy extends MultiClassSameReferencePolicy<Object> {
       this.key = key;
     }
 
+    @SuppressWarnings("EqualsGetClass")
     @Override
     public final boolean equals(Object o) {
       if (this == o) {
