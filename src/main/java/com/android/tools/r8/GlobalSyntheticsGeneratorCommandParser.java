@@ -4,6 +4,7 @@
 
 package com.android.tools.r8;
 
+import static com.android.tools.r8.BaseCompilerCommandParser.VERBOSE_SYNTHETIC_NAMES;
 import static com.android.tools.r8.BaseCompilerCommandParser.parsePositiveIntArgument;
 
 import com.android.tools.r8.origin.Origin;
@@ -38,6 +39,7 @@ public class GlobalSyntheticsGeneratorCommandParser {
                 "--classfile",
                 "Generate globals for only classfile to classfile desugaring.",
                 "(By default globals for both classfile and dex desugaring are generated)."))
+        .add(ParseFlagInfoImpl.getVerboseSyntheticNames())
         .add(ParseFlagInfoImpl.getVersion(LOWER_CASE_NAME))
         .add(ParseFlagInfoImpl.getHelp())
         .build();
@@ -108,6 +110,8 @@ public class GlobalSyntheticsGeneratorCommandParser {
         builder.addLibraryFiles(Paths.get(nextArg));
       } else if (arg.equals(CLASSFILE_DESUGARING_MODE)) {
         builder.setClassfileDesugaringOnly(true);
+      } else if (arg.equals(VERBOSE_SYNTHETIC_NAMES)) {
+        builder.setEnableVerboseSyntheticNames(true);
       } else if (arg.startsWith("--")) {
         builder.error(new StringDiagnostic("Unknown option: " + arg, origin));
       }
