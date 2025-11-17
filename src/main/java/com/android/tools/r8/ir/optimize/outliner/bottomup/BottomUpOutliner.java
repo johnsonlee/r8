@@ -23,6 +23,7 @@ import com.android.tools.r8.ir.optimize.DeadCodeRemover;
 import com.android.tools.r8.lightir.LirCode;
 import com.android.tools.r8.lightir.LirConstant;
 import com.android.tools.r8.lightir.LirOpcodes;
+import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.collections.ProgramMethodMap;
@@ -191,17 +192,31 @@ public class BottomUpOutliner {
 
     // Synthesize the outlines concurrently.
     ProcessorContext processorContext = appView.createProcessorContext();
+    ProfileCollectionAdditions profileCollectionAdditions =
+        ProfileCollectionAdditions.create(appView);
     ThreadUtils.processMap(
         synthesizingContexts,
         (synthesizingContext, outlinesFromSynthesizingContext) -> {
           MethodProcessingContext methodProcessingContext =
               processorContext.createMethodProcessingContext(synthesizingContext);
           for (Outline outline : outlinesFromSynthesizingContext) {
-            outline.materialize(appView, methodProcessingContext);
+            ProgramMethod outlineMethod = outline.materialize(appView, methodProcessingContext);
+            if (!profileCollectionAdditions.isNop()) {
+              for (Multiset.Entry<DexMethod> user : outline.getUsers().entrySet()) {
+                DexMethod userReference = user.getElement();
+                profileCollectionAdditions.applyIfContextIsInProfile(
+                    userReference,
+                    additions ->
+                        additions
+                            .addClassRule(outlineMethod.getHolderType())
+                            .addMethodRule(outlineMethod.getReference()));
+              }
+            }
           }
         },
         appView.options().getThreadingModule(),
         executorService);
+    profileCollectionAdditions.commit(appView);
   }
 
   private boolean shouldMaterializeOutline(Outline outline, ProgramMethod synthesizingContext) {
