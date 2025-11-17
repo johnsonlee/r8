@@ -393,6 +393,12 @@ public class CfInstructionSubject implements InstructionSubject {
   }
 
   @Override
+  public boolean isUnsignedShiftRight() {
+    return instruction instanceof CfLogicalBinop
+        && ((CfLogicalBinop) instruction).getOpcode() == CfLogicalBinop.Opcode.Ushr;
+  }
+
+  @Override
   public boolean isMonitorEnter() {
     if (!(instruction instanceof CfMonitor)) {
       return false;

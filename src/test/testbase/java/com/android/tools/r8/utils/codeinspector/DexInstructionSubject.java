@@ -681,6 +681,15 @@ public class DexInstructionSubject implements InstructionSubject {
   }
 
   @Override
+  public boolean isUnsignedShiftRight() {
+    return instruction instanceof DexUshrInt
+        || instruction instanceof DexUshrIntLit8
+        || instruction instanceof DexUshrInt2Addr
+        || instruction instanceof DexUshrLong
+        || instruction instanceof DexUshrLong2Addr;
+  }
+
+  @Override
   public boolean isNewArray() {
     return instruction instanceof DexNewArray;
   }

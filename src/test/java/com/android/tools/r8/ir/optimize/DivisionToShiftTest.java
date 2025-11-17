@@ -6,15 +6,17 @@ package com.android.tools.r8.ir.optimize;
 
 import static org.junit.Assert.assertEquals;
 
+import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.references.MethodReference;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeMatchers;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -57,11 +59,16 @@ public class DivisionToShiftTest extends TestBase {
           "0",
           "0");
 
-  @Parameterized.Parameter() public TestParameters parameters;
+  @Parameterized.Parameter(0)
+  public TestParameters parameters;
 
-  @Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimesAndApiLevels().build();
+  @Parameterized.Parameter(1)
+  public CompilationMode mode;
+
+  @Parameters(name = "{0}, {1}")
+  public static List<Object[]> data() {
+    return buildParameters(
+        getTestParameters().withAllRuntimesAndApiLevels().build(), CompilationMode.values());
   }
 
   private boolean isIntegerDivideUnsignedSupported() {
@@ -82,18 +89,38 @@ public class DivisionToShiftTest extends TestBase {
   public void testR8() throws Exception {
     testForR8(parameters)
         .addProgramClasses(Main.class)
+        .setMode(mode)
         .addKeepMainRule(Main.class)
+        .collectSyntheticItems()
         .compile()
-        .inspect(
-            inspector -> {
+        .inspectWithSyntheticItems(
+            (inspector, syntheticItemsTestUtils) -> {
               MethodSubject mainMethod = inspector.clazz(Main.class).mainMethod();
               if (isIntegerDivideUnsignedSupported()) {
-                assertEquals(31, divideUnsignedCallCount(mainMethod));
+                boolean isOptimizationEnabled = mode.isRelease();
+                if (isOptimizationEnabled) {
+                  assertEquals(
+                      DIVISION_COUNT,
+                      mainMethod
+                          .streamInstructions()
+                          .filter(InstructionSubject::isUnsignedShiftRight)
+                          .count());
+                } else {
+                  assertEquals(DIVISION_COUNT, divideUnsignedCallCount(mainMethod));
+                }
               } else {
-                // `java.lang.Integer::divideUnsigned` is backported and then inlined
-                long divisionCount =
-                    mainMethod.streamInstructions().filter(InstructionSubject::isDivision).count();
-                assertEquals(31, divisionCount);
+                boolean isBackportInlined = mode.isRelease();
+                if (isBackportInlined) {
+                  long divisionCount =
+                      mainMethod
+                          .streamInstructions()
+                          .filter(InstructionSubject::isDivision)
+                          .count();
+                  assertEquals(DIVISION_COUNT, divisionCount);
+                } else {
+                  long backportCallCount = backportCallCount(syntheticItemsTestUtils, mainMethod);
+                  assertEquals(DIVISION_COUNT, backportCallCount);
+                }
               }
             })
         .run(parameters.getRuntime(), Main.class)
@@ -105,30 +132,43 @@ public class DivisionToShiftTest extends TestBase {
     parameters.assumeDexRuntime();
     testForD8(parameters)
         .addProgramClasses(Main.class)
+        .setMode(mode)
         .collectSyntheticItems()
         .compile()
         .inspectWithSyntheticItems(
             (inspector, syntheticItemsTestUtils) -> {
               MethodSubject mainMethod = inspector.clazz(Main.class).mainMethod();
               if (isIntegerDivideUnsignedSupported()) {
-                assertEquals(31, divideUnsignedCallCount(mainMethod));
+                boolean isOptimizationEnabled = mode.isRelease();
+                if (isOptimizationEnabled) {
+                  long unsignedShiftCount =
+                      mainMethod
+                          .streamInstructions()
+                          .filter(InstructionSubject::isUnsignedShiftRight)
+                          .count();
+                  assertEquals(DIVISION_COUNT, unsignedShiftCount);
+                } else {
+                  assertEquals(DIVISION_COUNT, divideUnsignedCallCount(mainMethod));
+                }
               } else {
-                MethodReference backportMethod =
-                    syntheticItemsTestUtils.syntheticBackportMethod(
-                        Main.class,
-                        0,
-                        Integer.class.getMethod("divideUnsigned", int.class, int.class));
-                long backportCallCount =
-                    mainMethod
-                        .streamInstructions()
-                        .filter(CodeMatchers.isInvokeWithTarget(backportMethod))
-                        .count();
-                assertEquals(31, backportCallCount);
+                assertEquals(
+                    DIVISION_COUNT, backportCallCount(syntheticItemsTestUtils, mainMethod));
               }
             })
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
-    ;
+  }
+
+  private static long backportCallCount(
+      SyntheticItemsTestUtils syntheticItemsTestUtils, MethodSubject mainMethod)
+      throws NoSuchMethodException {
+    MethodReference backportMethod =
+        syntheticItemsTestUtils.syntheticBackportMethod(
+            Main.class, 0, Integer.class.getMethod("divideUnsigned", int.class, int.class));
+    return mainMethod
+        .streamInstructions()
+        .filter(CodeMatchers.isInvokeWithTarget(backportMethod))
+        .count();
   }
 
   private static long divideUnsignedCallCount(MethodSubject method) {
@@ -137,6 +177,8 @@ public class DivisionToShiftTest extends TestBase {
         .filter(CodeMatchers.isInvokeWithTarget("java.lang.Integer", "divideUnsigned"))
         .count();
   }
+
+  private static final int DIVISION_COUNT = 31;
 
   public static class Main {
     public static void main(String[] args) {

@@ -158,6 +158,8 @@ public interface InstructionSubject {
 
   boolean isDivision();
 
+  boolean isUnsignedShiftRight();
+
   boolean isNewArray();
 
   boolean isArrayLength();
