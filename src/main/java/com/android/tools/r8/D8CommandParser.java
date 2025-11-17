@@ -91,6 +91,7 @@ public class D8CommandParser extends BaseCompilerCommandParser<D8Command, D8Comm
         .add(ParseFlagInfoImpl.getAndroidPlatformBuild())
         .add(ParseFlagInfoImpl.getArtProfile())
         .add(ParseFlagInfoImpl.getStartupProfile())
+        .add(ParseFlagInfoImpl.getVerboseSyntheticNames())
         .add(ParseFlagInfoImpl.getVersion("d8"))
         .add(ParseFlagInfoImpl.getHelp())
         .build();
@@ -366,6 +367,8 @@ public class D8CommandParser extends BaseCompilerCommandParser<D8Command, D8Comm
           continue;
         }
         buildMetadataOutputPath = Paths.get(nextArg);
+      } else if (arg.equals(VERBOSE_SYNTHETIC_NAMES)) {
+        builder.setEnableVerboseSyntheticNames(true);
       } else if (arg.startsWith("--")) {
         if (tryParseAssertionArgument(builder, arg, origin)) {
           continue;

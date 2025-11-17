@@ -1379,7 +1379,7 @@ public class ProguardConfigurationParser {
                             new ProguardMemberRuleReturnValue(new LongInterval(min, max)));
                       } else {
                         Nullability nullability = Nullability.maybeNull();
-                        if (acceptString("_NONNULL_")) {
+                        if (acceptString("@NonNull") || acceptString("_NONNULL_")) {
                           nullability = Nullability.definitelyNotNull();
                           skipWhitespace();
                           if (acceptChar(';')) {

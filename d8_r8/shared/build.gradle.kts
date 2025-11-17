@@ -7,21 +7,27 @@ plugins {
   id("dependencies-plugin")
 }
 
+val enableDownloadDeps = !project.hasProperty("disable_download_deps")
+
 tasks {
 
   val downloadDeps by registering(DownloadAllDependenciesTask::class) {
     this.setDependencies(getRoot(), allPublicDependencies())
+    onlyIf { enableDownloadDeps }
   }
 
   val downloadTestDeps by registering(DownloadAllDependenciesTask::class) {
     this.setDependencies(getRoot(), allPublicTestDependencies())
+    onlyIf { enableDownloadDeps }
   }
 
   val downloadDepsInternal by registering(DownloadAllDependenciesTask::class) {
     this.setDependencies(getRoot(), allInternalDependencies())
+    onlyIf { enableDownloadDeps }
   }
 
   val downloadTestDepsInternal by registering(DownloadAllDependenciesTask::class) {
     this.setDependencies(getRoot(), allInternalTestDependencies())
+    onlyIf { enableDownloadDeps }
   }
 }

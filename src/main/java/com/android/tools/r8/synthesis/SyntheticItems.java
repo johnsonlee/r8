@@ -184,6 +184,10 @@ public class SyntheticItems {
       return definitions.isEmpty();
     }
 
+    boolean containsMethod(DexType type) {
+      return definitions.containsKey(type) && definitions.get(type).isMethodDefinition();
+    }
+
     boolean containsType(DexType type) {
       return definitions.containsKey(type);
     }
@@ -517,6 +521,13 @@ public class SyntheticItems {
 
   public boolean isSyntheticClass(DexProgramClass clazz) {
     return isSyntheticClass(clazz.type);
+  }
+
+  public boolean isSyntheticMethod(DexProgramClass clazz) {
+    DexType type = clazz.getType();
+    return committed.containsMethod(type)
+        || finalized.containsMethod(type)
+        || pending.containsMethod(type);
   }
 
   public boolean isGlobalSyntheticClass(DexType type) {

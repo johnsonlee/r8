@@ -27,10 +27,12 @@ java {
 val testbaseJavaCompileTask = projectTask("testbase", "compileJava")
 val testbaseDepsJarTask = projectTask("testbase", "depsJar")
 val mainCompileTask = projectTask("main", "compileJava")
+val mainTurboCompileTask = projectTask("main", "compileTurboJava")
 
 dependencies {
   implementation(files(testbaseDepsJarTask.outputs.files.getSingleFile()))
   implementation(testbaseJavaCompileTask.outputs.files)
+  implementation(mainTurboCompileTask.outputs.files)
   implementation(mainCompileTask.outputs.files)
   implementation(projectTask("main", "processResources").outputs.files)
 }
