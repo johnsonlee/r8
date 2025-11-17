@@ -5,6 +5,7 @@
 package com.android.tools.r8.ir.optimize;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
 import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.TestBase;
@@ -80,22 +81,22 @@ public class DivisionToShiftTest extends TestBase {
   public void testJvm() throws Exception {
     parameters.assumeJvmTestParameters();
     testForJvm(parameters)
-        .addProgramClasses(Main.class)
-        .run(parameters.getRuntime(), Main.class)
+        .addProgramClasses(PositiveTest.class)
+        .run(parameters.getRuntime(), PositiveTest.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   @Test
-  public void testR8() throws Exception {
+  public void testR8Positive() throws Exception {
     testForR8(parameters)
-        .addProgramClasses(Main.class)
+        .addProgramClasses(PositiveTest.class)
         .setMode(mode)
-        .addKeepMainRule(Main.class)
+        .addKeepMainRule(PositiveTest.class)
         .collectSyntheticItems()
         .compile()
         .inspectWithSyntheticItems(
             (inspector, syntheticItemsTestUtils) -> {
-              MethodSubject mainMethod = inspector.clazz(Main.class).mainMethod();
+              MethodSubject mainMethod = inspector.clazz(PositiveTest.class).mainMethod();
               if (isIntegerDivideUnsignedSupported()) {
                 boolean isOptimizationEnabled = mode.isRelease();
                 if (isOptimizationEnabled) {
@@ -123,21 +124,21 @@ public class DivisionToShiftTest extends TestBase {
                 }
               }
             })
-        .run(parameters.getRuntime(), Main.class)
+        .run(parameters.getRuntime(), PositiveTest.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   @Test
-  public void testD8() throws Exception {
+  public void testD8Positive() throws Exception {
     parameters.assumeDexRuntime();
     testForD8(parameters)
-        .addProgramClasses(Main.class)
+        .addProgramClasses(PositiveTest.class)
         .setMode(mode)
         .collectSyntheticItems()
         .compile()
         .inspectWithSyntheticItems(
             (inspector, syntheticItemsTestUtils) -> {
-              MethodSubject mainMethod = inspector.clazz(Main.class).mainMethod();
+              MethodSubject mainMethod = inspector.clazz(PositiveTest.class).mainMethod();
               if (isIntegerDivideUnsignedSupported()) {
                 boolean isOptimizationEnabled = mode.isRelease();
                 if (isOptimizationEnabled) {
@@ -155,7 +156,7 @@ public class DivisionToShiftTest extends TestBase {
                     DIVISION_COUNT, backportCallCount(syntheticItemsTestUtils, mainMethod));
               }
             })
-        .run(parameters.getRuntime(), Main.class)
+        .run(parameters.getRuntime(), PositiveTest.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
@@ -164,7 +165,7 @@ public class DivisionToShiftTest extends TestBase {
       throws NoSuchMethodException {
     MethodReference backportMethod =
         syntheticItemsTestUtils.syntheticBackportMethod(
-            Main.class, 0, Integer.class.getMethod("divideUnsigned", int.class, int.class));
+            PositiveTest.class, 0, Integer.class.getMethod("divideUnsigned", int.class, int.class));
     return mainMethod
         .streamInstructions()
         .filter(CodeMatchers.isInvokeWithTarget(backportMethod))
@@ -180,7 +181,7 @@ public class DivisionToShiftTest extends TestBase {
 
   private static final int DIVISION_COUNT = 31;
 
-  public static class Main {
+  public static class PositiveTest {
     public static void main(String[] args) {
       System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000000000000010));
       System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000000000000100));
@@ -213,6 +214,77 @@ public class DivisionToShiftTest extends TestBase {
       System.out.println(Integer.divideUnsigned(123456789, 0b00100000000000000000000000000000));
       System.out.println(Integer.divideUnsigned(123456789, 0b01000000000000000000000000000000));
       System.out.println(Integer.divideUnsigned(123456789, 0b10000000000000000000000000000000));
+    }
+  }
+
+  @Test
+  public void testR8Negative() throws Exception {
+    testForR8(parameters)
+        .addProgramClasses(NegativeTest.class)
+        .setMode(mode)
+        .addKeepMainRule(NegativeTest.class)
+        .compile()
+        .inspect(
+            inspector -> {
+              MethodSubject mainMethod = inspector.clazz(NegativeTest.class).mainMethod();
+              assertFalse(
+                  mainMethod
+                      .streamInstructions()
+                      .anyMatch(InstructionSubject::isUnsignedShiftRight));
+            });
+  }
+
+  @Test
+  public void testD8Negative() throws Exception {
+    parameters.assumeDexRuntime();
+    testForD8(parameters)
+        .addProgramClasses(NegativeTest.class)
+        .setMode(mode)
+        .compile()
+        .inspect(
+            inspector -> {
+              MethodSubject mainMethod = inspector.clazz(NegativeTest.class).mainMethod();
+              assertFalse(
+                  mainMethod
+                      .streamInstructions()
+                      .anyMatch(InstructionSubject::isUnsignedShiftRight));
+            });
+  }
+
+  public static class NegativeTest {
+    public static void main(String[] args) {
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000000000000001));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000000000000011));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000000000000101));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000000000001010));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000000000010100));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000000000100010));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000000001000001));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000000010001000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000000100100000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000001000000100));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000010000100000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000100100000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000001000000000010));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000010000001000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000100010000000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000001000000001000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000010000000000010000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000100010000000000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000001000000000010000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000010000000100000000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000100000000000001000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000001000000001000000000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000011111111111111111111111));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000000100000100000000000000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000001000000000100000000000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000010000000000000000100000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00000100000000000000100000000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00001000000011100000000100000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00010000000000000000000010000000));
+      System.out.println(Integer.divideUnsigned(123456789, 0b00100000000000000000000000000001));
+      System.out.println(Integer.divideUnsigned(123456789, 0b01000000000000000000000000001111));
+      System.out.println(Integer.divideUnsigned(123456789, 0b11111111111111111111111111111111));
     }
   }
 }
