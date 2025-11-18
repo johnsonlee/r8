@@ -27,6 +27,9 @@ public abstract class TestBaseResult<
   }
 
   public SyntheticItemsTestUtils getSyntheticItems() {
+    if (state.getSyntheticItems() == null) {
+      throw new RuntimeException("Synthetic items were not collected");
+    }
     return state.getSyntheticItems();
   }
 }
