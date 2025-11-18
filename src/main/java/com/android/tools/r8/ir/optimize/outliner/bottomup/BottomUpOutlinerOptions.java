@@ -4,6 +4,7 @@
 package com.android.tools.r8.ir.optimize.outliner.bottomup;
 
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.SystemPropertyUtils;
 import java.util.Collection;
 import java.util.function.Consumer;
@@ -11,9 +12,9 @@ import java.util.function.Predicate;
 
 public class BottomUpOutlinerOptions {
 
-  public boolean enable =
+  public OptionalBool enable =
       SystemPropertyUtils.parseSystemPropertyOrDefault(
-          "com.android.tools.r8.outliner.enable", false);
+          "com.android.tools.r8.outliner.enable", OptionalBool.UNKNOWN);
 
   public boolean enableStringBuilderOutlining =
       SystemPropertyUtils.parseSystemPropertyOrDefault(
@@ -38,12 +39,18 @@ public class BottomUpOutlinerOptions {
   public Predicate<Outline> outlineStrategyForTesting = null;
 
   public boolean isEnabled(AppView<?> appView) {
-    if (!appView.options().isGeneratingDex() || !enable) {
+    if (!appView.options().isGeneratingDex() || enable.isFalse()) {
       return false;
     }
+    // Only enable in R8 by default.
+    if (enable.isUnknown() && !appView.enableWholeProgramOptimizations()) {
+      return false;
+    }
+    // Only enable in release mode by default.
     if (appView.options().debug && !forceDebug) {
       return false;
     }
+    // Disable in R8 partial for now.
     if (appView.options().partialSubCompilationConfiguration != null) {
       return false;
     }

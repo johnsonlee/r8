@@ -69,7 +69,10 @@ public class BottomUpOutliner {
   public void runForR8(ExecutorService executorService, Timing timing) throws ExecutionException {
     timing.begin("Throw block outliner");
     scan(executorService, timing);
-    tearDownScanner(Collections.emptyMap(), executorService);
+    ProfileCollectionAdditions profileCollectionAdditions =
+        ProfileCollectionAdditions.create(appView);
+    tearDownScanner(Collections.emptyMap(), profileCollectionAdditions, executorService);
+    profileCollectionAdditions.commit(appView);
     // Commit pending synthetics.
     appView.rebuildAppInfo();
     appView.getTypeElementFactory().clearTypeElementsCache();
@@ -130,7 +133,9 @@ public class BottomUpOutliner {
   }
 
   public void tearDownScanner(
-      Map<DexMethod, DexMethod> forcefullyMovedLambdaMethods, ExecutorService executorService)
+      Map<DexMethod, DexMethod> forcefullyMovedLambdaMethods,
+      ProfileCollectionAdditions profileCollectionAdditions,
+      ExecutorService executorService)
       throws ExecutionException {
     // Unset the scanner, which is responsible for computing outline candidates.
     assert scanner != null;
@@ -139,7 +144,7 @@ public class BottomUpOutliner {
 
     // Create outlines.
     updateOutlineUsers(outlines, forcefullyMovedLambdaMethods);
-    materializeOutlines(outlines, executorService);
+    materializeOutlines(outlines, profileCollectionAdditions, executorService);
     assert supplyOutlineConsumerForTesting(outlines);
 
     // Convert LIR to DEX.
@@ -154,7 +159,10 @@ public class BottomUpOutliner {
     }
   }
 
-  private void materializeOutlines(Collection<Outline> outlines, ExecutorService executorService)
+  private void materializeOutlines(
+      Collection<Outline> outlines,
+      ProfileCollectionAdditions profileCollectionAdditions,
+      ExecutorService executorService)
       throws ExecutionException {
     // Find the outlines that we need to synthesize from each method.
     ProgramMethodMap<List<Outline>> synthesizingContexts = ProgramMethodMap.create();
@@ -192,8 +200,6 @@ public class BottomUpOutliner {
 
     // Synthesize the outlines concurrently.
     ProcessorContext processorContext = appView.createProcessorContext();
-    ProfileCollectionAdditions profileCollectionAdditions =
-        ProfileCollectionAdditions.create(appView);
     ThreadUtils.processMap(
         synthesizingContexts,
         (synthesizingContext, outlinesFromSynthesizingContext) -> {
@@ -216,7 +222,6 @@ public class BottomUpOutliner {
         },
         appView.options().getThreadingModule(),
         executorService);
-    profileCollectionAdditions.commit(appView);
   }
 
   private boolean shouldMaterializeOutline(Outline outline, ProgramMethod synthesizingContext) {

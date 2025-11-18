@@ -284,7 +284,9 @@ public class PrimaryD8L8IRConverter extends IRConverter {
     appView.withBottomUpOutliner(
         outliner ->
             outliner.tearDownScanner(
-                classConverterResult.getForcefullyMovedLambdaMethods(), executorService));
+                classConverterResult.getForcefullyMovedLambdaMethods(),
+                methodProcessor.getProfileCollectionAdditions(),
+                executorService));
 
     // The synthesis of accessibility bridges in nest based access desugaring will schedule and
     // await the processing of synthesized methods.

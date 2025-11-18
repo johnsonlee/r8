@@ -115,6 +115,11 @@ public class AssistantTestBuilder
         getMinApiLevel());
   }
 
+  @Override
+  public boolean isR8AssistantTestBuilder() {
+    return true;
+  }
+
   public AssistantTestBuilder setCustomReflectiveOperationReceiver(
       String customReflectiveOperationReceiver) {
     this.customReflectiveOperationReceiver = customReflectiveOperationReceiver;
