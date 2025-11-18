@@ -146,9 +146,12 @@ public class DexAnnotation extends DexItem implements StructuralItem<DexAnnotati
 
   public static boolean retainCompileTimeAnnotation(
       DexType annotationType, InternalOptions options) {
-    if (options.retainCompileTimeAnnotations) {
-      return true;
-    }
+    return options.retainCompileTimeAnnotations
+        || alwaysRetainCompileTimeAnnotation(annotationType, options);
+  }
+
+  public static boolean alwaysRetainCompileTimeAnnotation(
+      DexType annotationType, InternalOptions options) {
     DexItemFactory factory = options.itemFactory;
     if (annotationType.isIdenticalTo(factory.annotationSynthesizedClass)) {
       return true;

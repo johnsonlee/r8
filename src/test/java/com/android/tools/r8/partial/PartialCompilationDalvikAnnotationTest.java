@@ -5,7 +5,6 @@ package com.android.tools.r8.partial;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static junit.framework.TestCase.assertFalse;
-import static junit.framework.TestCase.assertTrue;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.TestBase;
@@ -61,8 +60,7 @@ public class PartialCompilationDalvikAnnotationTest extends TestBase {
               MethodSubject mainMethod =
                   inspector.clazz(Main.class).uniqueMethodWithOriginalName("main");
               assertThat(mainMethod, isPresent());
-              // TODO(b/461460945): Should be non-empty.
-              assertTrue(mainMethod.annotations().isEmpty());
+              assertFalse(mainMethod.annotations().isEmpty());
             });
   }
 
