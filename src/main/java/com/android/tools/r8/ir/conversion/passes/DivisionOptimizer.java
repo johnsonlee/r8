@@ -55,7 +55,7 @@ public class DivisionOptimizer extends CodeRewriterPass<AppInfo> {
       InvokeStatic invokeStatic = next.asInvokeStatic();
       Value dest = invokeStatic.outValue();
       DexMethod method = invokeStatic.getInvokedMethod();
-      if (!appView.dexItemFactory().integerMembers.unsignedDivision.isIdenticalTo(method)) {
+      if (!appView.dexItemFactory().integerMembers.divideUnsigned.isIdenticalTo(method)) {
         continue;
       }
       assert invokeStatic.arguments().size() == 2;
