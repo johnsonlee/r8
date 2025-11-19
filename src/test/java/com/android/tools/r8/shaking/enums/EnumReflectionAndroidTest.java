@@ -308,7 +308,6 @@ public class EnumReflectionAndroidTest extends TestBase {
     byte[] intentBytes = rewriteIntent();
     testForR8(parameters.getBackend())
         .setMinApi(parameters)
-        .addOptionsModification(options -> options.experimentalTraceAndroidEnumSerialization = true)
         .addProgramClassesAndInnerClasses(Helpers.class)
         .addProgramClassFileData(rewriteTestMain())
         .addProgramClasses(Class.forName(ENUM_SUBTYPE_BRIDGE_CLASS_NAME))

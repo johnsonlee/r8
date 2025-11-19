@@ -786,8 +786,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
       System.getProperty("com.android.tools.r8.ignoreBootClasspathEnumsForMaindexTracing") != null;
   public boolean pruneNonVissibleAnnotationClasses =
       System.getProperty("com.android.tools.r8.pruneNonVissibleAnnotationClasses") != null;
-  public boolean experimentalTraceAndroidEnumSerialization =
-      System.getProperty("com.android.tools.r8.experimentalTraceAndroidEnumSerialization") != null;
   public boolean enableXmlInlining =
       System.getProperty("com.android.tools.r8.enableXmlInlining") != null;
   // Enable color inlining in code, i.e `getResources().getColor(..)`.
