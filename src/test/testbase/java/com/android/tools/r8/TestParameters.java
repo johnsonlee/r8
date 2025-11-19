@@ -97,6 +97,10 @@ public class TestParameters {
     return isDexRuntime() && getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.T);
   }
 
+  public boolean canUseJavaLangDivideUnsigned() {
+    return isCfRuntime() || getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.O);
+  }
+
   public boolean canUseNativeDexPC() {
     assert isCfRuntime() || isDexRuntime();
     return isDexRuntime() && getDexRuntimeVersion().isNewerThanOrEqual(DexVm.Version.V8_1_0);

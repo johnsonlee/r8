@@ -12,7 +12,6 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeMatchers;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
@@ -72,11 +71,6 @@ public class DivisionToShiftTest extends TestBase {
         getTestParameters().withAllRuntimesAndApiLevels().build(), CompilationMode.values());
   }
 
-  private boolean isIntegerDivideUnsignedSupported() {
-    return parameters.isCfRuntime()
-        || parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.O);
-  }
-
   @Test
   public void testJvm() throws Exception {
     parameters.assumeJvmTestParameters();
@@ -97,7 +91,7 @@ public class DivisionToShiftTest extends TestBase {
         .inspectWithSyntheticItems(
             (inspector, syntheticItemsTestUtils) -> {
               MethodSubject mainMethod = inspector.clazz(PositiveTest.class).mainMethod();
-              if (isIntegerDivideUnsignedSupported()) {
+              if (parameters.canUseJavaLangDivideUnsigned()) {
                 boolean isOptimizationEnabled = mode.isRelease();
                 if (isOptimizationEnabled) {
                   assertEquals(
@@ -139,7 +133,7 @@ public class DivisionToShiftTest extends TestBase {
         .inspectWithSyntheticItems(
             (inspector, syntheticItemsTestUtils) -> {
               MethodSubject mainMethod = inspector.clazz(PositiveTest.class).mainMethod();
-              if (isIntegerDivideUnsignedSupported()) {
+              if (parameters.canUseJavaLangDivideUnsigned()) {
                 boolean isOptimizationEnabled = mode.isRelease();
                 if (isOptimizationEnabled) {
                   long unsignedShiftCount =
