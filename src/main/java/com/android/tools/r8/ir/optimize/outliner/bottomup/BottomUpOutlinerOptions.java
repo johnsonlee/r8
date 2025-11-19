@@ -50,8 +50,8 @@ public class BottomUpOutlinerOptions {
     if (appView.options().debug && !forceDebug) {
       return false;
     }
-    // Disable in R8 partial for now.
-    if (appView.options().partialSubCompilationConfiguration != null) {
+    // Disable in D8 of R8 partial. In R8 partial, outlining should run in the inner R8 compilation.
+    if (appView.options().getR8PartialD8SubCompilationOptions() != null) {
       return false;
     }
     return true;
