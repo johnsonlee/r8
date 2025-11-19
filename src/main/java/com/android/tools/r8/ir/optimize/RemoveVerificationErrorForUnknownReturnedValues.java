@@ -180,13 +180,15 @@ public class RemoveVerificationErrorForUnknownReturnedValues {
   }
 
   // Dalvik and some new ART versions have a stricter verifier that do not allow type-checking
-  // unknown return value types against a known return type.
+  // unknown return value types against a known return type. ART 6 up to ART 12 (exclusive) may
+  // additionally fail verification in presence of monitor-enter/exit instructions, reporting
+  // "monitor-exit on non-object (Conflict)" on valid code.
   private boolean isDalvikOrSubTypeIntroducedLaterThanAndroidR(
       ComputedApiLevel minApiLevel, ComputedApiLevel subTypeApiLevel) {
     if (minApiLevel.isLessThanOrEqualTo(AndroidApiLevel.K_WATCH).isPossiblyTrue()) {
       return true;
     }
-    return subTypeApiLevel.isGreaterThan(AndroidApiLevel.R).isPossiblyTrue();
+    return subTypeApiLevel.isGreaterThan(appView.options().getMinApiLevel()).isPossiblyTrue();
   }
 
   private void insertCheckCastForReturnValues(
@@ -206,8 +208,7 @@ public class RemoveVerificationErrorForUnknownReturnedValues {
       if (block.hasCatchHandlers() && block.canThrow()) {
         InstructionListIterator instructionIterator = block.listIterator();
         instructionIterator.nextUntil(Instruction::instructionTypeCanThrow);
-        insertionBlock =
-            instructionIterator.splitCopyCatchHandlers(code, blockIterator, appView.options());
+        insertionBlock = instructionIterator.split(code, blockIterator);
       } else {
         insertionBlock = block;
       }

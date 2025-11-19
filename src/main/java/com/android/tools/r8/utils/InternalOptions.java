@@ -3302,6 +3302,9 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   // b/272725341. ART 11 and 12 re-introduced hard verification errors when unable to compute
   // subtype relationship when no other verification issues exists in code.
+  // Moreover, seemingly when combined with monitors, ART 6 up to ART 12 (exclusive) may
+  // additionally fail verification, incorrectly reporting "monitor-exit on non-object (Conflict)"
+  // on valid code.
   public boolean canHaveVerifyErrorForUnknownUnusedReturnValue() {
     return isGeneratingDex() && canHaveBugPresentUntilExclusive(AndroidApiLevel.T);
   }
