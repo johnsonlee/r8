@@ -7,6 +7,7 @@ package com.android.tools.r8.apimodel;
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLevelForClass;
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLevelForMethod;
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.verifyThat;
+import static com.android.tools.r8.utils.codeinspector.AssertUtils.assertThrowsIf;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -17,9 +18,11 @@ import com.android.tools.r8.TestCompileResult;
 import com.android.tools.r8.TestCompilerBuilder;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
+import java.io.IOException;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -41,7 +44,7 @@ public class ApiModelOutlineWithUnknownReturnTypeTest extends TestBase {
   @Parameters(name = "{0}, addedToLibraryHere: {1}")
   public static List<Object[]> data() {
     return buildParameters(
-        getTestParameters().withDexRuntimes().withAllApiLevels().build(), BooleanUtils.values());
+        getTestParameters().withDexRuntimesAndAllApiLevels().build(), BooleanUtils.values());
   }
 
   private AndroidApiLevel runApiLevel() {
@@ -82,6 +85,7 @@ public class ApiModelOutlineWithUnknownReturnTypeTest extends TestBase {
         .setMode(CompilationMode.DEBUG)
         .apply(this::setupTestBuilder)
         .compile()
+        .apply(this::checkNoLockVerificationErrors)
         .inspect(this::inspect)
         .apply(this::setupRuntime)
         .run(parameters.getRuntime(), Main.class)
@@ -94,6 +98,7 @@ public class ApiModelOutlineWithUnknownReturnTypeTest extends TestBase {
         .setMode(CompilationMode.RELEASE)
         .apply(this::setupTestBuilder)
         .compile()
+        .apply(this::checkNoLockVerificationErrors)
         .inspect(this::inspect)
         .apply(this::setupRuntime)
         .run(parameters.getRuntime(), Main.class)
@@ -107,10 +112,17 @@ public class ApiModelOutlineWithUnknownReturnTypeTest extends TestBase {
         .addKeepMainRule(Main.class)
         .addKeepClassAndMembersRules(ProgramClass.class)
         .compile()
+        .apply(this::checkNoLockVerificationErrors)
         .inspect(this::inspect)
         .apply(this::setupRuntime)
         .run(parameters.getRuntime(), Main.class)
         .apply(this::checkOutput);
+  }
+
+  private boolean hasVerifyError() {
+    return !addedToLibraryHere
+        && !parameters.getApiLevel().equals(AndroidApiLevel.B)
+        && parameters.getDexRuntimeVersion().isInRangeInclusive(Version.V6_0_1, Version.V10_0_0);
   }
 
   private void inspect(CodeInspector inspector) throws Exception {
@@ -120,10 +132,33 @@ public class ApiModelOutlineWithUnknownReturnTypeTest extends TestBase {
             ProgramClass.class.getDeclaredMethod("callLibrary"),
             AndroidApiLevel.B,
             getMockApiLevel());
+    verifyThat(inspector, parameters, LibrarySub.class.getDeclaredMethod("create"))
+        .isOutlinedFromBetween(
+            ProgramClass.class.getDeclaredMethod("callLibrarySynchronized"),
+            AndroidApiLevel.B,
+            getMockApiLevel());
   }
 
   private void checkOutput(SingleTestRunResult<?> runResult) {
-    runResult.assertSuccessWithOutputLines("ProgramClass::print");
+    // TODO(b/461737070): Fix VerifyError.
+    if (hasVerifyError()) {
+      runResult.assertFailureWithErrorThatThrows(VerifyError.class);
+    } else {
+      runResult.assertSuccessWithOutputLines("ProgramClass::print");
+    }
+  }
+
+  private void checkNoLockVerificationErrors(TestCompileResult<?, ?> compileResult)
+      throws IOException {
+    // TODO(b/461737070): Fix lock verification error.
+    if (!hasVerifyError()) {
+      assertThrowsIf(
+          (parameters.getApiLevel().equals(AndroidApiLevel.B)
+                  && parameters.getDexRuntimeVersion().isNewerThanOrEqual(Version.V7_0_0))
+              || parameters.getDexRuntimeVersion().equals(Version.V12_0_0),
+          AssertionError.class,
+          () -> compileResult.runDex2Oat(parameters.getRuntime()).assertNoLockVerificationErrors());
+    }
   }
 
   public static class LibraryClass {
@@ -148,6 +183,17 @@ public class ApiModelOutlineWithUnknownReturnTypeTest extends TestBase {
         return null;
       } else {
         return libraryClass;
+      }
+    }
+
+    public LibraryClass callLibrarySynchronized() {
+      synchronized (this) {
+        LibrarySub libraryClass = LibrarySub.create();
+        if (System.currentTimeMillis() > 0) {
+          return null;
+        } else {
+          return libraryClass;
+        }
       }
     }
 

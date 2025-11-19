@@ -749,11 +749,10 @@ public abstract class TestCompileResult<
     assert getBackend() == DEX;
     DexVm vm = runtime.asDex().getVm();
     Path tmp = state.getNewTempFolder();
-    Path jarFile = tmp.resolve("out.jar");
+    Path dexFile = writeToZip();
     Path oatFile = tmp.resolve("out.oat");
-    app.writeToZipForTesting(jarFile, OutputMode.DexIndexed);
     return new Dex2OatTestRunResult(
-        app, oatFile, runtime, ToolHelper.runDex2OatRaw(jarFile, oatFile, vm), state);
+        app, oatFile, runtime, ToolHelper.runDex2OatRaw(dexFile, oatFile, vm), state);
   }
 
   public CR benchmarkCodeSize(BenchmarkResults results) throws IOException, ResourceException {
