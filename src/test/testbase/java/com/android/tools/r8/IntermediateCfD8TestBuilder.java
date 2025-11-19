@@ -62,7 +62,9 @@ public class IntermediateCfD8TestBuilder
     D8TestCompileResult cf2cfCompileResult = cf2cf.compile();
     D8TestRunResult runResult =
         cf2dex.addProgramFiles(cf2cfCompileResult.writeToZip()).run(runtime, mainClass, args);
-    runResult.getState().setSyntheticItems(cf2cfCompileResult.getSyntheticItems());
+    if (cf2cfCompileResult.hasSyntheticItems()) {
+      runResult.getState().setSyntheticItems(cf2cfCompileResult.getSyntheticItems());
+    }
     return runResult;
   }
 
