@@ -30,6 +30,8 @@ public class LibraryValidator {
       levelType = app.dexItemFactory.createType("Ljava/util/StringJoiner;");
     } else if (requiredCompilationAPILevel.isEqualTo(AndroidApiLevel.T)) {
       levelType = app.dexItemFactory.createType("Ljava/lang/invoke/VarHandle;");
+    } else if (requiredCompilationAPILevel.isEqualTo(AndroidApiLevel.U)) {
+      levelType = app.dexItemFactory.createType("Ljava/lang/Record;");
     } else {
       app.options.reporter.warning(
           "Unsupported requiredCompilationAPILevel: " + requiredCompilationAPILevel);
