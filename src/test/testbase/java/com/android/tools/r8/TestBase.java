@@ -515,7 +515,7 @@ public class TestBase {
         testParameters.getLambdaGeneration());
   }
 
-  public static ClassFileTransformer transformer(Class<?> clazz) throws IOException {
+  public static ClassFileTransformer transformer(Class<?> clazz) {
     return ClassFileTransformer.create(clazz);
   }
 

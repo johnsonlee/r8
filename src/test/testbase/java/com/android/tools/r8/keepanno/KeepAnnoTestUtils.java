@@ -111,16 +111,7 @@ public class KeepAnnoTestUtils {
   public static List<String> extractRules(
       List<Class<?>> inputClasses, KeepRuleExtractorOptions extractorOptions) {
     return extractRulesFromBytes(
-        ListUtils.map(
-            inputClasses,
-            clazz -> {
-              try {
-                return ToolHelper.getClassAsBytes(clazz);
-              } catch (IOException e) {
-                throw new RuntimeException(e);
-              }
-            }),
-        extractorOptions);
+        ListUtils.map(inputClasses, ToolHelper::getClassAsBytes), extractorOptions);
   }
 
   public static List<String> extractRulesFromBytes(

@@ -43,6 +43,7 @@ public class MethodWithInlinePositionsStackSampleRetraceTest extends StackSample
     return Main.class;
   }
 
+  // TODO(b/462362930): Should use pc encoding.
   @Override
   String getExpectedMap() {
     return StringUtils.joinLines(
@@ -80,7 +81,7 @@ public class MethodWithInlinePositionsStackSampleRetraceTest extends StackSample
 
   @Override
   void testRetrace(R8TestCompileResultBase<?> compileResult) throws Exception {
-    // Expected: a.a should retrace to Main.test.
+    // Expected: `a.a` should retrace to `void Main.test()`.
     RetraceMethodElement retraceMethodElement =
         getSingleRetraceMethodElement(
             Reference.classFromTypeName(obfuscatedClassName), obfuscatedMethodName);

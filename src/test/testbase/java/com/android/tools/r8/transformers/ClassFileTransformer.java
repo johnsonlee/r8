@@ -151,7 +151,7 @@ public class ClassFileTransformer {
     return new ClassFileTransformer(bytes, classReference);
   }
 
-  public static ClassFileTransformer create(Class<?> clazz) throws IOException {
+  public static ClassFileTransformer create(Class<?> clazz) {
     return create(ToolHelper.getClassAsBytes(clazz), classFromTypeName(clazz.getTypeName()));
   }
 

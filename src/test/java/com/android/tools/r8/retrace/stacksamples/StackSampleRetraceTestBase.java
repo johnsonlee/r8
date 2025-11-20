@@ -26,6 +26,7 @@ import com.android.tools.r8.utils.BooleanBox;
 import com.android.tools.r8.utils.IntBox;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
+import com.android.tools.r8.utils.codeinspector.HorizontallyMergedClassesInspector;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.junit.runner.RunWith;
@@ -55,6 +56,7 @@ public abstract class StackSampleRetraceTestBase extends TestBase {
             "-keepclassmembers class " + getMainClass().getTypeName() + " {",
             "  public static void main(java.lang.String[]);",
             "}")
+        .addHorizontallyMergedClassesInspector(this::inspectHorizontallyMergedClasses)
         .apply(testBuilderConsumer)
         .compile()
         .inspect(this::inspectCode)
@@ -72,6 +74,8 @@ public abstract class StackSampleRetraceTestBase extends TestBase {
 
   abstract void inspectCode(CodeInspector inspector);
 
+  void inspectHorizontallyMergedClasses(HorizontallyMergedClassesInspector inspector) {}
+
   abstract void testRetrace(R8TestCompileResultBase<?> compileResult) throws Exception;
 
   private void inspectMap(R8TestCompileResultBase<?> compileResult) {
@@ -80,6 +84,14 @@ public abstract class StackSampleRetraceTestBase extends TestBase {
 
   RetraceMethodElement getSingleRetraceMethodElement(
       ClassReference obfuscatedClassReference, String obfuscatedMethodName) {
+    List<RetraceMethodElement> retraceMethodElements =
+        getRetraceMethodElements(obfuscatedClassReference, obfuscatedMethodName);
+    assertEquals(1, retraceMethodElements.size());
+    return retraceMethodElements.get(0);
+  }
+
+  List<RetraceMethodElement> getRetraceMethodElements(
+      ClassReference obfuscatedClassReference, String obfuscatedMethodName) {
     TestDiagnosticMessages diagnostics = new TestDiagnosticMessagesImpl();
     Retracer retracer =
         Retracer.createDefault(ProguardMapProducer.fromString(getExpectedMap()), diagnostics);
@@ -87,16 +99,15 @@ public abstract class StackSampleRetraceTestBase extends TestBase {
     RetraceMethodResult retraceMethodResult = retraceClassResult.lookupMethod(obfuscatedMethodName);
     List<RetraceMethodElement> retraceMethodElements =
         retraceMethodResult.stream().collect(Collectors.toList());
-    assertEquals(1, retraceMethodElements.size());
     diagnostics.assertNoMessages();
-    return retraceMethodElements.get(0);
+    return retraceMethodElements;
   }
 
-  static int getFirstLineNumber(Class<?> clazz) throws Exception {
+  static int getFirstLineNumber(Class<?> clazz) {
     return getFirstLineNumber(ToolHelper.getClassAsBytes(clazz));
   }
 
-  static int getFirstLineNumber(byte[] classFileData) throws Exception {
+  static int getFirstLineNumber(byte[] classFileData) {
     ClassReader reader = new ClassReader(classFileData);
     IntBox result = new IntBox(Integer.MAX_VALUE);
     reader.accept(

@@ -68,6 +68,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
+import java.io.UncheckedIOException;
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
@@ -98,7 +99,6 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.CRC32;
-import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.rules.TemporaryFolder;
 
@@ -1153,8 +1153,12 @@ public class ToolHelper {
     }
   }
 
-  public static byte[] getClassAsBytes(Class<?> clazz) throws IOException {
-    return Files.readAllBytes(getClassFileForTestClass(clazz));
+  public static byte[] getClassAsBytes(Class<?> clazz) {
+    try {
+      return Files.readAllBytes(getClassFileForTestClass(clazz));
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
   }
 
   public static byte[] getClassAsBytes(Class<?> clazz, TestDataSourceSet dataSourceSet)
@@ -1163,12 +1167,7 @@ public class ToolHelper {
   }
 
   public static long getClassByteCrc(Class<?> clazz) {
-    byte[] bytes = null;
-    try {
-      bytes = getClassAsBytes(clazz);
-    } catch (IOException ioe) {
-      Assert.fail(ioe.toString());
-    }
+    byte[] bytes = getClassAsBytes(clazz);
     CRC32 crc = new CRC32();
     crc.update(bytes, 0, bytes.length);
     return crc.getValue();
