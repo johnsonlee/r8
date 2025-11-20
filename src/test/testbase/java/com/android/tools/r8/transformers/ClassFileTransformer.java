@@ -1661,6 +1661,16 @@ public class ClassFileTransformer {
         });
   }
 
+  public ClassFileTransformer mapLineNumbers(int delta) {
+    return addMethodTransformer(
+        new MethodTransformer() {
+          @Override
+          public void visitLineNumber(int line, Label start) {
+            super.visitLineNumber(line + delta, start);
+          }
+        });
+  }
+
   public ClassFileTransformer stripDebugLocals(MethodPredicate predicate) {
     return addMethodTransformer(
         new MethodTransformer() {

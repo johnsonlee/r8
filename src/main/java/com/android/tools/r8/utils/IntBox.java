@@ -72,6 +72,12 @@ public class IntBox {
     this.value = value;
   }
 
+  public void setMin(int value) {
+    if (value < get()) {
+      set(value);
+    }
+  }
+
   public void setMax(int value) {
     if (value > get()) {
       set(value);
