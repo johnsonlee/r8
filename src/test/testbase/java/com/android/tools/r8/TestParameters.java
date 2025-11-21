@@ -77,6 +77,12 @@ public class TestParameters {
     return canHaveNonReboundConstructorInvoke();
   }
 
+  public boolean hasDefaultInterfaceMethodsSupport() {
+    return isCfRuntime()
+        || getApiLevel()
+            .isGreaterThanOrEqualTo(TestBase.apiLevelWithDefaultInterfaceMethodsSupport());
+  }
+
   public boolean canUseDefaultAndStaticInterfaceMethods() {
     assert isCfRuntime() || isDexRuntime();
     assert !isCfRuntime() || apiLevel == null

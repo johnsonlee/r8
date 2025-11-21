@@ -75,7 +75,7 @@ public class InvokeSuperToEmptyDefaultInterfaceMethodInLibraryTest extends TestB
                         visitor.visitMethodInsn(
                             opcode,
                             owner,
-                            hasDefaultInterfaceMethodsSupport(parameters) ? "getTrue" : "getFalse",
+                            parameters.hasDefaultInterfaceMethodsSupport() ? "getTrue" : "getFalse",
                             descriptor,
                             isInterface))
                 .transform())
@@ -85,7 +85,7 @@ public class InvokeSuperToEmptyDefaultInterfaceMethodInLibraryTest extends TestB
             runResult -> runResult.assertFailureWithErrorThatThrows(VerifyError.class),
             runResult ->
                 runResult.assertSuccessWithOutputLines(
-                    hasDefaultInterfaceMethodsSupport(parameters)
+                    parameters.hasDefaultInterfaceMethodsSupport()
                         ? ImmutableList.of("In override!", "Call!")
                         : ImmutableList.of("Skip!")));
   }

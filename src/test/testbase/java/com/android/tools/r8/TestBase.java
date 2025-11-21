@@ -1796,13 +1796,6 @@ public class TestBase {
     return AndroidApiLevel.N;
   }
 
-  public static boolean hasDefaultInterfaceMethodsSupport(TestParameters parameters) {
-    return parameters.isCfRuntime()
-        || parameters
-            .getApiLevel()
-            .isGreaterThanOrEqualTo(apiLevelWithDefaultInterfaceMethodsSupport());
-  }
-
   public static boolean runtimeWithRecordsSupport(TestRuntime runtime) {
     return (runtime.isCf() && runtime.asCf().hasRecordsSupport())
         || (runtime.isDex() && runtime.asDex().hasRecordsSupport());

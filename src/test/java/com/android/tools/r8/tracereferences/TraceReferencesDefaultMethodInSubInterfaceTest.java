@@ -165,7 +165,7 @@ public class TraceReferencesDefaultMethodInSubInterfaceTest extends TestBase {
         .addKeepMainRule(Main.class)
         .run(parameters.getRuntime(), Main.class)
         .applyIf(
-            hasDefaultInterfaceMethodsSupport(parameters),
+            parameters.hasDefaultInterfaceMethodsSupport(),
             r -> r.assertSuccessWithOutputLines("Hello, world!"),
             // TODO(b/319190998): This should not fail.
             r -> r.assertFailureWithErrorThatThrows(NoClassDefFoundError.class));
@@ -251,7 +251,7 @@ public class TraceReferencesDefaultMethodInSubInterfaceTest extends TestBase {
         .addRunClasspathFiles(r8CompiledTarget)
         .run(parameters.getRuntime(), Main.class)
         .applyIf(
-            hasDefaultInterfaceMethodsSupport(parameters),
+            parameters.hasDefaultInterfaceMethodsSupport(),
             r -> r.assertSuccessWithOutput(EXPECTED_OUTPUT),
             // TODO(b/319190998): This should not fail.
             r -> r.assertFailureWithErrorThatThrows(NoClassDefFoundError.class));
