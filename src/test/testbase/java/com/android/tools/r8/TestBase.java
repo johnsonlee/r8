@@ -1847,12 +1847,6 @@ public class TestBase {
     return AndroidApiLevel.U;
   }
 
-  public static boolean hasSealedClassesSupport(TestParameters parameters) {
-    return (parameters.isCfRuntime() && parameters.getCfRuntime().hasSealedClassesSupport())
-        || (parameters.isDexRuntime()
-            && parameters.getApiLevel().isGreaterThanOrEqualTo(apiLevelWithSealedClassesSupport()));
-  }
-
   public static boolean isRecordsFullyDesugaredForD8(TestParameters parameters) {
     assert parameters.getApiLevel() != null;
     return parameters.getApiLevel().isLessThan(AndroidApiLevel.V);

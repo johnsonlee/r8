@@ -92,12 +92,12 @@ public class SealedClassesImplementsTest extends TestBase {
     assertThat(sub1, isPresentAndRenamed());
     assertThat(sub2, isPresentAndRenamed());
     assertEquals(
-        hasSealedClassesSupport(parameters) && keepPermittedSubclassesAttribute
+        parameters.hasSealedClassesSupport() && keepPermittedSubclassesAttribute
             ? ImmutableList.of(sub1.asTypeSubject(), sub2.asTypeSubject())
             : ImmutableList.of(),
         iface1.getFinalPermittedSubclassAttributes());
     assertEquals(
-        hasSealedClassesSupport(parameters) && keepPermittedSubclassesAttribute
+        parameters.hasSealedClassesSupport() && keepPermittedSubclassesAttribute
             ? ImmutableList.of(sub1.asTypeSubject(), sub2.asTypeSubject())
             : ImmutableList.of(),
         iface2.getFinalPermittedSubclassAttributes());

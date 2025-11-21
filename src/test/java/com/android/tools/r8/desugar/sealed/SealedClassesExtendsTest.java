@@ -101,7 +101,7 @@ public class SealedClassesExtendsTest extends TestBase {
       assertTrue(sub1.getFinalName().startsWith(getClass().getPackage().getName()));
     }
     assertEquals(
-        hasSealedClassesSupport(parameters) && keepPermittedSubclassesAttribute
+        parameters.hasSealedClassesSupport() && keepPermittedSubclassesAttribute
             ? ImmutableList.of(sub1.asTypeSubject(), sub2.asTypeSubject())
             : ImmutableList.of(),
         clazz.getFinalPermittedSubclassAttributes());

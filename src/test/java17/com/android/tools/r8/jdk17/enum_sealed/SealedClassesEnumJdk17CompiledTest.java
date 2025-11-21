@@ -79,7 +79,7 @@ public class SealedClassesEnumJdk17CompiledTest extends TestBase {
     ClassSubject sub1 = inspector.clazz(Enum.B.getClass());
     assertThat(sub1, isPresentAndRenamed());
     assertEquals(
-        hasSealedClassesSupport(parameters) && keepPermittedSubclassesAttribute
+        parameters.hasSealedClassesSupport() && keepPermittedSubclassesAttribute
             ? ImmutableList.of(sub1.asTypeSubject())
             : ImmutableList.of(),
         clazz.getFinalPermittedSubclassAttributes());

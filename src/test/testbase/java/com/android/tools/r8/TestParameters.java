@@ -83,6 +83,12 @@ public class TestParameters {
             .isGreaterThanOrEqualTo(TestBase.apiLevelWithDefaultInterfaceMethodsSupport());
   }
 
+  public boolean hasSealedClassesSupport() {
+    return (isCfRuntime() && getCfRuntime().hasSealedClassesSupport())
+        || (isDexRuntime()
+            && getApiLevel().isGreaterThanOrEqualTo(TestBase.apiLevelWithSealedClassesSupport()));
+  }
+
   public boolean canUseDefaultAndStaticInterfaceMethods() {
     assert isCfRuntime() || isDexRuntime();
     assert !isCfRuntime() || apiLevel == null

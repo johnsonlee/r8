@@ -58,7 +58,7 @@ public class SealedClassesImplementsVerticalMergeTest extends TestBase {
     assertThat(subSub, Matchers.isPresentAndRenamed());
     for (ClassSubject clazz : ImmutableList.of(iface1, iface2, ifaceUnrelated)) {
       assertEquals(
-          hasSealedClassesSupport(parameters)
+          parameters.hasSealedClassesSupport()
               ? ImmutableList.of(subSub.asTypeSubject(), sub2.asTypeSubject())
               : ImmutableList.of(),
           clazz.getFinalPermittedSubclassAttributes());
