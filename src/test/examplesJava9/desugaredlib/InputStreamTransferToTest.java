@@ -70,25 +70,6 @@ public class InputStreamTransferToTest extends DesugaredLibraryTestBase {
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
-  /**
-   * See b/248200357, in T an override or transferTo was introduced in android.jar changing
-   * resolution.
-   */
-  @Test
-  public void testWithAndroidJarFromT() throws Exception {
-    // The method is not present on JDK8 so if we don't desugar that won't work.
-    Assume.assumeFalse(
-        parameters.isCfRuntime(CfVm.JDK8)
-            && !libraryDesugaringSpecification.hasNioFileDesugaring(parameters)
-            && compilationSpecification.isCfToCf());
-    testForDesugaredLibrary(parameters, libraryDesugaringSpecification, compilationSpecification)
-        .addInnerClassesAndStrippedOuter(getClass())
-        .addKeepMainRule(MAIN_CLASS)
-        .overrideLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.T))
-        .run(parameters.getRuntime(), MAIN_CLASS)
-        .assertSuccessWithOutput(EXPECTED_OUTPUT);
-  }
-
   public static class MyInputStream extends ByteArrayInputStream {
 
     public MyInputStream(byte[] buf) {

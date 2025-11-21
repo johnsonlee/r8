@@ -56,7 +56,7 @@ public class TimeUnitTest extends DesugaredLibraryTestBase {
   public void test() throws Exception {
     testForDesugaredLibrary(parameters, libraryDesugaringSpecification, compilationSpecification)
         .addInnerClassesAndStrippedOuter(getClass())
-        .overrideLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.T))
+        .overrideLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.U))
         .addKeepMainRule(MAIN_CLASS)
         .run(parameters.getRuntime(), MAIN_CLASS)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);

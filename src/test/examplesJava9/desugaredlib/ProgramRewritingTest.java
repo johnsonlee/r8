@@ -79,7 +79,7 @@ public class ProgramRewritingTest extends DesugaredLibraryTestBase {
                 ToolHelper.getDesugarLibConversions(LATEST),
                 ToolHelper.getCoreLambdaStubs()),
             JDK11.getSpecification(),
-            ImmutableSet.of(ToolHelper.getAndroidJar(AndroidApiLevel.R)),
+            ImmutableSet.of(ToolHelper.getAndroidJar(AndroidApiLevel.U)),
             LibraryDesugaringSpecification.JDK11_DESCRIPTOR,
             "");
     return buildParameters(
