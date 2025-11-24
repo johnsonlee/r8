@@ -84,7 +84,7 @@ public class MethodWithInlinePositionsStackSampleRetraceTest extends StackSample
     // Expected: `a.a` should retrace to `void Main.test()`.
     RetraceMethodElement retraceMethodElement =
         getSingleRetraceMethodElement(
-            Reference.classFromTypeName(obfuscatedClassName), obfuscatedMethodName);
+            Reference.classFromTypeName(obfuscatedClassName), obfuscatedMethodName, compileResult);
     assertEquals(
         Reference.methodFromMethod(Main.class.getDeclaredMethod("test")),
         retraceMethodElement.getRetracedMethod().asKnown().getMethodReference());

@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.gradle.internal.impldep.org.apache.commons.lang3.stream.Streams;
+import java.util.stream.Stream;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -40,7 +40,7 @@ public class HorizontalClassMergingStackSampleRetraceTest extends StackSampleRet
   @BeforeClass
   public static void setup() throws Exception {
     programClassFileData =
-        Streams.of(Main.class, I.class, A.class, B.class)
+        Stream.of(Main.class, I.class, A.class, B.class)
             .map(
                 clazz ->
                     transformer(clazz).mapLineNumbers(42 - getFirstLineNumber(clazz)).transform())
@@ -134,7 +134,8 @@ public class HorizontalClassMergingStackSampleRetraceTest extends StackSampleRet
     // TODO(b/460808033): Assert that this is a synthetic method.
     {
       RetraceMethodElement retraceResult =
-          getSingleRetraceMethodElement(Reference.classFromTypeName(obfuscatedClassName), "<init>");
+          getSingleRetraceMethodElement(
+              Reference.classFromTypeName(obfuscatedClassName), "<init>", compileResult);
       assertEquals(
           Reference.methodFromDescriptor(Reference.classFromClass(A.class), "<init>", "(I)V"),
           retraceResult.getRetracedMethod().asKnown().getMethodReference());
@@ -144,7 +145,9 @@ public class HorizontalClassMergingStackSampleRetraceTest extends StackSampleRet
     {
       RetraceMethodElement retraceResult =
           getSingleRetraceMethodElement(
-              Reference.classFromTypeName(obfuscatedClassName), obfuscatedMethodNameFoo);
+              Reference.classFromTypeName(obfuscatedClassName),
+              obfuscatedMethodNameFoo,
+              compileResult);
       assertEquals(
           Reference.methodFromMethod(A.class.getDeclaredMethod("foo")),
           retraceResult.getRetracedMethod().asKnown().getMethodReference());
@@ -154,7 +157,9 @@ public class HorizontalClassMergingStackSampleRetraceTest extends StackSampleRet
     {
       RetraceMethodElement retraceResult =
           getSingleRetraceMethodElement(
-              Reference.classFromTypeName(obfuscatedClassName), obfuscatedMethodNameBar);
+              Reference.classFromTypeName(obfuscatedClassName),
+              obfuscatedMethodNameBar,
+              compileResult);
       assertEquals(
           Reference.methodFromMethod(B.class.getDeclaredMethod("bar")),
           retraceResult.getRetracedMethod().asKnown().getMethodReference());
@@ -164,7 +169,9 @@ public class HorizontalClassMergingStackSampleRetraceTest extends StackSampleRet
     {
       Set<MethodReference> retraceResult =
           getRetraceMethodElements(
-                  Reference.classFromTypeName(obfuscatedClassName), obfuscatedMethodNameBaz)
+                  Reference.classFromTypeName(obfuscatedClassName),
+                  obfuscatedMethodNameBaz,
+                  compileResult)
               .stream()
               .map(
                   retraceMethodElement ->

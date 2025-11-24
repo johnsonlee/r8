@@ -83,18 +83,23 @@ public abstract class StackSampleRetraceTestBase extends TestBase {
   }
 
   RetraceMethodElement getSingleRetraceMethodElement(
-      ClassReference obfuscatedClassReference, String obfuscatedMethodName) {
+      ClassReference obfuscatedClassReference,
+      String obfuscatedMethodName,
+      R8TestCompileResultBase<?> compileResult) {
     List<RetraceMethodElement> retraceMethodElements =
-        getRetraceMethodElements(obfuscatedClassReference, obfuscatedMethodName);
+        getRetraceMethodElements(obfuscatedClassReference, obfuscatedMethodName, compileResult);
     assertEquals(1, retraceMethodElements.size());
     return retraceMethodElements.get(0);
   }
 
   List<RetraceMethodElement> getRetraceMethodElements(
-      ClassReference obfuscatedClassReference, String obfuscatedMethodName) {
+      ClassReference obfuscatedClassReference,
+      String obfuscatedMethodName,
+      R8TestCompileResultBase<?> compileResult) {
     TestDiagnosticMessages diagnostics = new TestDiagnosticMessagesImpl();
     Retracer retracer =
-        Retracer.createDefault(ProguardMapProducer.fromString(getExpectedMap()), diagnostics);
+        Retracer.createDefault(
+            ProguardMapProducer.fromString(compileResult.getProguardMap()), diagnostics);
     RetraceClassResult retraceClassResult = retracer.retraceClass(obfuscatedClassReference);
     RetraceMethodResult retraceMethodResult = retraceClassResult.lookupMethod(obfuscatedMethodName);
     List<RetraceMethodElement> retraceMethodElements =
