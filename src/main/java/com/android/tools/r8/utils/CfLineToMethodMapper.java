@@ -105,10 +105,13 @@ public class CfLineToMethodMapper {
                 });
             timing.end();
           } else {
-            for (ProgramResource programResource : resourceProvider.getProgramResources()) {
-              processProgramResource(
-                  programResource, kotlinClassesWithInlineFunctions, sourceMethodMapping, timing);
-            }
+            resourceProvider.getProgramResources(
+                programResource ->
+                    processProgramResource(
+                        programResource,
+                        kotlinClassesWithInlineFunctions,
+                        sourceMethodMapping,
+                        timing));
           }
         }
       } catch (ResourceException e) {

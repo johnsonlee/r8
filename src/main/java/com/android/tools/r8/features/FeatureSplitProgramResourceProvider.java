@@ -34,10 +34,10 @@ public class FeatureSplitProgramResourceProvider implements ProgramResourceProvi
     assert factory != null;
     // If the types in this provider has been unset, then the ClassToFeatureSplitMap has already
     // been created and we no longer need tracking.
-    if (types == null) {
-      return programResourceProvider.getProgramResources();
-    }
     Collection<ProgramResource> programResources = programResourceProvider.getProgramResources();
+    if (types == null) {
+      return programResources;
+    }
     for (ProgramResource programResource : programResources) {
       for (String classDescriptor : programResource.getClassDescriptors()) {
         types.add(factory.createType(classDescriptor));

@@ -63,6 +63,7 @@ import com.android.tools.r8.utils.InternalProgramClassProvider;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.MapConsumerUtils;
 import com.android.tools.r8.utils.ProgramClassCollection;
+import com.android.tools.r8.utils.ProgramResourceUtils;
 import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.SemanticVersion;
 import com.android.tools.r8.utils.SemanticVersionUtils;
@@ -1054,23 +1055,25 @@ public final class R8Command extends BaseCompilerCommand {
       }
       try {
         for (ProgramResourceProvider provider : getAppBuilder().getProgramResourceProviders()) {
-          for (ProgramResource resource : provider.getProgramResources()) {
-            if (resource.getKind() == Kind.CF) {
-              List<KeepDeclaration> declarations =
-                  KeepEdgeReader.readKeepEdges(resource.getBytes());
-              if (!declarations.isEmpty()) {
-                KeepRuleExtractor extractor =
-                    new KeepRuleExtractor(
-                        rule -> {
-                          ProguardConfigurationSourceStrings source =
-                              new ProguardConfigurationSourceStrings(
-                                  rule, null, resource.getOrigin());
-                          parser.parse(source);
-                        });
-                declarations.forEach(extractor::extract);
-              }
-            }
-          }
+          provider.getProgramResources(
+              programResource -> {
+                if (programResource.getKind() == Kind.CF) {
+                  List<KeepDeclaration> declarations =
+                      KeepEdgeReader.readKeepEdges(
+                          ProgramResourceUtils.getBytesUnchecked(programResource));
+                  if (!declarations.isEmpty()) {
+                    KeepRuleExtractor extractor =
+                        new KeepRuleExtractor(
+                            rule -> {
+                              ProguardConfigurationSourceStrings source =
+                                  new ProguardConfigurationSourceStrings(
+                                      rule, null, programResource.getOrigin());
+                              parser.parse(source);
+                            });
+                    declarations.forEach(extractor::extract);
+                  }
+                }
+              });
         }
       } catch (ResourceException e) {
         throw getAppBuilder().getReporter().fatalError(new ExceptionDiagnostic(e));
