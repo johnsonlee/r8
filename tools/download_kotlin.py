@@ -14,8 +14,9 @@ import xml.etree.ElementTree
 
 
 JETBRAINS_KOTLIN_STABLE_URL = "https://github.com/JetBrains/kotlin/releases/download"
-JETBRAINS_KOTLIN_MAVEN_URL = "https://maven.pkg.jetbrains.space/kotlin/p/" \
-                             "kotlin/bootstrap/org/jetbrains/kotlin/"
+JETBRAINS_KOTLIN_MAVEN_URL = "https://packages.jetbrains.team/maven/p/" \
+                             "kt/bootstrap/org/jetbrains/kotlin/"
+
 KOTLIN_RELEASE_URL = JETBRAINS_KOTLIN_MAVEN_URL + "kotlin-compiler/"
 KOTLINC_LIB = os.path.join(utils.THIRD_PARTY, "kotlin",
                    "kotlin-compiler-dev", "kotlinc", "lib")
