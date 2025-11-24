@@ -7,6 +7,7 @@ import com.android.tools.r8.position.Position;
 import com.android.tools.r8.position.TextPosition;
 import com.android.tools.r8.shaking.FilteredClassPath;
 import com.android.tools.r8.shaking.ProguardClassNameList;
+import com.android.tools.r8.shaking.ProguardConfiguration.ProcessKotlinNullChecks;
 import com.android.tools.r8.shaking.ProguardConfigurationParser.ProguardConfigurationSourceParser;
 import com.android.tools.r8.shaking.ProguardConfigurationParserConsumer;
 import com.android.tools.r8.shaking.ProguardConfigurationRule;
@@ -152,6 +153,15 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
   @Override
   public void addKeepKotlinMetadata(
       ProguardConfigurationSourceParser parser, Position position, TextPosition positionStart) {}
+
+  @Override
+  public void addProcessKotlinNullChecks(
+      ProcessKotlinNullChecks value,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
+    handleRule(parser, positionStart, "-processkotlinnullchecks");
+  }
 
   @Override
   public void addKeepPackageNamesPattern(

@@ -3,6 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.shaking;
 
+import static com.android.tools.r8.shaking.ProguardConfiguration.ProcessKotlinNullChecks.KEEP;
+import static com.android.tools.r8.shaking.ProguardConfiguration.ProcessKotlinNullChecks.REMOVE;
+import static com.android.tools.r8.shaking.ProguardConfiguration.ProcessKotlinNullChecks.REMOVE_MESSAGE;
 import static com.android.tools.r8.utils.DescriptorUtils.javaTypeToDescriptor;
 
 import com.android.tools.r8.InputDependencyGraphConsumer;
@@ -18,6 +21,7 @@ import com.android.tools.r8.position.Position;
 import com.android.tools.r8.position.TextPosition;
 import com.android.tools.r8.position.TextRange;
 import com.android.tools.r8.shaking.InlineRule.InlineRuleType;
+import com.android.tools.r8.shaking.ProguardConfiguration.ProcessKotlinNullChecks;
 import com.android.tools.r8.shaking.ProguardTypeMatcher.ClassOrType;
 import com.android.tools.r8.shaking.ProguardWildcard.BackReference;
 import com.android.tools.r8.shaking.ProguardWildcard.Pattern;
@@ -296,6 +300,8 @@ public class ProguardConfigurationParser {
         // Intentionally left empty.
       } else if (acceptString("keepkotlinmetadata")) {
         configurationConsumer.addKeepKotlinMetadata(this, getPosition(optionStart), optionStart);
+      } else if (acceptString("processkotlinnullchecks")) {
+        parseProcessKotlinNullChecks(optionStart);
       } else if (acceptString("renamesourcefileattribute")) {
         skipWhitespace();
         String renameSourceFileAttribute =
@@ -710,6 +716,30 @@ public class ProguardConfigurationParser {
       }
       configurationConsumer.addKeepAttributePatterns(
           attributesPatterns, this, getPosition(start), start);
+    }
+
+    private void parseProcessKotlinNullChecks(TextPosition start)
+        throws ProguardRuleParserException {
+      skipWhitespace();
+      TextPosition argumentStart = getPosition();
+      String processKotlinNullChecksValue =
+          isOptionalArgumentGiven() ? acceptQuotedOrUnquotedString() : "";
+      ProcessKotlinNullChecks value = REMOVE_MESSAGE;
+      switch (processKotlinNullChecksValue) {
+        case "keep":
+          value = KEEP;
+          break;
+        case "":
+        case "remove_message":
+          value = REMOVE_MESSAGE;
+          break;
+        case "remove":
+          value = REMOVE;
+          break;
+        default:
+          throw parseError("Illegal value for -processkotlinnullchecks", argumentStart);
+      }
+      configurationConsumer.addProcessKotlinNullChecks(value, this, getPosition(start), start);
     }
 
     private boolean skipFlag(String name) {

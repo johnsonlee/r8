@@ -178,6 +178,14 @@ public class InvokeStatic extends InvokeMethod {
       return true;
     }
 
+    if (appView.options().getProguardConfiguration().getProcessKotlinNullChecks().isRemove()
+        && appView
+            .dexItemFactory()
+            .kotlinJvmInternalIntrinsicsMethods
+            .isNullCheck(getInvokedMethod())) {
+      return false;
+    }
+
     AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
     SingleResolutionResult<?> resolutionResult =
         appViewWithLiveness

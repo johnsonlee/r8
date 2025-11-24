@@ -9,11 +9,13 @@ import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
+import java.nio.file.Path;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -31,9 +33,10 @@ public class ProcessKotlinNullChecksTest extends TestBase {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
   }
 
-  private static final String EXPECTED_OUTPUT_D8 =
+  private static final String EXPECTED_OUTPUT_WITH_INVOKE_OF_INTRINSICS =
       StringUtils.lines("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "Hello, world!");
-  private static final String EXPECTED_OUTPUT = StringUtils.lines("Hello, world!");
+  private static final String EXPECTED_OUTPUT_WITHOUT_INVOKE_OF_INTRINSICS =
+      StringUtils.lines("Hello, world!");
   private static final String[] RUN_ARGUMENTS =
       new String[] {"", "", "", "", "", "", "", "", "", ""};
 
@@ -86,7 +89,7 @@ public class ProcessKotlinNullChecksTest extends TestBase {
         .run(parameters.getRuntime(), TestClass.class, RUN_ARGUMENTS)
         .inspect(inspector -> assertKotlinIntrinsicsInvokes(inspector, 10))
         .inspect(inspector -> assertObjectGetClassInvokes(inspector, 0))
-        .assertSuccessWithOutput(EXPECTED_OUTPUT_D8);
+        .assertSuccessWithOutput(EXPECTED_OUTPUT_WITH_INVOKE_OF_INTRINSICS);
   }
 
   @Test
@@ -97,22 +100,64 @@ public class ProcessKotlinNullChecksTest extends TestBase {
         .run(parameters.getRuntime(), TestClass.class, RUN_ARGUMENTS)
         .inspect(inspector -> assertKotlinIntrinsicsInvokes(inspector, 10))
         .inspect(inspector -> assertObjectGetClassInvokes(inspector, 0))
-        .assertSuccessWithOutput(EXPECTED_OUTPUT_D8);
+        .assertSuccessWithOutput(EXPECTED_OUTPUT_WITH_INVOKE_OF_INTRINSICS);
   }
 
   @Test
   public void testR8() throws Exception {
-    parameters.assumeDexRuntime();
     testForR8(parameters)
         .addProgramClassFileData(getTransformedMain())
         .addClasspathClassFileData(getTransformedKotlinIntrinsics())
         .addKeepMainRule(TestClass.class)
-        .compile()
-        .addRunClasspathClassFileData(getTransformedKotlinIntrinsics())
+        .run(parameters.getRuntime(), TestClass.class, RUN_ARGUMENTS)
+        .inspect(inspector -> assertKotlinIntrinsicsInvokes(inspector, 0))
+        .inspect(inspector -> assertObjectGetClassInvokes(inspector, 10))
+        .assertSuccessWithOutput(EXPECTED_OUTPUT_WITHOUT_INVOKE_OF_INTRINSICS);
+  }
+
+  @Test
+  public void testR8ProcessKotlinNullChecksLeave() throws Exception {
+    Path fakeKotlinIntrinsicsLibrary =
+        testForD8(parameters)
+            .addProgramClassFileData(getTransformedKotlinIntrinsics())
+            .compile()
+            .writeToZip();
+    testForR8(parameters)
+        .addProgramClassFileData(getTransformedMain())
+        .addClasspathClassFileData(getTransformedKotlinIntrinsics())
+        .addKeepMainRule(TestClass.class)
+        .addKeepRules("-processkotlinnullchecks keep")
+        .addRunClasspathFiles(fakeKotlinIntrinsicsLibrary)
         .run(parameters.getRuntime(), TestClass.class, RUN_ARGUMENTS)
         .inspect(inspector -> assertKotlinIntrinsicsInvokes(inspector, 10))
         .inspect(inspector -> assertObjectGetClassInvokes(inspector, 0))
-        .assertSuccessWithOutput(EXPECTED_OUTPUT_D8);
+        .assertSuccessWithOutput(EXPECTED_OUTPUT_WITH_INVOKE_OF_INTRINSICS);
+  }
+
+  @Test
+  public void testR8ProcessKotlinNullChecksRemoveMessage() throws Exception {
+    testForR8(parameters)
+        .addProgramClassFileData(getTransformedMain())
+        .addClasspathClassFileData(getTransformedKotlinIntrinsics())
+        .addKeepMainRule(TestClass.class)
+        .addKeepRules("-processkotlinnullchecks remove_message")
+        .run(parameters.getRuntime(), TestClass.class, RUN_ARGUMENTS)
+        .inspect(inspector -> assertKotlinIntrinsicsInvokes(inspector, 0))
+        .inspect(inspector -> assertObjectGetClassInvokes(inspector, 10))
+        .assertSuccessWithOutput(EXPECTED_OUTPUT_WITHOUT_INVOKE_OF_INTRINSICS);
+  }
+
+  @Test
+  public void testR8ProcessKotlinNullChecksRemove() throws Exception {
+    testForR8(parameters)
+        .addProgramClassFileData(getTransformedMain())
+        .addClasspathClassFileData(getTransformedKotlinIntrinsics())
+        .addKeepMainRule(TestClass.class)
+        .addKeepRules("-processkotlinnullchecks remove")
+        .run(parameters.getRuntime(), TestClass.class, RUN_ARGUMENTS)
+        .inspect(inspector -> assertKotlinIntrinsicsInvokes(inspector, 0))
+        .inspect(inspector -> assertObjectGetClassInvokes(inspector, 0))
+        .assertSuccessWithOutput(EXPECTED_OUTPUT_WITHOUT_INVOKE_OF_INTRINSICS);
   }
 
   private void addRuleForKotlinIntrinsics(String rule, R8TestBuilder<?, ?, ?> builder) {
@@ -137,12 +182,13 @@ public class ProcessKotlinNullChecksTest extends TestBase {
     testForR8(parameters)
         .addProgramClassFileData(getTransformedMain())
         .addClasspathClassFileData(getTransformedKotlinIntrinsics())
+        .addKeepRules("-processkotlinnullchecks keep")
         .apply(b -> addRuleForKotlinIntrinsics("-convertchecknotnull", b))
         .addKeepMainRule(TestClass.class)
         .run(parameters.getRuntime(), TestClass.class, RUN_ARGUMENTS)
         .inspect(inspector -> assertKotlinIntrinsicsInvokes(inspector, 0))
         .inspect(inspector -> assertObjectGetClassInvokes(inspector, 10))
-        .assertSuccessWithOutput(EXPECTED_OUTPUT);
+        .assertSuccessWithOutput(EXPECTED_OUTPUT_WITHOUT_INVOKE_OF_INTRINSICS);
   }
 
   @Test
@@ -150,12 +196,13 @@ public class ProcessKotlinNullChecksTest extends TestBase {
     testForR8(parameters)
         .addProgramClassFileData(getTransformedMain())
         .addClasspathClassFileData(getTransformedKotlinIntrinsics())
+        .addKeepRules("-processkotlinnullchecks remove_message")
         .apply(b -> addRuleForKotlinIntrinsics("-assumenosideeffects", b))
         .addKeepMainRule(TestClass.class)
         .run(parameters.getRuntime(), TestClass.class, RUN_ARGUMENTS)
         .inspect(inspector -> assertKotlinIntrinsicsInvokes(inspector, 0))
         .inspect(inspector -> assertObjectGetClassInvokes(inspector, 0))
-        .assertSuccessWithOutput(EXPECTED_OUTPUT);
+        .assertSuccessWithOutput(EXPECTED_OUTPUT_WITHOUT_INVOKE_OF_INTRINSICS);
   }
 
   private byte[] getTransformedMain() throws IOException {
@@ -163,13 +210,13 @@ public class ProcessKotlinNullChecksTest extends TestBase {
         .replaceClassDescriptorInMethodInstructions(
             ImmutableMap.of(
                 descriptor(KotlinJvmInternalIntrinsicsStub.class),
-                "Lkotlin/jvm/internal/Intrinsics;"))
+                DexItemFactory.kotlinJvmInternalIntrinsicsDescriptor))
         .transform();
   }
 
   private byte[] getTransformedKotlinIntrinsics() throws IOException {
     return transformer(KotlinJvmInternalIntrinsicsStub.class)
-        .setClassDescriptor("Lkotlin/jvm/internal/Intrinsics;")
+        .setClassDescriptor(DexItemFactory.kotlinJvmInternalIntrinsicsDescriptor)
         .transform();
   }
 

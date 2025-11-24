@@ -87,8 +87,7 @@ public class KotlinLambdaMergingCapturesKotlinStyleTest extends KotlinTestBase {
         .addHorizontallyMergedClassesInspector(
             inspector -> {
               if (parameters.isDexRuntime()
-                  && parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.L)
-                  && kotlinParameters.getLambdaGeneration().isInvokeDynamic()) {
+                  && parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.L)) {
                 SyntheticItemsTestUtils syntheticItems = testBuilder.getState().getSyntheticItems();
                 inspector
                     .assertIsCompleteMergeGroup(

@@ -5,6 +5,7 @@ package com.android.tools.r8.shaking;
 
 import com.android.tools.r8.position.Position;
 import com.android.tools.r8.position.TextPosition;
+import com.android.tools.r8.shaking.ProguardConfiguration.ProcessKotlinNullChecks;
 import com.android.tools.r8.shaking.ProguardConfigurationParser.ProguardConfigurationSourceParser;
 import com.android.tools.r8.utils.InternalOptions.PackageObfuscationMode;
 import java.nio.file.Path;
@@ -38,6 +39,12 @@ public interface ProguardConfigurationParserConsumer {
 
   void addKeepKotlinMetadata(
       ProguardConfigurationSourceParser parser, Position position, TextPosition positionStart);
+
+  void addProcessKotlinNullChecks(
+      ProcessKotlinNullChecks value,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart);
 
   void addKeepPackageNamesPattern(
       ProguardClassNameList proguardClassNameList,

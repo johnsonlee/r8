@@ -7,6 +7,7 @@ package com.android.tools.r8.ir.optimize;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClassAndMethod;
+import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.BasicBlockIterator;
@@ -46,6 +47,22 @@ public class CheckNotNullConverter {
     }
   }
 
+  static boolean kotlinNullCheckLedgibleForMessageRemoval(
+      AppView<? extends AppInfoWithClassHierarchy> appView, DexMethod method) {
+    return appView
+            .options()
+            .getProguardConfiguration()
+            .getProcessKotlinNullChecks()
+            .isRemoveMessage()
+        && appView.dexItemFactory().kotlinJvmInternalIntrinsicsMethods.isNullCheck(method);
+  }
+
+  private static boolean canConvertNullCheck(
+      AppView<? extends AppInfoWithClassHierarchy> appView, DexClassAndMethod singleTarget) {
+    return singleTarget.getOptimizationInfo().isConvertCheckNotNull()
+        || kotlinNullCheckLedgibleForMessageRemoval(appView, singleTarget.getReference());
+  }
+
   private static void rewriteInvoke(
       AppView<? extends AppInfoWithClassHierarchy> appView,
       IRCode code,
@@ -53,7 +70,7 @@ public class CheckNotNullConverter {
       InvokeMethod invoke) {
     ProgramMethod context = code.context();
     DexClassAndMethod singleTarget = invoke.lookupSingleTarget(appView, context);
-    if (singleTarget == null || !singleTarget.getOptimizationInfo().isConvertCheckNotNull()) {
+    if (singleTarget == null || !canConvertNullCheck(appView, singleTarget)) {
       return;
     }
     Value checkNotNullValue = invoke.getFirstNonReceiverArgument();

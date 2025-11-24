@@ -4,14 +4,12 @@
 
 package com.android.tools.r8.kotlin;
 
-import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_3_72;
 import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_5_0;
 import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_9_21;
 import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_2_0_20;
 import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_2_1_10;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentIf;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -31,7 +29,6 @@ import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
 import java.util.Collections;
 import java.util.List;
@@ -110,9 +107,9 @@ public class KotlinClassInlinerTest extends AbstractR8KotlinTestBase {
                 return;
               }
               if (testParameters.isCfRuntime() && !hasKotlinCGeneratedLambdaClasses) {
-                assertEquals(5, inspector.allClasses().size());
+                assertEquals(4, inspector.allClasses().size());
               } else {
-                assertEquals(7, inspector.allClasses().size());
+                assertEquals(6, inspector.allClasses().size());
               }
             });
   }
@@ -138,9 +135,9 @@ public class KotlinClassInlinerTest extends AbstractR8KotlinTestBase {
                 return;
               }
               if (testParameters.isCfRuntime() && !hasKotlinCGeneratedLambdaClasses) {
-                assertEquals(5, inspector.allClasses().size());
+                assertEquals(4, inspector.allClasses().size());
               } else {
-                assertEquals(7, inspector.allClasses().size());
+                assertEquals(6, inspector.allClasses().size());
               }
             });
   }
@@ -264,14 +261,14 @@ public class KotlinClassInlinerTest extends AbstractR8KotlinTestBase {
                 assertThat(
                     inspector.clazz(
                         "class_inliner_lambda_k_style.MainKt$testKotlinSequencesStateless$1"),
-                    isPresentIf(testParameters.isDexRuntime()));
+                    isPresent());
                 assertThat(
                     inspector.clazz(
                         "class_inliner_lambda_k_style.MainKt$testKotlinSequencesStateful$1"),
                     isAbsent());
                 assertThat(
                     inspector.clazz("class_inliner_lambda_k_style.MainKt$testBigExtraMethod$1"),
-                    isPresentIf(testParameters.isCfRuntime()));
+                    isAbsent());
               }
             });
   }
@@ -298,15 +295,8 @@ public class KotlinClassInlinerTest extends AbstractR8KotlinTestBase {
                       clazz,
                       "main",
                       String[].class.getCanonicalName()));
-              String kotlinIntrinsics = "void kotlin.jvm.internal.Intrinsics";
               assertEquals(
-                  Lists.newArrayList(
-                      kotlinIntrinsics
-                          + (kotlinc.is(KOTLINC_1_3_72)
-                              ? ".checkParameterIsNotNull"
-                              : ".checkNotNullParameter")
-                          + "(java.lang.Object, java.lang.String)"),
-                  collectStaticCalls(clazz, "main", String[].class.getCanonicalName()));
+                  0, collectStaticCalls(clazz, "main", String[].class.getCanonicalName()).size());
             });
   }
 

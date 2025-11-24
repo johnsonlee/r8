@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.shaking;
 
+import static com.android.tools.r8.shaking.ProguardConfiguration.ProcessKotlinNullChecks.DEFAULT;
 import static com.android.tools.r8.shaking.ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS;
 
 import com.android.tools.r8.errors.dontwarn.DontWarnConfiguration;
@@ -27,6 +28,26 @@ import java.util.Set;
 import java.util.function.Consumer;
 
 public class ProguardConfiguration {
+
+  public enum ProcessKotlinNullChecks {
+    DEFAULT,
+    KEEP,
+    REMOVE_MESSAGE,
+    REMOVE;
+
+    public boolean isRemoveMessage() {
+      return this == DEFAULT || this == REMOVE_MESSAGE;
+    }
+
+    public boolean isRemove() {
+      return this == REMOVE;
+    }
+
+    public ProcessKotlinNullChecks meet(ProcessKotlinNullChecks other) {
+      assert other != DEFAULT;
+      return other.ordinal() > ordinal() ? other : this;
+    }
+  }
 
   public static class Builder implements ProguardConfigurationParserConsumer {
 
@@ -74,6 +95,7 @@ public class ProguardConfiguration {
     private boolean forceProguardCompatibility = false;
     private boolean protoShrinking = false;
     private int maxRemovedAndroidLogLevel = MaximumRemovedAndroidLogLevelRule.NOT_SET;
+    private ProcessKotlinNullChecks processKotlinNullChecks = DEFAULT;
     PackageObfuscationMode packageObfuscationMode = PackageObfuscationMode.NONE;
     String packagePrefix = "";
 
@@ -272,6 +294,15 @@ public class ProguardConfiguration {
       addRule(keepKotlinMetadata, parser, positionStart);
       addKeepAttributePatterns(
           Collections.singletonList(RUNTIME_VISIBLE_ANNOTATIONS), parser, position, positionStart);
+    }
+
+    @Override
+    public void addProcessKotlinNullChecks(
+        ProcessKotlinNullChecks value,
+        ProguardConfigurationSourceParser parser,
+        Position position,
+        TextPosition positionStart) {
+      processKotlinNullChecks = processKotlinNullChecks.meet(value);
     }
 
     public Builder addKeepAttributePatterns(List<String> keepAttributePatterns) {
@@ -499,7 +530,8 @@ public class ProguardConfiguration {
               adaptResourceFileContents.build(),
               keepDirectories.build(),
               protoShrinking,
-              getMaxRemovedAndroidLogLevel());
+              getMaxRemovedAndroidLogLevel(),
+              processKotlinNullChecks);
 
       reporter.failIfPendingErrors();
 
@@ -554,6 +586,7 @@ public class ProguardConfiguration {
   private final int maxRemovedAndroidLogLevel;
   private final boolean hasWhyAreYouNotInliningRule;
   private final boolean hasWhyAreYouNotObfuscatingRule;
+  private final ProcessKotlinNullChecks processKotlinNullChecks;
 
   private ProguardConfiguration(
       String parsedConfiguration,
@@ -591,7 +624,8 @@ public class ProguardConfiguration {
       ProguardPathFilter adaptResourceFileContents,
       ProguardPathFilter keepDirectories,
       boolean protoShrinking,
-      int maxRemovedAndroidLogLevel) {
+      int maxRemovedAndroidLogLevel,
+      ProcessKotlinNullChecks processKotlinNullChecks) {
     this.parsedConfiguration = parsedConfiguration;
     this.dexItemFactory = factory;
     this.injars = ImmutableList.copyOf(injars);
@@ -632,6 +666,7 @@ public class ProguardConfiguration {
         Iterables.any(rules, rule -> rule instanceof WhyAreYouNotInliningRule);
     this.hasWhyAreYouNotObfuscatingRule =
         Iterables.any(rules, rule -> rule instanceof WhyAreYouNotObfuscatingRule);
+    this.processKotlinNullChecks = processKotlinNullChecks;
   }
 
   /**
@@ -809,6 +844,10 @@ public class ProguardConfiguration {
 
   public boolean hasWhyAreYouNotObfuscatingRule() {
     return hasWhyAreYouNotObfuscatingRule;
+  }
+
+  public ProcessKotlinNullChecks getProcessKotlinNullChecks() {
+    return processKotlinNullChecks;
   }
 
   @Override

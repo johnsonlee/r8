@@ -8,6 +8,7 @@ import com.android.tools.r8.position.Position;
 import com.android.tools.r8.position.TextPosition;
 import com.android.tools.r8.shaking.FilteredClassPath;
 import com.android.tools.r8.shaking.ProguardClassNameList;
+import com.android.tools.r8.shaking.ProguardConfiguration.ProcessKotlinNullChecks;
 import com.android.tools.r8.shaking.ProguardConfigurationParser.ProguardConfigurationSourceParser;
 import com.android.tools.r8.shaking.ProguardConfigurationParserConsumer;
 import com.android.tools.r8.shaking.ProguardConfigurationRule;
@@ -211,6 +212,15 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
       ProguardConfigurationSourceParser parser, Position position, TextPosition positionStart) {
     ensureNewlineAfterComment();
     write(parser, positionStart);
+  }
+
+  @Override
+  public void addProcessKotlinNullChecks(
+      ProcessKotlinNullChecks value,
+      ProguardConfigurationSourceParser parser,
+      Position position,
+      TextPosition positionStart) {
+    writeComment(parser, positionStart);
   }
 
   @Override

@@ -27,6 +27,7 @@ import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.position.Position;
 import com.android.tools.r8.position.TextRange;
 import com.android.tools.r8.shaking.ProguardClassNameList.SingleClassNameList;
+import com.android.tools.r8.shaking.ProguardConfiguration.ProcessKotlinNullChecks;
 import com.android.tools.r8.shaking.ProguardConfigurationParser.IdentifierPatternWithWildcards;
 import com.android.tools.r8.shaking.ProguardTypeMatcher.MatchSpecificType;
 import com.android.tools.r8.shaking.constructor.InitMatchingTest;
@@ -3016,6 +3017,83 @@ public class ProguardConfigurationParserTest extends TestBase {
       MaximumRemovedAndroidLogLevelRule rule =
           config.getRules().get(0).asMaximumRemovedAndroidLogLevelRule();
       assertEquals(MaximumRemovedAndroidLogLevelRule.VERBOSE, rule.getMaxRemovedAndroidLogLevel());
+    }
+  }
+
+  @Test
+  public void parseProcessKotlinNullChecks() {
+    {
+      String configuration = StringUtils.lines("");
+      parser.parse(createConfigurationForTesting(configuration));
+      verifyParserEndsCleanly();
+
+      ProguardConfiguration config = builder.build();
+      assertEquals(ProcessKotlinNullChecks.DEFAULT, config.getProcessKotlinNullChecks());
+      assertEquals(0, config.getRules().size());
+    }
+    reset();
+
+    {
+      String configuration = StringUtils.lines("-processkotlinnullchecks");
+      parser.parse(createConfigurationForTesting(configuration));
+      verifyParserEndsCleanly();
+
+      ProguardConfiguration config = builder.build();
+      assertEquals(ProcessKotlinNullChecks.REMOVE_MESSAGE, config.getProcessKotlinNullChecks());
+      assertEquals(0, config.getRules().size());
+    }
+    reset();
+
+    {
+      String configuration = StringUtils.lines("-processkotlinnullchecks keep");
+      parser.parse(createConfigurationForTesting(configuration));
+      verifyParserEndsCleanly();
+
+      ProguardConfiguration config = builder.build();
+      assertEquals(ProcessKotlinNullChecks.KEEP, config.getProcessKotlinNullChecks());
+      assertEquals(0, config.getRules().size());
+    }
+    for (String configuration :
+        ImmutableList.of(
+            StringUtils.lines("-processkotlinnullchecks remove_message"),
+            StringUtils.lines(
+                "-processkotlinnullchecks remove_message", "-processkotlinnullchecks keep"),
+            StringUtils.lines(
+                "-processkotlinnullchecks keep", "-processkotlinnullchecks remove_message"))) {
+      reset();
+
+      parser.parse(createConfigurationForTesting(configuration));
+      verifyParserEndsCleanly();
+
+      ProguardConfiguration config = builder.build();
+      assertEquals(ProcessKotlinNullChecks.REMOVE_MESSAGE, config.getProcessKotlinNullChecks());
+      assertEquals(0, config.getRules().size());
+    }
+
+    for (String configuration :
+        ImmutableList.of(
+            StringUtils.lines("-processkotlinnullchecks remove"),
+            StringUtils.lines(
+                "-processkotlinnullchecks remove", "-processkotlinnullchecks remove_message"),
+            StringUtils.lines(
+                "-processkotlinnullchecks remove", "-processkotlinnullchecks keep"))) {
+      reset();
+      parser.parse(createConfigurationForTesting(configuration));
+      verifyParserEndsCleanly();
+
+      ProguardConfiguration config = builder.build();
+      assertEquals(ProcessKotlinNullChecks.REMOVE, config.getProcessKotlinNullChecks());
+      assertEquals(0, config.getRules().size());
+    }
+
+    reset();
+
+    try {
+      String configuration = StringUtils.lines("-processkotlinnullchecks leave");
+      parser.parse(createConfigurationForTesting(configuration));
+      fail("Expect to fail due to unsupported value.");
+    } catch (RuntimeException e) {
+      checkDiagnostics(handler.errors, null, 1, 26, "Illegal value for -processkotlinnullchecks");
     }
   }
 
