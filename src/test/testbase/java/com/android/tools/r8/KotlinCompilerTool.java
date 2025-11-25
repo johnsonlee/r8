@@ -313,6 +313,10 @@ public class KotlinCompilerTool {
     return this;
   }
 
+  public KotlinCompilerTool enableExperimentalContextParameters() {
+    return addArguments("-Xcontext-parameters");
+  }
+
   public KotlinCompilerTool enableExperimentalContextReceivers() {
     return addArguments("-Xcontext-receivers");
   }
