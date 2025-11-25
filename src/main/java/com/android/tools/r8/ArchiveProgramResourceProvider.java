@@ -79,6 +79,7 @@ public class ArchiveProgramResourceProvider implements ProgramResourceProvider {
     this.include = include;
   }
 
+  @Deprecated
   @Override
   public Collection<ProgramResource> getProgramResources() throws ResourceException {
     List<ProgramResource> programResources = new ArrayList<>();

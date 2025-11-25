@@ -15,6 +15,8 @@ import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.ExceptionDiagnostic;
 import com.android.tools.r8.utils.ExceptionUtils;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.ProgramResourceProviderUtils;
+import com.android.tools.r8.utils.ProgramResourceUtils;
 import com.android.tools.r8.utils.Reporter;
 import java.util.List;
 
@@ -43,16 +45,21 @@ public class ExtractKeepAnnoRules {
       throws ResourceException {
     // TODO(b/425252849): Parallelize.
     for (ProgramResourceProvider provider : app.getProgramResourceProviders()) {
-      for (ProgramResource resource : provider.getProgramResources()) {
-        if (resource.getKind() == Kind.CF) {
-          List<KeepDeclaration> declarations = KeepEdgeReader.readKeepEdges(resource.getBytes());
-          if (!declarations.isEmpty()) {
-            KeepRuleExtractor extractor =
-                new KeepRuleExtractor(rule -> consumer.accept(rule, reporter), extractorOptions);
-            declarations.forEach(extractor::extract);
-          }
-        }
-      }
+      ProgramResourceProviderUtils.forEachProgramResourceCompat(
+          provider,
+          programResource -> {
+            if (programResource.getKind() == Kind.CF) {
+              List<KeepDeclaration> declarations =
+                  KeepEdgeReader.readKeepEdges(
+                      ProgramResourceUtils.getBytesUnchecked(programResource));
+              if (!declarations.isEmpty()) {
+                KeepRuleExtractor extractor =
+                    new KeepRuleExtractor(
+                        rule -> consumer.accept(rule, reporter), extractorOptions);
+                declarations.forEach(extractor::extract);
+              }
+            }
+          });
     }
   }
 

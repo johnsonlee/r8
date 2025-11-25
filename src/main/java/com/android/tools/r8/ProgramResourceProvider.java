@@ -5,6 +5,7 @@ package com.android.tools.r8;
 
 import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
+import com.android.tools.r8.utils.ProgramResourceProviderUtils;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.function.Consumer;
@@ -13,8 +14,15 @@ import java.util.function.Consumer;
 @KeepForApi
 public interface ProgramResourceProvider {
 
+  @Deprecated
   Collection<ProgramResource> getProgramResources() throws ResourceException;
 
+  /**
+   * Added in R8 9.0.
+   *
+   * <p>NOTE: Use {@link ProgramResourceProviderUtils#forEachProgramResourceCompat} for
+   * compatibility with AGP 8.
+   */
   default void getProgramResources(Consumer<ProgramResource> consumer) throws ResourceException {
     throw new Unimplemented();
   }

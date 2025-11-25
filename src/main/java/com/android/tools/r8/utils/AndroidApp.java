@@ -38,7 +38,6 @@ import com.android.tools.r8.Version;
 import com.android.tools.r8.dump.DumpOptions;
 import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.errors.InternalCompilerError;
-import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.features.ClassToFeatureSplitMap;
 import com.android.tools.r8.features.FeatureSplitConfiguration;
@@ -64,6 +63,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.OpenOption;
@@ -173,9 +173,8 @@ public class AndroidApp {
       StringBuilder builder, Collection<ProgramResourceProvider> providers)
       throws ResourceException {
     for (ProgramResourceProvider provider : providers) {
-      for (ProgramResource resource : provider.getProgramResources()) {
-        printProgramResource(builder, resource);
-      }
+      ProgramResourceProviderUtils.forEachProgramResourceCompat(
+          provider, programResource -> printProgramResource(builder, programResource));
     }
   }
 
@@ -294,12 +293,8 @@ public class AndroidApp {
         InternalProgramClassProvider internalProvider = (InternalProgramClassProvider) provider;
         internalProviderConsumer.accept(internalProvider);
       } else {
-        try {
-          provider.getProgramResources(consumer);
-        } catch (Unimplemented e) {
-          legacyProgramResourceProviderConsumer.accept(provider);
-          provider.getProgramResources().forEach(consumer);
-        }
+        ProgramResourceProviderUtils.forEachProgramResourceCompat(
+            provider, consumer, legacyProgramResourceProviderConsumer);
       }
       timing.end();
     }
@@ -385,11 +380,13 @@ public class AndroidApp {
       throws ResourceException {
     List<ProgramResource> out = new ArrayList<>();
     for (ProgramResourceProvider provider : providers) {
-      for (ProgramResource code : provider.getProgramResources()) {
-        if (code.getKind() == kind) {
-          out.add(code);
-        }
-      }
+      ProgramResourceProviderUtils.forEachProgramResourceCompat(
+          provider,
+          programResource -> {
+            if (programResource.getKind() == kind) {
+              out.add(programResource);
+            }
+          });
     }
     return out;
   }
@@ -731,6 +728,7 @@ public class AndroidApp {
     Map<FeatureSplit, ByteArrayOutputStream> featureSplitArchiveByteStreams =
         new IdentityHashMap<>();
     Map<FeatureSplit, ZipOutputStream> featureSplitArchiveOutputStreams = new IdentityHashMap<>();
+    IntBox nextDexIndexCapture = new IntBox(nextDexIndex);
     try {
       ClassToFeatureSplitMap classToFeatureSplitMap =
           ClassToFeatureSplitMap.createInitialClassToFeatureSplitMap(featureSplitConfiguration);
@@ -761,26 +759,34 @@ public class AndroidApp {
             }
           }
           for (ProgramResourceProvider provider : programResourceProviders) {
-            for (ProgramResource programResource : provider.getProgramResources()) {
-              nextDexIndex =
-                  dumpProgramResource(
-                      seen,
-                      nextDexIndex,
-                      classDescriptor -> {
-                        if (featureSplitConfiguration != null) {
-                          DexType type = options.dexItemFactory().createType(classDescriptor);
-                          SyntheticItems syntheticItems = null;
-                          FeatureSplit featureSplit =
-                              classToFeatureSplitMap.getFeatureSplit(type, syntheticItems);
-                          if (featureSplit != null && !featureSplit.isBase()) {
-                            return featureSplitArchiveOutputStreams.get(featureSplit);
-                          }
-                        }
-                        return archiveOutputStream;
-                      },
-                      archiveOutputStream,
-                      programResource);
-            }
+            ProgramResourceProviderUtils.forEachProgramResourceCompat(
+                provider,
+                programResource -> {
+                  try {
+                    nextDexIndexCapture.set(
+                        dumpProgramResource(
+                            seen,
+                            nextDexIndexCapture.get(),
+                            classDescriptor -> {
+                              if (featureSplitConfiguration != null) {
+                                DexType type = options.dexItemFactory().createType(classDescriptor);
+                                SyntheticItems syntheticItems = null;
+                                FeatureSplit featureSplit =
+                                    classToFeatureSplitMap.getFeatureSplit(type, syntheticItems);
+                                if (featureSplit != null && !featureSplit.isBase()) {
+                                  return featureSplitArchiveOutputStreams.get(featureSplit);
+                                }
+                              }
+                              return archiveOutputStream;
+                            },
+                            archiveOutputStream,
+                            programResource));
+                  } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                  } catch (ResourceException e) {
+                    throw new RuntimeException(e);
+                  }
+                });
           }
         }
         writeToZipStream(out, archiveName, archiveByteStream.toByteArray(), ZipEntry.DEFLATED);
@@ -798,7 +804,7 @@ public class AndroidApp {
     } finally {
       closeOutputStreams(featureSplitArchiveOutputStreams.values());
     }
-    return nextDexIndex;
+    return nextDexIndexCapture.get();
   }
 
   private void closeOutputStreams(Collection<ZipOutputStream> outputStreams) throws IOException {
@@ -921,21 +927,23 @@ public class AndroidApp {
   public void validateInputs() {
     for (ProgramResourceProvider programResourceProvider : getProgramResourceProviders()) {
       try {
-        for (ProgramResource programResource : programResourceProvider.getProgramResources()) {
-          try {
-            Kind kind = programResource.getKind();
-            if (kind == Kind.DEX) {
-              continue;
-            }
-            byte[] bytes = programResource.getBytes();
-            ClassReader classReader = new ClassReader(bytes);
-            classReader.accept(
-                new CheckClassAdapter(Opcodes.ASM9, new ClassNode(), true) {},
-                ClassReader.EXPAND_FRAMES);
-          } catch (Throwable e) {
-            throw new CompilationError("Failed validating " + programResource.getOrigin(), e);
-          }
-        }
+        ProgramResourceProviderUtils.forEachProgramResourceCompat(
+            programResourceProvider,
+            programResource -> {
+              try {
+                Kind kind = programResource.getKind();
+                if (kind == Kind.DEX) {
+                  return;
+                }
+                byte[] bytes = programResource.getBytes();
+                ClassReader classReader = new ClassReader(bytes);
+                classReader.accept(
+                    new CheckClassAdapter(Opcodes.ASM9, new ClassNode(), true) {},
+                    ClassReader.EXPAND_FRAMES);
+              } catch (Throwable e) {
+                throw new CompilationError("Failed validating " + programResource.getOrigin(), e);
+              }
+            });
       } catch (ResourceException e) {
         throw new CompilationError("Resource exception in validation", e);
       }

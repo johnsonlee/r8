@@ -6,7 +6,6 @@ package com.android.tools.r8.tracereferences;
 import static com.android.tools.r8.utils.CovariantReturnTypeUtils.modelLibraryMethodsWithCovariantReturnTypes;
 
 import com.android.tools.r8.CompilationFailedException;
-import com.android.tools.r8.ProgramResource;
 import com.android.tools.r8.ProgramResource.Kind;
 import com.android.tools.r8.ProgramResourceProvider;
 import com.android.tools.r8.ResourceException;
@@ -23,11 +22,14 @@ import com.android.tools.r8.synthesis.SyntheticItems.GlobalSyntheticsStrategy;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.ExceptionUtils;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.ProgramResourceProviderUtils;
+import com.android.tools.r8.utils.ProgramResourceUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -46,26 +48,33 @@ public class TraceReferences {
   }
 
   private static void forEachDescriptor(ProgramResourceProvider provider, Consumer<String> consumer)
-      throws ResourceException, IOException {
-    for (ProgramResource programResource : provider.getProgramResources()) {
-      if (programResource.getKind() == Kind.DEX) {
-        assert programResource.getClassDescriptors() == null;
-        for (DexProgramClass clazz :
-            new ApplicationReader(
-                    AndroidApp.builder()
-                        .addDexProgramData(ImmutableList.of(programResource.getBytes()))
-                        .build(),
-                    new InternalOptions(),
-                    Timing.empty())
-                .read()
-                .classes()) {
-          consumer.accept(clazz.getType().toDescriptorString());
-        }
-      } else {
-        assert programResource.getClassDescriptors() != null;
-        programResource.getClassDescriptors().forEach(consumer);
-      }
-    }
+      throws ResourceException {
+    ProgramResourceProviderUtils.forEachProgramResourceCompat(
+        provider,
+        programResource -> {
+          if (programResource.getKind() == Kind.DEX) {
+            assert programResource.getClassDescriptors() == null;
+            try {
+              ApplicationReader applicationReader =
+                  new ApplicationReader(
+                      AndroidApp.builder()
+                          .addDexProgramData(
+                              ImmutableList.of(
+                                  ProgramResourceUtils.getBytesUnchecked(programResource)))
+                          .build(),
+                      new InternalOptions(),
+                      Timing.empty());
+              for (DexProgramClass clazz : applicationReader.read().classes()) {
+                consumer.accept(clazz.getType().toDescriptorString());
+              }
+            } catch (IOException e) {
+              throw new UncheckedIOException(e);
+            }
+          } else {
+            assert programResource.getClassDescriptors() != null;
+            programResource.getClassDescriptors().forEach(consumer);
+          }
+        });
   }
 
   static void runForTesting(TraceReferencesCommand command, InternalOptions options)

@@ -76,8 +76,17 @@ def FormatPython(upstream):
     ]
     format_cmd.extend(changed_files)
     yapf_python_path = [GOOGLE_YAPF, os.path.join(GOOGLE_YAPF, 'third_party')]
-    subprocess.check_call(format_cmd,
-                          env={'PYTHONPATH': ':'.join(yapf_python_path)})
+    try:
+        subprocess.check_call(format_cmd,
+                              env={'PYTHONPATH': ':'.join(yapf_python_path)})
+    except subprocess.CalledProcessError as e:
+        print(
+            "Error during formatting. Make sure that `platformdirs` is installed:"
+        )
+        print("$ python3 -m venv .venv")
+        print("$ source .venv/bin/activate")
+        print("$ pip3 install platformdirs")
+        raise e
 
 
 def main():
