@@ -13,7 +13,6 @@ import com.android.tools.r8.KotlinTestBase;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.references.ClassReference;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
@@ -95,9 +94,7 @@ public class KotlinLambdaMergingSingletonTest extends KotlinTestBase {
     if (kotlinParameters.getCompilerVersion().isLessThanOrEqualTo(KOTLINC_1_9_21)) {
       inspector.assertIsCompleteMergeGroup(lambdasInInput.getJStyleLambdas());
     } else {
-      assertEquals(
-          parameters.isCfRuntime() || parameters.getApiLevel() == AndroidApiLevel.B ? 3 : 4,
-          inspector.getMergeGroups().size());
+      assertEquals(3, inspector.getMergeGroups().size());
     }
 
     // The remaining lambdas are not merged.

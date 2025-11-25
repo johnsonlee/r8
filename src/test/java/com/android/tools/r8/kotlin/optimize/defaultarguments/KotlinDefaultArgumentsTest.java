@@ -95,6 +95,29 @@ public class KotlinDefaultArgumentsTest extends KotlinTestBase {
         .addProgramFiles(kotlinc.getKotlinStdlibJar())
         .addProgramFiles(kotlinc.getKotlinAnnotationJar())
         .addKeepMainRule(MAIN)
+        // With default -processkotlinnullchecks inlining of "unrelated" Kotlin intrinsics cause
+        // an ArrayLength instruction to enter read$default
+        .enableProguardTestOptions()
+        .addKeepRules(
+            "-neverinline class kotlin.jvm.internal.Intrinsics { java.lang.Throwable"
+                + " sanitizeStackTrace(java.lang.Throwable); }")
+        .allowAccessModification()
+        .setMinApi(parameters)
+        .compile()
+        .inspect(inspector -> inspect(inspector, true))
+        .run(parameters.getRuntime(), MAIN)
+        .assertSuccessWithOutputLines(EXPECTED_OUTPUT);
+  }
+
+  @Test
+  public void testR8KeepKotlinNullChecks()
+      throws ExecutionException, CompilationFailedException, IOException {
+    testForR8(parameters.getBackend())
+        .addProgramFiles(compilationResults.getForConfiguration(kotlinParameters))
+        .addProgramFiles(kotlinc.getKotlinStdlibJar())
+        .addProgramFiles(kotlinc.getKotlinAnnotationJar())
+        .addKeepMainRule(MAIN)
+        .addKeepRules("-processkotlinnullchecks keep")
         .allowAccessModification()
         .setMinApi(parameters)
         .compile()

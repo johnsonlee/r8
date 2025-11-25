@@ -14,8 +14,8 @@ import xml.etree.ElementTree
 
 
 JETBRAINS_KOTLIN_STABLE_URL = "https://github.com/JetBrains/kotlin/releases/download"
-JETBRAINS_KOTLIN_MAVEN_URL = "https://packages.jetbrains.team/maven/p/" \
-                             "kt/bootstrap/org/jetbrains/kotlin/"
+JETBRAINS_KOTLIN_MAVEN_URL = "https://redirector.kotlinlang.org/maven/" \
+                             "bootstrap/org/jetbrains/kotlin/"
 
 KOTLIN_RELEASE_URL = JETBRAINS_KOTLIN_MAVEN_URL + "kotlin-compiler/"
 KOTLINC_LIB = os.path.join(utils.THIRD_PARTY, "kotlin",
@@ -92,7 +92,7 @@ def download_newest():
 
     if (top_most_version_and_build is None):
         raise Exception('Url: %s \n returned %s' %
-                        (KOTLIN_RELEASE_URL, response.getcode()))
+                        (response.geturl(), response.getcode()))
 
     # Download checked in kotlin dev compiler before owerlaying with the new.
     # TODO(sgjesse): This should just ensure an empty directory instead of

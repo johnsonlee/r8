@@ -95,6 +95,18 @@ public class ProcessKeepRulesCommandTest extends TestBase {
           .put(
               "-whyareyounotinlining class * { *; }",
               "-whyareyounotinlining not allowed in library consumer rules.")
+          .put(
+              "-processkotlinnullchecks",
+              "-processkotlinnullchecks not allowed in library consumer rules.")
+          .put(
+              "-processkotlinnullchecks keep",
+              "-processkotlinnullchecks not allowed in library consumer rules.")
+          .put(
+              "-processkotlinnullchecks remove_message",
+              "-processkotlinnullchecks not allowed in library consumer rules.")
+          .put(
+              "-processkotlinnullchecks remove",
+              "-processkotlinnullchecks not allowed in library consumer rules.")
           .build();
 
   @Parameter(1)

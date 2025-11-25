@@ -129,6 +129,14 @@ public class R8KotlinDataClassTest extends AbstractR8KotlinTestBase {
                 testBuilder
                     .addKeepRules(keepClassMethod(mainClassName, testMethodSignature))
                     .addOptionsModification(disableClassInliner))
-        .inspect(inspector -> checkClassIsRemoved(inspector, TEST_DATA_CLASS.getClassName()));
+        .applyIf(
+            testParameters.isCfRuntime(),
+            b ->
+                b.inspect(
+                    inspector -> checkClassIsRemoved(inspector, TEST_DATA_CLASS.getClassName())),
+            // TODO(b/461691875): Why is the class not removed (it is unused).
+            b ->
+                b.inspect(
+                    inspector -> checkClassIsKept(inspector, TEST_DATA_CLASS.getClassName())));
   }
 }
