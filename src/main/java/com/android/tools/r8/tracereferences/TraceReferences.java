@@ -22,6 +22,7 @@ import com.android.tools.r8.synthesis.SyntheticItems.GlobalSyntheticsStrategy;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.ExceptionUtils;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.ProgramResourceProviderUtils;
 import com.android.tools.r8.utils.ProgramResourceUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.ThreadUtils;
@@ -48,7 +49,8 @@ public class TraceReferences {
 
   private static void forEachDescriptor(ProgramResourceProvider provider, Consumer<String> consumer)
       throws ResourceException {
-    provider.getProgramResources(
+    ProgramResourceProviderUtils.forEachProgramResourceCompat(
+        provider,
         programResource -> {
           if (programResource.getKind() == Kind.DEX) {
             assert programResource.getClassDescriptors() == null;

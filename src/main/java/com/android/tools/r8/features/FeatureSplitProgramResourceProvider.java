@@ -9,6 +9,7 @@ import com.android.tools.r8.ProgramResourceProvider;
 import com.android.tools.r8.ResourceException;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.utils.ProgramResourceProviderUtils;
 import com.google.common.collect.Sets;
 import java.util.Collection;
 import java.util.Set;
@@ -29,6 +30,7 @@ public class FeatureSplitProgramResourceProvider implements ProgramResourceProvi
     this.programResourceProvider = programResourceProvider;
   }
 
+  @Deprecated
   @Override
   public Collection<ProgramResource> getProgramResources() throws ResourceException {
     assert factory != null;
@@ -52,9 +54,10 @@ public class FeatureSplitProgramResourceProvider implements ProgramResourceProvi
     // If the types in this provider has been unset, then the ClassToFeatureSplitMap has already
     // been created and we no longer need tracking.
     if (types == null) {
-      programResourceProvider.getProgramResources(consumer);
+      ProgramResourceProviderUtils.forEachProgramResourceCompat(programResourceProvider, consumer);
     } else {
-      programResourceProvider.getProgramResources(
+      ProgramResourceProviderUtils.forEachProgramResourceCompat(
+          programResourceProvider,
           programResource -> {
             for (String classDescriptor : programResource.getClassDescriptors()) {
               types.add(factory.createType(classDescriptor));

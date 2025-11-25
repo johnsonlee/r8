@@ -105,7 +105,8 @@ public class CfLineToMethodMapper {
                 });
             timing.end();
           } else {
-            resourceProvider.getProgramResources(
+            ProgramResourceProviderUtils.forEachProgramResourceCompat(
+                resourceProvider,
                 programResource ->
                     processProgramResource(
                         programResource,

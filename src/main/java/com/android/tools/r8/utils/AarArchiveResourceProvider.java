@@ -84,6 +84,7 @@ public class AarArchiveResourceProvider implements ProgramResourceProvider {
     }
   }
 
+  @Deprecated
   @Override
   public Collection<ProgramResource> getProgramResources() throws ResourceException {
     try {

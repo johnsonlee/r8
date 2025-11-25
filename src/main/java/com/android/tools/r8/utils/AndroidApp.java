@@ -38,7 +38,6 @@ import com.android.tools.r8.Version;
 import com.android.tools.r8.dump.DumpOptions;
 import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.errors.InternalCompilerError;
-import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.features.ClassToFeatureSplitMap;
 import com.android.tools.r8.features.FeatureSplitConfiguration;
@@ -174,8 +173,8 @@ public class AndroidApp {
       StringBuilder builder, Collection<ProgramResourceProvider> providers)
       throws ResourceException {
     for (ProgramResourceProvider provider : providers) {
-      provider.getProgramResources(
-          programResource -> printProgramResource(builder, programResource));
+      ProgramResourceProviderUtils.forEachProgramResourceCompat(
+          provider, programResource -> printProgramResource(builder, programResource));
     }
   }
 
@@ -294,12 +293,8 @@ public class AndroidApp {
         InternalProgramClassProvider internalProvider = (InternalProgramClassProvider) provider;
         internalProviderConsumer.accept(internalProvider);
       } else {
-        try {
-          provider.getProgramResources(consumer);
-        } catch (Unimplemented e) {
-          legacyProgramResourceProviderConsumer.accept(provider);
-          provider.getProgramResources(consumer);
-        }
+        ProgramResourceProviderUtils.forEachProgramResourceCompat(
+            provider, consumer, legacyProgramResourceProviderConsumer);
       }
       timing.end();
     }
@@ -385,7 +380,8 @@ public class AndroidApp {
       throws ResourceException {
     List<ProgramResource> out = new ArrayList<>();
     for (ProgramResourceProvider provider : providers) {
-      provider.getProgramResources(
+      ProgramResourceProviderUtils.forEachProgramResourceCompat(
+          provider,
           programResource -> {
             if (programResource.getKind() == kind) {
               out.add(programResource);
@@ -763,7 +759,8 @@ public class AndroidApp {
             }
           }
           for (ProgramResourceProvider provider : programResourceProviders) {
-            provider.getProgramResources(
+            ProgramResourceProviderUtils.forEachProgramResourceCompat(
+                provider,
                 programResource -> {
                   try {
                     nextDexIndexCapture.set(
@@ -930,7 +927,8 @@ public class AndroidApp {
   public void validateInputs() {
     for (ProgramResourceProvider programResourceProvider : getProgramResourceProviders()) {
       try {
-        programResourceProvider.getProgramResources(
+        ProgramResourceProviderUtils.forEachProgramResourceCompat(
+            programResourceProvider,
             programResource -> {
               try {
                 Kind kind = programResource.getKind();

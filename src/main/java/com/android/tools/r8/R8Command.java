@@ -63,6 +63,7 @@ import com.android.tools.r8.utils.InternalProgramClassProvider;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.MapConsumerUtils;
 import com.android.tools.r8.utils.ProgramClassCollection;
+import com.android.tools.r8.utils.ProgramResourceProviderUtils;
 import com.android.tools.r8.utils.ProgramResourceUtils;
 import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.SemanticVersion;
@@ -1055,7 +1056,8 @@ public final class R8Command extends BaseCompilerCommand {
       }
       try {
         for (ProgramResourceProvider provider : getAppBuilder().getProgramResourceProviders()) {
-          provider.getProgramResources(
+          ProgramResourceProviderUtils.forEachProgramResourceCompat(
+              provider,
               programResource -> {
                 if (programResource.getKind() == Kind.CF) {
                   List<KeepDeclaration> declarations =
@@ -1119,7 +1121,8 @@ public final class R8Command extends BaseCompilerCommand {
     @Override
     public void getProgramResources(Consumer<ProgramResource> consumer) throws ResourceException {
       Box<ProgramResource> dexResource = new Box<>();
-      provider.getProgramResources(
+      ProgramResourceProviderUtils.forEachProgramResourceCompat(
+          provider,
           resource -> {
             if (resource.getKind() == Kind.CF) {
               consumer.accept(resource);
@@ -1134,6 +1137,7 @@ public final class R8Command extends BaseCompilerCommand {
       }
     }
 
+    @Deprecated
     @Override
     public Collection<ProgramResource> getProgramResources() throws ResourceException {
       Collection<ProgramResource> resources = provider.getProgramResources();
