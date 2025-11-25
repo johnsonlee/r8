@@ -73,6 +73,10 @@ public abstract class SyntheticItemsTestUtils {
         originalMethod.getReturnType());
   }
 
+  public static boolean isLambdaMethodAnnotationDescriptor(String descriptor) {
+    return descriptor.equals(DexItemFactory.lambdaMethodAnnotationDescriptor);
+  }
+
   public final MethodReference syntheticBackportMethod(Class<?> clazz, int id, Method method) {
     return syntheticBackportMethod(Reference.classFromClass(clazz), id, method);
   }

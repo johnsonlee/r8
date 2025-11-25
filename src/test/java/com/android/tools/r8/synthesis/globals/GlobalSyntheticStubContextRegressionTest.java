@@ -56,7 +56,7 @@ public class GlobalSyntheticStubContextRegressionTest extends TestBase {
             .writeToZip();
 
     assertTrue(globals.hasGlobals());
-    assertEquals(2, globals.getProviders().size());
+    assertEquals(3, globals.getProviders().size());
 
     testForD8()
         .addProgramFiles(dexOut)

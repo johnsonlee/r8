@@ -383,7 +383,11 @@ public abstract class D8IncrementalRunExamplesAndroidOTest
 
   @Override
   protected void testIntermediateWithMainDexList(
-      String packageName, Path input, int expectedMainDexListSize, List<String> mainDexClasses) {
+      String packageName,
+      Path input,
+      int expectedMainDexListSize,
+      List<String> mainDexClasses,
+      boolean hasLambda) {
     // Skip those tests.
     Assume.assumeTrue(false);
   }

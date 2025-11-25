@@ -550,7 +550,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   public boolean emitPermittedSubclassesAnnotationsInDex =
       System.getProperty("com.android.tools.r8.emitPermittedSubclassesAnnotationsInDex") != null;
 
-  // TODO(b/417709154): Figure out how to expose this.
+  // TODO(b/458640215): Remove setting this flag through a system property now it is enabled by
+  //  default in debug mode.
   public boolean emitLambdaMethodAnnotations =
       System.getProperty("com.android.tools.r8.emitLambdaMethodAnnotations") != null;
 

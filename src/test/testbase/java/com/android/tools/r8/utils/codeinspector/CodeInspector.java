@@ -437,6 +437,17 @@ public class CodeInspector {
     return builder.build();
   }
 
+  public List<FoundClassSubject> classesMatching(Predicate<FoundClassSubject> test) {
+    ImmutableList.Builder<FoundClassSubject> builder = ImmutableList.builder();
+    forAllClasses(
+        clazz -> {
+          if (test.test(clazz)) {
+            builder.add(clazz);
+          }
+        });
+    return builder.build();
+  }
+
   public boolean hasExactlyProgramClasses(Class<?>... classes) {
     return hasExactlyProgramClasses(Arrays.asList(classes));
   }

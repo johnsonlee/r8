@@ -17,6 +17,7 @@ import com.android.tools.r8.SingleTestRunResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.naming.retrace.StackTrace;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.utils.AndroidApiLevel;
@@ -133,14 +134,22 @@ public class RetraceLambdaTest extends TestBase {
         inspector -> {
           Collection<ClassReference> inputs =
               ImmutableList.of(classFromClass(MyRunner.class), classFromClass(Main.class));
+          boolean hasLambdaMethodAnnotation = false;
           for (FoundClassSubject clazz : inspector.allClasses()) {
             if (inputs.contains(clazz.getOriginalReference())) {
               assertThat(clazz, not(isCompilerSynthesized()));
             } else {
               assertThat(clazz, isCompilerSynthesized());
+              if (clazz
+                  .getOriginalDescriptor()
+                  .equals(DexItemFactory.lambdaMethodAnnotationDescriptor)) {
+                hasLambdaMethodAnnotation = true;
+              }
             }
           }
-          assertEquals(inputs.size() + expectedSyntheticsCount, inspector.allClasses().size());
+          assertEquals(
+              inputs.size() + expectedSyntheticsCount + (hasLambdaMethodAnnotation ? 1 : 0),
+              inspector.allClasses().size());
         });
   }
 

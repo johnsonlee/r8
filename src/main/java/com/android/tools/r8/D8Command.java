@@ -800,6 +800,10 @@ public final class D8Command extends BaseCompilerCommand {
     internal.setSyntheticInfoConsumer(syntheticInfoConsumer);
     internal.desugarGraphConsumer = desugarGraphConsumer;
     internal.mainDexKeepRules = mainDexKeepRules;
+    internal.emitLambdaMethodAnnotations =
+        internal.emitLambdaMethodAnnotations
+            || (internal.debug
+                && (!internal.intermediate || internal.hasGlobalSyntheticsConsumer()));
     InternalMapConsumer mapConsumer =
         wrapExistingInternalMapConsumerIfNotNull(
             internal.mapConsumer, partitionMapConsumer, MapConsumerToPartitionMapConsumer::new);

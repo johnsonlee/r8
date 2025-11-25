@@ -113,6 +113,12 @@ public class LambdaToSysOutPrintlnDuplicationTest extends TestBase {
             .addClasspathClasses(CLASSES)
             .setMinApi(parameters)
             .setIntermediate(intermediate)
+            // Test is merging non-intermediates, so don't emit the global LambdaMethod annotation.
+            .applyIf(
+                !intermediate,
+                b ->
+                    b.addOptionsModification(
+                        options -> options.emitLambdaMethodAnnotations = false))
             .compile()
             .writeToZip();
 
@@ -123,6 +129,12 @@ public class LambdaToSysOutPrintlnDuplicationTest extends TestBase {
             .addClasspathClasses(CLASSES)
             .setMinApi(parameters)
             .setIntermediate(intermediate)
+            // Test is merging non-intermediates, so don't emit the global LambdaMethod annotation.
+            .applyIf(
+                !intermediate,
+                b ->
+                    b.addOptionsModification(
+                        options -> options.emitLambdaMethodAnnotations = false))
             .compile()
             .writeToZip();
 
@@ -217,6 +229,8 @@ public class LambdaToSysOutPrintlnDuplicationTest extends TestBase {
   private Set<MethodReference> getSyntheticMethods(CodeInspector inspector) {
     Set<MethodReference> methods = new HashSet<>();
     inspector.allClasses().stream()
+        // Filter out the LambdaMethod annotation class methods.
+        .filter(c -> !c.isAnnotation())
         .filter(c -> !CLASS_TYPE_NAMES.contains(c.getFinalName()))
         .forEach(
             c ->

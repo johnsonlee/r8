@@ -41,7 +41,6 @@ public class LambdaCallTargetAnnotationRuntimeLookupTest extends TestBase {
             .addInnerClasses(LambdaCallTargetAnnotationRuntimeLookupTest.class)
             .setMinApi(AndroidApiLevel.L)
             .debug()
-            .addOptionsModification(options -> options.emitLambdaMethodAnnotations = true)
             .applyIf(
                 intermediate,
                 b -> b.setIntermediate(true).getBuilder().setGlobalSyntheticsConsumer(globals))
