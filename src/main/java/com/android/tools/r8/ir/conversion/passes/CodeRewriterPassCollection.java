@@ -65,6 +65,7 @@ public class CodeRewriterPassCollection {
       passes.add(new ReturnBlockCanonicalizerRewriter(appView));
     }
     passes.add(new ShareInstanceGetInstructions(appView));
+    passes.add(new DivisionOptimizer(appView));
     return new CodeRewriterPassCollection(passes);
   }
 

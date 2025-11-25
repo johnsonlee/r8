@@ -25,6 +25,7 @@ import com.android.tools.r8.utils.AndroidAppConsumers;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.ForwardingOutputStream;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.ThrowingOutputStream;
 import com.android.tools.r8.utils.codeinspector.ArgumentPropagatorCodeScannerResultInspector;
@@ -65,7 +66,7 @@ public abstract class TestCompilerBuilder<
   public static final Consumer<InternalOptions> DEFAULT_OPTIONS =
       options -> {
         options.testing.enableTestAssertions = true;
-        options.getBottomUpOutlinerOptions().enable = true;
+        options.getBottomUpOutlinerOptions().enable = OptionalBool.TRUE;
         options.getBottomUpOutlinerOptions().enableStringBuilderOutlining = true;
       };
 
@@ -85,6 +86,10 @@ public abstract class TestCompilerBuilder<
                 .setEnableUnverifiableCodeReporting(true);
             options.getOpenClosedInterfacesOptions().disallowOpenInterfaces();
           });
+
+  public static final Consumer<InternalOptions> DEFAULT_R8_ASSISTANT_OPTIONS =
+      DEFAULT_OPTIONS.andThen(
+          options -> options.getArtProfileOptions().setEnableCompletenessCheckForTesting(false));
 
   public static final Consumer<InternalOptions> DEFAULT_R8_IN_R8_PARTIAL_OPTIONS =
       DEFAULT_R8_OPTIONS.andThen(
@@ -159,6 +164,8 @@ public abstract class TestCompilerBuilder<
       optionsConsumer = DEFAULT_D8_OPTIONS;
     } else if (isR8TestBuilder()) {
       optionsConsumer = DEFAULT_R8_OPTIONS;
+    } else if (isR8AssistantTestBuilder()) {
+      optionsConsumer = DEFAULT_R8_ASSISTANT_OPTIONS;
     } else if (isR8PartialTestBuilder()) {
       optionsConsumer =
           DEFAULT_OPTIONS.andThen(

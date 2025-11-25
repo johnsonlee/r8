@@ -36,27 +36,22 @@ public class B379241435InterfaceInitializedAftertInstantiatingImplementorTest ex
   @Test
   public void testD8() throws Exception {
     parameters.assumeDexRuntime();
-    testForD8(parameters.getBackend())
+    testForD8(parameters)
         .addInnerClasses(getClass())
-        .setMinApi(parameters)
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   @Test
   public void testR8() throws Exception {
-    testForR8(parameters.getBackend())
+    testForR8(parameters)
         .addInnerClasses(getClass())
         .addKeepMainRule(TestClass.class)
-        .setMinApi(parameters)
         .run(parameters.getRuntime(), TestClass.class)
         .applyIf(
-            parameters.isDexRuntime()
-                && parameters
-                    .getApiLevel()
-                    .isLessThan(apiLevelWithDefaultInterfaceMethodsSupport()),
-            r -> r.assertSuccessWithOutput(EXPECTED_OUTPUT),
-            r -> r.assertSuccessWithOutputLines("B.B()", "I.f()"));
+            parameters.canUseDefaultAndStaticInterfaceMethods(),
+            r -> r.assertSuccessWithOutputLines("B.B()", "I.f()"),
+            r -> r.assertSuccessWithOutput(EXPECTED_OUTPUT));
   }
 
   public static class TestClass {

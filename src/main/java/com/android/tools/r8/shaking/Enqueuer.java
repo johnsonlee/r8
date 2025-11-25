@@ -547,9 +547,7 @@ public class Enqueuer {
       // omit the Enum.values() -keep that Android Studio uses, we enable Java enum reflection
       // tracing by default, but leave Android's behind a flag.
       new EnqueuerEnumReflectionAnalysisJava(appView, this).register(analysesBuilder);
-      if (options.experimentalTraceAndroidEnumSerialization) {
-        new EnqueuerEnumReflectionAnalysisAndroid(appView, this).register(analysesBuilder);
-      }
+      new EnqueuerEnumReflectionAnalysisAndroid(appView, this).register(analysesBuilder);
       CfOpenClosedInterfacesAnalysis.register(appView, this, analysesBuilder);
       cfToLirConverter = CfToLirConverter.register(appView, this, analysesBuilder);
       deferredTracing.register(analysesBuilder);

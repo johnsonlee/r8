@@ -104,7 +104,7 @@ public class SealedClassesIllegalSubclassTest extends TestBase {
     assertThat(sub2, isPresentAndNotRenamed());
     assertThat(sub3, isPresentAndNotRenamed());
     assertEquals(
-        hasSealedClassesSupport(parameters) && keepPermittedSubclassesAttribute
+        parameters.hasSealedClassesSupport() && keepPermittedSubclassesAttribute
             ? ImmutableList.of(sub1.asTypeSubject(), sub2.asTypeSubject())
             : ImmutableList.of(),
         clazz.getFinalPermittedSubclassAttributes());

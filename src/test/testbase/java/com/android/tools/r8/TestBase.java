@@ -515,7 +515,7 @@ public class TestBase {
         testParameters.getLambdaGeneration());
   }
 
-  public static ClassFileTransformer transformer(Class<?> clazz) throws IOException {
+  public static ClassFileTransformer transformer(Class<?> clazz) {
     return ClassFileTransformer.create(clazz);
   }
 
@@ -1796,13 +1796,6 @@ public class TestBase {
     return AndroidApiLevel.N;
   }
 
-  public static boolean hasDefaultInterfaceMethodsSupport(TestParameters parameters) {
-    return parameters.isCfRuntime()
-        || parameters
-            .getApiLevel()
-            .isGreaterThanOrEqualTo(apiLevelWithDefaultInterfaceMethodsSupport());
-  }
-
   public static boolean runtimeWithRecordsSupport(TestRuntime runtime) {
     return (runtime.isCf() && runtime.asCf().hasRecordsSupport())
         || (runtime.isDex() && runtime.asDex().hasRecordsSupport());
@@ -1852,12 +1845,6 @@ public class TestBase {
 
   public static AndroidApiLevel apiLevelWithSealedClassesSupport() {
     return AndroidApiLevel.U;
-  }
-
-  public static boolean hasSealedClassesSupport(TestParameters parameters) {
-    return (parameters.isCfRuntime() && parameters.getCfRuntime().hasSealedClassesSupport())
-        || (parameters.isDexRuntime()
-            && parameters.getApiLevel().isGreaterThanOrEqualTo(apiLevelWithSealedClassesSupport()));
   }
 
   public static boolean isRecordsFullyDesugaredForD8(TestParameters parameters) {

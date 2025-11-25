@@ -77,6 +77,18 @@ public class TestParameters {
     return canHaveNonReboundConstructorInvoke();
   }
 
+  public boolean hasDefaultInterfaceMethodsSupport() {
+    return isCfRuntime()
+        || getApiLevel()
+            .isGreaterThanOrEqualTo(TestBase.apiLevelWithDefaultInterfaceMethodsSupport());
+  }
+
+  public boolean hasSealedClassesSupport() {
+    return (isCfRuntime() && getCfRuntime().hasSealedClassesSupport())
+        || (isDexRuntime()
+            && getApiLevel().isGreaterThanOrEqualTo(TestBase.apiLevelWithSealedClassesSupport()));
+  }
+
   public boolean canUseDefaultAndStaticInterfaceMethods() {
     assert isCfRuntime() || isDexRuntime();
     assert !isCfRuntime() || apiLevel == null
@@ -95,6 +107,10 @@ public class TestParameters {
 
   public boolean canUseJavaLangInvokeVarHandleStoreStoreFence() {
     return isDexRuntime() && getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.T);
+  }
+
+  public boolean canUseJavaLangDivideUnsigned() {
+    return isCfRuntime() || getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.O);
   }
 
   public boolean canUseNativeDexPC() {

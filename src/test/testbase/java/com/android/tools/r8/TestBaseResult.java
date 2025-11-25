@@ -26,7 +26,14 @@ public abstract class TestBaseResult<
     return self();
   }
 
+  public boolean hasSyntheticItems() {
+    return state.getSyntheticItems() != null;
+  }
+
   public SyntheticItemsTestUtils getSyntheticItems() {
+    if (state.getSyntheticItems() == null) {
+      throw new RuntimeException("Synthetic items were not initialized");
+    }
     return state.getSyntheticItems();
   }
 }

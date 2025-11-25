@@ -151,7 +151,7 @@ public class ClassFileTransformer {
     return new ClassFileTransformer(bytes, classReference);
   }
 
-  public static ClassFileTransformer create(Class<?> clazz) throws IOException {
+  public static ClassFileTransformer create(Class<?> clazz) {
     return create(ToolHelper.getClassAsBytes(clazz), classFromTypeName(clazz.getTypeName()));
   }
 
@@ -1657,6 +1657,16 @@ public class ClassFileTransformer {
             } else {
               super.visitLdcInsn(value);
             }
+          }
+        });
+  }
+
+  public ClassFileTransformer mapLineNumbers(int delta) {
+    return addMethodTransformer(
+        new MethodTransformer() {
+          @Override
+          public void visitLineNumber(int line, Label start) {
+            super.visitLineNumber(line + delta, start);
           }
         });
   }

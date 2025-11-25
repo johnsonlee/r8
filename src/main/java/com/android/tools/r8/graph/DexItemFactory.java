@@ -1885,6 +1885,8 @@ public class DexItemFactory {
         createMethod(boxedIntType, createProto(stringType), "toString");
     public final DexMethod valueOf =
         createMethod(boxedIntType, createProto(boxedIntType, intType), "valueOf");
+    public final DexMethod divideUnsigned =
+        createMethod(boxedIntType, createProto(intType, intType, intType), "divideUnsigned");
 
     @Override
     public void forEachFinalField(Consumer<DexField> consumer) {

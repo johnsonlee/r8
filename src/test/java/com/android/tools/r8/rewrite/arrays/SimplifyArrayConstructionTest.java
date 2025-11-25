@@ -25,7 +25,6 @@ import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import com.google.common.collect.Lists;
-import java.io.IOException;
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.List;
@@ -153,24 +152,20 @@ public class SimplifyArrayConstructionTest extends TestBase {
   }
 
   private static byte[] transformedMain() {
-    try {
-      return transformer(Main.class)
-          .transformMethodInsnInMethod(
-              "interfaceArrayWithRawObject",
-              (opcode, owner, name, descriptor, isInterface, visitor) -> {
-                if (name.equals("getObjectThatImplementsSerializable")) {
-                  visitor.visitMethodInsn(opcode, owner, name, "()Ljava/lang/Object;", isInterface);
-                } else {
-                  visitor.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
-                }
-              })
-          .setReturnType(
-              ClassFileTransformer.MethodPredicate.onName("getObjectThatImplementsSerializable"),
-              Object.class.getTypeName())
-          .transform();
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
+    return transformer(Main.class)
+        .transformMethodInsnInMethod(
+            "interfaceArrayWithRawObject",
+            (opcode, owner, name, descriptor, isInterface, visitor) -> {
+              if (name.equals("getObjectThatImplementsSerializable")) {
+                visitor.visitMethodInsn(opcode, owner, name, "()Ljava/lang/Object;", isInterface);
+              } else {
+                visitor.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
+              }
+            })
+        .setReturnType(
+            ClassFileTransformer.MethodPredicate.onName("getObjectThatImplementsSerializable"),
+            Object.class.getTypeName())
+        .transform();
   }
 
   private void inspect(CodeInspector inspector, boolean isR8) {

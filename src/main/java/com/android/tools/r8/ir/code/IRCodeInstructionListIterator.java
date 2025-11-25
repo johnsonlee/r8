@@ -135,6 +135,16 @@ public class IRCodeInstructionListIterator implements InstructionListIterator {
     throw new Unimplemented();
   }
 
+  public void replaceCurrentInstructionWithThrow(
+      AppView<?> appView,
+      IRCode code,
+      Value outValue,
+      Set<BasicBlock> blocksToRemove,
+      AffectedValues affectedValues) {
+    instructionIterator.replaceCurrentInstructionWithThrow(
+        appView, code, blockIterator, outValue, blocksToRemove, affectedValues);
+  }
+
   @Override
   public BasicBlock split(
       IRCode code, ListIterator<BasicBlock> blockIterator, boolean keepCatchHandlers) {

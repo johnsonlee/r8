@@ -46,7 +46,7 @@ public class SealedClassesHorizontalMergeTest extends TestBase {
     ClassSubject sub1 = inspector.clazz(Sub1.class);
     assertThat(sub1, isPresentAndRenamed());
     assertEquals(
-        hasSealedClassesSupport(parameters)
+        parameters.hasSealedClassesSupport()
             ? ImmutableList.of(sub1.asTypeSubject())
             : ImmutableList.of(),
         clazz.getFinalPermittedSubclassAttributes());

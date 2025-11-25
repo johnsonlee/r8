@@ -53,7 +53,7 @@ public class SealedClassesExtendsVerticalMergeTest extends TestBase {
     assertThat(subSub, isPresentAndRenamed());
     for (ClassSubject clazz : ImmutableList.of(superClass, unrelated)) {
       assertEquals(
-          hasSealedClassesSupport(parameters)
+          parameters.hasSealedClassesSupport()
               ? ImmutableList.of(subSub.asTypeSubject(), sub2.asTypeSubject())
               : ImmutableList.of(),
           clazz.getFinalPermittedSubclassAttributes());

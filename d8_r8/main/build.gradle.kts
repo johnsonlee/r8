@@ -449,6 +449,7 @@ tasks {
     dependsOn(resourceShrinkerJarTask)
     dependsOn(gradle.includedBuild("shared").task(":downloadDeps"))
     from(sourceSets.main.get().output)
+    from(sourceSets["turbo"].output)
     exclude("com/android/tools/r8/threading/providers/**")
     from(keepAnnoJarTask.outputs.files.map(::zipTree))
     from(assistantJarTask.outputs.files.map(::zipTree))
@@ -467,6 +468,7 @@ tasks {
 
   val threadingModuleBlockingJar by registering(Zip::class) {
     from(sourceSets.main.get().output)
+    from(sourceSets["turbo"].output)
     include("com/android/tools/r8/threading/providers/blocking/**")
     destinationDirectory.set(getRoot().resolveAll("build", "libs"))
     archiveFileName.set("threading-module-blocking.jar")
@@ -474,13 +476,13 @@ tasks {
 
   val threadingModuleSingleThreadedJar by registering(Zip::class) {
     from(sourceSets.main.get().output)
+    from(sourceSets["turbo"].output)
     include("com/android/tools/r8/threading/providers/singlethreaded/**")
     destinationDirectory.set(getRoot().resolveAll("build", "libs"))
     archiveFileName.set("threading-module-single-threaded.jar")
   }
 
   val depsJar by registering(Zip::class) {
-    from(sourceSets["turbo"].output)
     dependsOn(gradle.includedBuild("shared").task(":downloadDeps"))
     dependsOn(resourceShrinkerDepsTask)
     dependsOn(threadingModuleBlockingJar)

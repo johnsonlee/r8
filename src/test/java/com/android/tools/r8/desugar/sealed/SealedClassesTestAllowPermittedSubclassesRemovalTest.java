@@ -49,7 +49,7 @@ public class SealedClassesTestAllowPermittedSubclassesRemovalTest extends TestBa
     assertThat(sub1, isPresentAndRenamed());
     assertThat(sub2, isPresentAndRenamed());
     assertEquals(
-        hasSealedClassesSupport(parameters)
+        parameters.hasSealedClassesSupport()
             ? ImmutableList.of(sub1.asTypeSubject(), sub2.asTypeSubject())
             : ImmutableList.of(),
         clazz.getFinalPermittedSubclassAttributes());

@@ -1,7 +1,7 @@
 {
-  "identifier": "com.tools.android:desugar_jdk_libs_configuration_nio:2.1.5",
+  "identifier": "com.tools.android:desugar_jdk_libs_configuration_nio:2.1.6",
   "configuration_format_version": 101,
-  "required_compilation_api_level": 30,
+  "required_compilation_api_level": 34,
   "synthesized_library_classes_package_prefix": "j$.",
   "support_all_callbacks_from_library": true,
   "common_flags": [

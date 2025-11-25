@@ -132,6 +132,10 @@ public abstract class TestBuilder<RR extends TestRunResult<RR>, T extends TestBu
     return null;
   }
 
+  public boolean isR8AssistantTestBuilder() {
+    return false;
+  }
+
   public boolean isR8PartialTestBuilder() {
     return false;
   }

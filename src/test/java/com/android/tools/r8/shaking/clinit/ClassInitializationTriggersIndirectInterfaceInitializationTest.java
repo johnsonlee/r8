@@ -52,7 +52,7 @@ public class ClassInitializationTriggersIndirectInterfaceInitializationTest exte
               ClassSubject iClassSubject = inspector.clazz(I.class);
               ClassSubject jClassSubject = inspector.clazz(J.class);
               ClassSubject aClassSubject = inspector.clazz(A.class);
-              if (hasDefaultInterfaceMethodsSupport(parameters)) {
+              if (parameters.hasDefaultInterfaceMethodsSupport()) {
                 // Verify that I's class initializer is still present.
                 assertThat(iClassSubject, isPresent());
                 assertThat(iClassSubject.clinit(), isPresent());
@@ -69,8 +69,8 @@ public class ClassInitializationTriggersIndirectInterfaceInitializationTest exte
             })
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLinesIf(
-            hasDefaultInterfaceMethodsSupport(parameters), "I.<clinit>()", "I.m()")
-        .assertSuccessWithOutputLinesIf(!hasDefaultInterfaceMethodsSupport(parameters), "I.m()");
+            parameters.hasDefaultInterfaceMethodsSupport(), "I.<clinit>()", "I.m()")
+        .assertSuccessWithOutputLinesIf(!parameters.hasDefaultInterfaceMethodsSupport(), "I.m()");
   }
 
   static class Main {

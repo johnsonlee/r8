@@ -144,7 +144,7 @@ public class LibraryDesugaringSpecification {
           "JDK11",
           LibraryDesugaringSpecification::ensureUndesugaredJdk11LibJarForTesting,
           "jdk11/desugar_jdk_libs.json",
-          AndroidApiLevel.R,
+          AndroidApiLevel.U,
           JDK11_DESCRIPTOR,
           LATEST);
   public static LibraryDesugaringSpecification JDK11_MINIMAL =
@@ -160,7 +160,7 @@ public class LibraryDesugaringSpecification {
           "JDK11_PATH",
           LibraryDesugaringSpecification::ensureUndesugaredJdk11LibJarForTesting,
           "jdk11/desugar_jdk_libs_nio.json",
-          AndroidApiLevel.R,
+          AndroidApiLevel.U,
           JDK11_PATH_DESCRIPTOR,
           LATEST);
 

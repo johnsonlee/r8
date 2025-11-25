@@ -146,6 +146,7 @@ tasks {
     systemProperty(
       "BUILD_PROP_R8_RUNTIME_PATH",
       mainCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0] +
+        File.pathSeparator + mainTurboCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0] +
         File.pathSeparator + mainDepsJarTask.outputs.files.singleFile +
         File.pathSeparator + getRoot().resolveAll("src", "main", "resources") +
         File.pathSeparator + keepAnnoCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0] +

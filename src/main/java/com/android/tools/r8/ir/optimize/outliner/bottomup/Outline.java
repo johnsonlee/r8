@@ -303,7 +303,8 @@ public class Outline implements LirConstant {
     return proto.getReturnType().isVoidType();
   }
 
-  public void materialize(AppView<?> appView, MethodProcessingContext methodProcessingContext) {
+  public ProgramMethod materialize(
+      AppView<?> appView, MethodProcessingContext methodProcessingContext) {
     assert verifyNotMerged();
     SyntheticItems syntheticItems = appView.getSyntheticItems();
     materializedOutlineMethod =
@@ -324,6 +325,7 @@ public class Outline implements LirConstant {
     for (Outline child : getChildren()) {
       child.materializedOutlineMethod = materializedOutlineMethod;
     }
+    return materializedOutlineMethod;
   }
 
   private DexAnnotationSet createAnnotations(AppView<?> appView) {

@@ -164,15 +164,11 @@ public class AndroidAppDumpsTest extends TestBase {
 
       @Override
       public ProgramResource getProgramResource(String descriptor) {
-        try {
           return ProgramResource.fromBytes(
               origin(clazz.getTypeName()),
               Kind.CF,
               ToolHelper.getClassAsBytes(clazz),
               getClassDescriptors());
-        } catch (IOException e) {
-          throw new RuntimeException(e);
-        }
       }
     };
   }

@@ -20,6 +20,7 @@ import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
+import java.io.IOException;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -41,7 +42,7 @@ public class ApiModelOutlineWithUnknownReturnTypeTest extends TestBase {
   @Parameters(name = "{0}, addedToLibraryHere: {1}")
   public static List<Object[]> data() {
     return buildParameters(
-        getTestParameters().withDexRuntimes().withAllApiLevels().build(), BooleanUtils.values());
+        getTestParameters().withDexRuntimesAndAllApiLevels().build(), BooleanUtils.values());
   }
 
   private AndroidApiLevel runApiLevel() {
@@ -82,6 +83,7 @@ public class ApiModelOutlineWithUnknownReturnTypeTest extends TestBase {
         .setMode(CompilationMode.DEBUG)
         .apply(this::setupTestBuilder)
         .compile()
+        .apply(this::checkNoLockVerificationErrors)
         .inspect(this::inspect)
         .apply(this::setupRuntime)
         .run(parameters.getRuntime(), Main.class)
@@ -94,6 +96,7 @@ public class ApiModelOutlineWithUnknownReturnTypeTest extends TestBase {
         .setMode(CompilationMode.RELEASE)
         .apply(this::setupTestBuilder)
         .compile()
+        .apply(this::checkNoLockVerificationErrors)
         .inspect(this::inspect)
         .apply(this::setupRuntime)
         .run(parameters.getRuntime(), Main.class)
@@ -107,6 +110,7 @@ public class ApiModelOutlineWithUnknownReturnTypeTest extends TestBase {
         .addKeepMainRule(Main.class)
         .addKeepClassAndMembersRules(ProgramClass.class)
         .compile()
+        .apply(this::checkNoLockVerificationErrors)
         .inspect(this::inspect)
         .apply(this::setupRuntime)
         .run(parameters.getRuntime(), Main.class)
@@ -120,10 +124,20 @@ public class ApiModelOutlineWithUnknownReturnTypeTest extends TestBase {
             ProgramClass.class.getDeclaredMethod("callLibrary"),
             AndroidApiLevel.B,
             getMockApiLevel());
+    verifyThat(inspector, parameters, LibrarySub.class.getDeclaredMethod("create"))
+        .isOutlinedFromBetween(
+            ProgramClass.class.getDeclaredMethod("callLibrarySynchronized"),
+            AndroidApiLevel.B,
+            getMockApiLevel());
   }
 
   private void checkOutput(SingleTestRunResult<?> runResult) {
     runResult.assertSuccessWithOutputLines("ProgramClass::print");
+  }
+
+  private void checkNoLockVerificationErrors(TestCompileResult<?, ?> compileResult)
+      throws IOException {
+    compileResult.runDex2Oat(parameters.getRuntime()).assertNoLockVerificationErrors();
   }
 
   public static class LibraryClass {
@@ -148,6 +162,17 @@ public class ApiModelOutlineWithUnknownReturnTypeTest extends TestBase {
         return null;
       } else {
         return libraryClass;
+      }
+    }
+
+    public LibraryClass callLibrarySynchronized() {
+      synchronized (this) {
+        LibrarySub libraryClass = LibrarySub.create();
+        if (System.currentTimeMillis() > 0) {
+          return null;
+        } else {
+          return libraryClass;
+        }
       }
     }
 

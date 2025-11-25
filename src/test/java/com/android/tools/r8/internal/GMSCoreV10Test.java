@@ -17,6 +17,7 @@ import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ThrowableConsumer;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.utils.AndroidApiLevel;
+import com.android.tools.r8.utils.OptionalBool;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import org.junit.BeforeClass;
@@ -81,8 +82,8 @@ public class GMSCoreV10Test extends GMSCoreCompilationTestBase {
         .addProgramFiles(base.resolve(DEPLOY_JAR))
         .addOptionsModification(
             options -> {
-              assertTrue(options.getBottomUpOutlinerOptions().enable);
-              options.getBottomUpOutlinerOptions().enable = false;
+              assertTrue(options.getBottomUpOutlinerOptions().enable.isTrue());
+              options.getBottomUpOutlinerOptions().enable = OptionalBool.FALSE;
             })
         .setMinApi(parameters)
         .apply(configuration)

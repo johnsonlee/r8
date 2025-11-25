@@ -20,17 +20,18 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.BasicBlock;
+import com.android.tools.r8.ir.code.BasicBlockIterator;
 import com.android.tools.r8.ir.code.ConstClass;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.IRCodeInstructionListIterator;
 import com.android.tools.r8.ir.code.Instruction;
+import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.InvokeDirect;
 import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.code.InvokeStatic;
 import com.android.tools.r8.ir.code.InvokeVirtual;
 import com.android.tools.r8.ir.code.NewInstance;
 import com.android.tools.r8.ir.code.Position;
-import com.android.tools.r8.ir.code.Throw;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.conversion.passes.CodeRewriterPass;
@@ -39,16 +40,17 @@ import com.android.tools.r8.ir.desugar.ServiceLoaderSourceCode;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.KeepInfo;
 import com.android.tools.r8.shaking.MinimumKeepInfoCollection;
-import com.android.tools.r8.utils.ConsumerUtils;
 import com.android.tools.r8.utils.DominatorChecker;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.WorkList;
+import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Predicate;
 
 /**
@@ -129,10 +131,79 @@ public class ServiceLoaderRewriter extends CodeRewriterPass<AppInfoWithLiveness>
     // Create a map from service type to loader methods local to this context since two
     // service loader calls to the same type in different methods and in the same wave can race.
     Map<DexType, DexEncodedMethod> synthesizedServiceLoaders = new IdentityHashMap<>();
-    IRCodeInstructionListIterator iterator = code.instructionListIterator();
     Map<Instruction, Instruction> replacements = new HashMap<>();
     Map<Instruction, List<Instruction>> replacementExtras = new HashMap<>();
 
+    populateReplacements(
+        code,
+        methodProcessor,
+        methodProcessingContext,
+        synthesizedServiceLoaders,
+        replacements,
+        replacementExtras);
+
+    if (replacements.isEmpty()) {
+      return CodeRewriterResult.NO_CHANGE;
+    }
+
+    AffectedValues affectedValues = new AffectedValues();
+    BasicBlockIterator blockIterator = code.listIterator();
+    Set<BasicBlock> blocksToRemove = Sets.newIdentityHashSet();
+    while (blockIterator.hasNext()) {
+      BasicBlock block = blockIterator.next();
+      if (blocksToRemove.contains(block)) {
+        continue;
+      }
+      InstructionListIterator instructionIterator = block.listIterator();
+      while (instructionIterator.hasNext()) {
+        Instruction instruction = instructionIterator.next();
+        if (!replacements.containsKey(instruction)) {
+          continue;
+        }
+        Instruction replacement = replacements.get(instruction);
+        List<Instruction> extras = replacementExtras.get(instruction);
+
+        if (replacement == null) {
+          // Replace with throw.
+          assert extras.size() == 2 : extras;
+          assert extras.get(0).isNewInstance();
+          assert extras.get(1).isInvokeConstructor(dexItemFactory);
+          instructionIterator.previous();
+          instructionIterator.addPossiblyThrowingInstructionsToPossiblyThrowingBlock(
+              code, blockIterator, extras, options);
+          instructionIterator.replaceCurrentInstructionWithThrow(
+              appView,
+              code,
+              blockIterator,
+              extras.get(0).outValue(),
+              blocksToRemove,
+              affectedValues);
+        } else {
+          instructionIterator.replaceCurrentInstruction(replacement, affectedValues);
+          if (extras != null) {
+            instructionIterator.addPossiblyThrowingInstructionsToPossiblyThrowingBlock(
+                code, blockIterator, extras, options);
+          }
+        }
+      }
+    }
+
+    code.removeBlocks(blocksToRemove);
+    code.removeRedundantBlocks();
+    affectedValues.narrowingWithAssumeRemoval(appView, code);
+    assert code.isConsistentSSA(appView);
+
+    return CodeRewriterResult.HAS_CHANGED;
+  }
+
+  private void populateReplacements(
+      IRCode code,
+      MethodProcessor methodProcessor,
+      MethodProcessingContext methodProcessingContext,
+      Map<DexType, DexEncodedMethod> synthesizedServiceLoaders,
+      Map<Instruction, Instruction> replacements,
+      Map<Instruction, List<Instruction>> replacementExtras) {
+    IRCodeInstructionListIterator iterator = code.instructionListIterator();
     while (iterator.hasNext()) {
       Instruction instruction = iterator.next();
 
@@ -172,35 +243,6 @@ public class ServiceLoaderRewriter extends CodeRewriterPass<AppInfoWithLiveness>
             loadResult);
       }
     }
-
-    if (replacements.isEmpty()) {
-      return CodeRewriterResult.NO_CHANGE;
-    }
-
-    AffectedValues affectedValues = new AffectedValues();
-    iterator = code.instructionListIterator();
-    while (iterator.hasNext()) {
-      Instruction instruction = iterator.next();
-      Instruction replacement = replacements.get(instruction);
-      if (replacement == null) {
-        continue;
-      }
-      iterator.replaceCurrentInstruction(replacement, affectedValues);
-      List<Instruction> extras = replacementExtras.get(instruction);
-      if (extras != null) {
-        iterator.addPossiblyThrowingInstructionsToPossiblyThrowingBlock(extras, options);
-        if (ListUtils.last(extras).isThrow()) {
-          iterator.removeRemainingInBlockIgnoreOutValue();
-        }
-      }
-    }
-
-    code.removeUnreachableBlocks(affectedValues, ConsumerUtils.emptyConsumer());
-    code.removeRedundantBlocks();
-    affectedValues.narrowingWithAssumeRemoval(appView, code);
-    assert code.isConsistentSSA(appView);
-
-    return CodeRewriterResult.HAS_CHANGED;
   }
 
   private void populateSyntheticChanges(
@@ -249,8 +291,8 @@ public class ServiceLoaderRewriter extends CodeRewriterPass<AppInfoWithLiveness>
     if (directRewriteResult.nextInstr != null) {
       Position position = directRewriteResult.nextInstr.getPosition();
       if (loadResult.implClasses.isEmpty()) {
-        // Iterator.next() -> null
-        replacements.put(directRewriteResult.nextInstr, code.createConstNull());
+        // Iterator.next() -> null (marker for replaceCurrentInstructionWithThrow).
+        replacements.put(directRewriteResult.nextInstr, null);
 
         // throw new NoSuchElementException()
         NewInstance newInstanceInstr =
@@ -264,13 +306,10 @@ public class ServiceLoaderRewriter extends CodeRewriterPass<AppInfoWithLiveness>
                 dexItemFactory.noSuchElementExceptionInit,
                 null,
                 List.of(newInstanceInstr.outValue()));
-        Throw throwInstr = new Throw(newInstanceInstr.outValue());
 
         newInstanceInstr.setPosition(position);
         initInstr.setPosition(position);
-        throwInstr.setPosition(position);
-        replacementExtras.put(
-            directRewriteResult.nextInstr, List.of(newInstanceInstr, initInstr, throwInstr));
+        replacementExtras.put(directRewriteResult.nextInstr, List.of(newInstanceInstr, initInstr));
       } else {
         // Iterator.next() -> new ServiceImpl()
         DexType clazz = loadResult.implClasses.get(0).getType();

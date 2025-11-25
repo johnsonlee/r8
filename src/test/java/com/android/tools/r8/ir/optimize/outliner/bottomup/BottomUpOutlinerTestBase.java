@@ -62,7 +62,7 @@ public abstract class BottomUpOutlinerTestBase extends TestBase {
         .addOptionsModification(
             options -> {
               BottomUpOutlinerOptions outlinerOptions = options.getBottomUpOutlinerOptions();
-              assertTrue(outlinerOptions.enable);
+              assertTrue(outlinerOptions.enable.isTrue());
               outlinerOptions.forceDebug = true;
               outlinerOptions.outlineConsumerForTesting =
                   outlines -> {
