@@ -38,14 +38,20 @@ public class ArchiveResourceProviderUtils {
       throws IOException {
     ZipFileSupplier zipFileSupplier =
         () -> FileUtils.createZipFile(archive.toFile(), StandardCharsets.UTF_8);
-    return readArchive(zipFileSupplier, origin, predicate, consumer);
+    return readArchive(
+        zipFileSupplier,
+        origin,
+        predicate,
+        consumer,
+        ArchiveResourceProviderUtils::createProgramResource);
   }
 
   public static List<Kind> readArchive(
       ZipFileSupplier zipFileSupplier,
       Origin origin,
       BiPredicate<String, Kind> predicate,
-      Consumer<ProgramResource> consumer)
+      Consumer<ProgramResource> consumer,
+      ProgramResourceFactory programResourceFactory)
       throws IOException {
     BooleanBox seenCf = new BooleanBox();
     BooleanBox seenDex = new BooleanBox();
@@ -58,15 +64,20 @@ public class ArchiveResourceProviderUtils {
           Origin entryOrigin = new ArchiveEntryOrigin(name, origin);
           if (ZipUtils.isDexFile(name)) {
             if (predicate.test(name, Kind.DEX)) {
-              consumer.accept(createProgramResource(Kind.DEX, entryOrigin, stream, null));
+              consumer.accept(
+                  programResourceFactory.create(
+                      entryOrigin, Kind.DEX, ByteStreams.toByteArray(stream), null));
               seenDex.set();
             }
           } else if (ZipUtils.isClassFile(name)) {
             if (predicate.test(name, Kind.CF)) {
               String descriptor = DescriptorUtils.guessTypeDescriptor(name);
               consumer.accept(
-                  createProgramResource(
-                      Kind.CF, entryOrigin, stream, Collections.singleton(descriptor)));
+                  programResourceFactory.create(
+                      entryOrigin,
+                      Kind.CF,
+                      ByteStreams.toByteArray(stream),
+                      Collections.singleton(descriptor)));
               seenCf.set();
             }
           }
@@ -84,11 +95,15 @@ public class ArchiveResourceProviderUtils {
   }
 
   private static ProgramResource createProgramResource(
-      Kind kind, Origin origin, InputStream inputStream, Set<String> classDescriptors)
-      throws IOException {
-    byte[] bytes = ByteStreams.toByteArray(inputStream);
+      Origin origin, Kind kind, byte[] bytes, Set<String> classDescriptors) {
     return enableOneShotByteResource
-        ? OneShotByteResource.create(kind, origin, bytes, classDescriptors)
+        ? OneShotByteResource.create(origin, kind, bytes, classDescriptors)
         : ProgramResource.fromBytes(origin, kind, bytes, classDescriptors);
+  }
+
+  public interface ProgramResourceFactory {
+
+    ProgramResource create(Origin origin, Kind kind, byte[] bytes, Set<String> classDescriptors)
+        throws IOException;
   }
 }

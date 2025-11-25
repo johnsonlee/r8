@@ -1044,8 +1044,8 @@ public class AndroidApp {
             String descriptor = DescriptorUtils.guessTypeDescriptor(name);
             ProgramResource resource =
                 OneShotByteResource.create(
-                    Kind.CF,
                     entryOrigin,
+                    Kind.CF,
                     ByteStreams.toByteArray(stream),
                     Collections.singleton(descriptor));
             resources.put(descriptor, resource);
@@ -1073,8 +1073,8 @@ public class AndroidApp {
             String descriptor = DescriptorUtils.guessTypeDescriptor(name);
             ProgramResource resource =
                 OneShotByteResource.create(
-                    Kind.CF,
                     entryOrigin,
+                    Kind.CF,
                     ByteStreams.toByteArray(stream),
                     Collections.singleton(descriptor));
             programResources.add(resource);
@@ -1082,7 +1082,7 @@ public class AndroidApp {
             Origin entryOrigin = new ArchiveEntryOrigin(name, origin);
             ProgramResource resource =
                 OneShotByteResource.create(
-                    Kind.DEX, entryOrigin, ByteStreams.toByteArray(stream), null);
+                    entryOrigin, Kind.DEX, ByteStreams.toByteArray(stream), null);
             programResources.add(resource);
           } else if (name.endsWith(".dup")) {
             System.out.println("WARNING: Duplicate program resource: " + name);

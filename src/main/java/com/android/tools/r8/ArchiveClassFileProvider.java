@@ -110,8 +110,8 @@ public class ArchiveClassFileProvider implements ClassFileResourceProvider, Clos
             String descriptor = DescriptorUtils.guessTypeDescriptor(name);
             ProgramResource resource =
                 OneShotByteResource.create(
-                    Kind.CF,
                     entryOrigin,
+                    Kind.CF,
                     ByteStreams.toByteArray(stream),
                     Collections.singleton(descriptor));
             consumer.accept(resource);

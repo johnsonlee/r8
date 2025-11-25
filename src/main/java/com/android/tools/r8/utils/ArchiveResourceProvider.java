@@ -158,13 +158,13 @@ public class ArchiveResourceProvider implements ProgramResourceProvider, DataRes
               if (ZipUtils.isDexFile(name)) {
                 OneShotByteResource resource =
                     OneShotByteResource.create(
-                        Kind.DEX, entryOrigin, ByteStreams.toByteArray(stream), null);
+                        entryOrigin, Kind.DEX, ByteStreams.toByteArray(stream), null);
                 consumer.accept(resource);
               } else if (ZipUtils.isClassFile(name)) {
                 OneShotByteResource resource =
                     OneShotByteResource.create(
-                        Kind.CF,
                         entryOrigin,
+                        Kind.CF,
                         ByteStreams.toByteArray(stream),
                         Collections.singleton(DescriptorUtils.guessTypeDescriptor(name)));
                 consumer.accept(resource);
