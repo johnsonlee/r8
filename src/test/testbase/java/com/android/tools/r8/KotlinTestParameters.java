@@ -100,8 +100,8 @@ public class KotlinTestParameters {
     private Predicate<KotlinTargetVersion> targetVersionFilter = defaultTargetVersionFilter;
     private Predicate<KotlinLambdaGeneration> lambdaGenerationFilter =
         defaultLambdaGenerationFilter;
-    private boolean withDevCompiler = true;
-    //    System.getProperty("com.android.tools.r8.kotlincompilerdev") != null;
+    private boolean withDevCompiler =
+        System.getProperty("com.android.tools.r8.kotlincompilerdev") != null;
     private boolean withOldCompilers =
         System.getProperty("com.android.tools.r8.kotlincompilerold") != null;
 
