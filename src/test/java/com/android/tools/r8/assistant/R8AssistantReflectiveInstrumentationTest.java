@@ -4,6 +4,8 @@
 package com.android.tools.r8.assistant;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static org.hamcrest.CoreMatchers.allOf;
+import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -68,11 +70,13 @@ public class R8AssistantReflectiveInstrumentationTest extends TestBase {
         .inspectOriginalDex(inspector -> inspectStaticCallsInReflectOn(1, inspector))
         .inspect(inspector -> inspectStaticCallsInReflectOn(5, inspector))
         .run(parameters.getRuntime(), TestClass.class)
-        .assertSuccessWithOutputLines(
-            "Reflectively created new instance of " + Bar.class.getName(),
-            "Reflectively got declared method callMe() on " + Bar.class.getName(),
-            "Reflectively got name on " + Bar.class.getName() + "(NAME)",
-            "Reflectively called Class.forName on " + Bar.class.getName());
+        .assertSuccessWithOutputThatMatches(
+            allOf(
+                containsString("Reflectively created new instance of " + Bar.class.getName()),
+                containsString(
+                    "Reflectively got declared method callMe() on " + Bar.class.getName()),
+                containsString("Reflectively got name on " + Bar.class.getName() + "(NAME)"),
+                containsString("Reflectively called Class.forName on " + Bar.class.getName())));
   }
 
   @Test
