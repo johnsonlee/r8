@@ -9,7 +9,11 @@ import utils
 
 
 def install_apk_on_emulator(apk, emulator_id, quiet=False):
-    cmd = ['adb', '-s', emulator_id, 'install', '-r', '-d', apk]
+    cmd = ['adb']
+    if emulator_id:
+        cmd.extend(['-s', emulator_id])
+    cmd.extend(['install', '-r', '-d', apk])
+
     if quiet:
         subprocess.check_output(cmd)
     else:
@@ -17,7 +21,12 @@ def install_apk_on_emulator(apk, emulator_id, quiet=False):
 
 
 def uninstall_apk_on_emulator(app_id, emulator_id):
-    process = subprocess.Popen(['adb', '-s', emulator_id, 'uninstall', app_id],
+    cmd = ['adb']
+    if emulator_id:
+        cmd.extend(['-s', emulator_id])
+    cmd.extend(['uninstall', app_id])
+
+    process = subprocess.Popen(cmd,
                                stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE)
     stdout, stderr = process.communicate()
@@ -99,16 +108,18 @@ def run_instrumented(app_id,
                      quiet,
                      enable_logging,
                      test_runner='androidx.test.runner.AndroidJUnitRunner'):
-    if not wait_for_emulator(emulator_id):
+    if emulator_id and not wait_for_emulator(emulator_id):
         return None
 
     install_apk_on_emulator(apk, emulator_id, quiet)
     install_apk_on_emulator(test_apk, emulator_id, quiet)
-
-    cmd = [
-        'adb', '-s', emulator_id, 'shell', 'am', 'instrument', '-w',
-        '{}/{}'.format(test_id, test_runner)
-    ]
+    cmd = ['adb']
+    if emulator_id:
+        cmd.extend(['-s', emulator_id])
+    cmd.extend([
+        'shell', 'am', 'instrument', '-w', '{}/{}'.format(test_id, test_runner)
+        if test_runner is not None else test_id
+    ])
 
     try:
         stdout = utils.RunCmd(cmd, quiet=quiet, logging=enable_logging)
