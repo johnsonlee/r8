@@ -3,8 +3,6 @@
 # for details. All rights reserved. Use of this source code is governed by a
 # BSD-style license that can be found in the LICENSE file.
 
-import profile_utils
-
 import argparse
 import os
 import sys
@@ -13,6 +11,7 @@ import time
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import adb
+import profile_utils
 
 
 class Device:

@@ -3,78 +3,34 @@
 # for details. All rights reserved. Use of this source code is governed by a
 # BSD-style license that can be found in the LICENSE file.
 
-import subprocess
-import time
-import utils
-import argparse
 import os
 import subprocess
 import sys
 import threading
-
+import time
+import argparse
 from enum import Enum
+
+import utils
 
 DEVNULL = subprocess.DEVNULL
 
 
-def install_apk_on_emulator(apk, emulator_id, quiet=False):
-    cmd = ['adb']
-    if emulator_id:
-        cmd.extend(['-s', emulator_id])
-    cmd.extend(['install', '-r', '-d', apk])
-
-    if quiet:
-        subprocess.check_output(cmd)
-    else:
-        subprocess.check_call(cmd)
-
-
-def uninstall_apk_on_emulator(app_id, emulator_id):
-    cmd = ['adb']
-    if emulator_id:
-        cmd.extend(['-s', emulator_id])
-    cmd.extend(['uninstall', app_id])
-
-    process = subprocess.Popen(cmd,
-                               stdout=subprocess.PIPE,
-                               stderr=subprocess.PIPE)
-    stdout, stderr = process.communicate()
-    stdout = stdout.decode('UTF-8')
-    stderr = stderr.decode('UTF-8')
-
-    if stdout.strip() == 'Success':
-        # Successfully uninstalled
-        return
-
-    if 'Unknown package: {}'.format(app_id) in stderr:
-        # Application not installed
-        return
-
-    # Check if the app is listed in packages
-    packages = subprocess.check_output(
-        ['adb', 'shell', 'pm', 'list', 'packages'])
-    if not 'package:' + app_id in packages:
-        return
-
-    raise Exception(
-        'Unexpected result from `adb uninstall {}\nStdout: {}\nStderr: {}'.
-        format(app_id, stdout, stderr))
-
-
-def wait_for_emulator(emulator_id):
-    stdout = subprocess.check_output(['adb', 'devices']).decode('UTF-8')
-    if '{}\tdevice'.format(emulator_id) in stdout:
+def wait_for_emulator(device_id):
+    cmd = create_adb_cmd(['devices'])
+    stdout = subprocess.check_output(cmd).decode('UTF-8')
+    if '{}\tdevice'.format(device_id) in stdout:
         return True
 
     print('Emulator \'{}\' not connected; waiting for connection'.format(
-        emulator_id))
+        device_id))
 
     time_waited = 0
     while True:
         time.sleep(10)
         time_waited += 10
-        stdout = subprocess.check_output(['adb', 'devices']).decode('UTF-8')
-        if '{}\tdevice'.format(emulator_id) not in stdout:
+        stdout = subprocess.check_output(cmd).decode('UTF-8')
+        if '{}\tdevice'.format(device_id) not in stdout:
             print('... still waiting for connection')
             if time_waited >= 5 * 60:
                 return False
@@ -82,21 +38,21 @@ def wait_for_emulator(emulator_id):
             return True
 
 
-def run_monkey(app_id, emulator_id, apk, monkey_events, quiet, enable_logging):
-    if not wait_for_emulator(emulator_id):
+def run_monkey(app_id, device_id, apk, monkey_events, quiet, enable_logging):
+    if not wait_for_emulator(device_id):
         return False
 
-    install_apk_on_emulator(apk, emulator_id, quiet)
+    install(apk, device_id=device_id, quiet=quiet, replace=True, downgrade=True)
 
     # Intentionally using a constant seed such that the monkey generates the same
     # event sequence for each shrinker.
     random_seed = 42
 
-    cmd = [
-        'adb', '-s', emulator_id, 'shell', 'monkey', '-p', app_id, '-s',
+    cmd = create_adb_cmd([
+        'shell', 'monkey', '-p', app_id, '-s',
         str(random_seed),
         str(monkey_events)
-    ]
+    ], device_id)
 
     try:
         stdout = utils.RunCmd(cmd, quiet=quiet, logging=enable_logging)
@@ -104,31 +60,33 @@ def run_monkey(app_id, emulator_id, apk, monkey_events, quiet, enable_logging):
     except subprocess.CalledProcessError as e:
         succeeded = False
 
-    uninstall_apk_on_emulator(app_id, emulator_id)
+    uninstall(app_id, device_id=device_id)
 
     return succeeded
 
 
 def run_instrumented(app_id,
                      test_id,
-                     emulator_id,
+                     device_id,
                      apk,
                      test_apk,
                      quiet,
                      enable_logging,
                      test_runner='androidx.test.runner.AndroidJUnitRunner'):
-    if emulator_id and not wait_for_emulator(emulator_id):
+    if device_id and not wait_for_emulator(device_id):
         return None
 
-    install_apk_on_emulator(apk, emulator_id, quiet)
-    install_apk_on_emulator(test_apk, emulator_id, quiet)
-    cmd = ['adb']
-    if emulator_id:
-        cmd.extend(['-s', emulator_id])
-    cmd.extend([
+    install(apk, device_id=device_id, quiet=quiet, replace=True, downgrade=True)
+    install(test_apk,
+            device_id=device_id,
+            quiet=quiet,
+            replace=True,
+            downgrade=True)
+
+    cmd = create_adb_cmd([
         'shell', 'am', 'instrument', '-w', '{}/{}'.format(test_id, test_runner)
         if test_runner is not None else test_id
-    ])
+    ], device_id)
 
     try:
         stdout = utils.RunCmd(cmd, quiet=quiet, logging=enable_logging)
@@ -137,8 +95,8 @@ def run_instrumented(app_id,
     except subprocess.CalledProcessError as e:
         succeeded = False
 
-    uninstall_apk_on_emulator(test_id, emulator_id)
-    uninstall_apk_on_emulator(app_id, emulator_id)
+    uninstall(test_id, device_id=device_id)
+    uninstall(app_id, device_id=device_id)
 
     return succeeded
 
@@ -429,11 +387,20 @@ def grant(app_id, permission, device_id=None):
     subprocess.check_call(cmd)
 
 
-def install(apk, device_id=None):
+def install(apk, device_id=None, quiet=False, replace=False, downgrade=False):
     print('Installing %s' % apk)
-    cmd = create_adb_cmd('install %s' % apk, device_id)
-    stdout = subprocess.check_output(cmd).decode('utf-8')
-    assert 'Success' in stdout
+    args = ['install']
+    if replace:
+        args.append('-r')
+    if downgrade:
+        args.append('-d')
+    args.append(apk)
+    cmd = create_adb_cmd(args, device_id)
+    if quiet:
+        subprocess.check_output(cmd)
+    else:
+        stdout = subprocess.check_output(cmd).decode('utf-8')
+        assert 'Success' in stdout
 
 
 def install_apks(apks, device_id=None, max_attempts=3):
@@ -602,22 +569,39 @@ def toggle_screen(device_id=None):
 
 def uninstall(app_id, device_id=None):
     print('Uninstalling %s' % app_id)
-    cmd = create_adb_cmd('uninstall %s' % app_id, device_id)
-    process_result = subprocess.run(cmd, capture_output=True)
-    stdout = process_result.stdout.decode('utf-8')
-    stderr = process_result.stderr.decode('utf-8')
-    if process_result.returncode == 0:
-        assert 'Success' in stdout
-    elif stdout.startswith('cmd: Failure calling service package: Broken pipe'):
+    cmd = create_adb_cmd(['uninstall', app_id], device_id)
+    process = subprocess.Popen(cmd,
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE)
+    stdout, stderr = process.communicate()
+    stdout = stdout.decode('UTF-8')
+    stderr = stderr.decode('UTF-8')
+
+    if 'Success' in stdout:
+        return
+
+    if 'Unknown package: {}'.format(app_id) in stderr:
+        return
+
+    # Check if the app is listed in packages
+    packages_cmd = create_adb_cmd(['shell', 'pm', 'list', 'packages'],
+                                  device_id)
+    packages = subprocess.check_output(packages_cmd).decode('UTF-8')
+    if 'package:' + app_id not in packages:
+        return
+
+    if stdout.startswith('cmd: Failure calling service package: Broken pipe'):
         assert app_id == 'com.google.android.youtube'
         print('Waiting after broken pipe')
         time.sleep(15)
-    else:
-        expected_error = (
-            'java.lang.IllegalArgumentException: Unknown package: %s' % app_id)
-        assert 'Failure [DELETE_FAILED_INTERNAL_ERROR]' in stdout \
-            or expected_error in stderr, \
-            'stdout: %s, stderr: %s' % (stdout, stderr)
+        return
+
+    if 'Failure [DELETE_FAILED_INTERNAL_ERROR]' in stdout:
+        return
+
+    raise Exception(
+        'Unexpected result from `adb uninstall {}`\nStdout: {}\nStderr: {}'.
+        format(app_id, stdout, stderr))
 
 
 def unlock(device_id=None, device_pin=None):
