@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import sys
 
+import gradle
 import utils
 
 
@@ -44,11 +45,6 @@ def run(args):
                     'git', '-C', checkout_dir, 'checkout',
                     args.desugar_jdk_libs_revision
                 ])
-        print("Hack to workaround b/256723819")
-        os.remove(
-            join(checkout_dir, "jdk11", "src", "java.base", "share", "classes",
-                 "java", "time", "format",
-                 "DesugarDateTimeFormatterBuilder.java"))
         print("Building desugared library")
         bazel = os.path.join(utils.BAZEL_TOOL, 'lib', 'bazel', 'bin', 'bazel')
         with utils.ChangedWorkingDirectory(checkout_dir):
@@ -62,13 +58,21 @@ def run(args):
         dest_dir = join(openjdk_dir, openjdk_subdir)
         src_dir = join(checkout_dir, 'bazel-bin', 'jdk11', 'src')
 
+        # Retrieve current version to pick metadata files.
+        tar_gz_sha1 = join(openjdk_dir, openjdk_subdir + '.tar.gz.sha1')
+        subprocess.check_call(['git', 'checkout', tar_gz_sha1])
+        gradle.RunGradle([utils.GRADLE_TASK_DOWNLOAD_DEPS, '-Pno_internal'])
         metadata_files = ('LICENSE', 'README.google')
         for f in metadata_files:
             shutil.copyfile(join(dest_dir, f), join(tmp_dir, f))
+
+        # Remove current version again.
         shutil.rmtree(dest_dir)
         os.remove(join(openjdk_dir, openjdk_subdir + '.tar.gz'))
-        os.remove(join(openjdk_dir, openjdk_subdir + '.tar.gz.sha1'))
+        os.remove(tar_gz_sha1)
         os.mkdir(dest_dir)
+
+        # Create new version.
         shutil.copyfile(
             join(src_dir, 'd8_java_base_selected_with_addon.jar'),
             join(dest_dir, 'desugar_jdk_libs.jar'))
