@@ -78,7 +78,9 @@ public class InstantSourceTest extends DesugaredLibraryTestBase {
 
   @Test
   public void test() throws Throwable {
-    Assume.assumeTrue(parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.U));
+    Assume.assumeTrue(
+        parameters.getApiLevel().isLessThan(AndroidApiLevel.O)
+            || parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.U));
     testForDesugaredLibrary(parameters, libraryDesugaringSpecification, compilationSpecification)
         .addInnerClassesAndStrippedOuter(getClass())
         .addKeepMainRule(Main.class)
