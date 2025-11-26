@@ -72,6 +72,9 @@ public abstract class TestCompilerBuilder<
 
   public static final Consumer<InternalOptions> DEFAULT_D8_OPTIONS = DEFAULT_OPTIONS;
 
+  public static final Consumer<InternalOptions> DEFAULT_D8_IN_R8_PARTIAL_OPTIONS =
+      DEFAULT_D8_OPTIONS;
+
   public static final Consumer<InternalOptions> DEFAULT_R8_OPTIONS =
       DEFAULT_OPTIONS.andThen(
           options -> {
@@ -170,7 +173,8 @@ public abstract class TestCompilerBuilder<
       optionsConsumer =
           DEFAULT_OPTIONS.andThen(
               options -> {
-                options.partialCompilationConfiguration.d8DexOptionsConsumer = DEFAULT_D8_OPTIONS;
+                options.partialCompilationConfiguration.d8DexOptionsConsumer =
+                    DEFAULT_D8_IN_R8_PARTIAL_OPTIONS;
                 options.partialCompilationConfiguration.r8OptionsConsumer =
                     DEFAULT_R8_IN_R8_PARTIAL_OPTIONS;
               });
