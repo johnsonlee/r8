@@ -81,6 +81,9 @@ def parse_options(argv):
                         type=int)
     result.add_argument('--output',
                         help='Output path where to write the result')
+    result.add_argument('--build-output',
+                        '--build_output',
+                        help='Output path where to write output from the build')
     result.add_argument('--print-times',
                         help='Print timing information from r8',
                         default=False,
@@ -208,6 +211,8 @@ def run(options, r8jar, testjars):
         cmd.append(f'-DBENCHMARK_ITERATIONS={options.iterations}')
     if options.output:
         cmd.append(f'-DBENCHMARK_OUTPUT={options.output}')
+    if options.build_output:
+        cmd.append(f'-DBENCHMARK_BUILD_OUTPUT={options.build_output}')
     if options.warmup is not None:
         cmd.append(f'-DBENCHMARK_WARMUP_ITERATIONS={options.warmup}')
     cmd.extend(['-cp', ':'.join([r8jar] + testjars)])

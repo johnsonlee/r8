@@ -64,4 +64,12 @@ public class BenchmarkEnvironment {
   public Path getOutputPath() {
     return Paths.get(System.getProperty("BENCHMARK_OUTPUT"));
   }
+
+  public boolean hasBuildOutputPath() {
+    return System.getProperty("BENCHMARK_BUILD_OUTPUT") != null;
+  }
+
+  public Path getBuildOutputPath() {
+    return Paths.get(System.getProperty("BENCHMARK_BUILD_OUTPUT"));
+  }
 }
