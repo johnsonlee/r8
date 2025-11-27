@@ -264,7 +264,7 @@ public class KotlinTestParameters {
           }
         }
       }
-      assert !testParameters.isEmpty() || withOldCompilers;
+      assert !testParameters.isEmpty() || withOldCompilers || !withDevCompiler;
       return new KotlinTestParametersCollection(testParameters);
     }
   }
