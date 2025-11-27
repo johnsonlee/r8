@@ -142,6 +142,10 @@ public class DexItemFactory {
     this.kotlin = new Kotlin(this);
   }
 
+  public Kotlin kotlin() {
+    return kotlin;
+  }
+
   public static boolean isInternalSentinel(DexItem item) {
     return internalSentinels.containsKey(item);
   }
@@ -950,8 +954,6 @@ public class DexItemFactory {
   public final IteratorMethods iteratorMethods = new IteratorMethods();
   public final StringConcatFactoryMembers stringConcatFactoryMembers =
       new StringConcatFactoryMembers();
-  public final KotlinJvmInternalIntrinsicsMethods kotlinJvmInternalIntrinsicsMethods =
-      new KotlinJvmInternalIntrinsicsMethods();
 
   private final SyntheticNaming syntheticNaming = new SyntheticNaming();
 
@@ -3041,91 +3043,6 @@ public class DexItemFactory {
         createMethod(javaUtilIteratorType, createProto(booleanType), hasNextName);
     public final DexMethod next =
         createMethod(javaUtilIteratorType, createProto(objectType), nextName);
-  }
-
-  public class KotlinJvmInternalIntrinsicsMethods {
-    /*
-     From javap:
-
-     public class kotlin.jvm.internal.Intrinsics {
-       public static void checkNotNull(java.lang.Object);
-       public static void checkNotNull(java.lang.Object, java.lang.String);
-       public static void checkExpressionValueIsNotNull(java.lang.Object, java.lang.String);
-       public static void checkNotNullExpressionValue(java.lang.Object, java.lang.String);
-       public static void checkReturnedValueIsNotNull(
-           java.lang.Object, java.lang.String, java.lang.String);
-       public static void checkReturnedValueIsNotNull(java.lang.Object, java.lang.String);
-       public static void checkFieldIsNotNull(
-           java.lang.Object, java.lang.String, java.lang.String);
-       public static void checkFieldIsNotNull(java.lang.Object, java.lang.String);
-       public static void checkParameterIsNotNull(java.lang.Object, java.lang.String);
-       public static void checkNotNullParameter(java.lang.Object, java.lang.String);
-     }
-    */
-    public final DexMethod checkNotNullObject =
-        createMethod(
-            kotlinJvmInternalIntrinsicsType, createProto(voidType, objectType), "checkNotNull");
-    public final DexMethod checkNotNullObjectString =
-        createMethod(
-            kotlinJvmInternalIntrinsicsType,
-            createProto(voidType, objectType, stringType),
-            "checkNotNull");
-    public final DexMethod checkExpressionValueIsNotNull =
-        createMethod(
-            kotlinJvmInternalIntrinsicsType,
-            createProto(voidType, objectType, stringType),
-            "checkExpressionValueIsNotNull");
-    public final DexMethod checkNotNullExpressionValue =
-        createMethod(
-            kotlinJvmInternalIntrinsicsType,
-            createProto(voidType, objectType, stringType),
-            "checkNotNullExpressionValue");
-    public final DexMethod checkReturnedValueIsNotNullObjectStringString =
-        createMethod(
-            kotlinJvmInternalIntrinsicsType,
-            createProto(voidType, objectType, stringType, stringType),
-            "checkReturnedValueIsNotNull");
-    public final DexMethod checkReturnedValueIsNotNullObjectString =
-        createMethod(
-            kotlinJvmInternalIntrinsicsType,
-            createProto(voidType, objectType, stringType),
-            "checkReturnedValueIsNotNull");
-    public final DexMethod checkFieldIsNotNullObjectStringString =
-        createMethod(
-            kotlinJvmInternalIntrinsicsType,
-            createProto(voidType, objectType, stringType, stringType),
-            "checkFieldIsNotNull");
-    public final DexMethod checkFieldIsNotNullObjectString =
-        createMethod(
-            kotlinJvmInternalIntrinsicsType,
-            createProto(voidType, objectType, stringType),
-            "checkFieldIsNotNull");
-    public final DexMethod checkParameterIsNotNull =
-        createMethod(
-            kotlinJvmInternalIntrinsicsType,
-            createProto(voidType, objectType, stringType),
-            "checkParameterIsNotNull");
-    public final DexMethod checkNotNullParameter =
-        createMethod(
-            kotlinJvmInternalIntrinsicsType,
-            createProto(voidType, objectType, stringType),
-            "checkNotNullParameter");
-
-    public boolean isNullCheck(DexMethod method) {
-      if (!method.getHolderType().isIdenticalTo(kotlinJvmInternalIntrinsicsType)) {
-        return false;
-      }
-      return method.isIdenticalTo(checkNotNullObject)
-          || method.isIdenticalTo(checkNotNullObjectString)
-          || method.isIdenticalTo(checkExpressionValueIsNotNull)
-          || method.isIdenticalTo(checkNotNullExpressionValue)
-          || method.isIdenticalTo(checkReturnedValueIsNotNullObjectString)
-          || method.isIdenticalTo(checkReturnedValueIsNotNullObjectStringString)
-          || method.isIdenticalTo(checkFieldIsNotNullObjectString)
-          || method.isIdenticalTo(checkFieldIsNotNullObjectStringString)
-          || method.isIdenticalTo(checkParameterIsNotNull)
-          || method.isIdenticalTo(checkNotNullParameter);
-    }
   }
 
   private static <T extends DexItem> T canonicalize(
