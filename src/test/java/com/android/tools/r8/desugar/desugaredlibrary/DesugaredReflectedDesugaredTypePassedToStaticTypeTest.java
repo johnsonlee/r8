@@ -54,7 +54,7 @@ public class DesugaredReflectedDesugaredTypePassedToStaticTypeTest
             .addInnerClasses(getClass())
             .addKeepMainRule(Main.class)
             .run(parameters.getRuntime(), Main.class);
-    if (!libraryDesugaringSpecification.hasCompleteTimeDesugaring(parameters)) {
+    if (!libraryDesugaringSpecification.hasTimeDesugaring(parameters)) {
       runResult.assertFailureWithErrorThatMatches(
           containsString("java.lang.ClassNotFoundException: j$.time.LocalDate"));
     } else {

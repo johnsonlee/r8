@@ -102,7 +102,7 @@ public class JavaTimeJDK11Test extends DesugaredLibraryTestBase {
         .forEach(
             i -> {
               if (i.isInvoke()) {
-                if (libraryDesugaringSpecification.hasCompleteTimeDesugaring(parameters)
+                if (libraryDesugaringSpecification.hasTimeDesugaring(parameters)
                     && libraryDesugaringSpecification != JDK11_LEGACY) {
                   checkInvokeTime(i, "j$.time.Duration", "j$.time.LocalTime");
                   return;

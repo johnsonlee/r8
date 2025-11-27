@@ -361,13 +361,8 @@ public class LibraryDesugaringSpecification {
     return parameters.getApiLevel().getLevel() < descriptor.getEmulatedInterfaceDesugaring();
   }
 
-  public boolean hasCompleteTimeDesugaring(TestParameters parameters) {
+  public boolean hasTimeDesugaring(TestParameters parameters) {
     return parameters.getApiLevel().getLevel() < descriptor.getTimeDesugaring();
-  }
-
-  public boolean hasInstantSourceDesugaring(TestParameters parameters) {
-    return (this == JDK11 || this == JDK11_PATH)
-        && parameters.getApiLevel().isLessThan(AndroidApiLevel.U);
   }
 
   public boolean hasNioFileDesugaring(TestParameters parameters) {

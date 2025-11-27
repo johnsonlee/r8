@@ -4,7 +4,7 @@
 
 package com.android.tools.r8.jdk17.desugaredlibrary.desugaredlibrary;
 
-import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.D8_L8DEBUG;
+import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.SPECIFICATIONS_WITH_CF2CF;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.JDK11;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.JDK11_PATH;
 
@@ -22,6 +22,7 @@ import java.time.Instant;
 import java.time.InstantSource;
 import java.time.ZoneId;
 import java.util.List;
+import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -39,66 +40,31 @@ public class InstantSourceTest extends DesugaredLibraryTestBase {
           "0",
           "0",
           "0",
-          "true",
-          "true",
           "0",
           "0",
           "0",
-          "0",
-          "false",
-          "true",
-          "0",
-          "1",
-          "0",
-          "1",
-          "false",
-          "true",
-          "1",
           "86400000",
           "86400",
-          "86400000",
-          "true",
-          "true",
           "86400000",
           "86400000",
           "86400",
           "86400000",
-          "true",
-          "true",
-          "86400000",
-          "0",
-          "0",
-          "0",
-          "true",
-          "true",
           "0",
           "0",
           "0",
           "0",
-          "true",
-          "true",
           "0",
           "0",
           "0",
           "0",
-          "true",
-          "true",
-          "0",
-          "false",
-          "true");
+          "0");
 
   @Parameters(name = "{0}, spec: {1}, {2}")
   public static List<Object[]> data() {
     return buildParameters(
-        getTestParameters()
-            .withAllRuntimes()
-            .withAllApiLevels()
-            .withApiLevel(AndroidApiLevel.O)
-            .build(),
+        getTestParameters().withDexRuntimes().withAllApiLevels().build(),
         ImmutableList.of(JDK11, JDK11_PATH),
-        ImmutableList.of(D8_L8DEBUG)
-        // SPECIFICATIONS_WITH_CF2CF
-        );
+        SPECIFICATIONS_WITH_CF2CF);
   }
 
   public InstantSourceTest(
@@ -112,6 +78,7 @@ public class InstantSourceTest extends DesugaredLibraryTestBase {
 
   @Test
   public void test() throws Throwable {
+    Assume.assumeTrue(parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.U));
     testForDesugaredLibrary(parameters, libraryDesugaringSpecification, compilationSpecification)
         .addInnerClassesAndStrippedOuter(getClass())
         .addKeepMainRule(Main.class)
@@ -130,62 +97,19 @@ public class InstantSourceTest extends DesugaredLibraryTestBase {
       }
     }
 
-    public static class InstantSourceImplSuper implements InstantSource {
-
-      @Override
-      public Instant instant() {
-        return Instant.EPOCH;
-      }
-
-      @Override
-      public long millis() {
-        return InstantSource.super.millis() + 1L;
-      }
-
-      @Override
-      public Clock withZone(ZoneId zone) {
-        return InstantSource.super.withZone(zone);
-      }
-    }
-
     public static void main(String[] args) {
       Clock clock = Clock.fixed(Instant.EPOCH, ZoneId.systemDefault());
       testInstantSource(clock);
       testInstantSource(new InstantSourceImpl());
-      testInstantSource(new InstantSourceImplSuper());
       testInstantSource(InstantSource.offset(clock, Duration.ofDays(1)));
       testInstantSource(InstantSource.offset(new InstantSourceImpl(), Duration.ofDays(1)));
       testInstantSource(InstantSource.tick(clock, Duration.ofDays(1)));
       testInstantSource(InstantSource.tick(new InstantSourceImpl(), Duration.ofDays(1)));
       testInstantSource(InstantSource.fixed(Instant.EPOCH));
-      testInstanceOf(InstantSource.system());
     }
 
     @NeverInline
     public static void testInstantSource(InstantSource is) {
-      testInvokeInterface(is);
-      testInstanceOf(is);
-      testCheckCast(is);
-    }
-
-    @NeverInline
-    private static void testCheckCast(Object is) {
-      System.out.println(checkCast(is).millis());
-    }
-
-    @NeverInline
-    private static InstantSource checkCast(Object is) {
-      return (InstantSource) is;
-    }
-
-    @NeverInline
-    private static void testInstanceOf(InstantSource is) {
-      System.out.println(is instanceof Clock);
-      System.out.println(is instanceof InstantSource);
-    }
-
-    @NeverInline
-    private static void testInvokeInterface(InstantSource is) {
       System.out.println(is.millis());
       System.out.println(is.instant().getEpochSecond());
       System.out.println(is.withZone(ZoneId.systemDefault()).millis());

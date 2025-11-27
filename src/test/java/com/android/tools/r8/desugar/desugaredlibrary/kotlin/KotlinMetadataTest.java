@@ -132,7 +132,7 @@ public class KotlinMetadataTest extends DesugaredLibraryTestBase {
         .compile()
         .inspect(
             i -> {
-              if (libraryDesugaringSpecification.hasCompleteTimeDesugaring(parameters)) {
+              if (libraryDesugaringSpecification.hasTimeDesugaring(parameters)) {
                 inspectRewrittenMetadata(i);
               }
             })

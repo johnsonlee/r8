@@ -97,13 +97,9 @@ public class JavaTimeTest extends DesugaredLibraryTestBase {
     Set<String> expectedCatchGuards;
     String expectedInstanceOfTypes;
     boolean isR8 = compilationSpecification.isProgramShrink();
-    if (!libraryDesugaringSpecification.hasCompleteTimeDesugaring(parameters)) {
-      expectedInvokeHolders = SetUtils.newHashSet("java.time.LocalDate", "java.time.ZoneId");
-      if (libraryDesugaringSpecification.hasInstantSourceDesugaring(parameters)) {
-        expectedInvokeHolders.add("j$.time.Clock");
-      } else {
-        expectedInvokeHolders.add("java.time.Clock");
-      }
+    if (!libraryDesugaringSpecification.hasTimeDesugaring(parameters)) {
+      expectedInvokeHolders =
+          SetUtils.newHashSet("java.time.Clock", "java.time.LocalDate", "java.time.ZoneId");
       if (!isR8) {
         expectedInvokeHolders.add("java.time.ZoneOffset");
       }
@@ -142,7 +138,7 @@ public class JavaTimeTest extends DesugaredLibraryTestBase {
     assertEquals(expectedCatchGuards, foundCatchGuards);
     if (parameters.canUseDefaultAndStaticInterfaceMethodsWhenDesugaring() && isR8) {
       String holder =
-          libraryDesugaringSpecification.hasCompleteTimeDesugaring(parameters)
+          libraryDesugaringSpecification.hasTimeDesugaring(parameters)
               ? "j$.time.temporal.TemporalAccessor"
               : "java.time.temporal.TemporalAccessor";
       assertThat(

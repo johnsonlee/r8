@@ -67,7 +67,7 @@ public abstract class Jdk11TimeAbstractTests extends DesugaredLibraryTestBase {
         getTestParameters()
             .withDexRuntimesStartingFromIncluding(Version.V5_1_1)
             .withAllApiLevels()
-            .withApiLevel(AndroidApiLevel.O)
+            .withApiLevel(AndroidApiLevel.N)
             .build(),
         ImmutableList.of(JDK8, JDK11_PATH),
         ImmutableList.of(D8_L8DEBUG, D8_L8SHRINK));
