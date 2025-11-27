@@ -151,7 +151,7 @@ public class J$ExtensionTest extends DesugaredLibraryTestBase {
   @Test
   public void testJ$ExtensionDesugaring() throws Throwable {
     Assume.assumeFalse(parameters.isCfRuntime());
-    Assume.assumeTrue(libraryDesugaringSpecification.hasTimeDesugaring(parameters));
+    Assume.assumeTrue(libraryDesugaringSpecification.hasCompleteTimeDesugaring(parameters));
     String stdErr =
         testForDesugaredLibrary(
                 parameters, libraryDesugaringSpecification, compilationSpecification)

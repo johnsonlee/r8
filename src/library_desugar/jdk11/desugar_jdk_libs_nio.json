@@ -50,6 +50,17 @@
       ]
     },
     {
+      "api_level_below_or_equal": 33,
+      "api_level_greater_or_equal": 26,
+      "rewrite_prefix": {
+        "java.time.Clock": "j$.time.Clock",
+        "java.time.InstantSource": "j$.time.InstantSource"
+      },
+      "wrapper_conversion": [
+        "java.time.Clock"
+      ]
+    },
+    {
       "api_level_below_or_equal": 10000,
       "api_level_greater_or_equal": 26,
       "rewrite_prefix": {

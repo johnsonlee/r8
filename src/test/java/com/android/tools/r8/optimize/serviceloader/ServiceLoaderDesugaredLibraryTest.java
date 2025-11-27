@@ -105,7 +105,9 @@ public class ServiceLoaderDesugaredLibraryTest extends DesugaredLibraryTestBase 
         .addInnerClasses(getClass())
         .addKeepMainRule(TestClass.class)
         .applyIfD8TestBuilder(
-            b -> configureD8(b, libraryDesugaringSpecification.hasTimeDesugaring(parameters)))
+            b ->
+                configureD8(
+                    b, libraryDesugaringSpecification.hasCompleteTimeDesugaring(parameters)))
         .applyIfR8TestBuilder(this::configureR8)
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
