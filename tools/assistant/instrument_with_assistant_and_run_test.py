@@ -23,35 +23,59 @@ class AttrDict(dict):
 
 
 def run_r8_assistant(options, temp_dir):
-    compiledump_args = AttrDict(
-        vars(
-            argparse.Namespace(
-                dump=options.dump,
-                compiler='assistant',
-                disable_assertions=options.disable_assertions,
-                debug_agent=options.debug_agent,
-                version='main',
-                no_build=options.no_build,
-                enable_missing_library_api_modeling=False,
-                java_opts=[],
-            )))
-
     instrumented_dex = os.path.join(temp_dir, 'out.jar')
 
     with utils.TempDir() as compiledump_temp_dir:
+        utils.RunCmd(
+            ['unzip', options.apk, '*.dex', '-d', compiledump_temp_dir])
+        with utils.ChangedWorkingDirectory(compiledump_temp_dir):
+            dex_jar = os.path.join(compiledump_temp_dir, 'dex.jar')
+            utils.RunCmd('zip %s *.dex' % dex_jar, shell=True)
+        args_for_assistant = AttrDict(
+            vars(
+                argparse.Namespace(
+                    dump=options.dump,
+                    program_jar=dex_jar,
+                    compiler='assistant',
+                    disable_assertions=options.disable_assertions,
+                    debug_agent=options.debug_agent,
+                    version='main',
+                    no_build=options.no_build,
+                    enable_missing_library_api_modeling=False,
+                    java_opts=[],
+                )))
         otherargs = ['--output', instrumented_dex]
         if options.json_output:
             otherargs.append('--reflective-usage-json-output')
         compile_result = compiledump.run1(compiledump_temp_dir,
-                                          compiledump_args, otherargs)
+                                          args_for_assistant, otherargs)
         if compile_result != 0:
             raise Exception('Failed to run R8 assistant')
 
-    original_app_apk = options.apk
+    with utils.TempDir() as compiledump_temp_dir:
+        otherargs = [
+            '-Dcom.android.tools.r8.exportInitialKeepInfoCollection=%s' %
+            os.path.join(temp_dir, 'keepinfo')
+        ]
+        args_for_r8 = AttrDict(
+            vars(
+                argparse.Namespace(
+                    dump=options.dump,
+                    compiler='r8',
+                    disable_assertions=options.disable_assertions,
+                    version='main',
+                    nolib=True,
+                    no_build=options.no_build,
+                    java_opts=[],
+                )))
+        compile_result = compiledump.run1(compiledump_temp_dir, args_for_r8,
+                                          otherargs)
+        if compile_result != 0:
+            raise Exception('Failed to run R8 to export keep info collection')
 
     # Create new app apk with instrumented dex.
     instrumented_app_apk = os.path.join(temp_dir, "app.apk")
-    apk_masseur.masseur(original_app_apk,
+    apk_masseur.masseur(options.apk,
                         dex=instrumented_dex,
                         out=instrumented_app_apk,
                         keystore=options.keystore)
@@ -63,6 +87,11 @@ def run_r8_assistant(options, temp_dir):
                         out=test_apk_destination,
                         keystore=options.keystore)
 
+    def on_completion_callback():
+        if options.json_output:
+            adb.pull_file('/data/user/0/%s/cache/log.txt' % options.id,
+                          os.path.join(temp_dir, 'log.txt'), options.device)
+
     adb.run_instrumented(options.id,
                          options.id_test,
                          options.device,
@@ -70,7 +99,8 @@ def run_r8_assistant(options, temp_dir):
                          test_apk_destination,
                          quiet=False,
                          enable_logging=True,
-                         test_runner=None)
+                         test_runner=None,
+                         on_completion_callback=on_completion_callback)
 
 
 def parse_options(argv):

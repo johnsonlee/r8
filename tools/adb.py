@@ -72,7 +72,8 @@ def run_instrumented(app_id,
                      test_apk,
                      quiet,
                      enable_logging,
-                     test_runner='androidx.test.runner.AndroidJUnitRunner'):
+                     test_runner='androidx.test.runner.AndroidJUnitRunner',
+                     on_completion_callback=None):
     if device_id and not wait_for_emulator(device_id):
         return None
 
@@ -94,6 +95,9 @@ def run_instrumented(app_id,
         succeeded = any("OK (" in s for s in stdout)
     except subprocess.CalledProcessError as e:
         succeeded = False
+
+    if on_completion_callback:
+        on_completion_callback()
 
     uninstall(test_id, device_id=device_id)
     uninstall(app_id, device_id=device_id)
@@ -238,6 +242,11 @@ def drop_caches(device_id=None):
     # This does not work on user devices, however.
     cmd = create_adb_cmd(['shell', 'setprop', 'perf.drop_caches', '3'],
                          device_id)
+    subprocess.check_call(cmd, stdout=DEVNULL, stderr=DEVNULL)
+
+
+def pull_file(remote_path, local_path, device_id=None):
+    cmd = create_adb_cmd(['pull', remote_path, local_path], device_id)
     subprocess.check_call(cmd, stdout=DEVNULL, stderr=DEVNULL)
 
 
