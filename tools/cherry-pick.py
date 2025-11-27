@@ -17,7 +17,9 @@ def parse_options():
     parser = argparse.ArgumentParser(description='Release r8')
     parser.add_argument('--branch',
                         metavar=('<branch>'),
-                        help='Branch to cherry-pick to')
+                        default=[],
+                        action='append',
+                        help='Branch(es) to cherry-pick to')
     parser.add_argument('--current-checkout',
                         '--current_checkout',
                         default=False,
@@ -43,7 +45,8 @@ def parse_options():
                         metavar=('<reviewer(s)>'),
                         default=[],
                         action='append',
-                        help='Rewiever(s) for the cherry-pick(s)')
+                        help='Rewiever(s) for the cherry-pick(s) '
+                        '(adds @google.com if missing)')
     parser.add_argument('--send-mail',
                         '--send_mail',
                         default=False,
@@ -52,33 +55,33 @@ def parse_options():
     return parser.parse_args()
 
 
-def run(args):
+def run(args, branch):
     if args.current_checkout:
         for i in range(len(args.hashes) + 1):
-            branch = 'cherry-%s-%d' % (args.branch, i + 1)
-            print('Deleting branch %s' % branch)
-            subprocess.run(['git', 'branch', branch, '-D'])
+            local_branch_name = 'cherry-%s-%d' % (branch, i + 1)
+            print('Deleting branch %s' % local_branch_name)
+            subprocess.run(['git', 'branch', local_branch_name, '-D'])
 
     bugs = set()
 
     count = 1
     for hash in args.hashes:
-        branch = 'cherry-%s-%d' % (args.branch, count)
-        print('Cherry-picking %s in %s' % (hash, branch))
+        local_branch_name = 'cherry-%s-%d' % (branch, count)
+        print('Cherry-picking %s in %s' % (hash, local_branch_name))
         if count == 1:
             subprocess.run([
-                'git', 'new-branch', branch, '--upstream',
-                '%s/%s' % (args.remote, args.branch)
+                'git', 'new-branch', local_branch_name, '--upstream',
+                '%s/%s' % (args.remote, branch)
             ])
         else:
-            subprocess.run(['git', 'new-branch', branch, '--upstream-current'])
+            subprocess.run(['git', 'new-branch', local_branch_name, '--upstream-current'])
 
         subprocess.run(['git', 'cherry-pick', hash])
-        confirm_and_upload(branch, args, bugs)
+        confirm_and_upload(local_branch_name, args, bugs)
         count = count + 1
 
-    branch = 'cherry-%s-%d' % (args.branch, count)
-    subprocess.run(['git', 'new-branch', branch, '--upstream-current'])
+    local_branch_name = 'cherry-%s-%d' % (branch, count)
+    subprocess.run(['git', 'new-branch', local_branch_name, '--upstream-current'])
 
     old_version = 'unknown'
     for line in open(VERSION_FILE, 'r'):
@@ -134,11 +137,11 @@ def reviewer_arg(reviewer):
     return '--reviewer=' + reviewer
 
 
-def confirm_and_upload(branch, args, bugs):
+def confirm_and_upload(local_branch_name, args, bugs):
     if not args.yes:
       question = ('Ready to continue (cwd %s, will not upload to Gerrit)' %
                   os.getcwd() if args.no_upload else
-                  'Ready to upload %s (cwd %s)' % (branch, os.getcwd()))
+                  'Ready to upload %s (cwd %s)' % (local_branch_name, os.getcwd()))
 
       while True:
           try:
@@ -146,7 +149,7 @@ def confirm_and_upload(branch, args, bugs):
               if answer == 'yes':
                  break
               if answer == 'abort':
-                  print('Aborting new branch for %s' % branch)
+                  print('Aborting new branch for %s' % local_branch_name)
                   sys.exit(1)
           except KeyboardInterrupt:
               pass
@@ -186,18 +189,25 @@ def confirm_and_upload(branch, args, bugs):
 
 def main():
     args = parse_options()
+    if len(args.branch) == 0:
+        print("No branches specified.")
+        sys.exit(1)
 
-    if (not args.current_checkout):
-        with utils.TempDir() as temp:
-            print("Performing cherry-picking in %s" % temp)
-            subprocess.check_call(['git', 'clone', utils.REPO_SOURCE, temp])
-            with utils.ChangedWorkingDirectory(temp):
-                run(args)
-    else:
-        # Run in current directory.
-        print("Performing cherry-picking in %s" % os.getcwd())
-        subprocess.check_output(['git', 'fetch', 'origin'])
-        run(args)
+    branches = args.branch
+    args.branch = None
+    for branch in branches:
+        print("Performing cherry-picking to %s" % branch)
+        if not args.current_checkout:
+            with utils.TempDir() as temp:
+                print("Performing cherry-picking in %s" % temp)
+                subprocess.check_call(['git', 'clone', utils.REPO_SOURCE, temp])
+                with utils.ChangedWorkingDirectory(temp):
+                    run(args, branch)
+        else:
+            # Run in current directory.
+            print("Performing cherry-picking in %s" % os.getcwd())
+            subprocess.check_output(['git', 'fetch', 'origin'])
+            run(args, branch)
 
 
 if __name__ == '__main__':
