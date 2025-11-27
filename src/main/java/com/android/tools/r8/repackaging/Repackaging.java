@@ -64,6 +64,9 @@ public class Repackaging {
   private final ProguardConfiguration proguardConfiguration;
   private final RepackagingConfiguration repackagingConfiguration;
 
+  private final CrossPackageRepackagingConstraints crossPackageRepackagingConstraints =
+      new CrossPackageRepackagingConstraints();
+
   public Repackaging(AppView<AppInfoWithLiveness> appView) {
     this.appView = appView;
     this.proguardConfiguration = appView.options().getProguardConfiguration();
@@ -233,11 +236,11 @@ public class Repackaging {
     // For each package, find the set of classes that can be repackaged, and move them to the
     // desired package. We iterate all packages first to see if any classes are pinned and cannot
     // be moved, to properly reserve their package.
-    Map<ProgramPackage, Collection<DexProgramClass>> packagesWithClassesToRepackage =
+    Map<ProgramPackage, Set<DexProgramClass>> packagesWithClassesToRepackage =
         new IdentityHashMap<>();
     for (ProgramPackage pkg : packages) {
-      Collection<DexProgramClass> classesToRepackage =
-          computeClassesToRepackage(pkg, executorService);
+      Set<DexProgramClass> classesToRepackage =
+          computeClassesToRepackage(pkg, packages, packagesWithClassesToRepackage, executorService);
       packagesWithClassesToRepackage.put(pkg, classesToRepackage);
       // Reserve the package name to ensure that we are not renaming to a package we cannot move.
       if (classesToRepackage.size() != pkg.classesInPackage().size()) {
@@ -306,14 +309,21 @@ public class Repackaging {
             classToRepackage, outerClass, newPackageDescriptor, mappings));
   }
 
-  private Collection<DexProgramClass> computeClassesToRepackage(
-      ProgramPackage pkg, ExecutorService executorService) throws ExecutionException {
-    RepackagingConstraintGraph constraintGraph = new RepackagingConstraintGraph(appView, pkg);
-    boolean canRepackageAllClasses = constraintGraph.initializeGraph();
-    // TODO(b/410597153): Account for classpath classes in pkg.
-    if (canRepackageAllClasses && appView.options().partialSubCompilationConfiguration == null) {
-      return pkg.classesInPackage();
-    }
+  private Set<DexProgramClass> computeClassesToRepackage(
+      ProgramPackage pkg,
+      ProgramPackageCollection packages,
+      Map<ProgramPackage, Set<DexProgramClass>> packagesWithClassesToRepackage,
+      ExecutorService executorService)
+      throws ExecutionException {
+    RepackagingConstraintGraph constraintGraph =
+        new RepackagingConstraintGraph(
+            appView,
+            pkg,
+            packages,
+            packagesWithClassesToRepackage,
+            repackagingConfiguration,
+            crossPackageRepackagingConstraints);
+    constraintGraph.initializeGraph();
     constraintGraph.populateConstraints(executorService);
     return constraintGraph.computeClassesToRepackage();
   }
