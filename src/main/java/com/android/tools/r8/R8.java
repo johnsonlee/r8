@@ -363,12 +363,12 @@ public class R8 {
         appView.setRootSet(
             RootSet.builder(
                     appView,
-                    profileCollectionAdditions,
                     subtypingInfo,
                     Iterables.concat(
                         options.getProguardConfiguration().getRules(), synthesizedProguardRules))
                 .setAssumeInfoCollectionBuilder(assumeInfoCollectionBuilder)
                 .evaluateRules(executorService)
+                .expandAdaptClassStringsPatterns()
                 .tracePartialCompilationDexingOutputClasses(executorService)
                 .build());
         appView.setAssumeInfoCollection(assumeInfoCollectionBuilder.build());

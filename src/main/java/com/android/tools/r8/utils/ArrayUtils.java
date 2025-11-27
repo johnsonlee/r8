@@ -135,7 +135,7 @@ public class ArrayUtils {
     for (int i = 0; i < original.length; i++) {
       S oldOne = original[i];
       T newOne = mapper.apply(i, oldOne);
-      if (newOne == oldOne) {
+      if (newOne == oldOne && newOne != null) {
         if (results != null) {
           results.add((T) oldOne);
         }
@@ -188,6 +188,10 @@ public class ArrayUtils {
     }
     assert newIndex == newSize;
     return result;
+  }
+
+  public static <T> T[] filterNulls(T[] original, T[] emptyArray) {
+    return map(original, Function.identity(), emptyArray);
   }
 
   public static int[] createIdentityArray(int size) {

@@ -199,8 +199,8 @@ public class LirConverter {
     String output = appView.options().isGeneratingClassFiles() ? "CF" : "DEX";
     timing.begin("LIR->IR->" + output);
     CodeRewriterPassCollection codeRewriterPassCollection =
-        new CodeRewriterPassCollection(
-            new AdaptClassStringsRewriter(appView),
+        CodeRewriterPassCollection.createFromNullable(
+            AdaptClassStringsRewriter.create(appView),
             new ConstResourceNumberRemover(appView),
             new StoreStoreFenceToInvokeRewriter(appView),
             new OriginalFieldWitnessRemover(appView),

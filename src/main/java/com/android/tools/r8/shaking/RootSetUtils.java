@@ -62,7 +62,6 @@ import com.android.tools.r8.position.ClassPosition;
 import com.android.tools.r8.position.FieldPosition;
 import com.android.tools.r8.position.MethodPosition;
 import com.android.tools.r8.position.Position;
-import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.repackaging.RepackagingUtils;
 import com.android.tools.r8.shaking.AnnotationMatchResult.AnnotationsIgnoredMatchResult;
 import com.android.tools.r8.shaking.AnnotationMatchResult.ConcreteAnnotationMatchResult;
@@ -641,6 +640,24 @@ public class RootSetUtils {
                       alwaysInline,
                       dependentMinimumKeepInfo)
                   .extendRootSet(dependentMinimumKeepInfo));
+      return this;
+    }
+
+    public RootSetBuilder expandAdaptClassStringsPatterns() {
+      if (options.hasProguardConfiguration()) {
+        ProguardClassFilter adaptClassStringsPattern =
+            options.getProguardConfiguration().getAdaptClassStrings();
+        if (!adaptClassStringsPattern.isEmpty()) {
+          for (DexProgramClass clazz : appView.appInfo().classes()) {
+            if (adaptClassStringsPattern.matches(clazz.getType())) {
+              dependentMinimumKeepInfo
+                  .getOrCreateUnconditionalMinimumKeepInfoFor(clazz.getType())
+                  .asClassJoiner()
+                  .setAdaptClassStrings();
+            }
+          }
+        }
+      }
       return this;
     }
 
@@ -2504,26 +2521,14 @@ public class RootSetUtils {
       return true;
     }
 
-    @Override
-    public String toString() {
-      StringBuilder builder = new StringBuilder();
-      builder.append("RootSet");
-      builder.append("\nreasonAsked: " + reasonAsked.size());
-      builder.append("\nidentifierNameStrings: " + identifierNameStrings.size());
-      builder.append("\nifRules: " + ifRules.size());
-      return builder.toString();
-    }
-
     public static RootSetBuilder builder(
         AppView<? extends AppInfoWithClassHierarchy> appView,
-        Enqueuer enqueuer,
         ImmediateAppSubtypingInfo subtypingInfo) {
       return new RootSetBuilder(appView, subtypingInfo);
     }
 
     public static RootSetBuilder builder(
         AppView<? extends AppInfoWithClassHierarchy> appView,
-        ProfileCollectionAdditions profileCollectionAdditions,
         ImmediateAppSubtypingInfo subtypingInfo,
         Iterable<? extends ProguardConfigurationRule> rules) {
       return new RootSetBuilder(

@@ -5061,7 +5061,7 @@ public class Enqueuer {
   }
 
   private ConsequentRootSet computeDelayedInterfaceMethodSyntheticBridges() {
-    RootSetBuilder builder = RootSet.builder(appView, this, subtypingInfo);
+    RootSetBuilder builder = RootSet.builder(appView, subtypingInfo);
     for (InterfaceMethodSyntheticBridgeAction delayedInterfaceMethodSyntheticBridgeAction :
         rootSet.delayedInterfaceMethodSyntheticBridgeActions) {
       handleInterfaceMethodSyntheticBridgeAction(

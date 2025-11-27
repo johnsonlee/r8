@@ -51,6 +51,7 @@ public class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepClassInfo
     return bottom().joiner();
   }
 
+  private final boolean adaptClassStrings;
   private final boolean allowClassInlining;
   private final boolean allowHorizontalClassMerging;
   private final boolean allowPermittedSubclassesRemoval;
@@ -62,6 +63,7 @@ public class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepClassInfo
 
   KeepClassInfo(Builder builder) {
     super(builder);
+    this.adaptClassStrings = builder.isAdaptClassStringsEnabled();
     this.allowClassInlining = builder.isClassInliningAllowed();
     this.allowHorizontalClassMerging = builder.isHorizontalClassMergingAllowed();
     this.allowPermittedSubclassesRemoval = builder.isPermittedSubclassesRemovalAllowed();
@@ -75,6 +77,14 @@ public class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepClassInfo
   @Override
   Builder builder() {
     return new Builder(this);
+  }
+
+  public boolean isAdaptClassStringsEnabled() {
+    return internalIsAdaptClassStringsEnabled();
+  }
+
+  boolean internalIsAdaptClassStringsEnabled() {
+    return adaptClassStrings;
   }
 
   public boolean isCheckEnumUnboxedEnabled(GlobalKeepInfoConfiguration configuration) {
@@ -189,7 +199,8 @@ public class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepClassInfo
   }
 
   private boolean internalBooleanEquals(KeepClassInfo other) {
-    return allowClassInlining == other.internalIsClassInliningAllowed()
+    return adaptClassStrings == other.internalIsAdaptClassStringsEnabled()
+        && allowClassInlining == other.internalIsClassInliningAllowed()
         && allowHorizontalClassMerging == other.internalIsHorizontalClassMergingAllowed()
         && allowPermittedSubclassesRemoval == other.internalIsPermittedSubclassesRemovalAllowed()
         && allowRepackaging == other.internalIsRepackagingAllowed()
@@ -213,6 +224,7 @@ public class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepClassInfo
   public int hashCodeNoAnnotations() {
     int hash = super.hashCodeNoAnnotations();
     int index = super.numberOfBooleans();
+    hash += bit(adaptClassStrings, index++);
     hash += bit(allowClassInlining, index++);
     hash += bit(allowHorizontalClassMerging, index++);
     hash += bit(allowPermittedSubclassesRemoval, index++);
@@ -239,6 +251,9 @@ public class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepClassInfo
         continue;
       }
       switch (key) {
+        case "adaptClassStrings":
+          builder.setAdaptClassStrings(Boolean.parseBoolean(value));
+          break;
         case "allowClassInlining":
           builder.setAllowClassInlining(Boolean.parseBoolean(value));
           break;
@@ -274,6 +289,7 @@ public class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepClassInfo
   @Override
   public List<String> lines() {
     List<String> lines = super.lines();
+    lines.add("adaptClassStrings: " + adaptClassStrings);
     lines.add("allowClassInlining: " + allowClassInlining);
     lines.add("allowHorizontalClassMerging: " + allowHorizontalClassMerging);
     lines.add("allowPermittedSubclassesRemoval: " + allowPermittedSubclassesRemoval);
@@ -287,6 +303,7 @@ public class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepClassInfo
 
   public static class Builder extends KeepInfo.Builder<Builder, KeepClassInfo> {
 
+    private boolean adaptClassStrings;
     private boolean allowClassInlining;
     private boolean allowHorizontalClassMerging;
     private boolean allowPermittedSubclassesRemoval;
@@ -302,6 +319,7 @@ public class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepClassInfo
 
     Builder(KeepClassInfo original) {
       super(original);
+      adaptClassStrings = original.internalIsAdaptClassStringsEnabled();
       allowClassInlining = original.internalIsClassInliningAllowed();
       allowHorizontalClassMerging = original.internalIsHorizontalClassMergingAllowed();
       allowPermittedSubclassesRemoval = original.internalIsPermittedSubclassesRemovalAllowed();
@@ -310,6 +328,25 @@ public class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepClassInfo
       allowUnusedInterfaceRemoval = original.internalIsUnusedInterfaceRemovalAllowed();
       allowVerticalClassMerging = original.internalIsVerticalClassMergingAllowed();
       checkEnumUnboxed = original.internalIsCheckEnumUnboxedEnabled();
+    }
+
+    // Adapt class strings.
+
+    public boolean isAdaptClassStringsEnabled() {
+      return adaptClassStrings;
+    }
+
+    public Builder setAdaptClassStrings(boolean adaptClassStrings) {
+      this.adaptClassStrings = adaptClassStrings;
+      return self();
+    }
+
+    public Builder setAdaptClassStrings() {
+      return setAdaptClassStrings(true);
+    }
+
+    public Builder unsetAdaptClassStrings() {
+      return setAdaptClassStrings(false);
     }
 
     // Check enum unboxed.
@@ -479,6 +516,7 @@ public class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepClassInfo
     @Override
     boolean internalIsEqualTo(KeepClassInfo other) {
       return super.internalIsEqualTo(other)
+          && isAdaptClassStringsEnabled() == other.internalIsAdaptClassStringsEnabled()
           && isCheckEnumUnboxedEnabled() == other.internalIsCheckEnumUnboxedEnabled()
           && isClassInliningAllowed() == other.internalIsClassInliningAllowed()
           && isHorizontalClassMergingAllowed() == other.internalIsHorizontalClassMergingAllowed()
@@ -506,6 +544,7 @@ public class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepClassInfo
           .setAllowSyntheticSharing(true)
           .disallowUnusedInterfaceRemoval()
           .disallowVerticalClassMerging()
+          .unsetAdaptClassStrings()
           .unsetCheckEnumUnboxed();
     }
 
@@ -519,6 +558,7 @@ public class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepClassInfo
           .setAllowSyntheticSharing(true)
           .allowUnusedInterfaceRemoval()
           .allowVerticalClassMerging()
+          .unsetAdaptClassStrings()
           .unsetCheckEnumUnboxed();
     }
   }
@@ -572,6 +612,11 @@ public class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepClassInfo
       return builder.isUnusedInterfaceRemovalAllowed();
     }
 
+    public Joiner setAdaptClassStrings() {
+      builder.setAdaptClassStrings();
+      return self();
+    }
+
     public Joiner setCheckEnumUnboxed() {
       builder.setCheckEnumUnboxed();
       return self();
@@ -586,6 +631,7 @@ public class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepClassInfo
     public Joiner merge(Joiner joiner) {
       // Should be extended to merge the fields of this class in case any are added.
       return super.merge(joiner)
+          .applyIf(joiner.builder.isAdaptClassStringsEnabled(), Joiner::setAdaptClassStrings)
           .applyIf(joiner.builder.isCheckEnumUnboxedEnabled(), Joiner::setCheckEnumUnboxed)
           .applyIf(!joiner.builder.isClassInliningAllowed(), Joiner::disallowClassInlining)
           .applyIf(

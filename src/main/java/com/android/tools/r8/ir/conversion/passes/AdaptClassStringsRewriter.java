@@ -12,15 +12,21 @@ import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.conversion.passes.result.CodeRewriterResult;
 import com.android.tools.r8.naming.IdentifierMinifier;
-import com.android.tools.r8.shaking.ProguardClassFilter;
+import com.android.tools.r8.utils.InternalOptions;
 
 public class AdaptClassStringsRewriter extends CodeRewriterPass<AppInfoWithClassHierarchy> {
 
-  private final ProguardClassFilter adaptClassStrings;
-
-  public AdaptClassStringsRewriter(AppView<? extends AppInfoWithClassHierarchy> appView) {
+  private AdaptClassStringsRewriter(AppView<? extends AppInfoWithClassHierarchy> appView) {
     super(appView);
-    this.adaptClassStrings = appView.options().getProguardConfiguration().getAdaptClassStrings();
+  }
+
+  public static AdaptClassStringsRewriter create(
+      AppView<? extends AppInfoWithClassHierarchy> appView) {
+    InternalOptions options = appView.options();
+    return options.hasProguardConfiguration()
+            && !options.getProguardConfiguration().getAdaptClassStrings().isEmpty()
+        ? new AdaptClassStringsRewriter(appView)
+        : null;
   }
 
   @Override
@@ -30,9 +36,8 @@ public class AdaptClassStringsRewriter extends CodeRewriterPass<AppInfoWithClass
 
   @Override
   protected boolean shouldRewriteCode(IRCode code, MethodProcessor methodProcessor) {
-    return !adaptClassStrings.isEmpty()
-        && adaptClassStrings.matches(code.context().getHolderType())
-        && code.metadata().mayHaveConstString();
+    return code.metadata().mayHaveConstString()
+        && appView.getKeepInfo(code.context().getHolder()).isAdaptClassStringsEnabled();
   }
 
   @Override

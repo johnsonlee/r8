@@ -977,7 +977,6 @@ public class TestBase {
     RootSet rootSet =
         RootSet.builder(
                 appView,
-                profileCollectionAdditions,
                 ImmediateAppSubtypingInfo.create(appView),
                 appView.options().getProguardConfiguration().getRules())
             .evaluateRulesAndBuild(executor);
