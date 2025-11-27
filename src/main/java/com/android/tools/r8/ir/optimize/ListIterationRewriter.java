@@ -351,6 +351,18 @@ public class ListIterationRewriter extends CodeRewriterPass<AppInfo> {
     if (numNonAliasIteratorUsers != 2) {
       return null;
     }
+
+    // Ensure that there are no blocks inbetween the iterator() call and hasNext() call that have
+    // multiple predecessors. This can lead to incorrect phi placement. See also b/464035129.
+    BasicBlock blockBeforePhi = iteratorInstr.getBlock();
+    while (blockBeforePhi != hasNextInstr.getBlock()) {
+      if (blockBeforePhi != iteratorInstr.getBlock()
+          && blockBeforePhi.getPredecessors().size() > 1) {
+        return null;
+      }
+      blockBeforePhi = blockBeforePhi.getUniqueNormalSuccessor();
+    }
+
     return new AnalysisResult(
         iteratorInstr, hasNextInstr, ifInstr, nextInstr, listAssumeInstr, iteratorAssumeInstr);
   }
