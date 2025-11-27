@@ -39,9 +39,11 @@ def run_r8_assistant(options, temp_dir):
     instrumented_dex = os.path.join(temp_dir, 'out.jar')
 
     with utils.TempDir() as compiledump_temp_dir:
+        otherargs = ['--output', instrumented_dex]
+        if options.json_output:
+            otherargs.append('--reflective-usage-json-output')
         compile_result = compiledump.run1(compiledump_temp_dir,
-                                          compiledump_args,
-                                          ['--output', instrumented_dex])
+                                          compiledump_args, otherargs)
         if compile_result != 0:
             raise Exception('Failed to run R8 assistant')
 
@@ -79,6 +81,11 @@ def parse_options(argv):
     result.add_argument('--id', help='The id of the app')
     result.add_argument('--id-test', help='The id of the test')
     result.add_argument('--device', help='The device to run on')
+    result.add_argument('--json-output',
+                        help='Use json for reflective use'
+                        '(default disabled)',
+                        default=False,
+                        action='store_true')
     result.add_argument('--debug-agent',
                         help='Enable Java debug agent and suspend compilation ',
                         default=False,

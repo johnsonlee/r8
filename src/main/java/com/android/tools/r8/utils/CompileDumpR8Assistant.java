@@ -8,6 +8,7 @@ import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.OutputMode;
 import com.android.tools.r8.R8Assistant;
 import com.android.tools.r8.R8AssistantCommand;
+import com.android.tools.r8.assistant.runtime.ReflectiveOperationJsonLogger;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -24,6 +25,8 @@ import java.util.concurrent.Executors;
  */
 public class CompileDumpR8Assistant extends CompileDumpBase {
 
+  private static final List<String> VALID_OPTIONS = Arrays.asList("--reflective-usage-json-output");
+
   private static final List<String> VALID_OPTIONS_WITH_SINGLE_OPERAND =
       Arrays.asList("--output", "--lib", "--classpath", "--min-api", "--threads");
 
@@ -35,9 +38,19 @@ public class CompileDumpR8Assistant extends CompileDumpBase {
     List<Path> classpath = new ArrayList<>();
     int minApi = 1;
     int threads = -1;
+    BooleanBox reflectiveUsageAsJson = new BooleanBox(false);
+
     for (int i = 0; i < args.length; i++) {
       String option = args[i];
-      if (VALID_OPTIONS_WITH_SINGLE_OPERAND.contains(option)) {
+      if (VALID_OPTIONS.contains(option)) {
+        switch (option) {
+          case "--reflective-usage-json-output":
+            reflectiveUsageAsJson.set(true);
+            break;
+          default:
+            throw new IllegalArgumentException("Unimplemented option: " + option);
+        }
+      } else if (VALID_OPTIONS_WITH_SINGLE_OPERAND.contains(option)) {
         String operand = args[++i];
         switch (option) {
           case "--output":
@@ -72,15 +85,18 @@ public class CompileDumpR8Assistant extends CompileDumpBase {
         program.add(Paths.get(option));
       }
     }
-    R8AssistantCommand command =
+    R8AssistantCommand.Builder commandBuilder =
         R8AssistantCommand.builder()
             .addProgramFiles(program)
             .addLibraryFiles(library)
             .addClasspathFiles(classpath)
             .setOutput(outputPath, OutputMode.DexIndexed)
             .setMode(compilationMode)
-            .setMinApiLevel(minApi)
-            .build();
+            .setMinApiLevel(minApi);
+    if (reflectiveUsageAsJson.value) {
+      commandBuilder.setReflectiveReceiverClass(ReflectiveOperationJsonLogger.class);
+    }
+    R8AssistantCommand command = commandBuilder.build();
     if (threads != -1) {
       ExecutorService executor = Executors.newWorkStealingPool(threads);
       try {
