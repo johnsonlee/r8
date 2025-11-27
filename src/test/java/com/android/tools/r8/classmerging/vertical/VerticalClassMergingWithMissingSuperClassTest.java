@@ -47,7 +47,7 @@ public class VerticalClassMergingWithMissingSuperClassTest extends TestBase {
     }
   }
 
-  static class MissingClass {}
+  public static class MissingClass {}
 
   @NoVerticalClassMerging
   static class A extends MissingClass {

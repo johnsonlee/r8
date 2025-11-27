@@ -6,18 +6,13 @@ package com.android.tools.r8.naming;
 
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
 import static org.hamcrest.CoreMatchers.containsString;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
 
-import com.android.tools.r8.DataDirectoryResource;
 import com.android.tools.r8.DataEntryResource;
 import com.android.tools.r8.DataResourceConsumer;
-import com.android.tools.r8.DataResourceProvider.Visitor;
 import com.android.tools.r8.R8FullTestBuilder;
-import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -25,45 +20,35 @@ import com.android.tools.r8.ThrowableConsumer;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.shaking.forceproguardcompatibility.ProguardCompatibilityTestBase;
-import com.android.tools.r8.utils.ArchiveResourceProvider;
 import com.android.tools.r8.utils.DataResourceConsumerForTesting;
-import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class AdaptResourceFileNamesTest extends ProguardCompatibilityTestBase {
 
-  private final TestParameters parameters;
+  @Parameter(0)
+  public TestParameters parameters;
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
   }
 
-  public AdaptResourceFileNamesTest(TestParameters parameters) {
-    this.parameters = parameters;
-  }
-
   private static final Path CF_DIR =
       Paths.get(ToolHelper.EXAMPLES_CF_DIR).resolve("adaptresourcefilenames");
-  private static final Path TEST_JAR =
-      Paths.get(ToolHelper.EXAMPLES_BUILD_DIR)
-          .resolve("adaptresourcefilenames" + FileUtils.JAR_EXTENSION);
 
   private static String getProguardConfig(
       boolean enableAdaptResourceFileNames, String adaptResourceFileNamesPathFilter) {
@@ -114,7 +99,8 @@ public class AdaptResourceFileNamesTest extends ProguardCompatibilityTestBase {
     compileWithR8(
         getProguardConfigWithNeverInline(true, null),
         dataResourceConsumer,
-        R8TestBuilder::enableProguardTestOptions,
+        // TODO(b/463612409): Resource adaptation should work with repackaging.
+        b -> b.addDontRepackage().enableProguardTestOptions(),
         mapper -> {
           checkR8Renamings(mapper);
           // Check that the generated resources have the expected names.
@@ -132,7 +118,8 @@ public class AdaptResourceFileNamesTest extends ProguardCompatibilityTestBase {
     compileWithR8(
         getProguardConfigWithNeverInline(true, "**.md"),
         dataResourceConsumer,
-        R8TestBuilder::enableProguardTestOptions,
+        // TODO(b/463612409): Resource adaptation should work with repackaging.
+        b -> b.addDontRepackage().enableProguardTestOptions(),
         this::checkR8Renamings);
     // Check that the generated resources have the expected names.
     Map<String, String> expectedRenamings =
@@ -151,7 +138,8 @@ public class AdaptResourceFileNamesTest extends ProguardCompatibilityTestBase {
     compileWithR8(
         getProguardConfigWithNeverInline(false, null),
         dataResourceConsumer,
-        R8TestBuilder::enableProguardTestOptions);
+        // TODO(b/463612409): Resource adaptation should work with repackaging.
+        b -> b.addDontRepackage().enableProguardTestOptions());
     // Check that none of the resources were renamed.
     for (DataEntryResource dataResource : getOriginalDataResources()) {
       assertNotNull(
@@ -167,10 +155,8 @@ public class AdaptResourceFileNamesTest extends ProguardCompatibilityTestBase {
         compileWithR8(
             getProguardConfigWithNeverInline(true, null),
             dataResourceConsumer,
-            builder -> {
-              builder.enableProguardTestOptions();
-              builder.allowDiagnosticWarningMessages();
-            },
+            // TODO(b/463612409): Resource adaptation should work with repackaging.
+            b -> b.addDontRepackage().allowDiagnosticWarningMessages().enableProguardTestOptions(),
             this::checkR8Renamings,
             ImmutableList.<DataEntryResource>builder()
                 .addAll(getOriginalDataResources())

@@ -50,7 +50,7 @@ public class RepackageLambdaMissingInterfaceTest extends RepackageTestBase {
             .addProgramClasses(ClassWithLambda.class, Main.class)
             .addKeepMainRule(Main.class)
             .addKeepAttributeInnerClassesAndEnclosingMethod()
-            .applyIf(repackage, this::configureRepackaging)
+            .applyIf(repackage, this::configureRepackaging, this::configureNoRepackaging)
             .collectSyntheticItems()
             .setMinApi(parameters)
             .addDontWarn(MissingInterface.class)

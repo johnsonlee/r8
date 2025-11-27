@@ -43,6 +43,7 @@ import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class MetadataRewriteInExtensionFunctionTest extends KotlinMetadataTestBase {
@@ -50,7 +51,7 @@ public class MetadataRewriteInExtensionFunctionTest extends KotlinMetadataTestBa
 
   private final TestParameters parameters;
 
-  @Parameterized.Parameters(name = "{0}, {1}")
+  @Parameters(name = "{0}, {1}")
   public static Collection<Object[]> data() {
     return buildParameters(
         getTestParameters().withCfRuntimes().build(),
@@ -230,13 +231,13 @@ public class MetadataRewriteInExtensionFunctionTest extends KotlinMetadataTestBa
       MethodSubject method = clazz.uniqueMethodWithOriginalName(methodName);
       assertThat(method, isPresentAndRenamed());
       String finalMethodName = method.getFinalName();
+      String packageName = DescriptorUtils.getPackageNameFromTypeName(clazz.getFinalName());
+      String finalQualifiedMethodName =
+          packageName.isEmpty() ? finalMethodName : packageName + "." + finalMethodName;
       kotlinSource =
           kotlinSource.replace(
               "import com.android.tools.r8.kotlin.metadata.extension_function_lib." + methodName,
-              "import "
-                  + DescriptorUtils.getPackageNameFromTypeName(clazz.getFinalName())
-                  + "."
-                  + finalMethodName);
+              "import " + finalQualifiedMethodName);
       kotlinSource = kotlinSource.replace(")." + methodName, ")." + finalMethodName);
     }
 

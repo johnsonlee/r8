@@ -4,11 +4,15 @@
 
 package com.android.tools.r8.naming.applymapping;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndRenamed;
+import static org.hamcrest.MatcherAssert.assertThat;
+
 import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestShrinkerBuilder;
 import com.android.tools.r8.utils.BooleanUtils;
+import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.Test;
@@ -48,6 +52,10 @@ public class ApplyMappingClassPathInterfaceInheritTest extends TestBase {
                 TestShrinkerBuilder::addKeepAllClassesRule)
             .setMinApi(parameters)
             .compile();
+
+    ClassSubject classPathIClass = libraryResult.inspector().clazz(ClassPathI.class);
+    assertThat(classPathIClass, isPresentAndRenamed(minifyLibrary));
+
     Path libraryJar = libraryResult.writeToZip();
     testForR8(parameters.getBackend())
         .addLibraryClasses(LibI.class)
@@ -61,10 +69,7 @@ public class ApplyMappingClassPathInterfaceInheritTest extends TestBase {
         .addRunClasspathClasses(LibI.class)
         .addRunClasspathFiles(libraryJar)
         .run(parameters.getRuntime(), Main.class)
-        .applyIf(
-            minifyLibrary,
-            r -> r.assertSuccessWithOutputLines("a.a"),
-            r -> r.assertSuccessWithOutputLines(ClassPathI.class.getTypeName()));
+        .assertSuccessWithOutputLines(classPathIClass.getFinalName());
   }
 
   public interface LibI {}

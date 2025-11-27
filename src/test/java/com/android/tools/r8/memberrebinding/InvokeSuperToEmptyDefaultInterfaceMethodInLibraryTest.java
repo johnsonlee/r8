@@ -14,8 +14,10 @@ import com.android.tools.r8.TestDiagnosticMessages;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.errors.IllegalInvokeSuperToInterfaceOnDalvikDiagnostic;
+import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.utils.AndroidApiLevel;
+import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.MethodReferenceUtils;
 import com.google.common.collect.ImmutableList;
 import org.junit.Test;
@@ -49,22 +51,7 @@ public class InvokeSuperToEmptyDefaultInterfaceMethodInLibraryTest extends TestB
             diagnostics ->
                 diagnostics.applyIf(
                     shouldReportDiagnostic(),
-                    d ->
-                        d.assertWarningsMatch(
-                            allOf(
-                                diagnosticType(
-                                    IllegalInvokeSuperToInterfaceOnDalvikDiagnostic.class),
-                                diagnosticMessage(
-                                    containsString(
-                                        "Verification error in `"
-                                            + MethodReferenceUtils.toSourceString(
-                                                Reference.methodFromMethod(
-                                                    A.class.getDeclaredMethod("foo")))
-                                            + "`: Illegal invoke-super to interface method `"
-                                            + MethodReferenceUtils.toSourceString(
-                                                Reference.methodFromMethod(
-                                                    I.class.getDeclaredMethod("foo")))
-                                            + "` on Dalvik (Android 4).")))),
+                    this::inspectDiagnostics,
                     TestDiagnosticMessages::assertNoMessages))
         .addRunClasspathClasses(I.class)
         .addRunClasspathClassFileData(
@@ -88,6 +75,32 @@ public class InvokeSuperToEmptyDefaultInterfaceMethodInLibraryTest extends TestB
                     parameters.hasDefaultInterfaceMethodsSupport()
                         ? ImmutableList.of("In override!", "Call!")
                         : ImmutableList.of("Skip!")));
+  }
+
+  private void inspectDiagnostics(TestDiagnosticMessages diagnostics) throws Exception {
+    MethodReference aMethod = Reference.methodFromMethod(A.class.getDeclaredMethod("foo"));
+    // Account for repackaging.
+    if (!parameters.canUseDefaultAndStaticInterfaceMethods()) {
+      aMethod =
+          Reference.method(
+              Reference.classFromTypeName(
+                  DescriptorUtils.getSimpleClassNameFromDescriptor(
+                      aMethod.getHolderClass().getDescriptor())),
+              aMethod.getMethodName(),
+              aMethod.getFormalTypes(),
+              aMethod.getReturnType());
+    }
+    diagnostics.assertWarningsMatch(
+        allOf(
+            diagnosticType(IllegalInvokeSuperToInterfaceOnDalvikDiagnostic.class),
+            diagnosticMessage(
+                containsString(
+                    "Verification error in `"
+                        + MethodReferenceUtils.toSourceString(aMethod)
+                        + "`: Illegal invoke-super to interface method `"
+                        + MethodReferenceUtils.toSourceString(
+                            Reference.methodFromMethod(I.class.getDeclaredMethod("foo")))
+                        + "` on Dalvik (Android 4)."))));
   }
 
   private boolean shouldReportDiagnostic() {

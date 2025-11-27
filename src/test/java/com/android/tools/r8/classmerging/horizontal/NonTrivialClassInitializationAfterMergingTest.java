@@ -63,7 +63,7 @@ public class NonTrivialClassInitializationAfterMergingTest extends TestBase {
     }
   }
 
-  interface I {
+  public interface I {
 
     Greeter greeter = new Greeter();
 

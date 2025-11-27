@@ -127,6 +127,7 @@ public class ConditionalMethodRulesAndHorizontalMergingTest extends TestBase {
     public static class MyFieldValuePrinter {
       public void printFieldValues(PrintableFieldInterface objectWithFields) throws Exception {
         for (Field field : objectWithFields.getClass().getDeclaredFields()) {
+          field.setAccessible(true);
           System.out.println(field.getName() + " = " + field.get(objectWithFields));
         }
       }

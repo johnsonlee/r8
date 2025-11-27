@@ -13,6 +13,7 @@ import com.android.tools.r8.R8TestCompileResultBase;
 import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.retrace.RetraceMethodElement;
+import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
@@ -28,7 +29,7 @@ import org.junit.Test;
 
 public class HorizontalClassMergingStackSampleRetraceTest extends StackSampleRetraceTestBase {
 
-  private static final String obfuscatedClassName = "com.android.tools.r8.retrace.stacksamples.a";
+  private static final String obfuscatedClassName = "a";
   private static final String obfuscatedMethodNameFoo = "c";
   private static final String obfuscatedMethodNameBar = "b";
   private static final String obfuscatedMethodNameBaz = "a";
@@ -69,11 +70,11 @@ public class HorizontalClassMergingStackSampleRetraceTest extends StackSampleRet
   String getExpectedMap() {
     return StringUtils.joinLines(
         "com.android.tools.r8.retrace.stacksamples.HorizontalClassMergingStackSampleRetraceTest$A"
-            + " -> com.android.tools.r8.retrace.stacksamples.a:",
+            + " -> a:",
         "# {\"id\":\"sourceFile\",\"fileName\":\"HorizontalClassMergingStackSampleRetraceTest.java\"}",
-        "    int $r8$classId -> a",
+        "    int HorizontalClassMergingStackSampleRetraceTest$A.$r8$classId -> a",
         "      # {\"id\":\"com.android.tools.r8.synthesized\"}",
-        "    1:1:void <init>(int):0:0 -> <init>",
+        "    1:1:void HorizontalClassMergingStackSampleRetraceTest$A.<init>(int):0:0 -> <init>",
         "      # {\"id\":\"com.android.tools.r8.synthesized\"}",
         "    1:1:void"
             + " com.android.tools.r8.retrace.stacksamples.HorizontalClassMergingStackSampleRetraceTest$B.baz():51:51"
@@ -84,11 +85,11 @@ public class HorizontalClassMergingStackSampleRetraceTest extends StackSampleRet
             + " -> b",
         "    1:8:void foo():46:46 -> c",
         "com.android.tools.r8.retrace.stacksamples.HorizontalClassMergingStackSampleRetraceTest$I"
-            + " -> com.android.tools.r8.retrace.stacksamples.b:",
+            + " -> b:",
         "# {\"id\":\"sourceFile\",\"fileName\":\"HorizontalClassMergingStackSampleRetraceTest.java\"}",
         "    void baz() -> a",
         "com.android.tools.r8.retrace.stacksamples.HorizontalClassMergingStackSampleRetraceTest$Main"
-            + " -> com.android.tools.r8.retrace.stacksamples.c:",
+            + " -> c:",
         "# {\"id\":\"sourceFile\",\"fileName\":\"HorizontalClassMergingStackSampleRetraceTest.java\"}",
         "    1:3:void main(java.lang.String[]):45:47 -> main");
   }
@@ -137,7 +138,11 @@ public class HorizontalClassMergingStackSampleRetraceTest extends StackSampleRet
           getSingleRetraceMethodElement(
               Reference.classFromTypeName(obfuscatedClassName), "<init>", compileResult);
       assertEquals(
-          Reference.methodFromDescriptor(Reference.classFromClass(A.class), "<init>", "(I)V"),
+          Reference.methodFromDescriptor(
+              Reference.classFromTypeName(
+                  DescriptorUtils.getSimpleClassNameFromDescriptor(descriptor(A.class))),
+              "<init>",
+              "(I)V"),
           retraceResult.getRetracedMethod().asKnown().getMethodReference());
     }
 

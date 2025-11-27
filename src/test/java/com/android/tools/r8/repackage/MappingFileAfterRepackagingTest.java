@@ -8,6 +8,7 @@ import static org.junit.Assert.assertEquals;
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.TestShrinkerBuilder;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.StringUtils;
 import java.util.List;
@@ -43,7 +44,7 @@ public class MappingFileAfterRepackagingTest extends TestBase {
         .addHorizontallyMergedClassesInspector(
             inspector ->
                 inspector.assertIsCompleteMergeGroup(A.class, B.class).assertNoOtherClassesMerged())
-        .applyIf(repackage, testBuilder -> testBuilder.addKeepRules("-repackageclasses"))
+        .applyIf(!repackage, TestShrinkerBuilder::addDontRepackage)
         .enableInliningAnnotations()
         .setMinApi(parameters)
         .compile()

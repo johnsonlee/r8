@@ -101,7 +101,8 @@ public class R8OptionsMetadataImpl
     this.isProGuardCompatibilityModeEnabled = options.forceProguardCompatibility;
     this.isProtoLiteOptimizationEnabled = options.protoShrinking().isProtoShrinkingEnabled();
     this.isRepackageClassesEnabled =
-        hasConfiguration && configuration.getPackageObfuscationMode().isRepackageClasses();
+        options.isRepackagingEnabled()
+            && configuration.getPackageObfuscationMode().isRepackageClasses();
     this.isShrinkingEnabled = options.isShrinking();
   }
 

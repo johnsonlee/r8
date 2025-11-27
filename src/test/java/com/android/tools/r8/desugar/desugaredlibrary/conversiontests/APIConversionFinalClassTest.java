@@ -78,7 +78,7 @@ public class APIConversionFinalClassTest extends DesugaredLibraryTestBase {
   // This class will be put at compilation time as library and on the runtime class path.
   // This class is convenient for easy testing. Each method plays the role of methods in the
   // platform APIs for which argument/return values need conversion.
-  static class CustomLibClass {
+  public static class CustomLibClass {
 
     // We use Year because Year is a final class with no custom conversion but Year has been
     // unused in the Android library so far.

@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.shaking;
 
-import static com.android.tools.r8.shaking.ProguardConfiguration.ProcessKotlinNullChecks.DEFAULT;
 import static com.android.tools.r8.shaking.ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS;
 
 import com.android.tools.r8.errors.dontwarn.DontWarnConfiguration;
@@ -95,8 +94,8 @@ public class ProguardConfiguration {
     private boolean forceProguardCompatibility = false;
     private boolean protoShrinking = false;
     private int maxRemovedAndroidLogLevel = MaximumRemovedAndroidLogLevelRule.NOT_SET;
-    private ProcessKotlinNullChecks processKotlinNullChecks = DEFAULT;
-    PackageObfuscationMode packageObfuscationMode = PackageObfuscationMode.NONE;
+    private ProcessKotlinNullChecks processKotlinNullChecks = ProcessKotlinNullChecks.DEFAULT;
+    PackageObfuscationMode packageObfuscationMode = PackageObfuscationMode.DEFAULT;
     String packagePrefix = "";
 
     private Builder(DexItemFactory dexItemFactory, Reporter reporter) {
@@ -189,6 +188,11 @@ public class ProguardConfiguration {
     @Override
     public void disableObfuscation(ProguardConfigurationSourceParser parser, Position position) {
       this.obfuscating = false;
+    }
+
+    @Override
+    public void disableRepackaging(ProguardConfigurationSourceParser parser, Position position) {
+      packageObfuscationMode = PackageObfuscationMode.NONE;
     }
 
     @Override

@@ -55,10 +55,7 @@ public class MultipleOutlinesInMethodWithExceptionHandlerTest extends TestBase {
         inspector.clazz(syntheticItems.syntheticOutlineClass(TestClass.class, 0));
     assertThat(outlineClass, isPresent());
     MethodSubject outline0Method =
-        outlineClass.method(
-            "int",
-            SyntheticItemsTestUtils.syntheticMethodName(),
-            ImmutableList.of("int", "int", "int", "int"));
+        outlineClass.uniqueMethodWithOriginalName(SyntheticItemsTestUtils.syntheticMethodName());
     assertThat(outline0Method, isPresent());
     // Only check the content if instructions fo DEX.
     if (parameters.isDexRuntime()) {

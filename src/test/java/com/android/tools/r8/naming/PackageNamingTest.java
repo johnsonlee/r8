@@ -12,6 +12,7 @@ import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.TestBase;
+import com.android.tools.r8.TestShrinkerBuilder;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.utils.ThrowingConsumer;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
@@ -78,6 +79,11 @@ public class PackageNamingTest extends TestBase {
     testForR8(Backend.DEX)
         .addProgramFiles(input)
         .addKeepRuleFiles(keepRulesFile)
+        // This is testing package renaming so do not repackage classes into the default package.
+        .applyIf(
+            keepRulesFile.toString().endsWith("keep-rules-005.txt")
+                || keepRulesFile.toString().endsWith("keep-rules-106.txt"),
+            TestShrinkerBuilder::addDontRepackage)
         .setMinApi(21)
         .compile()
         .inspect(inspection);

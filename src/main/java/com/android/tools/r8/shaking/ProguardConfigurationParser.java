@@ -343,6 +343,8 @@ public class ProguardConfigurationParser {
         infoIgnoringOptions("optimizationpasses", optionStart);
       } else if (acceptString("dontobfuscate")) {
         configurationConsumer.disableObfuscation(this, getPosition(optionStart));
+      } else if (acceptString("dontrepackage")) {
+        configurationConsumer.disableRepackaging(this, getPosition(optionStart));
       } else if (acceptString("dontshrink")) {
         configurationConsumer.disableShrinking(this, getPosition(optionStart));
       } else if (acceptString("printusage")) {

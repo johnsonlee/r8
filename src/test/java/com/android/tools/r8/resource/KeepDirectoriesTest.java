@@ -23,12 +23,13 @@ import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.shaking.forceproguardcompatibility.ProguardCompatibilityTestBase;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.BooleanUtils;
+import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -73,7 +74,7 @@ public class KeepDirectoriesTest extends ProguardCompatibilityTestBase {
     String originalName = Main.class.getTypeName();
     String name =
         mapper.getObfuscatedToOriginalMapping().inverse.getOrDefault(originalName, originalName);
-    return name.substring(0, name.lastIndexOf('.')).replace('.', '/');
+    return name.contains(".") ? name.substring(0, name.lastIndexOf('.')).replace('.', '/') : "";
   }
 
   private void checkResourceNames(Set<String> resourceNames, String expectedPackageName) {
@@ -109,49 +110,22 @@ public class KeepDirectoriesTest extends ProguardCompatibilityTestBase {
     assertEquals(expected, dataResourceConsumer.getResourceNames());
   }
 
-  private int numberOfPathSeparators(String s) {
-    return (int) s.chars().filter(c -> c == '/').count();
-  }
-
-  static class PrefixMapper implements Function<String, String> {
-    private final String original;
-    private final String mapped;
-
-    PrefixMapper(String original, String mapped) {
-      this.original = original;
-      this.mapped = mapped;
-    }
-
-    @Override
-    public String apply(String s) {
-      if (s.startsWith(original)) {
-        return mapped + s.substring(original.length());
-      } else {
-        return s;
-      }
-    }
-  }
-
   @Test
   public void testKeepSome2() throws Exception {
     CustomDataResourceConsumer dataResourceConsumer = new CustomDataResourceConsumer();
-    AndroidApp output =
-        compileWithR8(
-            "-keepdirectories org/*," + pathForThisPackage() + "/**", minify, dataResourceConsumer);
-    Set<String> expected1 =
-        getDataResources().stream()
-            .map(DataResource::getName)
-            .filter(name -> name.startsWith("org/"))
-            .filter(name -> numberOfPathSeparators(name) < 2)
-            .collect(Collectors.toSet());
-    PrefixMapper prefixMapper = new PrefixMapper(pathForThisPackage(), pathForThisPackage(output));
-    Set<String> expected2 =
-        getDataResources().stream()
-            .map(DataResource::getName)
-            .filter(name -> name.startsWith(pathForThisPackage() + "/"))
-            .map(prefixMapper)
-            .collect(Collectors.toSet());
-    assertEquals(Sets.union(expected1, expected2), dataResourceConsumer.getResourceNames());
+    compileWithR8(
+        StringUtils.lines(
+            "-dontrepackage", "-keepdirectories org/*," + pathForThisPackage() + "/**"),
+        minify,
+        dataResourceConsumer);
+    assertEquals(
+        ImmutableSet.of(
+            "com/android/tools/r8/resource/",
+            "com/android/tools/r8/resource/subpackage1/",
+            "com/android/tools/r8/resource/subpackage2/",
+            "com/android/tools/r8/resource/subpackage2/subpackage/",
+            "org/"),
+        dataResourceConsumer.getResourceNames());
   }
 
   private AndroidApp compileWithR8(
