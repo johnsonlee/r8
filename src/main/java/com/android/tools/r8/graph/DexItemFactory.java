@@ -777,7 +777,7 @@ public class DexItemFactory {
       new PrimitiveTypesBoxedTypeFields();
   public final AtomicFieldUpdaterMethods atomicFieldUpdaterMethods =
       new AtomicFieldUpdaterMethods();
-  public final Kotlin kotlin;
+  private final Kotlin kotlin;
   public final PolymorphicMethods polymorphicMethods = new PolymorphicMethods();
   public final ProxyMethods proxyMethods = new ProxyMethods();
 

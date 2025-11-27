@@ -32,8 +32,9 @@ public class LibraryMethodReadSetModeling {
     // Model that checkNotNullParameter() does not read any instance fields of the app. This is
     // currently needed for constructors that call checkNotNullParameter() not to be marked as
     // reading any field.
-    if (invokedMethod == appView.dexItemFactory().kotlin.intrinsics.checkNotNullParameter
-        || invokedMethod == appView.dexItemFactory().kotlin.intrinsics.checkParameterIsNotNull) {
+    if (invokedMethod == appView.dexItemFactory().kotlin().intrinsics().checkNotNullParameter
+        || invokedMethod
+            == appView.dexItemFactory().kotlin().intrinsics().checkParameterIsNotNull) {
       return EmptyFieldSet.getInstance();
     }
 

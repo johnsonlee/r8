@@ -76,7 +76,7 @@ public class ClassInitializerAssertionEnablingAnalysis
   }
 
   private boolean isUsingKotlinAssertionsEnabledField(DexField field) {
-    return field.isIdenticalTo(dexItemFactory.kotlin.assertions.enabledField);
+    return field.isIdenticalTo(dexItemFactory.kotlin().assertions().enabledField);
   }
 
   @Override
@@ -201,7 +201,7 @@ public class ClassInitializerAssertionEnablingAnalysis
 
   @SuppressWarnings("ReferenceEquality")
   private boolean hasKotlincClinitAssertionCode(ProgramMethod method) {
-    if (method.getHolderType() == dexItemFactory.kotlin.assertions.type) {
+    if (method.getHolderType() == dexItemFactory.kotlin().assertions().type) {
       CfCode code = method.getDefinition().getCode().asCfCode();
       List<CfInstruction> instructions = code.getInstructions();
       for (int i = 1; i < instructions.size(); i++) {

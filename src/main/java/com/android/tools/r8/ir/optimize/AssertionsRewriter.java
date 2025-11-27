@@ -135,7 +135,7 @@ public class AssertionsRewriter {
             .map(entry -> new ConfigurationEntryWithDexString(entry, appView.dexItemFactory()))
             .collect(Collectors.toList());
     kotlinTransformation =
-        getTransformationForType(appView.dexItemFactory().kotlin.assertions.type);
+        getTransformationForType(appView.dexItemFactory().kotlin().assertions().type);
   }
 
   // Static method used by other analyses to see if additional analysis is required to support
@@ -439,7 +439,7 @@ public class AssertionsRewriter {
       if (current.isInvokeMethod()) {
         InvokeMethod invoke = current.asInvokeMethod();
         if (invoke.getInvokedMethod() == dexItemFactory.classMethods.desiredAssertionStatus) {
-          if (method.getHolderType() == dexItemFactory.kotlin.assertions.type) {
+          if (method.getHolderType() == dexItemFactory.kotlin().assertions().type) {
             rewriteKotlinAssertionEnable(code, configuration, iterator, invoke);
           } else {
             iterator.replaceCurrentInstruction(code.createIntConstant(0, current.getLocalInfo()));
@@ -464,7 +464,7 @@ public class AssertionsRewriter {
           }
         }
         // Rewrite kotlin._Assertions.ENABLED getter.
-        if (staticGet.getField() == dexItemFactory.kotlin.assertions.enabledField) {
+        if (staticGet.getField() == dexItemFactory.kotlin().assertions().enabledField) {
           // For assertion handler rewrite just leave the static get, as it will become dead code.
           if (!configuration.isAssertionHandler()) {
             iterator.replaceCurrentInstruction(
@@ -520,7 +520,7 @@ public class AssertionsRewriter {
       Instruction nextInstruction = iterator.next();
       if (nextInstruction.isStaticPut()
           && nextInstruction.asStaticPut().getField().holder
-              == dexItemFactory.kotlin.assertions.type
+              == dexItemFactory.kotlin().assertions().type
           && nextInstruction.asStaticPut().getField().name == dexItemFactory.enabledFieldName
           && invoke.outValue().numberOfUsers() == 1
           && invoke.outValue().numberOfPhiUsers() == 0
@@ -559,7 +559,7 @@ public class AssertionsRewriter {
 
   @SuppressWarnings("ReferenceEquality")
   private boolean isUsingKotlinAssertionsEnabledField(FieldInstruction instruction) {
-    return instruction.getField() == dexItemFactory.kotlin.assertions.enabledField;
+    return instruction.getField() == dexItemFactory.kotlin().assertions().enabledField;
   }
 
   private If isCheckAssertionsEnabledBlock(BasicBlock basicBlock) {

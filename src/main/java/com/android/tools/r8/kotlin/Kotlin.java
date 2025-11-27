@@ -22,10 +22,10 @@ public final class Kotlin {
 
   public final DexItemFactory factory;
 
-  public final Functional functional;
-  public final Intrinsics intrinsics;
-  public final Metadata metadata;
-  public final _Assertions assertions;
+  private final Functional functional;
+  private final Intrinsics intrinsics;
+  private final Metadata metadata;
+  private final _Assertions assertions;
 
   public static final String NAME = "kotlin";
   public static final String PACKAGE_PREFIX = "L" + NAME + "/";
@@ -99,8 +99,20 @@ public final class Kotlin {
     this.assertions = new _Assertions();
   }
 
+  public Functional functional() {
+    return functional;
+  }
+
   public Intrinsics intrinsics() {
     return intrinsics;
+  }
+
+  public Metadata metadata() {
+    return metadata;
+  }
+
+  public _Assertions assertions() {
+    return assertions;
   }
 
   public final class Functional {

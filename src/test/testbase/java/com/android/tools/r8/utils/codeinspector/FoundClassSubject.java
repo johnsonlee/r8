@@ -567,7 +567,7 @@ public class FoundClassSubject extends ClassSubject {
     try {
       metadata =
           KotlinClassMetadataReader.toKotlinClassMetadata(
-              codeInspector.getFactory().kotlin, annotationSubject.getAnnotation());
+              codeInspector.getFactory().kotlin(), annotationSubject.getAnnotation());
     } catch (KotlinMetadataException e) {
       throw new RuntimeException(e);
     }
@@ -586,7 +586,7 @@ public class FoundClassSubject extends ClassSubject {
     try {
       metadata =
           KotlinClassMetadataReader.toKotlinClassMetadata(
-              codeInspector.getFactory().kotlin, annotationSubject.getAnnotation());
+              codeInspector.getFactory().kotlin(), annotationSubject.getAnnotation());
     } catch (KotlinMetadataException e) {
       throw new RuntimeException(e);
     }
@@ -610,7 +610,7 @@ public class FoundClassSubject extends ClassSubject {
     }
     try {
       return KotlinClassMetadataReader.toKotlinClassMetadata(
-          codeInspector.getFactory().kotlin, annotationSubject.getAnnotation());
+          codeInspector.getFactory().kotlin(), annotationSubject.getAnnotation());
     } catch (KotlinMetadataException e) {
       throw new RuntimeException(e);
     }
