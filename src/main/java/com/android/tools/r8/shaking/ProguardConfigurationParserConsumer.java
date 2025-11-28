@@ -65,6 +65,9 @@ public interface ProguardConfigurationParserConsumer {
       ProguardConfigurationSourceParser parser,
       TextPosition positionStart);
 
+  void enablePrintBlastRadius(
+      ProguardConfigurationSourceParser parser, Position position, TextPosition positionStart);
+
   void enablePrintConfiguration(
       Path printConfigurationFile,
       ProguardConfigurationSourceParser parser,

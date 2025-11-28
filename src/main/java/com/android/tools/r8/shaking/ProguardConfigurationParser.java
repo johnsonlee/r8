@@ -347,6 +347,20 @@ public class ProguardConfigurationParser {
         configurationConsumer.disableRepackaging(this, getPosition(optionStart));
       } else if (acceptString("dontshrink")) {
         configurationConsumer.disableShrinking(this, getPosition(optionStart));
+      } else if (acceptString("printblastradius")) {
+        configurationConsumer.enablePrintBlastRadius(this, getPosition(optionStart), optionStart);
+      } else if (acceptString("printconfiguration")) {
+        skipWhitespace();
+        configurationConsumer.enablePrintConfiguration(
+            parseOptionalFileName(), this, getPosition(optionStart), optionStart);
+      } else if (acceptString("printmapping")) {
+        skipWhitespace();
+        configurationConsumer.enablePrintMapping(
+            parseOptionalFileName(), this, getPosition(optionStart), optionStart);
+      } else if (acceptString("printseeds")) {
+        skipWhitespace();
+        configurationConsumer.enablePrintSeeds(
+            parseOptionalFileName(), this, getPosition(optionStart), optionStart);
       } else if (acceptString("printusage")) {
         skipWhitespace();
         configurationConsumer.enablePrintUsage(
@@ -403,14 +417,6 @@ public class ProguardConfigurationParser {
       } else if (acceptString("allowaccessmodification")) {
         configurationConsumer.enableAllowAccessModification(
             this, getPosition(optionStart), optionStart);
-      } else if (acceptString("printconfiguration")) {
-        skipWhitespace();
-        configurationConsumer.enablePrintConfiguration(
-            parseOptionalFileName(), this, getPosition(optionStart), optionStart);
-      } else if (acceptString("printmapping")) {
-        skipWhitespace();
-        configurationConsumer.enablePrintMapping(
-            parseOptionalFileName(), this, getPosition(optionStart), optionStart);
       } else if (acceptString("applymapping")) {
         Path applyMappingFile =
             parseFileInputDependency(inputDependencyConsumer::acceptProguardApplyMapping);
@@ -441,10 +447,6 @@ public class ProguardConfigurationParser {
             this,
             getPosition(optionStart),
             optionStart);
-      } else if (acceptString("printseeds")) {
-        skipWhitespace();
-        configurationConsumer.enablePrintSeeds(
-            parseOptionalFileName(), this, getPosition(optionStart), optionStart);
       } else if (acceptString("obfuscationdictionary")) {
         Path obfuscationDictionary =
             parseFileInputDependency(inputDependencyConsumer::acceptProguardObfuscationDictionary);
