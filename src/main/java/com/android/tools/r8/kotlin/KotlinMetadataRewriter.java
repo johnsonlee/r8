@@ -76,7 +76,7 @@ public class KotlinMetadataRewriter {
   public KotlinMetadataRewriter(AppView<?> appView) {
     this.appView = appView;
     this.factory = appView.dexItemFactory();
-    this.kotlin = factory.kotlin;
+    this.kotlin = factory.kotlin();
   }
 
   @SuppressWarnings("ReferenceEquality")
@@ -97,13 +97,14 @@ public class KotlinMetadataRewriter {
         kotlinMetadata == null
             ? WriteMetadataFieldInfo.rewriteAll()
             : new WriteMetadataFieldInfo(
-                kotlinMetadataFieldExists(kotlinMetadata, appView, kotlin.metadata.kind),
-                kotlinMetadataFieldExists(kotlinMetadata, appView, kotlin.metadata.metadataVersion),
-                kotlinMetadataFieldExists(kotlinMetadata, appView, kotlin.metadata.data1),
-                kotlinMetadataFieldExists(kotlinMetadata, appView, kotlin.metadata.data2),
-                kotlinMetadataFieldExists(kotlinMetadata, appView, kotlin.metadata.extraString),
-                kotlinMetadataFieldExists(kotlinMetadata, appView, kotlin.metadata.packageName),
-                kotlinMetadataFieldExists(kotlinMetadata, appView, kotlin.metadata.extraInt));
+                kotlinMetadataFieldExists(kotlinMetadata, appView, kotlin.metadata().kind),
+                kotlinMetadataFieldExists(
+                    kotlinMetadata, appView, kotlin.metadata().metadataVersion),
+                kotlinMetadataFieldExists(kotlinMetadata, appView, kotlin.metadata().data1),
+                kotlinMetadataFieldExists(kotlinMetadata, appView, kotlin.metadata().data2),
+                kotlinMetadataFieldExists(kotlinMetadata, appView, kotlin.metadata().extraString),
+                kotlinMetadataFieldExists(kotlinMetadata, appView, kotlin.metadata().packageName),
+                kotlinMetadataFieldExists(kotlinMetadata, appView, kotlin.metadata().extraInt));
     ThreadUtils.processItems(
         appView.appInfo().classes(),
         clazz -> {
@@ -309,35 +310,36 @@ public class KotlinMetadataRewriter {
     if (writeMetadataFieldInfo.writeMetadataVersion) {
       elements.add(
           new DexAnnotationElement(
-              kotlin.metadata.metadataVersion,
+              kotlin.metadata().metadataVersion,
               createIntArray(KotlinJvmMetadataVersionUtils.toIntArray(metadataVersion))));
     }
     if (writeMetadataFieldInfo.writeKind) {
       elements.add(
-          new DexAnnotationElement(kotlin.metadata.kind, DexValueInt.create(metadata.k())));
+          new DexAnnotationElement(kotlin.metadata().kind, DexValueInt.create(metadata.k())));
     }
     if (writeMetadataFieldInfo.writeData1) {
       elements.add(
-          new DexAnnotationElement(kotlin.metadata.data1, createStringArray(metadata.d1())));
+          new DexAnnotationElement(kotlin.metadata().data1, createStringArray(metadata.d1())));
     }
     if (writeMetadataFieldInfo.writeData2) {
       elements.add(
-          new DexAnnotationElement(kotlin.metadata.data2, createStringArray(metadata.d2())));
+          new DexAnnotationElement(kotlin.metadata().data2, createStringArray(metadata.d2())));
     }
     if (writeMetadataFieldInfo.writePackageName && packageName != null && !packageName.isEmpty()) {
       elements.add(
           new DexAnnotationElement(
-              kotlin.metadata.packageName, new DexValueString(factory.createString(packageName))));
+              kotlin.metadata().packageName,
+              new DexValueString(factory.createString(packageName))));
     }
     if (writeMetadataFieldInfo.writeExtraString && !metadata.xs().isEmpty()) {
       elements.add(
           new DexAnnotationElement(
-              kotlin.metadata.extraString,
+              kotlin.metadata().extraString,
               new DexValueString(factory.createString(metadata.xs()))));
     }
     if (writeMetadataFieldInfo.writeExtraInt && metadata.xi() != 0) {
       elements.add(
-          new DexAnnotationElement(kotlin.metadata.extraInt, DexValueInt.create(metadata.xi())));
+          new DexAnnotationElement(kotlin.metadata().extraInt, DexValueInt.create(metadata.xi())));
     }
     DexEncodedAnnotation encodedAnnotation =
         new DexEncodedAnnotation(

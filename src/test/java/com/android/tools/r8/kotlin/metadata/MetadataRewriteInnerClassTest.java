@@ -36,6 +36,14 @@ public class MetadataRewriteInnerClassTest extends KotlinMetadataTestBase {
               + ".Outer.Inner.<init>(kotlin.Int): "
               + PKG_NESTED_REFLECT
               + ".Outer.Inner");
+  private static final String EXPECTED_DEV =
+      StringUtils.lines(
+          "fun <init>(kotlin.Int): " + PKG_NESTED_REFLECT + ".Outer.Nested",
+          "fun "
+              + PKG_NESTED_REFLECT
+              + ".Outer.<init>(kotlin.Int): "
+              + PKG_NESTED_REFLECT
+              + ".Outer.Inner");
   private static final String EXPECTED_OUTER_RENAMED =
       StringUtils.lines(
           "fun <init>(kotlin.Int): " + PKG_NESTED_REFLECT + ".`Outer$Nested`",
@@ -44,7 +52,8 @@ public class MetadataRewriteInnerClassTest extends KotlinMetadataTestBase {
   private final TestParameters parameters;
 
   private String getExpected() {
-    return replaceInitNameInExpectedBasedOnKotlinVersion(EXPECTED);
+    return replaceInitNameInExpectedBasedOnKotlinVersion(
+        kotlinParameters.isKotlinDev() ? EXPECTED_DEV : EXPECTED);
   }
 
   private String getExpectedOuterRenamed() {

@@ -402,7 +402,10 @@ public class AppDumpBenchmarkBuilder {
                                       environment
                                           .getConfig()
                                           .containsMetric(BenchmarkMetric.ResourceSize),
-                                      cr -> cr.benchmarkResourceSize(results));
+                                      cr -> cr.benchmarkResourceSize(results))
+                                  .applyIf(
+                                      environment.hasBuildOutputPath(),
+                                      b -> b.writeToZip(environment.getBuildOutputPath()));
                             } catch (CompilationFailedException e) {
                               if (!(e.getCause() instanceof AbortBenchmarkException)) {
                                 throw e;
@@ -489,6 +492,9 @@ public class AppDumpBenchmarkBuilder {
                                           .getConfig()
                                           .containsMetric(BenchmarkMetric.ResourceSize),
                                       cr -> cr.benchmarkResourceSize(results))
+                                  .applyIf(
+                                      environment.hasBuildOutputPath(),
+                                      b -> b.writeToZip(environment.getBuildOutputPath()))
                                   .apply(compileResultConsumer));
                 });
   }
@@ -515,6 +521,9 @@ public class AppDumpBenchmarkBuilder {
                                   options ->
                                       options.getTestingOptions().forceDexContainerFormat = true))
                       .benchmarkCompile(results)
+                      .applyIf(
+                          environment.hasBuildOutputPath(),
+                          b -> b.writeToZip(environment.getBuildOutputPath()))
                       .benchmarkCodeSize(results);
                 });
   }

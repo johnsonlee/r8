@@ -136,6 +136,9 @@ public class LambdaStaticLibraryMethodImplementationProfileRewritingTest extends
               mainMethodSubject, lambdaInitializerSubject, lambdaMainMethodSubject);
     }
 
+    if (!isR8) {
+      profileInspector.assertContainsLambdaCallTargetAnnotationRules();
+    }
     profileInspector.assertContainsNoOtherRules();
   }
 

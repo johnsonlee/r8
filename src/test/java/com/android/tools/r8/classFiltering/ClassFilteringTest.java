@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.classFiltering;
 
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.isLambdaMethodAnnotationDescriptor;
+
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.OutputMode;
 import com.android.tools.r8.TestBase;
@@ -191,6 +193,9 @@ public class ClassFilteringTest extends TestBase {
                 b.getBuilder()
                     .setDexClassChecksumFilter(
                         (classDescriptor, checksum) -> {
+                          if (isLambdaMethodAnnotationDescriptor(classDescriptor)) {
+                            return false;
+                          }
                           classesWithChecksum.add(classDescriptor);
                           return true;
                         }))

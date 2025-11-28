@@ -165,6 +165,7 @@ public class SyntheticLambdaClassProfileRewritingTest extends TestBase {
                     i ->
                         i.assertContainsMethodRules(
                             lambdaInitializerSubject, otherLambdaInitializerSubject))
+                .applyIf(!isR8, ArtProfileInspector::assertContainsLambdaCallTargetAnnotationRules)
                 .assertContainsNoOtherRules();
             break;
           case IMPLEMENTATION_METHOD:

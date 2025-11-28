@@ -17,6 +17,7 @@ import com.android.tools.r8.ir.optimize.ServiceLoaderRewriter;
 import com.android.tools.r8.ir.optimize.ShareInstanceGetInstructions;
 import com.android.tools.r8.ir.optimize.enums.EnumValueOptimizer;
 import com.android.tools.r8.ir.optimize.string.StringBuilderAppendOptimizer;
+import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.timing.Timing;
@@ -67,6 +68,11 @@ public class CodeRewriterPassCollection {
     passes.add(new ShareInstanceGetInstructions(appView));
     passes.add(new DivisionOptimizer(appView));
     return new CodeRewriterPassCollection(passes);
+  }
+
+  public static CodeRewriterPassCollection createFromNullable(CodeRewriterPass<?>... passes) {
+    return new CodeRewriterPassCollection(
+        ArrayUtils.filterNulls(passes, CodeRewriterPass.EMPTY_ARRAY));
   }
 
   public Pair<Boolean, String> run(

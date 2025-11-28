@@ -88,6 +88,8 @@ public class DexItemFactory {
   public static final String androidContextDescriptorString = "Landroid/content/Context;";
   public static final String kotlinJvmInternalIntrinsicsDescriptor =
       "Lkotlin/jvm/internal/Intrinsics;";
+  public static final String lambdaMethodAnnotationDescriptor =
+      "Lcom/android/tools/r8/annotations/LambdaMethod;";
 
   /** Set of types that may be synthesized during compilation. */
   private final Set<DexType> possibleCompilerSynthesizedTypes = Sets.newIdentityHashSet();
@@ -138,6 +140,10 @@ public class DexItemFactory {
 
   public DexItemFactory() {
     this.kotlin = new Kotlin(this);
+  }
+
+  public Kotlin kotlin() {
+    return kotlin;
   }
 
   public static boolean isInternalSentinel(DexItem item) {
@@ -771,7 +777,7 @@ public class DexItemFactory {
       new PrimitiveTypesBoxedTypeFields();
   public final AtomicFieldUpdaterMethods atomicFieldUpdaterMethods =
       new AtomicFieldUpdaterMethods();
-  public final Kotlin kotlin;
+  private final Kotlin kotlin;
   public final PolymorphicMethods polymorphicMethods = new PolymorphicMethods();
   public final ProxyMethods proxyMethods = new ProxyMethods();
 
@@ -889,7 +895,7 @@ public class DexItemFactory {
   public final DexType annotationSynthesizedClass =
       createStaticallyKnownType("Lcom/android/tools/r8/annotations/SynthesizedClassV2;");
   public final DexType lambdaMethodAnnotation =
-      createStaticallyKnownType("Lcom/android/tools/r8/annotations/LambdaMethod;");
+      createStaticallyKnownType(lambdaMethodAnnotationDescriptor);
 
   public final String annotationReachabilitySensitiveDesc =
       "Ldalvik/annotation/optimization/ReachabilitySensitive;";
@@ -948,8 +954,6 @@ public class DexItemFactory {
   public final IteratorMethods iteratorMethods = new IteratorMethods();
   public final StringConcatFactoryMembers stringConcatFactoryMembers =
       new StringConcatFactoryMembers();
-  public final KotlinJvmInternalIntrinsicsMethods kotlinJvmInternalIntrinsicsMethods =
-      new KotlinJvmInternalIntrinsicsMethods();
 
   private final SyntheticNaming syntheticNaming = new SyntheticNaming();
 
@@ -3039,91 +3043,6 @@ public class DexItemFactory {
         createMethod(javaUtilIteratorType, createProto(booleanType), hasNextName);
     public final DexMethod next =
         createMethod(javaUtilIteratorType, createProto(objectType), nextName);
-  }
-
-  public class KotlinJvmInternalIntrinsicsMethods {
-    /*
-     From javap:
-
-     public class kotlin.jvm.internal.Intrinsics {
-       public static void checkNotNull(java.lang.Object);
-       public static void checkNotNull(java.lang.Object, java.lang.String);
-       public static void checkExpressionValueIsNotNull(java.lang.Object, java.lang.String);
-       public static void checkNotNullExpressionValue(java.lang.Object, java.lang.String);
-       public static void checkReturnedValueIsNotNull(
-           java.lang.Object, java.lang.String, java.lang.String);
-       public static void checkReturnedValueIsNotNull(java.lang.Object, java.lang.String);
-       public static void checkFieldIsNotNull(
-           java.lang.Object, java.lang.String, java.lang.String);
-       public static void checkFieldIsNotNull(java.lang.Object, java.lang.String);
-       public static void checkParameterIsNotNull(java.lang.Object, java.lang.String);
-       public static void checkNotNullParameter(java.lang.Object, java.lang.String);
-     }
-    */
-    public final DexMethod checkNotNullObject =
-        createMethod(
-            kotlinJvmInternalIntrinsicsType, createProto(voidType, objectType), "checkNotNull");
-    public final DexMethod checkNotNullObjectString =
-        createMethod(
-            kotlinJvmInternalIntrinsicsType,
-            createProto(voidType, objectType, stringType),
-            "checkNotNull");
-    public final DexMethod checkExpressionValueIsNotNull =
-        createMethod(
-            kotlinJvmInternalIntrinsicsType,
-            createProto(voidType, objectType, stringType),
-            "checkExpressionValueIsNotNull");
-    public final DexMethod checkNotNullExpressionValue =
-        createMethod(
-            kotlinJvmInternalIntrinsicsType,
-            createProto(voidType, objectType, stringType),
-            "checkNotNullExpressionValue");
-    public final DexMethod checkReturnedValueIsNotNullObjectStringString =
-        createMethod(
-            kotlinJvmInternalIntrinsicsType,
-            createProto(voidType, objectType, stringType, stringType),
-            "checkReturnedValueIsNotNull");
-    public final DexMethod checkReturnedValueIsNotNullObjectString =
-        createMethod(
-            kotlinJvmInternalIntrinsicsType,
-            createProto(voidType, objectType, stringType),
-            "checkReturnedValueIsNotNull");
-    public final DexMethod checkFieldIsNotNullObjectStringString =
-        createMethod(
-            kotlinJvmInternalIntrinsicsType,
-            createProto(voidType, objectType, stringType, stringType),
-            "checkFieldIsNotNull");
-    public final DexMethod checkFieldIsNotNullObjectString =
-        createMethod(
-            kotlinJvmInternalIntrinsicsType,
-            createProto(voidType, objectType, stringType),
-            "checkFieldIsNotNull");
-    public final DexMethod checkParameterIsNotNull =
-        createMethod(
-            kotlinJvmInternalIntrinsicsType,
-            createProto(voidType, objectType, stringType),
-            "checkParameterIsNotNull");
-    public final DexMethod checkNotNullParameter =
-        createMethod(
-            kotlinJvmInternalIntrinsicsType,
-            createProto(voidType, objectType, stringType),
-            "checkNotNullParameter");
-
-    public boolean isNullCheck(DexMethod method) {
-      if (!method.getHolderType().isIdenticalTo(kotlinJvmInternalIntrinsicsType)) {
-        return false;
-      }
-      return method.isIdenticalTo(checkNotNullObject)
-          || method.isIdenticalTo(checkNotNullObjectString)
-          || method.isIdenticalTo(checkExpressionValueIsNotNull)
-          || method.isIdenticalTo(checkNotNullExpressionValue)
-          || method.isIdenticalTo(checkReturnedValueIsNotNullObjectString)
-          || method.isIdenticalTo(checkReturnedValueIsNotNullObjectStringString)
-          || method.isIdenticalTo(checkFieldIsNotNullObjectString)
-          || method.isIdenticalTo(checkFieldIsNotNullObjectStringString)
-          || method.isIdenticalTo(checkParameterIsNotNull)
-          || method.isIdenticalTo(checkNotNullParameter);
-    }
   }
 
   private static <T extends DexItem> T canonicalize(

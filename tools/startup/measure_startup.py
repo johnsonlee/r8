@@ -13,7 +13,7 @@ import time
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import adb_utils
+import adb
 import apk_utils
 import perfetto_utils
 import utils
@@ -22,13 +22,11 @@ import utils
 def setup(options):
     # Increase screen off timeout to avoid device screen turns off.
     twenty_four_hours_in_millis = 24 * 60 * 60 * 1000
-    previous_screen_off_timeout = adb_utils.get_screen_off_timeout(
-        options.device_id)
-    adb_utils.set_screen_off_timeout(twenty_four_hours_in_millis,
-                                     options.device_id)
+    previous_screen_off_timeout = adb.get_screen_off_timeout(options.device_id)
+    adb.set_screen_off_timeout(twenty_four_hours_in_millis, options.device_id)
 
     # Unlock device.
-    adb_utils.unlock(options.device_id, options.device_pin)
+    adb.unlock(options.device_id, options.device_pin)
 
     teardown_options = {
         'previous_screen_off_timeout': previous_screen_off_timeout
@@ -38,8 +36,8 @@ def setup(options):
 
 def teardown(options, teardown_options):
     # Reset screen off timeout.
-    adb_utils.set_screen_off_timeout(
-        teardown_options['previous_screen_off_timeout'], options.device_id)
+    adb.set_screen_off_timeout(teardown_options['previous_screen_off_timeout'],
+                               options.device_id)
 
 
 def run_all(apk_or_apks, options, tmp_dir):
@@ -78,45 +76,45 @@ def compute_data_summary(data_total):
 
 
 def setup_for_run(apk_or_apks, out_dir, options):
-    adb_utils.root(options.device_id)
+    adb.root(options.device_id)
 
     print('Installing')
-    adb_utils.uninstall(options.app_id, options.device_id)
+    adb.uninstall(options.app_id, options.device_id)
     if apk_or_apks['apk']:
-        adb_utils.install(apk_or_apks['apk'], options.device_id)
+        adb.install(apk_or_apks['apk'], options.device_id)
     else:
         assert apk_or_apks['apks']
-        adb_utils.install_apks(apk_or_apks['apks'], options.device_id)
+        adb.install_apks(apk_or_apks['apks'], options.device_id)
 
     os.makedirs(out_dir, exist_ok=True)
 
     # Grant notifications.
     if options.grant_post_notification_permission:
-        adb_utils.grant(options.app_id, 'android.permission.POST_NOTIFICATIONS',
-                        options.device_id)
+        adb.grant(options.app_id, 'android.permission.POST_NOTIFICATIONS',
+                  options.device_id)
 
     # AOT compile.
     if options.aot:
         print('AOT compiling')
         if options.baseline_profile:
-            adb_utils.clear_profile_data(options.app_id, options.device_id)
+            adb.clear_profile_data(options.app_id, options.device_id)
             if options.baseline_profile_install == 'adb':
-                adb_utils.install_profile_using_adb(options.app_id,
-                                                    options.baseline_profile,
-                                                    options.device_id)
+                adb.install_profile_using_adb(options.app_id,
+                                              options.baseline_profile,
+                                              options.device_id)
             else:
                 assert options.baseline_profile_install == 'profileinstaller'
-                adb_utils.install_profile_using_profileinstaller(
+                adb.install_profile_using_profileinstaller(
                     options.app_id, options.device_id)
         else:
-            adb_utils.force_compilation(options.app_id, options.device_id)
+            adb.force_compilation(options.app_id, options.device_id)
 
     # Cooldown and then unlock device.
     if options.cooldown > 0:
         print('Cooling down for %i seconds' % options.cooldown)
-        assert adb_utils.get_screen_state(options.device_id).is_off()
+        assert adb.get_screen_state(options.device_id).is_off()
         time.sleep(options.cooldown)
-        teardown_options = adb_utils.prepare_for_interaction_with_device(
+        teardown_options = adb.prepare_for_interaction_with_device(
             options.device_id, options.device_pin)
     else:
         teardown_options = None
@@ -124,49 +122,48 @@ def setup_for_run(apk_or_apks, out_dir, options):
     # Prelaunch for hot startup.
     if options.hot_startup:
         print('Prelaunching')
-        adb_utils.launch_activity(options.app_id,
-                                  options.main_activity,
-                                  options.device_id,
-                                  wait_for_activity_to_launch=False)
+        adb.launch_activity(options.app_id,
+                            options.main_activity,
+                            options.device_id,
+                            wait_for_activity_to_launch=False)
         time.sleep(options.startup_duration)
-        adb_utils.navigate_to_home_screen(options.device_id)
+        adb.navigate_to_home_screen(options.device_id)
         time.sleep(1)
 
     # Drop caches before run.
-    adb_utils.drop_caches(options.device_id)
+    adb.drop_caches(options.device_id)
     return teardown_options
 
 
 def teardown_for_run(out_dir, options, teardown_options):
-    assert adb_utils.get_screen_state(
+    assert adb.get_screen_state(
         options.device_id).is_on_and_unlocked_or_unknown()
 
     if options.capture_screen:
         target = os.path.join(out_dir, 'screen.png')
-        adb_utils.capture_screen(target, options.device_id)
+        adb.capture_screen(target, options.device_id)
 
     if options.cooldown > 0:
-        adb_utils.teardown_after_interaction_with_device(
-            teardown_options, options.device_id)
-        adb_utils.ensure_screen_off(options.device_id)
+        adb.teardown_after_interaction_with_device(teardown_options,
+                                                   options.device_id)
+        adb.ensure_screen_off(options.device_id)
     else:
         assert teardown_options is None
 
 
 def run(out_dir, options, tmp_dir):
-    assert adb_utils.get_screen_state(
+    assert adb.get_screen_state(
         options.device_id).is_on_and_unlocked_or_unknown()
 
     # Start logcat for time to fully drawn.
     logcat_process = None
     if options.fully_drawn_logcat_message:
-        adb_utils.clear_logcat(options.device_id)
-        logcat_process = adb_utils.start_logcat(
-            options.device_id,
-            format='time',
-            filter='%s ActivityTaskManager:I' %
-            options.fully_drawn_logcat_filter,
-            silent=True)
+        adb.clear_logcat(options.device_id)
+        logcat_process = adb.start_logcat(options.device_id,
+                                          format='time',
+                                          filter='%s ActivityTaskManager:I' %
+                                          options.fully_drawn_logcat_filter,
+                                          silent=True)
 
     # Start perfetto trace collector.
     perfetto_process = None
@@ -176,7 +173,7 @@ def run(out_dir, options, tmp_dir):
             out_dir, tmp_dir, options.device_id)
 
     # Launch main activity.
-    launch_activity_result = adb_utils.launch_activity(
+    launch_activity_result = adb.launch_activity(
         options.app_id,
         options.main_activity,
         options.device_id,
@@ -187,7 +184,7 @@ def run(out_dir, options, tmp_dir):
     logcat = None
     if logcat_process is not None:
         wait_until_fully_drawn(logcat_process, options)
-        logcat = adb_utils.stop_logcat(logcat_process)
+        logcat = adb.stop_logcat(logcat_process)
 
     # Wait for perfetto trace collector to stop.
     if options.perfetto:
@@ -235,8 +232,8 @@ def get_timestamp_from_logcat_message(line):
 
 
 def is_app_displayed_logcat_message(line, options):
-    substring = 'Displayed %s' % adb_utils.get_component_name(
-        options.app_id, options.main_activity)
+    substring = 'Displayed %s' % adb.get_component_name(options.app_id,
+                                                        options.main_activity)
     return substring in line
 
 
@@ -265,9 +262,9 @@ def add_data(data_total, data):
 
 
 def compute_data(launch_activity_result, logcat, perfetto_trace_path, options):
-    minfl, majfl = adb_utils.get_minor_major_page_faults(
-        options.app_id, options.device_id)
-    meminfo = adb_utils.get_meminfo(options.app_id, options.device_id)
+    minfl, majfl = adb.get_minor_major_page_faults(options.app_id,
+                                                   options.device_id)
+    meminfo = adb.get_meminfo(options.app_id, options.device_id)
     data = {
         'app_id': options.app_id,
         'time': time.ctime(time.time()),
@@ -425,9 +422,7 @@ def parse_options(argv):
     if options.bundle:
         os.makedirs(options.out_dir, exist_ok=True)
         options.apks = os.path.join(options.out_dir, 'Bundle.apks')
-        adb_utils.build_apks_from_bundle(options.bundle,
-                                         options.apks,
-                                         overwrite=True)
+        adb.build_apks_from_bundle(options.bundle, options.apks, overwrite=True)
         del options.bundle
 
     # Profile is only used with --aot.
@@ -445,18 +440,18 @@ def global_setup(options):
     # the screen during the cooldown and unlock the screen before each iteration.
     teardown_options = None
     if options.cooldown == 0:
-        teardown_options = adb_utils.prepare_for_interaction_with_device(
+        teardown_options = adb.prepare_for_interaction_with_device(
             options.device_id, options.device_pin)
-        assert adb_utils.get_screen_state(options.device_id).is_on_or_unknown()
+        assert adb.get_screen_state(options.device_id).is_on_or_unknown()
     else:
-        adb_utils.ensure_screen_off(options.device_id)
+        adb.ensure_screen_off(options.device_id)
     return teardown_options
 
 
 def global_teardown(options, teardown_options):
     if options.cooldown == 0:
-        adb_utils.teardown_after_interaction_with_device(
-            teardown_options, options.device_id)
+        adb.teardown_after_interaction_with_device(teardown_options,
+                                                   options.device_id)
     else:
         assert teardown_options is None
 

@@ -118,8 +118,8 @@ class InternalArchiveClassFileProvider
             String descriptor = DescriptorUtils.guessTypeDescriptor(name);
             ProgramResource resource =
                 OneShotByteResource.create(
-                    Kind.CF,
                     entryOrigin,
+                    Kind.CF,
                     ByteStreams.toByteArray(stream),
                     Collections.singleton(descriptor));
             consumer.accept(resource);

@@ -119,10 +119,9 @@ public class EnqueuerDeferredAnnotationTracing {
       }
       DeferredAnnotation other = (DeferredAnnotation) obj;
       if (ObjectUtils.identical(annotation, other.annotation)
-          && annotatedItem.getDefinition() == other.annotatedItem.getDefinition()) {
-        assert annotatedItem.getDefinition() == other.annotatedItem.getDefinition();
+          && annotatedItem.getDefinition() == other.annotatedItem.getDefinition()
+          && kind == other.kind) {
         assert annotationClass == other.annotationClass;
-        assert kind == other.kind;
         return true;
       }
       return false;
@@ -130,8 +129,9 @@ public class EnqueuerDeferredAnnotationTracing {
 
     @Override
     public int hashCode() {
-      return (31 * (31 + System.identityHashCode(annotation)))
-          + annotatedItem.getDefinition().hashCode();
+      return (31 * (31 * (31 + System.identityHashCode(annotation)))
+              + annotatedItem.getDefinition().hashCode())
+          + kind.hashCode();
     }
   }
 }

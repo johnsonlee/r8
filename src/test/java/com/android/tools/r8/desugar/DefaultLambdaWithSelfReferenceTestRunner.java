@@ -118,6 +118,7 @@ public class DefaultLambdaWithSelfReferenceTestRunner extends DebugTestBase {
     testForD8()
         .addProgramClassesAndInnerClasses(CLASS)
         .setMinApi(parameters)
+        .addOptionsModification(options -> options.emitLambdaMethodAnnotations = false)
         .compile()
         .assertNoMessages()
         .writeToZip(out1)

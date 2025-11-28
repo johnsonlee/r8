@@ -7,13 +7,16 @@ package com.android.tools.r8.profile.art.utils;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 
+import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.profile.art.model.ExternalArtProfile;
 import com.android.tools.r8.profile.art.model.ExternalArtProfileClassRule;
 import com.android.tools.r8.profile.art.model.ExternalArtProfileMethodRule;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.MethodReference;
+import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
+import com.google.common.collect.ImmutableList;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -105,6 +108,22 @@ public class ArtProfileInspector {
     for (MethodSubject methodSubject : methodSubjects) {
       assertContainsMethodRule(methodSubject);
     }
+    return this;
+  }
+
+  public ArtProfileInspector assertContainsLambdaCallTargetAnnotationRules() {
+    ClassReference l =
+        Reference.classFromDescriptor(DexItemFactory.lambdaMethodAnnotationDescriptor);
+    assertContainsClassRule(l);
+    assertContainsMethodRule(
+        Reference.method(
+            l, "holder", ImmutableList.of(), Reference.typeFromDescriptor("Ljava/lang/String;")));
+    assertContainsMethodRule(
+        Reference.method(
+            l, "method", ImmutableList.of(), Reference.typeFromDescriptor("Ljava/lang/String;")));
+    assertContainsMethodRule(
+        Reference.method(
+            l, "proto", ImmutableList.of(), Reference.typeFromDescriptor("Ljava/lang/String;")));
     return this;
   }
 

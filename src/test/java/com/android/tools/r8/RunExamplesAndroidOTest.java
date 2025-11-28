@@ -7,6 +7,7 @@ package com.android.tools.r8;
 import static com.android.tools.r8.utils.FileUtils.JAR_EXTENSION;
 import static com.android.tools.r8.utils.FileUtils.ZIP_EXTENSION;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeFalse;
@@ -14,6 +15,7 @@ import static org.junit.Assume.assumeFalse;
 import com.android.tools.r8.TestRuntime.CfRuntime;
 import com.android.tools.r8.ToolHelper.DexVm;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
+import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
@@ -492,14 +494,14 @@ public abstract class RunExamplesAndroidOTest<
   public void testLambdaDesugaringWithMainDexList1() throws Throwable {
     // Minimal case: there are synthesized classes but not form the main dex class.
     testIntermediateWithMainDexList(
-        "lambdadesugaring", 1, ImmutableList.of("lambdadesugaring.LambdaDesugaring$I"));
+        "lambdadesugaring", 1, ImmutableList.of("lambdadesugaring.LambdaDesugaring$I"), true);
   }
 
   @Test
   public void testLambdaDesugaringWithMainDexList2() throws Throwable {
     // Main dex class has many lambdas.
     testIntermediateWithMainDexList(
-        "lambdadesugaring", 98, ImmutableList.of("lambdadesugaring.LambdaDesugaring$Refs$B"));
+        "lambdadesugaring", 98, ImmutableList.of("lambdadesugaring.LambdaDesugaring$Refs$B"), true);
   }
 
   @Test
@@ -509,7 +511,8 @@ public abstract class RunExamplesAndroidOTest<
         "interfacemethods",
         Paths.get(ToolHelper.EXAMPLES_ANDROID_N_BUILD_DIR, "interfacemethods" + JAR_EXTENSION),
         2,
-        ImmutableList.of("interfacemethods.I2", "interfacemethods.I2$-CC"));
+        ImmutableList.of("interfacemethods.I2", "interfacemethods.I2$-CC"),
+        false);
   }
 
 
@@ -520,7 +523,8 @@ public abstract class RunExamplesAndroidOTest<
         "interfacemethods",
         Paths.get(ToolHelper.EXAMPLES_ANDROID_N_BUILD_DIR, "interfacemethods" + JAR_EXTENSION),
         2,
-        ImmutableList.of("interfacemethods.I2", "interfacemethods.I2$-CC"));
+        ImmutableList.of("interfacemethods.I2", "interfacemethods.I2$-CC"),
+        false);
   }
 
   @Test
@@ -534,17 +538,25 @@ public abstract class RunExamplesAndroidOTest<
   }
 
   private void testIntermediateWithMainDexList(
-      String packageName, int expectedMainDexListSize, List<String> mainDexClasses)
+      String packageName,
+      int expectedMainDexListSize,
+      List<String> mainDexClasses,
+      boolean hasLambda)
       throws Throwable {
     testIntermediateWithMainDexList(
         packageName,
         Paths.get(EXAMPLE_DIR, packageName + JAR_EXTENSION),
         expectedMainDexListSize,
-        mainDexClasses);
+        mainDexClasses,
+        hasLambda);
   }
 
   protected void testIntermediateWithMainDexList(
-      String packageName, Path input, int expectedMainDexListSize, List<String> mainDexClasses)
+      String packageName,
+      Path input,
+      int expectedMainDexListSize,
+      List<String> mainDexClasses,
+      boolean hasLambda)
       throws Throwable {
     // R8 does not support merging intermediate builds via DEX.
     assumeFalse(this instanceof R8RunExamplesAndroidOTest);
@@ -588,6 +600,14 @@ public abstract class RunExamplesAndroidOTest<
         clazz -> filePerInputClassIntermediateMainClasses.add(clazz.getFinalDescriptor()));
 
     // Check.
+    assertEquals(
+        hasLambda, fullMainClasses.contains(DexItemFactory.lambdaMethodAnnotationDescriptor));
+    assertFalse(
+        indexedIntermediateMainClasses.contains(DexItemFactory.lambdaMethodAnnotationDescriptor));
+    assertFalse(
+        filePerInputClassIntermediateMainClasses.contains(
+            DexItemFactory.lambdaMethodAnnotationDescriptor));
+    fullMainClasses.remove(DexItemFactory.lambdaMethodAnnotationDescriptor);
     Assert.assertEquals(expectedMainDexListSize, fullMainClasses.size());
     assertEqualSets(fullMainClasses, indexedIntermediateMainClasses);
     assertEqualSets(fullMainClasses, filePerInputClassIntermediateMainClasses);

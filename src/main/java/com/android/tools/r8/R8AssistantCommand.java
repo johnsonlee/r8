@@ -133,6 +133,10 @@ public class R8AssistantCommand extends BaseCompilerCommand {
       return self();
     }
 
+    public Builder setReflectiveReceiverClass(Class<?> clazz) {
+      return setReflectiveReceiverClassDescriptor(DescriptorUtils.javaClassToDescriptor(clazz));
+    }
+
     @Override
     CompilationMode defaultCompilationMode() {
       return CompilationMode.RELEASE;

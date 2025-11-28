@@ -270,7 +270,10 @@ public class KotlinInlineTest extends KotlinDebugTestBase {
   @Test
   public void testNestedInlining() throws Throwable {
     // TODO(b/416189028): Triage this.
-    assumeFalse(kotlinParameters.getCompilerVersion().equals(KotlinCompilerVersion.KOTLINC_2_2_0));
+    assumeFalse(
+        kotlinParameters
+            .getCompilerVersion()
+            .isGreaterThanOrEqualTo(KotlinCompilerVersion.KOTLINC_2_2_0));
     // Count the number of lines in the source file. This is needed to check that inlined code
     // refers to non-existing line numbers.
     Path sourceFilePath =

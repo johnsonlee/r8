@@ -86,7 +86,6 @@ public class InlineTest extends IrInjectionTestBase {
     appView.setRootSet(
         RootSet.builder(
                 appView,
-                profileCollectionAdditions,
                 subtypingInfo,
                 ImmutableList.of(ProguardKeepRule.defaultKeepAllRule(unused -> {})))
             .evaluateRulesAndBuild(executorService));

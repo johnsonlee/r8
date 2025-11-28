@@ -10,18 +10,18 @@ import com.android.tools.r8.graph.DexDefinition;
 import com.android.tools.r8.graph.DexEncodedMember;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.ProgramPackage;
+import com.android.tools.r8.graph.ProgramPackageCollection;
+import com.android.tools.r8.repackaging.Repackaging.RepackagingConfiguration;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.WorkList;
 import com.google.common.collect.Sets;
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.IdentityHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -41,23 +41,37 @@ public class RepackagingConstraintGraph {
 
   private final AppView<AppInfoWithLiveness> appView;
   private final ProgramPackage pkg;
+  private final ProgramPackageCollection packages;
+  private final Map<ProgramPackage, Set<DexProgramClass>> packagesWithClassesToRepackage;
+  private final RepackagingConfiguration repackagingConfiguration;
+  private final CrossPackageRepackagingConstraints crossPackageRepackagingConstraints;
+
   private final Map<DexDefinition, Node> nodes = new IdentityHashMap<>();
   private final Set<Node> pinnedNodes = Sets.newIdentityHashSet();
   private final Node libraryBoundaryNode;
 
-  public RepackagingConstraintGraph(AppView<AppInfoWithLiveness> appView, ProgramPackage pkg) {
+  public RepackagingConstraintGraph(
+      AppView<AppInfoWithLiveness> appView,
+      ProgramPackage pkg,
+      ProgramPackageCollection packages,
+      Map<ProgramPackage, Set<DexProgramClass>> packagesWithClassesToRepackage,
+      RepackagingConfiguration repackagingConfiguration,
+      CrossPackageRepackagingConstraints crossPackageRepackagingConstraints) {
     this.appView = appView;
     this.pkg = pkg;
+    this.packages = packages;
+    this.packagesWithClassesToRepackage = packagesWithClassesToRepackage;
+    this.repackagingConfiguration = repackagingConfiguration;
+    this.crossPackageRepackagingConstraints = crossPackageRepackagingConstraints;
     libraryBoundaryNode = createNode(appView.definitionFor(appView.dexItemFactory().objectType));
     pinnedNodes.add(libraryBoundaryNode);
   }
 
   /** Returns true if all classes in the package can be repackaged. */
-  public boolean initializeGraph() {
+  public void initializeGraph() {
     // Add all the items in the package into the graph. This way we know which items belong to the
     // package without having to extract package descriptor strings and comparing them with the
     // package descriptor.
-    boolean hasPinnedItem = false;
     for (DexProgramClass clazz : pkg) {
       boolean isPinned = computeIsPinned(clazz);
       Node classNode = createNode(clazz);
@@ -68,14 +82,27 @@ public class RepackagingConstraintGraph {
         Node memberNode = createNode(member);
         classNode.addNeighbor(memberNode);
       }
-      hasPinnedItem |= isPinned;
     }
-    return !hasPinnedItem;
   }
 
   private boolean computeIsPinned(DexProgramClass clazz) {
-    return !appView.appInfo().isRepackagingAllowed(clazz, appView)
-        || !appView.options().getSyntheticItemsOptions().isRepackagingAllowed(clazz, appView);
+    if (!appView.appInfo().isRepackagingAllowed(clazz, appView)
+        || !appView.options().getSyntheticItemsOptions().isRepackagingAllowed(clazz, appView)) {
+      return true;
+    }
+    // This class is also pinned if it has a cross-package constraint saying that other classes must
+    // not be repackaged, when in fact they were.
+    Set<DexProgramClass> notRepackagedConstraints =
+        crossPackageRepackagingConstraints.removeNotRepackagedConstraints(clazz);
+    for (DexProgramClass notRepackagedConstraint : notRepackagedConstraints) {
+      ProgramPackage programPackage = packages.getPackage(notRepackagedConstraint);
+      Set<DexProgramClass> repackagedClassesInProgramPackage =
+          packagesWithClassesToRepackage.get(programPackage);
+      if (repackagedClassesInProgramPackage.contains(notRepackagedConstraint)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private Node createNode(DexDefinition definition) {
@@ -167,12 +194,14 @@ public class RepackagingConstraintGraph {
         .forEachType(type -> registry.registerTypeReference(type, appView.graphLens()));
 
     // Check if this overrides a package-private method.
-    if (method.getHolder().superType != null) {
+    if (method.getHolder().hasSuperType()) {
       DexClass superClass =
           appView.definitionFor(method.getHolder().getSuperType(), method.getHolder());
       if (superClass != null) {
-        registry.registerMemberAccess(
-            appView.appInfo().resolveMethodOnLegacy(superClass, method.getReference()));
+        MethodResolutionResult resolutionResult =
+            appView.appInfo().resolveMethodOnLegacy(superClass, method.getReference());
+        registry.registerMemberAccess(resolutionResult);
+        preserveInvalidOverridesOfPackagePrivateMethod(method, resolutionResult);
       }
     }
 
@@ -188,7 +217,62 @@ public class RepackagingConstraintGraph {
     }
   }
 
-  public Collection<DexProgramClass> computeClassesToRepackage() {
+  private void preserveInvalidOverridesOfPackagePrivateMethod(
+      ProgramMethod method, MethodResolutionResult resolutionResult) {
+    if (!appView
+        .options()
+        .getProguardConfiguration()
+        .getPackageObfuscationMode()
+        .isRepackageClasses()) {
+      // We are not merging packages.
+      return;
+    }
+
+    DexEncodedMethod resolvedMethod = resolutionResult.getResolvedMethod();
+    DexClass resolvedHolder = resolutionResult.getResolvedHolder();
+    if (resolvedMethod == null || !resolvedMethod.getAccessFlags().isPackagePrivate()) {
+      // Not a package-private method.
+      return;
+    }
+
+    if (!resolvedHolder.isProgramClass()) {
+      // Not a program method, so the holder class is not subject to repackaging in the first place,
+      // and hence there is no merging of packages.
+      return;
+    }
+
+    if (resolvedHolder.isSamePackage(method)) {
+      // Not an invalid override of a package-private method.
+      return;
+    }
+
+    // Make sure that the two methods do not end up in the same package, as that would change
+    // semantics of virtual dispatch.
+    DexProgramClass resolvedProgramHolder = resolvedHolder.asProgramClass();
+    ProgramPackage resolvedPackage = packages.getPackage(resolvedProgramHolder);
+    if (resolvedPackage == null) {
+      // This only happens for packages that are already in the target location.
+      pinnedNodes.add(getNode(method.getDefinition()));
+    } else {
+      Set<DexProgramClass> classesToRepackageInResolvedPackage =
+          packagesWithClassesToRepackage.get(resolvedPackage);
+      if (classesToRepackageInResolvedPackage == null) {
+        // This package has not been processed yet. Mark the superclass as ineligible for
+        // repackaging if the current class ends up being repackaged.
+        crossPackageRepackagingConstraints.onlyRepackageClassIfOtherClassIsNotRepackaged(
+            resolvedProgramHolder, method.getHolder());
+      } else if (classesToRepackageInResolvedPackage.contains(resolvedProgramHolder)) {
+        // Disallow repackaging of the current class.
+        pinnedNodes.add(getNode(method.getDefinition()));
+      } else if (repackagingConfiguration.isPackageInTargetLocation(resolvedPackage)) {
+        assert false : "Expected resolvedPackage to be null, but was: " + resolvedPackage;
+        // Disallow repackaging of the current class.
+        pinnedNodes.add(getNode(method.getDefinition()));
+      }
+    }
+  }
+
+  public Set<DexProgramClass> computeClassesToRepackage() {
     WorkList<Node> worklist = WorkList.newIdentityWorkList(pinnedNodes);
     while (worklist.hasNext()) {
       Node pinnedNode = worklist.next();
@@ -199,7 +283,7 @@ public class RepackagingConstraintGraph {
       }
     }
     Set<Node> pinnedNodes = worklist.getSeenSet();
-    List<DexProgramClass> classesToRepackage = new ArrayList<>();
+    Set<DexProgramClass> classesToRepackage = Sets.newIdentityHashSet();
     for (DexProgramClass clazz : pkg) {
       if (!pinnedNodes.contains(getNode(clazz))) {
         classesToRepackage.add(clazz);

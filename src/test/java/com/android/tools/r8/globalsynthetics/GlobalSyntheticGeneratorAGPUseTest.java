@@ -5,7 +5,6 @@ package com.android.tools.r8.globalsynthetics;
 
 import static com.android.tools.r8.ToolHelper.getAndroidJar;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentIf;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertNull;
 
@@ -69,10 +68,8 @@ public class GlobalSyntheticGeneratorAGPUseTest extends TestBase {
       assertThat(inspector.clazz("android.os.HardwarePropertiesManager"), isPresent());
       // Added in API level 36.
       assertThat(inspector.clazz("android.os.Build$VERSION_CODES_FULL"), isPresent());
-      // TODO(b/417709154): Should this always be part of global synthetics?
-      assertThat(
-          inspector.clazz("com.android.tools.r8.annotations.LambdaMethod"),
-          isPresentIf(emitLambdaMethodAnnotations));
+      // Class com.android.tools.r8.annotations.LambdaMethod is always generated.
+      assertThat(inspector.clazz("com.android.tools.r8.annotations.LambdaMethod"), isPresent());
     } finally {
       System.clearProperty("com.android.tools.r8.emitLambdaMethodAnnotations");
     }

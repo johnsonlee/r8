@@ -691,7 +691,7 @@ public class MethodOptimizationInfoCollector {
       AppView<?> appView, InvokeStatic invoke, Value value) {
     // We need to ignore the holder, since Kotlin adds different versions of null-check machinery,
     // e.g., kotlin.collections.ArraysKt___ArraysKt... or kotlin.jvm.internal.ArrayIteratorKt...
-    Intrinsics intrinsics = appView.dexItemFactory().kotlin.intrinsics;
+    Intrinsics intrinsics = appView.dexItemFactory().kotlin().intrinsics();
     DexMethod originalInvokedMethod =
         appView.graphLens().getOriginalMethodSignature(invoke.getInvokedMethod());
     boolean isCheckNotNullMethod =
@@ -709,7 +709,7 @@ public class MethodOptimizationInfoCollector {
       AppView<?> appView, InvokeStatic invoke) {
     // We need to ignore the holder, since Kotlin adds different versions of null-check machinery,
     // e.g., kotlin.collections.ArraysKt___ArraysKt... or kotlin.jvm.internal.ArrayIteratorKt...
-    Intrinsics intrinsics = appView.dexItemFactory().kotlin.intrinsics;
+    Intrinsics intrinsics = appView.dexItemFactory().kotlin().intrinsics();
     DexMethod originalInvokedMethod =
         appView.graphLens().getOriginalMethodSignature(invoke.getInvokedMethod());
     return (originalInvokedMethod.match(intrinsics.throwParameterIsNullException)

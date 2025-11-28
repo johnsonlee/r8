@@ -17,7 +17,6 @@ import com.android.tools.r8.graph.DexValue.DexItemBasedValueString;
 import com.android.tools.r8.graph.DexValue.DexValueString;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.naming.dexitembasedstring.NameComputationInfo;
-import com.android.tools.r8.shaking.ProguardClassFilter;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import java.util.concurrent.ExecutionException;
@@ -27,11 +26,9 @@ import java.util.concurrent.ExecutorService;
 public class IdentifierMinifier {
 
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
-  private final ProguardClassFilter adaptClassStrings;
 
   public IdentifierMinifier(AppView<? extends AppInfoWithClassHierarchy> appView) {
     this.appView = appView;
-    this.adaptClassStrings = appView.options().getProguardConfiguration().getAdaptClassStrings();
   }
 
   public void run(ExecutorService executorService) throws ExecutionException {
@@ -41,13 +38,13 @@ public class IdentifierMinifier {
 
   private void adaptClassStringsInStaticFields(ExecutorService executorService)
       throws ExecutionException {
-    if (adaptClassStrings.isEmpty()) {
+    if (appView.options().getProguardConfiguration().getAdaptClassStrings().isEmpty()) {
       return;
     }
     ThreadUtils.processItems(
         appView.appInfo().classes(),
         clazz -> {
-          if (adaptClassStrings.matches(clazz.getType())) {
+          if (appView.getKeepInfo(clazz).isAdaptClassStringsEnabled()) {
             for (DexEncodedField field : clazz.staticFields()) {
               adaptClassStringsInStaticField(field);
             }

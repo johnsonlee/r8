@@ -54,7 +54,7 @@ public class CheckNotNullConverter {
             .getProguardConfiguration()
             .getProcessKotlinNullChecks()
             .isRemoveMessage()
-        && appView.dexItemFactory().kotlinJvmInternalIntrinsicsMethods.isNullCheck(method);
+        && appView.dexItemFactory().kotlin().intrinsics().isNullCheck(method);
   }
 
   private static boolean canConvertNullCheck(

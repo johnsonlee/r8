@@ -101,8 +101,10 @@ LIBRARY_DESUGAR_CONVERSIONS_ZIP = os.path.join(
 KEEPANNO_ANNOTATIONS_JAR = os.path.join(LIBS, 'keepanno-annotations.jar')
 KEEPANNO_ANNOTATIONS_DOC = os.path.join('d8_r8', 'keepanno', 'build', 'docs',
                                         'javadoc')
-KEEPANNO_LEGACY_ANNOTATIONS_JAR = os.path.join(LIBS, 'keepanno-annotations-legacy.jar')
-KEEPANNO_ANDROIDX_ANNOTATIONS_JAR = os.path.join(LIBS, 'keepanno-annotations-androidx.jar')
+KEEPANNO_LEGACY_ANNOTATIONS_JAR = os.path.join(
+    LIBS, 'keepanno-annotations-legacy.jar')
+KEEPANNO_ANDROIDX_ANNOTATIONS_JAR = os.path.join(
+    LIBS, 'keepanno-annotations-androidx.jar')
 
 DESUGAR_CONFIGURATION = os.path.join('src', 'library_desugar',
                                      'desugar_jdk_libs.json')
@@ -289,13 +291,19 @@ class ProgressLogger(object):
             sys.stdout.write(ProgressLogger.UP)
 
 
-def RunCmd(cmd, env_vars=None, quiet=False, fail=True, logging=True):
+def RunCmd(cmd,
+           env_vars=None,
+           quiet=False,
+           fail=True,
+           logging=True,
+           shell=False):
     PrintCmd(cmd, env=env_vars, quiet=quiet)
     env = os.environ.copy()
     if env_vars:
         env.update(env_vars)
     process = subprocess.Popen(cmd,
                                env=env,
+                               shell=shell,
                                stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT)
     stdout = []
@@ -738,11 +746,13 @@ def check_java_version():
     if m is not None:
         raise Exception("Do not use google JVM for benchmarking: " + version)
 
+
 def api_str(api_level_major, api_level_minor):
     api = str(api_level_major)
     if api_level_minor > 0:
         api = api + '.' + str(api_level_minor)
     return api
+
 
 def get_android_jar_dir(api_level_major, api_level_minor):
     return os.path.join(

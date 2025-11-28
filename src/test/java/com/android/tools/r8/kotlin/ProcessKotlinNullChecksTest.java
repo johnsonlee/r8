@@ -9,7 +9,6 @@ import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
@@ -210,13 +209,13 @@ public class ProcessKotlinNullChecksTest extends TestBase {
         .replaceClassDescriptorInMethodInstructions(
             ImmutableMap.of(
                 descriptor(KotlinJvmInternalIntrinsicsStub.class),
-                DexItemFactory.kotlinJvmInternalIntrinsicsDescriptor))
+                Kotlin.kotlinJvmInternalIntrinsicsDescriptor))
         .transform();
   }
 
   private byte[] getTransformedKotlinIntrinsics() throws IOException {
     return transformer(KotlinJvmInternalIntrinsicsStub.class)
-        .setClassDescriptor(DexItemFactory.kotlinJvmInternalIntrinsicsDescriptor)
+        .setClassDescriptor(Kotlin.kotlinJvmInternalIntrinsicsDescriptor)
         .transform();
   }
 

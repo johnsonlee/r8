@@ -3,11 +3,12 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.desugar.lambdas;
 
-import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentIf;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.GlobalSyntheticsTestingConsumer;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -29,15 +30,19 @@ public class LambdaCallTargetAnnotationTest extends TestBase {
   public TestParameters parameters;
 
   @Parameter(1)
-  public boolean intermediate;
+  public CompilationMode mode;
 
   @Parameter(2)
+  public boolean intermediate;
+
+  @Parameter(3)
   public boolean forceLambdaAccessor;
 
-  @Parameterized.Parameters(name = "{0}, intermediate = {1}, forceLambdaAccessor = {2}")
+  @Parameterized.Parameters(name = "{0}, mode = {1}, intermediate = {2}, forceLambdaAccessor = {3}")
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters().withNoneRuntime().build(),
+        CompilationMode.values(),
         BooleanUtils.values(),
         BooleanUtils.values());
   }
@@ -52,7 +57,10 @@ public class LambdaCallTargetAnnotationTest extends TestBase {
 
   private void checkAnnotation(
       AnnotationSubject lambdaMethodAnnotation, String holder, String method, String proto) {
-    assertThat(lambdaMethodAnnotation, isPresent());
+    assertThat(lambdaMethodAnnotation, isPresentIf(mode.isDebug()));
+    if (mode.isRelease()) {
+      return;
+    }
     DexEncodedAnnotation encodedAnnotation = lambdaMethodAnnotation.getAnnotation();
     assertEquals(3, encodedAnnotation.getNumberOfElements());
 
@@ -69,9 +77,8 @@ public class LambdaCallTargetAnnotationTest extends TestBase {
     testForD8(Backend.DEX)
         .addInnerClasses(LambdaCallTargetAnnotationTest.class)
         .setMinApi(AndroidApiLevel.L)
-        .debug()
-        .setIntermediate(intermediate)
-        .addOptionsModification(options -> options.emitLambdaMethodAnnotations = true)
+        .setMode(mode)
+        .setIntermediate(mode.isDebug() && intermediate)
         .applyIf(intermediate, b -> b.getBuilder().setGlobalSyntheticsConsumer(globals))
         .addOptionsModification(
             options -> options.testing.forceLambdaAccessorInD8 = forceLambdaAccessor)

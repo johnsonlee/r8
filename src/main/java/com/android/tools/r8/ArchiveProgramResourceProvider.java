@@ -9,7 +9,9 @@ import com.android.tools.r8.keepanno.annotations.KeepForApi;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.origin.PathOrigin;
 import com.android.tools.r8.utils.ArchiveResourceProviderUtils;
+import com.android.tools.r8.utils.ArchiveResourceProviderUtils.ProgramResourceFactory;
 import com.android.tools.r8.utils.FileUtils;
+import com.android.tools.r8.utils.OneShotByteResource;
 import com.android.tools.r8.utils.ZipUtils;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -83,17 +85,27 @@ public class ArchiveProgramResourceProvider implements ProgramResourceProvider {
   @Override
   public Collection<ProgramResource> getProgramResources() throws ResourceException {
     List<ProgramResource> programResources = new ArrayList<>();
-    getProgramResources(programResources::add);
+    internalGetProgramResources(programResources::add, ProgramResource::fromBytes);
     return programResources;
   }
 
   @Override
   public void getProgramResources(Consumer<ProgramResource> consumer) throws ResourceException {
+    internalGetProgramResources(consumer, OneShotByteResource::create);
+  }
+
+  private void internalGetProgramResources(
+      Consumer<ProgramResource> consumer, ProgramResourceFactory programResourceFactory)
+      throws ResourceException {
     List<Kind> seenKinds;
     try {
       seenKinds =
           ArchiveResourceProviderUtils.readArchive(
-              supplier, origin, (name, kind) -> include.test(name), consumer);
+              supplier,
+              origin,
+              (name, kind) -> include.test(name),
+              consumer,
+              programResourceFactory);
     } catch (IOException e) {
       throw new ResourceException(origin, e);
     }

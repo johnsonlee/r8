@@ -102,7 +102,7 @@ public class InternalGlobalSyntheticsProgramProvider implements ProgramResourceP
             byte[] bytes = ByteStreams.toByteArray(stream);
             Set<String> descriptors = Collections.singleton(descriptor);
             delayedResouces.add(
-                kind -> OneShotByteResource.create(kind, origin, bytes, descriptors));
+                kind -> OneShotByteResource.create(origin, kind, bytes, descriptors));
           }
         }
       } catch (IOException e) {

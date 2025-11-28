@@ -326,7 +326,9 @@ def determine_version(args, dump):
 
 
 def determine_compiler(args, build_properties):
-    compilers = ['d8', 'r8', 'r8full', 'l8', 'l8d8', 'tracereferences']
+    compilers = [
+        'd8', 'r8', 'r8full', 'l8', 'l8d8', 'tracereferences', 'assistant'
+    ]
     compiler = args.compiler
     if not compiler and 'tool' in build_properties:
         compiler = build_properties.get('tool').lower()
@@ -374,6 +376,10 @@ def is_l8_compiler(compiler):
 
 def is_r8_compiler(compiler):
     return compiler.startswith('r8')
+
+
+def is_assistant(compiler):
+    return compiler == 'assistant'
 
 
 def determine_config_files(args, dump, temp):
@@ -425,7 +431,7 @@ def determine_feature_output(feature_input, temp):
 
 
 def determine_program_jar(args, dump):
-    if hasattr(args, 'program_jar') and args.program_jar:
+    if 'program_jar' in args and args.program_jar:
         return args.program_jar
     return dump.program_jar()
 
@@ -448,8 +454,8 @@ def determine_optimized_resource_shrinking(args, build_properties):
 
 
 def determine_enable_missing_library_api_modeling(args, build_properties):
-    if args.enable_missing_library_api_modeling:
-        return True
+    if 'enable_missing_library_api_modeling' in args:
+        return args.enable_missing_library_api_modeling
     return build_properties.get('enable-missing-library-api-modeling') == 'true'
 
 
@@ -572,6 +578,16 @@ def prepare_d8_wrapper(dist, temp, jdkhome):
             'src/main/java/com/android/tools/r8/utils/CompileDumpD8.java'))
 
 
+def prepare_r8assistant_wrapper(dist, temp, jdkhome):
+    compile_reflective_helper(temp, jdkhome)
+    compile_wrapper_with_javac(
+        dist, temp, jdkhome,
+        os.path.join(
+            utils.REPO_ROOT,
+            'src/main/java/com/android/tools/r8/utils/CompileDumpR8Assistant.java'
+        ))
+
+
 def compile_wrapper_with_javac(dist, temp, jdkhome, path):
     base_path = os.path.join(
         utils.REPO_ROOT,
@@ -653,7 +669,7 @@ def run1(out, args, otherargs, jdkhome=None, worker_id=None):
             cmd.append('-Dcom.android.tools.r8.printtimes=1')
         if args.r8_flags:
             cmd.extend(args.r8_flags.split(' '))
-        if hasattr(args, 'properties'):
+        if 'properties' in args:
             cmd.extend(args.properties)
         cmd.extend(determine_properties(build_properties))
         cmd.extend(args.java_opts)
@@ -667,6 +683,9 @@ def run1(out, args, otherargs, jdkhome=None, worker_id=None):
             cmd.append('com.android.tools.r8.tracereferences.TraceReferences')
             cmd.extend(
                 determine_trace_references_commands(build_properties, out))
+        if is_assistant(compiler):
+            prepare_r8assistant_wrapper(jar, temp, jdkhome)
+            cmd.append('com.android.tools.r8.utils.CompileDumpR8Assistant')
         if is_r8_compiler(compiler):
             prepare_r8_wrapper(jar, temp, jdkhome)
             cmd.append('com.android.tools.r8.utils.CompileDumpCompatR8')
@@ -681,7 +700,7 @@ def run1(out, args, otherargs, jdkhome=None, worker_id=None):
                     if r8_partial_exclude_file:
                         cmd.append('--partial-exclude')
                         cmd.append(r8_partial_exclude_file)
-        if compiler != 'tracereferences':
+        if compiler != 'tracereferences' and not is_assistant(compiler):
             assert mode == 'debug' or mode == 'release'
             cmd.append('--' + mode)
         # For recompilation of dumps run_on_app_dumps pass in a program jar.
@@ -730,15 +749,17 @@ def run1(out, args, otherargs, jdkhome=None, worker_id=None):
             cmd.extend(['--main-dex-list', dump.main_dex_list_resource()])
         if dump.main_dex_rules_resource():
             cmd.extend(['--main-dex-rules', dump.main_dex_rules_resource()])
-        for art_profile_resource in dump.art_profile_resources():
-            residual_art_profile_output = \
-                determine_residual_art_profile_output(art_profile_resource, temp)
-            cmd.extend([
-                '--art-profile', art_profile_resource,
-                residual_art_profile_output
-            ])
-        for startup_profile_resource in dump.startup_profile_resources():
-            cmd.extend(['--startup-profile', startup_profile_resource])
+        if not is_assistant(compiler):
+            for art_profile_resource in dump.art_profile_resources():
+                residual_art_profile_output = \
+                    determine_residual_art_profile_output(art_profile_resource, temp)
+                cmd.extend([
+                    '--art-profile', art_profile_resource,
+                    residual_art_profile_output
+                ])
+            for startup_profile_resource in dump.startup_profile_resources():
+                cmd.extend(['--startup-profile', startup_profile_resource])
+
         if min_api:
             cmd.extend(['--min-api', min_api])
         if classfile:

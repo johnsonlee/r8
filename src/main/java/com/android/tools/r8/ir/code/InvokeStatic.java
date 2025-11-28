@@ -179,10 +179,7 @@ public class InvokeStatic extends InvokeMethod {
     }
 
     if (appView.options().getProguardConfiguration().getProcessKotlinNullChecks().isRemove()
-        && appView
-            .dexItemFactory()
-            .kotlinJvmInternalIntrinsicsMethods
-            .isNullCheck(getInvokedMethod())) {
+        && appView.dexItemFactory().kotlin().intrinsics().isNullCheck(getInvokedMethod())) {
       return false;
     }
 

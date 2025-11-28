@@ -36,6 +36,7 @@ import com.android.tools.r8.keepanno.annotations.KeepForApi;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.lang.reflect.InvocationHandler;
 
 // This logs the information in JSON-like format,
@@ -46,15 +47,33 @@ public class ReflectiveOperationJsonLogger implements ReflectiveOperationReceive
   private final FileWriter output;
 
   public ReflectiveOperationJsonLogger() throws IOException {
-    String property = System.getProperty("com.android.tools.r8.reflectiveJsonLogger", "log.txt");
-    File file = new File(property);
-    file.createNewFile();
+    String outputFileName = System.getProperty("com.android.tools.r8.reflectiveJsonLogger");
+    File file;
+    if (outputFileName == null) {
+      String tmpDir = System.getProperty("java.io.tmpdir");
+      if (tmpDir == null) {
+        throw new IllegalStateException(
+            "System property 'java.io.tmpdir' is null, cannot create log file.");
+      }
+      file = new File(tmpDir, "log.txt");
+    } else {
+      file = new File(outputFileName);
+    }
     this.output = new FileWriter(file);
     output.write("[");
+    Runtime.getRuntime().addShutdownHook(new Thread(this::onShutdown));
+  }
+
+  private void onShutdown() {
+    try {
+      finished();
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
   }
 
   public void finished() throws IOException {
-    output.write("{}]");
+    output.write("]");
     output.close();
   }
 
@@ -225,7 +244,11 @@ public class ReflectiveOperationJsonLogger implements ReflectiveOperationReceive
 
   @Override
   public void onClassIsInstance(Stack stack, Class<?> holder, Object object) {
-    output(CLASS_IS_INSTANCE, stack, printClass(holder), printClass(object.getClass()));
+    output(
+        CLASS_IS_INSTANCE,
+        stack,
+        printClass(holder),
+        printClass(object != null ? object.getClass() : null));
   }
 
   @Override

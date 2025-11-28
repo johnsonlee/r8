@@ -3,13 +3,15 @@
 # for details. All rights reserved. Use of this source code is governed by a
 # BSD-style license that can be found in the LICENSE file.
 
-import adb_utils
-import profile_utils
-
 import argparse
 import os
 import sys
 import time
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+import adb
+import profile_utils
 
 
 class Device:
@@ -51,51 +53,52 @@ def generate_startup_profile(device, options):
     profile_classes_and_methods = None
     if options.use_existing_profile:
         # Verify presence of profile.
-        adb_utils.check_app_has_profile_data(options.app_id, device.device_id)
-        profile = adb_utils.get_profile_data(options.app_id, device.device_id)
+        adb.check_app_has_profile_data(options.app_id, device.device_id)
+        profile = adb.get_profile_data(options.app_id, device.device_id)
         profile_classes_and_methods = \
-            adb_utils.get_classes_and_methods_from_app_profile(
-                options.app_id, device.device_id)
+            profile_utils.parse_art_profile(
+                adb.get_classes_and_methods_from_app_profile(
+                    options.app_id, device.device_id))
     else:
         # Unlock device.
-        tear_down_options = adb_utils.prepare_for_interaction_with_device(
+        tear_down_options = adb.prepare_for_interaction_with_device(
             device.device_id, device.device_pin)
 
         logcat_process = None
         if options.logcat:
             # Clear logcat and start capturing logcat.
-            adb_utils.clear_logcat(device.device_id)
-            logcat_process = adb_utils.start_logcat(
+            adb.clear_logcat(device.device_id)
+            logcat_process = adb.start_logcat(
                 device.device_id,
                 format='tag',
                 filter='R8:I ActivityTaskManager:I *:S')
         else:
             # Clear existing profile data.
-            adb_utils.clear_profile_data(options.app_id, device.device_id)
+            adb.clear_profile_data(options.app_id, device.device_id)
 
         # Launch activity to generate startup profile on device.
-        adb_utils.launch_activity(options.app_id, options.main_activity,
-                                  device.device_id)
+        adb.launch_activity(options.app_id, options.main_activity,
+                            device.device_id)
 
         # Wait for activity startup.
         time.sleep(options.startup_duration)
 
         if options.logcat:
             # Get startup descriptors from logcat.
-            logcat = adb_utils.stop_logcat(logcat_process)
+            logcat = adb.stop_logcat(logcat_process)
         else:
             # Capture startup profile.
-            adb_utils.capture_app_profile_data(options.app_id, device.device_id)
-            profile = adb_utils.get_profile_data(options.app_id,
-                                                 device.device_id)
+            adb.capture_app_profile_data(options.app_id, device.device_id)
+            profile = adb.get_profile_data(options.app_id, device.device_id)
             profile_classes_and_methods = \
-                adb_utils.get_classes_and_methods_from_app_profile(
-                    options.app_id, device.device_id)
+                profile_utils.parse_art_profile(
+                    adb.get_classes_and_methods_from_app_profile(
+                        options.app_id, device.device_id))
 
         # Shutdown app.
-        adb_utils.stop_app(options.app_id, device.device_id)
-        adb_utils.teardown_after_interaction_with_device(
-            tear_down_options, device.device_id)
+        adb.stop_app(options.app_id, device.device_id)
+        adb.teardown_after_interaction_with_device(tear_down_options,
+                                                   device.device_id)
 
     return (logcat, profile, profile_classes_and_methods)
 
@@ -423,20 +426,20 @@ def parse_options(argv):
 
 
 def run_on_device(device, options, startup_descriptors):
-    adb_utils.root(device.device_id)
+    adb.root(device.device_id)
     if options.apk:
-        adb_utils.uninstall(options.app_id, device.device_id)
-        adb_utils.install(options.apk, device.device_id)
+        adb.uninstall(options.app_id, device.device_id)
+        adb.install(options.apk, device.device_id)
     elif options.apks:
-        adb_utils.uninstall(options.app_id, device.device_id)
-        adb_utils.install_apks(options.apks, device.device_id)
+        adb.uninstall(options.app_id, device.device_id)
+        adb.install_apks(options.apks, device.device_id)
     elif options.bundle:
-        adb_utils.uninstall(options.app_id, device.device_id)
-        adb_utils.install_bundle(options.bundle, device.device_id)
+        adb.uninstall(options.app_id, device.device_id)
+        adb.install_bundle(options.bundle, device.device_id)
     # Grant notifications.
     if options.grant_post_notification_permission:
-        adb_utils.grant(options.app_id, 'android.permission.POST_NOTIFICATIONS',
-                        device.device_id)
+        adb.grant(options.app_id, 'android.permission.POST_NOTIFICATIONS',
+                  device.device_id)
     if options.until_stable:
         iteration = 0
         stable_iterations = 0

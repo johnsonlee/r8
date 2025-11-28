@@ -17,16 +17,14 @@ public class GlobalSyntheticsGeneratorVerifier {
     consumer.accept(dexItemFactory.methodHandlesLookupType);
     consumer.accept(dexItemFactory.recordType);
     consumer.accept(dexItemFactory.varHandleType);
-    if (options.emitLambdaMethodAnnotations) {
-      consumer.accept(dexItemFactory.lambdaMethodAnnotation);
-    }
+    consumer.accept(dexItemFactory.lambdaMethodAnnotation);
   }
 
   public static boolean verifyExpectedClassesArePresent(AppView<?> appView) {
     forEachExpectedClass(
         appView.options(),
         type -> {
-          assert appView.hasDefinitionFor(type);
+          assert appView.hasDefinitionFor(type) : "Missing type: " + type;
         });
     return true;
   }

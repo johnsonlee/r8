@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.desugar.desugaredlibrary.conversiontests;
 
+import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.D8_L8DEBUG;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.DEFAULT_SPECIFICATIONS;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.getJdk8Jdk11;
 import static org.junit.Assert.assertEquals;
@@ -74,7 +75,12 @@ public class MoreFunctionConversionTest extends DesugaredLibraryTestBase {
       throws Throwable {
     CodeInspector programInspector = builder.inspector();
     CodeInspector customLibInspector = builder.customLibInspector();
-    int programSize = programInspector.allClasses().size();
+    int programSize =
+        programInspector
+            .classesMatching(
+                // Filter out the LambdaMethod annotation in debug mode.
+                clazz -> compilationSpecification != D8_L8DEBUG || !clazz.isAnnotation())
+            .size();
     int customLibSize = customLibInspector.allClasses().size();
     Set<String> foundClassSubjects = Sets.newHashSet();
     for (FoundClassSubject aClass : programInspector.allClasses()) {

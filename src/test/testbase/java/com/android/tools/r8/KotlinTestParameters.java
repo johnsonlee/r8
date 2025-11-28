@@ -203,6 +203,11 @@ public class KotlinTestParameters {
       return this;
     }
 
+    public Builder withCompilersEndingAtIncluding(KotlinCompilerVersion version) {
+      withCompilerFilter(c -> c.isLessThanOrEqualTo(version));
+      return this;
+    }
+
     public KotlinTestParametersCollection build() {
       List<KotlinTestParameters> testParameters = new ArrayList<>();
       int index = 0;
@@ -259,7 +264,7 @@ public class KotlinTestParameters {
           }
         }
       }
-      assert !testParameters.isEmpty() || withOldCompilers;
+      assert !testParameters.isEmpty() || withOldCompilers || !withDevCompiler;
       return new KotlinTestParametersCollection(testParameters);
     }
   }

@@ -18,6 +18,8 @@ import com.android.tools.r8.utils.timing.Timing;
 
 public abstract class CodeRewriterPass<T extends AppInfo> {
 
+  public static final CodeRewriterPass<?>[] EMPTY_ARRAY = new CodeRewriterPass[0];
+
   protected final AppView<?> appView;
   protected final DexItemFactory dexItemFactory;
   protected final InternalOptions options;

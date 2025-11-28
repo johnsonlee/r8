@@ -13,6 +13,7 @@ import com.android.tools.r8.GlobalSyntheticsTestingConsumer;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.codeinspector.FoundClassSubject;
@@ -58,7 +59,7 @@ public class GlobalSyntheticsEnsureClassesOutputTest extends TestBase {
         .setMinApi(AndroidApiLevel.K)
         .compile()
         .inspect(
-            inspector -> assertEquals(backend.isDex() ? 1147 : 4, inspector.allClasses().size()));
+            inspector -> assertEquals(backend.isDex() ? 1148 : 5, inspector.allClasses().size()));
   }
 
   @Test
@@ -75,9 +76,10 @@ public class GlobalSyntheticsEnsureClassesOutputTest extends TestBase {
     Set<String> expectedInOutput = new HashSet<>();
     // The output contains a RecordTag type that is mapped back to the original java.lang.Record by
     // our codeinspector.
-    expectedInOutput.add("Ljava/lang/Record;");
-    expectedInOutput.add("Ljava/lang/invoke/VarHandle;");
-    expectedInOutput.add("Ljava/lang/invoke/MethodHandles$Lookup;");
+    expectedInOutput.add(DexItemFactory.recordDescriptorString);
+    expectedInOutput.add(DexItemFactory.varHandleDescriptorString);
+    expectedInOutput.add(DexItemFactory.methodHandlesLookupDescriptorString);
+    expectedInOutput.add(DexItemFactory.lambdaMethodAnnotationDescriptor);
     testForD8(backend)
         .apply(
             b ->

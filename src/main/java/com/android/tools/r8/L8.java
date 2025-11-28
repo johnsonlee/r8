@@ -101,6 +101,7 @@ public class L8 {
             options.enableStringSwitchConversion = false;
             assert !options.enableVarHandleDesugaring;
             options.enableVarHandleDesugaring = true;
+            assert !options.emitLambdaMethodAnnotations;
             options.tool = Tool.L8;
 
             desugar(app, options, executorService);

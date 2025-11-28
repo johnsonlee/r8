@@ -22,13 +22,16 @@ public final class Kotlin {
 
   public final DexItemFactory factory;
 
-  public final Functional functional;
-  public final Intrinsics intrinsics;
-  public final Metadata metadata;
-  public final _Assertions assertions;
+  private final Functional functional;
+  private final Intrinsics intrinsics;
+  private final Metadata metadata;
+  private final _Assertions assertions;
 
   public static final String NAME = "kotlin";
   public static final String PACKAGE_PREFIX = "L" + NAME + "/";
+
+  public static final String kotlinJvmInternalIntrinsicsDescriptor =
+      "Lkotlin/jvm/internal/Intrinsics;";
 
   public static final class ClassClassifiers {
 
@@ -96,6 +99,22 @@ public final class Kotlin {
     this.assertions = new _Assertions();
   }
 
+  public Functional functional() {
+    return functional;
+  }
+
+  public Intrinsics intrinsics() {
+    return intrinsics;
+  }
+
+  public Metadata metadata() {
+    return metadata;
+  }
+
+  public _Assertions assertions() {
+    return assertions;
+  }
+
   public final class Functional {
     // NOTE: Kotlin stdlib defines interface Function0 till Function22 explicitly, see:
     //    https://github.com/JetBrains/kotlin/blob/master/libraries/
@@ -158,7 +177,58 @@ public final class Kotlin {
 
   // kotlin.jvm.internal.Intrinsics class
   public final class Intrinsics {
-    public final DexType type = factory.createType(PACKAGE_PREFIX + "jvm/internal/Intrinsics;");
+    public final DexType type = factory.createType(kotlinJvmInternalIntrinsicsDescriptor);
+
+    public final DexMethod checkNotNullObject =
+        factory.createMethod(
+            type, factory.createProto(factory.voidType, factory.objectType), "checkNotNull");
+    public final DexMethod checkNotNullObjectString =
+        factory.createMethod(
+            type,
+            factory.createProto(factory.voidType, factory.objectType, factory.stringType),
+            "checkNotNull");
+    public final DexMethod checkExpressionValueIsNotNull =
+        factory.createMethod(
+            type,
+            factory.createProto(factory.voidType, factory.objectType, factory.stringType),
+            "checkExpressionValueIsNotNull");
+    public final DexMethod checkNotNullExpressionValue =
+        factory.createMethod(
+            type,
+            factory.createProto(factory.voidType, factory.objectType, factory.stringType),
+            "checkNotNullExpressionValue");
+    public final DexMethod checkReturnedValueIsNotNullObjectStringString =
+        factory.createMethod(
+            type,
+            factory.createProto(
+                factory.voidType, factory.objectType, factory.stringType, factory.stringType),
+            "checkReturnedValueIsNotNull");
+    public final DexMethod checkReturnedValueIsNotNullObjectString =
+        factory.createMethod(
+            type,
+            factory.createProto(factory.voidType, factory.objectType, factory.stringType),
+            "checkReturnedValueIsNotNull");
+    public final DexMethod checkFieldIsNotNullObjectStringString =
+        factory.createMethod(
+            type,
+            factory.createProto(
+                factory.voidType, factory.objectType, factory.stringType, factory.stringType),
+            "checkFieldIsNotNull");
+    public final DexMethod checkFieldIsNotNullObjectString =
+        factory.createMethod(
+            type,
+            factory.createProto(factory.voidType, factory.objectType, factory.stringType),
+            "checkFieldIsNotNull");
+    public final DexMethod checkParameterIsNotNull =
+        factory.createMethod(
+            type,
+            factory.createProto(factory.voidType, factory.objectType, factory.stringType),
+            "checkParameterIsNotNull");
+    public final DexMethod checkNotNullParameter =
+        factory.createMethod(
+            type,
+            factory.createProto(factory.voidType, factory.objectType, factory.stringType),
+            "checkNotNullParameter");
     public final DexMethod throwParameterIsNullException = factory.createMethod(type,
         factory.createProto(factory.voidType, factory.stringType), "throwParameterIsNullException");
     public final DexMethod throwParameterIsNullNPE =
@@ -171,15 +241,23 @@ public final class Kotlin {
             type,
             factory.createProto(factory.voidType, factory.stringType),
             "throwParameterIsNullIAE");
-    public final DexMethod checkParameterIsNotNull = factory.createMethod(type,
-        factory.createProto(factory.voidType, factory.objectType, factory.stringType),
-        "checkParameterIsNotNull");
-    public final DexMethod checkNotNullParameter =
-        factory.createMethod(
-            type,
-            factory.createProto(factory.voidType, factory.objectType, factory.stringType),
-            "checkNotNullParameter");
     public final DexMethod throwNpe = factory.createMethod(
         type, factory.createProto(factory.voidType), "throwNpe");
+
+    public boolean isNullCheck(DexMethod method) {
+      if (!method.getHolderType().isIdenticalTo(type)) {
+        return false;
+      }
+      return method.isIdenticalTo(checkNotNullObject)
+          || method.isIdenticalTo(checkNotNullObjectString)
+          || method.isIdenticalTo(checkExpressionValueIsNotNull)
+          || method.isIdenticalTo(checkNotNullExpressionValue)
+          || method.isIdenticalTo(checkReturnedValueIsNotNullObjectString)
+          || method.isIdenticalTo(checkReturnedValueIsNotNullObjectStringString)
+          || method.isIdenticalTo(checkFieldIsNotNullObjectString)
+          || method.isIdenticalTo(checkFieldIsNotNullObjectStringString)
+          || method.isIdenticalTo(checkParameterIsNotNull)
+          || method.isIdenticalTo(checkNotNullParameter);
+    }
   }
 }

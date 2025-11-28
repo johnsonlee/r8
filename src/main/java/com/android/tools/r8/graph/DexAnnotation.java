@@ -874,7 +874,13 @@ public class DexAnnotation extends DexItem implements StructuralItem<DexAnnotati
     if (rewritten == null) {
       return null;
     }
-    return new DexAnnotation(visibility, rewritten);
+    if (isTypeAnnotation()) {
+      DexTypeAnnotation typeAnnotation = asTypeAnnotation();
+      return new DexTypeAnnotation(
+          visibility, rewritten, typeAnnotation.getTypeRef(), typeAnnotation.getTypePath());
+    } else {
+      return new DexAnnotation(visibility, rewritten);
+    }
   }
 
   public static class SynthesizedAnnotationClassInfo {

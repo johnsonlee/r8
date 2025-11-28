@@ -108,7 +108,7 @@ public class KotlinSyntheticClassInfo implements KotlinClassLevelInfo {
   public static Flavour getFlavour(DexClass clazz, Kotlin kotlin) {
     // Returns KotlinStyleLambda if the given clazz has shape of a Kotlin-style lambda:
     //   a class that directly extends kotlin.jvm.internal.Lambda
-    if (clazz.superType == kotlin.functional.lambdaType) {
+    if (clazz.superType == kotlin.functional().lambdaType) {
       return Flavour.KotlinStyleLambda;
     }
     // Returns JavaStyleLambda if the given clazz has shape of a Java-style lambda:

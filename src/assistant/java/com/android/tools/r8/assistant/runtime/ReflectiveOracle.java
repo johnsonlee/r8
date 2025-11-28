@@ -56,13 +56,17 @@ public class ReflectiveOracle {
       return stackTraceElements;
     }
 
-    public String toStringStackTrace() {
+    public String toStringStackTrace(int numberOfLevels) {
       if (stackTraceElements == null) {
         return "Stack extraction not enabled.";
       }
       StringBuilder sb = new StringBuilder();
       for (StackTraceElement element : stackTraceElements) {
         sb.append(" at ").append(element).append("\n");
+        if (numberOfLevels == 0) {
+          break;
+        }
+        numberOfLevels--;
       }
       return sb.toString();
     }

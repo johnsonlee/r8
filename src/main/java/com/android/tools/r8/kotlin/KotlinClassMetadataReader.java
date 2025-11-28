@@ -88,7 +88,7 @@ public final class KotlinClassMetadataReader {
               new StringDiagnostic(
                   "Class "
                       + clazz.type.toSourceString()
-                      + " has malformed kotlin.Metadata: "
+                      + " has malformed kotlin.metadata(): "
                       + e.getMessage()));
       return getInvalidKotlinInfo();
     } catch (Throwable e) {
@@ -101,7 +101,7 @@ public final class KotlinClassMetadataReader {
               new StringDiagnostic(
                   "Unexpected error while reading "
                       + clazz.type.toSourceString()
-                      + "'s kotlin.Metadata: "
+                      + "'s kotlin.metadata(): "
                       + e.getMessage()));
       return getNoKotlinInfo();
     }
@@ -114,7 +114,7 @@ public final class KotlinClassMetadataReader {
       DexAnnotation annotation,
       BiConsumer<DexEncodedMember<?, ?>, KotlinMemberLevelInfo> memberInfoConsumer)
       throws KotlinMetadataException {
-    Kotlin kotlin = appView.dexItemFactory().kotlin;
+    Kotlin kotlin = appView.dexItemFactory().kotlin();
     KotlinClassMetadata kMetadata = toKotlinClassMetadata(kotlin, annotation.annotation);
     if (kMetadata == null) {
       throw new KotlinMetadataException(
@@ -126,7 +126,7 @@ public final class KotlinClassMetadataReader {
   public static boolean isLambda(
       AppView<?> appView, DexClass clazz, Supplier<Boolean> reportUnknownMetadata) {
     DexItemFactory dexItemFactory = appView.dexItemFactory();
-    Kotlin kotlin = dexItemFactory.kotlin;
+    Kotlin kotlin = dexItemFactory.kotlin();
     Flavour flavour = getFlavour(clazz, kotlin);
     if (flavour == Flavour.Unclassified) {
       return false;
@@ -158,7 +158,7 @@ public final class KotlinClassMetadataReader {
               new StringDiagnostic(
                   "Class "
                       + clazz.type.toSourceString()
-                      + " has malformed kotlin.Metadata: "
+                      + " has malformed kotlin.metadata(): "
                       + exception.getMessage()));
       return false;
     }
@@ -186,17 +186,17 @@ public final class KotlinClassMetadataReader {
       Kotlin kotlin, Map<DexString, DexAnnotationElement> elementMap)
       throws KotlinMetadataException {
     int k = getKind(kotlin, elementMap);
-    DexAnnotationElement metadataVersion = elementMap.get(kotlin.metadata.metadataVersion);
+    DexAnnotationElement metadataVersion = elementMap.get(kotlin.metadata().metadataVersion);
     int[] mv = metadataVersion == null ? null : getUnboxedIntArray(metadataVersion.value, "mv");
-    DexAnnotationElement data1 = elementMap.get(kotlin.metadata.data1);
+    DexAnnotationElement data1 = elementMap.get(kotlin.metadata().data1);
     String[] d1 = data1 == null ? null : getUnboxedStringArray(data1.value, "d1");
-    DexAnnotationElement data2 = elementMap.get(kotlin.metadata.data2);
+    DexAnnotationElement data2 = elementMap.get(kotlin.metadata().data2);
     String[] d2 = data2 == null ? null : getUnboxedStringArray(data2.value, "d2");
-    DexAnnotationElement extraString = elementMap.get(kotlin.metadata.extraString);
+    DexAnnotationElement extraString = elementMap.get(kotlin.metadata().extraString);
     String xs = extraString == null ? null : getUnboxedString(extraString.value, "xs");
-    DexAnnotationElement packageName = elementMap.get(kotlin.metadata.packageName);
+    DexAnnotationElement packageName = elementMap.get(kotlin.metadata().packageName);
     String pn = packageName == null ? null : getUnboxedString(packageName.value, "pn");
-    DexAnnotationElement extraInt = elementMap.get(kotlin.metadata.extraInt);
+    DexAnnotationElement extraInt = elementMap.get(kotlin.metadata().extraInt);
     Integer xi = extraInt == null ? null : (Integer) extraInt.value.getBoxedValue();
 
     try {
@@ -208,7 +208,7 @@ public final class KotlinClassMetadataReader {
   }
 
   private static int getKind(Kotlin kotlin, Map<DexString, DexAnnotationElement> elementMap) {
-    DexAnnotationElement kind = elementMap.get(kotlin.metadata.kind);
+    DexAnnotationElement kind = elementMap.get(kotlin.metadata().kind);
     if (kind == null) {
       throw new MetadataError("element 'k' is missing.");
     }

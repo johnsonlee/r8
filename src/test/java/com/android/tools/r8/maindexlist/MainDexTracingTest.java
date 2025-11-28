@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.maindexlist;
 
+import static com.android.tools.r8.synthesis.SyntheticItemsTestUtils.isLambdaMethodAnnotationDescriptor;
 import static com.android.tools.r8.utils.FileUtils.JAR_EXTENSION;
 import static com.android.tools.r8.utils.FileUtils.ZIP_EXTENSION;
 import static com.android.tools.r8.utils.FileUtils.withNativeFileSeparators;
@@ -208,7 +209,7 @@ public class MainDexTracingTest extends TestBase {
         "multidex004",
         EXAMPLE_O_BUILD_DIR,
         Paths.get(EXAMPLE_SRC_DIR, "multidex", "main-dex-rules.txt"),
-        Paths.get(EXAMPLE_O_SRC_DIR, "multidex004", "ref-list-1.txt"),
+        Paths.get(EXAMPLE_O_SRC_DIR, "multidex004", "ref-list-r8.txt"),
         Paths.get(EXAMPLE_O_SRC_DIR, "multidex004", "ref-list-1.txt"),
         AndroidApiLevel.I,
         builder ->
@@ -437,6 +438,10 @@ public class MainDexTracingTest extends TestBase {
     for (int i = 0; i < refList.length; i++) {
       String reference = refList[i].trim();
       // The main dex list generator does not do any lambda desugaring.
+      if (isLambdaMethodAnnotationDescriptor(reference)) {
+        nonLambdaOffset++;
+        continue;
+      }
       if (!isExternalSyntheticLambda(reference, d8SyntheticItems)) {
         if (mainDexGeneratorMainDexList.size() <= i - nonLambdaOffset) {
           fail("Main dex list generator is missing '" + reference + "'");

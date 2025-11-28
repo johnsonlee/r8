@@ -1,10 +1,9 @@
-// Copyright (c) 2023, the R8 project authors. Please see the AUTHORS file
+// Copyright (c) 2025, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
 package com.android.tools.r8.kotlin.metadata;
 
-import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_8_0;
 import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_2_2_0;
 import static com.android.tools.r8.KotlinCompilerTool.KotlinTargetVersion.JAVA_8;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndRenamed;
@@ -29,14 +28,14 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
-public class MetadataRewriteContextReceiverTest extends KotlinMetadataTestBase {
+public class MetadataRewriteContextParametersTest extends KotlinMetadataTestBase {
 
-  private static final String PKG_LIB = PKG + ".context_receiver_lib";
-  private static final String PKG_APP = PKG + ".context_receiver_app";
+  private static final String PKG_LIB = PKG + ".context_parameters_lib";
+  private static final String PKG_APP = PKG + ".context_parameters_app";
   private static final Path LIB_FILE =
-      getFileInTest(PKG_PREFIX + "/context_receiver_lib", "lib.txt");
+      getFileInTest(PKG_PREFIX + "/context_parameters_lib", "lib.txt");
   private static final Path MAIN_FILE =
-      getFileInTest(PKG_PREFIX + "/context_receiver_app", "main.txt");
+      getFileInTest(PKG_PREFIX + "/context_parameters_app", "main.txt");
   private static final String MAIN = PKG_APP + ".MainKt";
   private final TestParameters parameters;
 
@@ -55,15 +54,13 @@ public class MetadataRewriteContextReceiverTest extends KotlinMetadataTestBase {
     return buildParameters(
         getTestParameters().withCfRuntimes().build(),
         getKotlinTestParameters()
-            .withCompilersStartingFromIncluding(KOTLINC_1_8_0)
-            .withCompilersEndingAtIncluding(KOTLINC_2_2_0)
-            .withOldCompilersStartingFrom(KOTLINC_1_8_0)
+            .withCompilersStartingFromIncluding(KOTLINC_2_2_0)
             .withAllLambdaGenerations()
             .withTargetVersion(JAVA_8)
             .build());
   }
 
-  public MetadataRewriteContextReceiverTest(
+  public MetadataRewriteContextParametersTest(
       TestParameters parameters, KotlinTestParameters kotlinParameters) {
     super(kotlinParameters);
     this.parameters = parameters;
@@ -75,7 +72,7 @@ public class MetadataRewriteContextReceiverTest extends KotlinMetadataTestBase {
               kotlinc ->
                   kotlinc
                       .addSourceFilesWithNonKtExtension(getStaticTemp(), LIB_FILE)
-                      .enableExperimentalContextReceivers());
+                      .enableExperimentalContextParameters());
 
   @Test
   public void smokeTest() throws Exception {
@@ -84,7 +81,7 @@ public class MetadataRewriteContextReceiverTest extends KotlinMetadataTestBase {
             .addClasspathFiles(libJars.getForConfiguration(kotlinParameters))
             .addSourceFilesWithNonKtExtension(temp, MAIN_FILE)
             .setOutputPath(temp.newFolder().toPath())
-            .enableExperimentalContextReceivers()
+            .enableExperimentalContextParameters()
             .compile();
     testForJvm(parameters)
         .addRunClasspathFiles(
@@ -125,7 +122,7 @@ public class MetadataRewriteContextReceiverTest extends KotlinMetadataTestBase {
             .addClasspathFiles(libJar)
             .addSourceFilesWithNonKtExtension(temp, MAIN_FILE)
             .setOutputPath(temp.newFolder().toPath())
-            .enableExperimentalContextReceivers()
+            .enableExperimentalContextParameters()
             .compile();
     testForJvm(parameters)
         .addRunClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinReflectJar(), libJar)
@@ -160,7 +157,7 @@ public class MetadataRewriteContextReceiverTest extends KotlinMetadataTestBase {
 
     CodeInspector inspector = r8LibraryResult.inspector();
     // Rewrite the source kotlin file that reference the renamed classes uses in the context
-    // receivers.
+    // parameters.
     for (String className : new String[] {"Foo", "Bar", "Baz"}) {
       String originalClassName = PKG_LIB + "." + className;
       ClassSubject clazz = inspector.clazz(originalClassName);
@@ -184,7 +181,7 @@ public class MetadataRewriteContextReceiverTest extends KotlinMetadataTestBase {
             .addClasspathFiles(libJar)
             .addSourceFiles(newSource)
             .setOutputPath(temp.newFolder().toPath())
-            .enableExperimentalContextReceivers()
+            .enableExperimentalContextParameters()
             .compile();
 
     testForJvm(parameters)
