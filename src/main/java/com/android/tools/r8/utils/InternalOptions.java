@@ -554,6 +554,9 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   //  default in debug mode.
   public boolean emitLambdaMethodAnnotations =
       System.getProperty("com.android.tools.r8.emitLambdaMethodAnnotations") != null;
+  // TODO(b/464478094): Flag to disable generation of LambdaMethod annotations.
+  public boolean disableLambdaMethodAnnotations =
+      System.getProperty("com.android.tools.r8.disableLambdaMethodAnnotations") != null;
 
   private DumpInputFlags dumpInputFlags = DumpInputFlags.getDefault();
 
