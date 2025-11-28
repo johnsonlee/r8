@@ -8,12 +8,10 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.KotlinCompileMemoizer;
-import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
 import com.android.tools.r8.KotlinTestBase;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.apimodel.ApiModelingTestHelper;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
@@ -75,22 +73,10 @@ public class KotlinIntrinsicsInlineChainTest extends KotlinTestBase {
 
               // Count the number of check parameter is not null.
               MethodSubject main = mainClass.mainMethod();
-              long checkParameterIsNotNull = countCall(main, "checkParameterIsNotNull");
-              long checkNotNullParameter = countCall(main, "checkNotNullParameter");
-              if (kotlinc.getCompilerVersion().isGreaterThan(KotlinCompilerVersion.KOTLINC_1_6_0)) {
-                assertEquals(0, checkNotNullParameter);
-                assertEquals(0, checkParameterIsNotNull);
-              } else if (parameters.isDexRuntime()
-                  && parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.I)) {
-                assertEquals(0, checkNotNullParameter);
-                assertEquals(0, checkParameterIsNotNull);
-              } else if (kotlinc.is(KotlinCompilerVersion.KOTLINC_1_3_72)) {
-                assertEquals(0, checkNotNullParameter);
-                assertEquals(1, checkParameterIsNotNull);
-              } else {
-                assertEquals(1, checkNotNullParameter);
-                assertEquals(0, checkParameterIsNotNull);
-              }
+              assertEquals(
+                  0,
+                  countCall(main, "checkNotNullParameter"),
+                  countCall(main, "checkParameterIsNotNull"));
             });
   }
 }

@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.kotlin;
 
+import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.kotlin.TestKotlinClass.Visibility;
@@ -130,7 +131,9 @@ public class R8KotlinDataClassTest extends AbstractR8KotlinTestBase {
                     .addKeepRules(keepClassMethod(mainClassName, testMethodSignature))
                     .addOptionsModification(disableClassInliner))
         .applyIf(
-            testParameters.isCfRuntime(),
+            testParameters.isCfRuntime()
+                || kotlinParameters.is(KotlinCompilerVersion.KOTLINC_1_5_0)
+                || kotlinParameters.is(KotlinCompilerVersion.KOTLINC_1_6_0),
             b ->
                 b.inspect(
                     inspector -> checkClassIsRemoved(inspector, TEST_DATA_CLASS.getClassName())),
