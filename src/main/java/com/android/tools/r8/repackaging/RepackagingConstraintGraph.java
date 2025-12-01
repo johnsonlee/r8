@@ -24,6 +24,7 @@ import com.google.common.collect.Sets;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
@@ -47,7 +48,7 @@ public class RepackagingConstraintGraph {
   private final CrossPackageRepackagingConstraints crossPackageRepackagingConstraints;
 
   private final Map<DexDefinition, Node> nodes = new IdentityHashMap<>();
-  private final Set<Node> pinnedNodes = Sets.newIdentityHashSet();
+  private final Set<Node> pinnedNodes = ConcurrentHashMap.newKeySet();
   private final Node libraryBoundaryNode;
 
   public RepackagingConstraintGraph(
