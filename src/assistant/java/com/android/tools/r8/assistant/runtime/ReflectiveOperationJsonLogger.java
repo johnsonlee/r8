@@ -101,7 +101,7 @@ public class ReflectiveOperationJsonLogger implements ReflectiveOperationReceive
     return classLoader == null ? "null" : printClass(classLoader.getClass());
   }
 
-  private void output(ReflectiveEventType event, Stack stack, String... args) {
+  private synchronized void output(ReflectiveEventType event, Stack stack, String... args) {
     try {
       output.write("{\"event\": \"");
       output.write(event.name());
