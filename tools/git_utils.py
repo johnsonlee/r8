@@ -26,3 +26,16 @@ def GetHeadRevision(checkout_dir, use_main=False):
     utils.PrintCmd(cmd)
     with utils.ChangedWorkingDirectory(checkout_dir):
         return subprocess.check_output(cmd).strip().decode('utf-8')
+
+
+def _reviewer_arg(reviewer):
+    if reviewer.find('@') == -1:
+        reviewer = reviewer + "@google.com"
+    return '--reviewer=' + reviewer
+
+
+def GitClAppendReviewers(cmd, reviewer, send_mail):
+    if reviewer:
+        cmd.extend(map(_reviewer_arg, reviewer))
+        if send_mail:
+            cmd.append('--send-mail')

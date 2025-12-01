@@ -15,6 +15,7 @@ import urllib.request
 import xml.etree.ElementTree
 import zipfile
 
+import git_utils
 import utils
 
 R8_DEV_BRANCH = '9.1'
@@ -155,6 +156,8 @@ def prepare_release(args):
                                              version)
 
                 cmd = ['git', 'cl', 'upload', '--no-squash', '--bypass-hooks']
+                git_utils.GitClAppendReviewers(cmd, args.reviewer, args.send_mail)
+
                 maybe_check_call(args, cmd)
 
                 if args.dry_run:
@@ -980,6 +983,17 @@ def parse_options():
         help=('Prepare new branch for a version line (e.g. 8.0)'
              ' Suggested branch hash is calculated '
              ' if not explicitly specified'))
+    result.add_argument('--reviewer',
+                        metavar=('<reviewer(s)>'),
+                        default=[],
+                        action='append',
+                        help='Rewiever(s) for the cherry-pick(s) '
+                        '(adds @google.com if missing)')
+    result.add_argument('--send-mail',
+                        '--send_mail',
+                        default=False,
+                        action='store_true',
+                        help='Send Gerrit review request right away')
     result.add_argument('--dev-pre-cherry-pick',
                         metavar=('<main hash(s)>'),
                         default=[],
