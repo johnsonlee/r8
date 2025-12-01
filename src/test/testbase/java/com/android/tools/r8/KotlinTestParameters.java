@@ -203,8 +203,9 @@ public class KotlinTestParameters {
       return this;
     }
 
-    public Builder withCompilersEndingAtIncluding(KotlinCompilerVersion version) {
-      withCompilerFilter(c -> c.isLessThanOrEqualTo(version));
+    public Builder withCompilersBetweenIncluding(
+        KotlinCompilerVersion from, KotlinCompilerVersion to) {
+      withCompilerFilter(c -> c.isGreaterThanOrEqualTo(from) && c.isLessThanOrEqualTo(to));
       return this;
     }
 

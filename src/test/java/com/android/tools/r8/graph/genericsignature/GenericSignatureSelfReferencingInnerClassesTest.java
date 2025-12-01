@@ -3,7 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.graph.genericsignature;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndRenamed;
 import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assume.assumeTrue;
 
@@ -14,6 +16,7 @@ import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.graph.genericsignature.GenericSignatureSelfReferencingInnerClassesTest.A.B;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.utils.StringUtils;
+import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Iterator;
@@ -88,7 +91,12 @@ public class GenericSignatureSelfReferencingInnerClassesTest extends TestBase {
         .compile()
         .assertAllInfoMessagesMatch(containsString("Malformed inner-class attribute"))
         .run(parameters.getRuntime(), TestClass.class)
-        .assertSuccessWithOutputLines("class " + getClass().getPackage().getName() + ".a", "null");
+        .apply(
+            rr -> {
+              ClassSubject bClassSubject = rr.inspector().clazz(B.class);
+              assertThat(bClassSubject, isPresentAndRenamed());
+              rr.assertSuccessWithOutputLines("class " + bClassSubject.getFinalName(), "null");
+            });
   }
 
   // Change the InnerClasses attribute for the inner class B to be B itself.

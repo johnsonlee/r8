@@ -19,6 +19,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class OutlineMappingInformationTest extends TestBase {
@@ -27,7 +28,7 @@ public class OutlineMappingInformationTest extends TestBase {
   private final boolean throwInFirstOutline;
   private final boolean throwOnFirstCall;
 
-  @Parameterized.Parameters(name = "{0}, throwInFirstOutline: {1}, throwOnFirstCall: {2}")
+  @Parameters(name = "{0}, throwInFirstOutline: {1}, throwOnFirstCall: {2}")
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters().withAllRuntimesAndApiLevels().build(),
@@ -64,6 +65,8 @@ public class OutlineMappingInformationTest extends TestBase {
         testForR8(parameters.getBackend())
             .addProgramClasses(TestClass.class, TestClass2.class, Greeter.class)
             .addKeepMainRule(TestClass.class)
+            // TODO(b/463934388): Repackaging should not break retracing.
+            .addDontRepackage()
             .addOptionsModification(
                 options -> {
                   options.outline.threshold = 2;

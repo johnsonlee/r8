@@ -8,6 +8,7 @@ import static com.android.tools.r8.utils.DescriptorUtils.descriptorToJavaType;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -39,8 +40,8 @@ public class MissingReferenceNamingClashTest extends TestBase {
 
   @Test
   public void testR8() throws Exception {
-    // The references to Missing will be rewritten to a.a but the definition will not be present.
-    String newDescriptor = "La/a;";
+    // The references to Missing will be rewritten to a but the definition will not be present.
+    String newDescriptor = "La;";
     testForR8(parameters.getBackend())
         .addProgramClasses(A.class, Main.class)
         .addProgramClassFileData(
@@ -58,7 +59,9 @@ public class MissingReferenceNamingClashTest extends TestBase {
             inspector -> {
               ClassSubject aSubject = inspector.clazz(A.class);
               assertThat(aSubject, isPresent());
-              assertEquals("La/b;", aSubject.getFinalDescriptor());
+              assertEquals("b", aSubject.getFinalName());
+              assertTrue(
+                  inspector.allClasses().stream().noneMatch(c -> c.getFinalName().equals("a")));
             })
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("A::foo");

@@ -14,6 +14,7 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestShrinkerBuilder;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
+import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import java.io.IOException;
 import java.util.List;
 import org.junit.Test;
@@ -31,21 +32,16 @@ public class AdaptClassStringPrefixTest extends TestBase {
   @Parameter(1)
   public boolean isCompat;
 
-  @Parameter(2)
-  public ProguardVersion proguardVersion;
-
   @Parameters(name = "{0}, isCompat: {1}")
   public static List<Object[]> data() {
     return buildParameters(
-        getTestParameters().withDefaultCfRuntime().build(),
-        BooleanUtils.values(),
-        ProguardVersion.values());
+        getTestParameters().withDefaultCfRuntime().build(), BooleanUtils.values());
   }
 
   @Test
   public void testProguard() throws Exception {
     assumeTrue(isCompat);
-    testForProguard(proguardVersion)
+    testForProguard(ProguardVersion.getLatest())
         .addDontWarn(AdaptClassStringPrefixTest.class)
         .apply(this::setUpTest)
         .run(parameters.getRuntime(), Main.class)
@@ -55,13 +51,16 @@ public class AdaptClassStringPrefixTest extends TestBase {
 
   @Test
   public void testR8() throws Exception {
-    assumeTrue(proguardVersion == ProguardVersion.getLatest());
-    (isCompat ? testForR8Compat(parameters.getBackend()) : testForR8(parameters.getBackend()))
+    testForR8Compat(parameters.getBackend(), isCompat)
         .setMinApi(AndroidApiLevel.B)
         .apply(this::setUpTest)
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutputLines("a.a")
-        .inspect(inspector -> assertThat(inspector.clazz(Foo.class), isPresentAndRenamed()));
+        .apply(
+            rr -> {
+              ClassSubject fooClassSubject = rr.inspector().clazz(Foo.class);
+              assertThat(fooClassSubject, isPresentAndRenamed());
+              rr.assertSuccessWithOutputLines(fooClassSubject.getFinalName());
+            });
   }
 
   private void setUpTest(TestShrinkerBuilder<?, ?, ?, ?, ?> builder) throws IOException {

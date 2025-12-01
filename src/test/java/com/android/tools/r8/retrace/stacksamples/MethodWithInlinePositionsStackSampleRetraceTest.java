@@ -17,7 +17,7 @@ import org.junit.Test;
 
 public class MethodWithInlinePositionsStackSampleRetraceTest extends StackSampleRetraceTestBase {
 
-  private static final String obfuscatedClassName = "com.android.tools.r8.retrace.stacksamples.a";
+  private static final String obfuscatedClassName = "a";
   private static final String obfuscatedMethodName = "a";
 
   static byte[] programClassFileData;
@@ -48,7 +48,7 @@ public class MethodWithInlinePositionsStackSampleRetraceTest extends StackSample
   String getExpectedMap() {
     return StringUtils.joinLines(
         "com.android.tools.r8.retrace.stacksamples.MethodWithInlinePositionsStackSampleRetraceTest$Main"
-            + " -> com.android.tools.r8.retrace.stacksamples.a:",
+            + " -> a:",
         "# {\"id\":\"sourceFile\",\"fileName\":\"MethodWithInlinePositionsStackSampleRetraceTest.java\"}",
         "    1:1:void foo():54:54 -> a",
         "    1:1:void test():50 -> a",

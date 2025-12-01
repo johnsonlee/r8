@@ -18,7 +18,6 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.graph.InnerClassAttribute;
 import com.android.tools.r8.graph.ProgramPackage;
-import com.android.tools.r8.graph.ProgramPackageCollection;
 import com.android.tools.r8.graph.SortedProgramPackageCollection;
 import com.android.tools.r8.graph.fixup.TreeFixerBase;
 import com.android.tools.r8.naming.IdentifierMinifier;
@@ -139,7 +138,7 @@ public class Repackaging {
     BiMap<DexType, DexType> mappings = HashBiMap.create();
     Map<String, String> packageMappings = new HashMap<>();
     Set<String> seenPackageDescriptors = new HashSet<>();
-    ProgramPackageCollection packages =
+    SortedProgramPackageCollection packages =
         SortedProgramPackageCollection.createWithAllProgramClasses(appView);
     processPackagesInDesiredLocation(packages, mappings, packageMappings, seenPackageDescriptors);
     processRemainingPackages(
@@ -201,7 +200,7 @@ public class Repackaging {
   }
 
   private void processPackagesInDesiredLocation(
-      ProgramPackageCollection packages,
+      SortedProgramPackageCollection packages,
       BiMap<DexType, DexType> mappings,
       Map<String, String> packageMappings,
       Set<String> seenPackageDescriptors) {
@@ -227,7 +226,7 @@ public class Repackaging {
   }
 
   private void processRemainingPackages(
-      ProgramPackageCollection packages,
+      SortedProgramPackageCollection packages,
       BiMap<DexType, DexType> mappings,
       Map<String, String> packageMappings,
       Set<String> seenPackageDescriptors,
@@ -311,7 +310,7 @@ public class Repackaging {
 
   private Set<DexProgramClass> computeClassesToRepackage(
       ProgramPackage pkg,
-      ProgramPackageCollection packages,
+      SortedProgramPackageCollection packages,
       Map<ProgramPackage, Set<DexProgramClass>> packagesWithClassesToRepackage,
       ExecutorService executorService)
       throws ExecutionException {

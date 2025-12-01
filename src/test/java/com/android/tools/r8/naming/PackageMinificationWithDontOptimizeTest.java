@@ -35,6 +35,8 @@ public class PackageMinificationWithDontOptimizeTest extends TestBase {
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
+        // This is testing package minification so do not repackage to the empty package.
+        .addDontRepackage()
         .addDontOptimize()
         .setMinApi(parameters)
         .compile()

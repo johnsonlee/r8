@@ -108,7 +108,9 @@ public class KotlinLambdaMergingSingletonTest extends KotlinTestBase {
         lambdasInOutput.add(classReference);
       }
     }
-    assertEquals(2, lambdasInOutput.size());
+    assertEquals(
+        lambdaGeneration.isInvokeDynamic() && parameters.isJvmTestParameters() ? 1 : 2,
+        lambdasInOutput.size());
   }
 
   private String getExpectedOutput() {

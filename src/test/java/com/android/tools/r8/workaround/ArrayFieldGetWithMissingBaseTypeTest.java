@@ -99,10 +99,10 @@ public class ArrayFieldGetWithMissingBaseTypeTest extends TestBase {
   }
 
   // @Keep
-  static class Utils {
+  public static class Utils {
 
     // @Keep
-    static void accept(Consumer<?>[] array) {
+    public static void accept(Consumer<?>[] array) {
       System.out.println(array.length);
     }
 

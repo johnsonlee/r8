@@ -67,7 +67,7 @@ public class SuperClassNotFoundInterfaceMethodDesugaringTest extends TestBase {
 
   interface J extends I {}
 
-  static class Missing {}
+  public static class Missing {}
 
   @NeverClassInline
   static class A extends Missing implements J {

@@ -66,7 +66,7 @@ public class DontKeepBootstrapClassesTest extends DesugaredLibraryTestBase {
             });
   }
 
-  static class CustomLibClass {
+  public static class CustomLibClass {
 
     public static <T> Consumer<T> id(Consumer<T> fn) {
       return fn;

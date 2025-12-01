@@ -23,6 +23,7 @@ import java.util.Collection;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class MetadataPrimitiveTypeRewriteTest extends KotlinMetadataTestBase {
@@ -32,7 +33,7 @@ public class MetadataPrimitiveTypeRewriteTest extends KotlinMetadataTestBase {
   private static final String PKG_LIB = PKG + ".primitive_type_rewrite_lib";
   private static final String PKG_APP = PKG + ".primitive_type_rewrite_app";
 
-  @Parameterized.Parameters(name = "{0}, {1}")
+  @Parameters(name = "{0}, {1}")
   public static Collection<Object[]> data() {
     return buildParameters(
         getTestParameters().withCfRuntimes().build(),
@@ -90,6 +91,8 @@ public class MetadataPrimitiveTypeRewriteTest extends KotlinMetadataTestBase {
             .addKeepAllClassesRuleWithAllowObfuscation()
             .addKeepRules("-keep class " + PKG_LIB + ".LibKt { *; }")
             .addKeepRules("-keep class kotlin.Metadata { *; }")
+            // Repackaging is not supported with cf pass-through methods.
+            .addDontRepackage()
             .applyIf(keepUnit, b -> b.addKeepRules("-keep class kotlin.Unit { *; }"))
             .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
             .compile()

@@ -23,19 +23,18 @@ import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class AvoidRTest extends JasminTestBase {
-  private final TestParameters parameters;
+
+  @Parameter(0)
+  public TestParameters parameters;
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters().withAllRuntimes().build();
-  }
-
-  public AvoidRTest(TestParameters parameters) {
-    this.parameters = parameters;
   }
 
   @Test
@@ -61,6 +60,9 @@ public class AvoidRTest extends JasminTestBase {
     builder.addProgramClassFileData(jasminBuilder.buildClasses());
     Set<String> usedDescriptors = new HashSet<>();
     builder
+        // With repackaging all classes end up in the default package and then the provided
+        // obfuscation dictionary is not large enough.
+        .addDontRepackage()
         .addDontShrink()
         .addKeepRules("-classobfuscationdictionary " + dictionary)
         .compile()

@@ -204,7 +204,7 @@ public class TryCatchTimeConversionTest extends DesugaredLibraryTestBase {
   // This class is convenient for easy testing. Each method plays the role of methods in the
   // platform APIs for which argument/return values need conversion.
   @SuppressWarnings("WeakerAccess")
-  static class CustomLibClass {
+  public static class CustomLibClass {
 
     private static final String ZONE_ID = "GMT";
 

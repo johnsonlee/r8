@@ -93,6 +93,8 @@ public interface ProguardConfigurationParserConsumer {
 
   void disableObfuscation(ProguardConfigurationSourceParser parser, Position position);
 
+  void disableRepackaging(ProguardConfigurationSourceParser parser, Position position);
+
   void disableShrinking(ProguardConfigurationSourceParser parser, Position position);
 
   void enableProtoShrinking(ProguardConfigurationSourceParser parser, TextPosition positionStart);

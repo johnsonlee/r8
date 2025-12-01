@@ -272,6 +272,11 @@ public class FilteredKeepRulesBuilder implements ProguardConfigurationParserCons
   }
 
   @Override
+  public void disableRepackaging(ProguardConfigurationSourceParser parser, Position position) {
+    writeComment("-dontrepackage");
+  }
+
+  @Override
   public void disableOptimization(ProguardConfigurationSourceParser parser, Position position) {
     writeComment("-dontoptimize");
   }

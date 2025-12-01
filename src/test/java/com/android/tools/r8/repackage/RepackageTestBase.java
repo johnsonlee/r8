@@ -135,6 +135,10 @@ public abstract class RepackageTestBase extends TestBase {
         "-" + flattenPackageHierarchyOrRepackageClasses + " \"" + getRepackagePackage() + "\"");
   }
 
+  protected void configureNoRepackaging(TestShrinkerBuilder<?, ?, ?, ?, ?> testBuilder) {
+    testBuilder.addKeepRules("-dontrepackage");
+  }
+
   protected boolean isFlattenPackageHierarchy() {
     return flattenPackageHierarchyOrRepackageClasses.equals(FLATTEN_PACKAGE_HIERARCHY);
   }

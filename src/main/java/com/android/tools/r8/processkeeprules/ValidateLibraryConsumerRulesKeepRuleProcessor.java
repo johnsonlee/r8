@@ -52,6 +52,11 @@ class ValidateLibraryConsumerRulesKeepRuleProcessor implements ProguardConfigura
   }
 
   @Override
+  public void disableRepackaging(ProguardConfigurationSourceParser parser, Position position) {
+    handleRule(parser, position, "-dontrepackage");
+  }
+
+  @Override
   public void disableShrinking(ProguardConfigurationSourceParser parser, Position position) {
     handleRule(parser, position, "-dontshrink");
   }

@@ -53,6 +53,8 @@ public class IfRuleWithFieldBasedOnClassExtends extends TestBase {
         .addKeepMainRule(TestClass.class)
         .addKeepClassAndMembersRules(Extending.class)
         .addKeepRules(CONDITIONAL_KEEP_RULE)
+        // Repackaging the reflective field accesses can cause IllegalAccessError.
+        .addDontRepackage()
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), TestClass.class)

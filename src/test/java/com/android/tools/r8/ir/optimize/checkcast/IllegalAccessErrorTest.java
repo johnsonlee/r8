@@ -41,11 +41,23 @@ public class IllegalAccessErrorTest extends AsmTestBase {
   }
 
   @Test
+  public void testD8() throws Exception {
+    parameters.assumeDexRuntime();
+    testForD8(parameters)
+        .addProgramClasses(NonAccessible.class)
+        .addProgramClassFileData(IllegalAccessErrorTestDump.dump())
+        .run(parameters.getRuntime(), MAIN)
+        .assertSuccessWithOutputLines(IllegalAccessErrorTestDump.MESSAGE);
+  }
+
+  @Test
   public void testR8() throws Exception {
     testForR8(parameters.getBackend())
         .addProgramClasses(NonAccessible.class)
         .addProgramClassFileData(IllegalAccessErrorTestDump.dump())
         .addKeepMainRule(MAIN)
+        // TODO(b/463710779): Repackaging should preserve the IllegalAccessError.
+        .addDontRepackage()
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), MAIN)

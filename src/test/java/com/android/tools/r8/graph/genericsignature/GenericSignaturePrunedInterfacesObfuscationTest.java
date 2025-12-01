@@ -4,31 +4,31 @@
 
 package com.android.tools.r8.graph.genericsignature;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndRenamed;
+import static org.hamcrest.MatcherAssert.assertThat;
+
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import java.lang.reflect.Type;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class GenericSignaturePrunedInterfacesObfuscationTest extends TestBase {
 
-  private final TestParameters parameters;
-  private final String[] EXPECTED = new String[] {"interface a.b", "a.b<java.lang.Object>"};
+  @Parameter(0)
+  public TestParameters parameters;
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
   }
-
-  public GenericSignaturePrunedInterfacesObfuscationTest(TestParameters parameters) {
-    this.parameters = parameters;
-  }
-
   @Test
   public void testR8() throws Exception {
     testForR8Compat(parameters.getBackend())
@@ -41,7 +41,14 @@ public class GenericSignaturePrunedInterfacesObfuscationTest extends TestBase {
         .addKeepAttributeInnerClassesAndEnclosingMethod()
         .enableInliningAnnotations()
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutputLines(EXPECTED);
+        .apply(
+            rr -> {
+              ClassSubject jClassSubject = rr.inspector().clazz(J.class);
+              assertThat(jClassSubject, isPresentAndRenamed());
+              rr.assertSuccessWithOutputLines(
+                  "interface " + jClassSubject.getFinalName(),
+                  jClassSubject.getFinalName() + "<java.lang.Object>");
+            });
   }
 
   public interface I {}

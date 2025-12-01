@@ -71,6 +71,8 @@ public class VirtualMethodMergingWithAbsentMethodAndSuperClassMergingTest extend
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
+        // The options modification below relies on the classes not being repackaged.
+        .addDontRepackage()
         // Control the targets of the horizontal class merger.
         .addOptionsModification(
             options ->

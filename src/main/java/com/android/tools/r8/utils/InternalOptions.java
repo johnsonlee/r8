@@ -554,6 +554,9 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   //  default in debug mode.
   public boolean emitLambdaMethodAnnotations =
       System.getProperty("com.android.tools.r8.emitLambdaMethodAnnotations") != null;
+  // TODO(b/464478094): Flag to disable generation of LambdaMethod annotations.
+  public boolean disableLambdaMethodAnnotations =
+      System.getProperty("com.android.tools.r8.disableLambdaMethodAnnotations") != null;
 
   private DumpInputFlags dumpInputFlags = DumpInputFlags.getDefault();
 
@@ -880,10 +883,26 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   @Override
   public boolean isRepackagingEnabled() {
-    return !debug
-        && proguardConfiguration != null
-        && proguardConfiguration.getPackageObfuscationMode().isSome()
-        && (isMinifying() || !isForceProguardCompatibilityEnabled());
+    if (debug || proguardConfiguration == null || getLibraryDesugaringOptions().isL8()) {
+      return false;
+    }
+    if (isForceProguardCompatibilityEnabled() && !isMinifying()) {
+      return false;
+    }
+    PackageObfuscationMode packageObfuscationMode =
+        proguardConfiguration.getPackageObfuscationMode();
+    if (packageObfuscationMode.isNone()) {
+      return false;
+    }
+    if (packageObfuscationMode.isDefault()) {
+      if (!getTestingOptions().enableRepackagingByDefault) {
+        return false;
+      }
+      if (isGeneratingClassFiles() && !getTestingOptions().enableRepackagingByDefaultForCf) {
+        return false;
+      }
+    }
+    return true;
   }
 
   @Override
@@ -1622,6 +1641,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   }
 
   public enum PackageObfuscationMode {
+    // Default.
+    DEFAULT,
     // No package obfuscation.
     NONE,
     // Strategy based on ordinary package obfuscation when no package-obfuscation mode is specified
@@ -1632,6 +1653,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     // Repackaging all packages into the single user-given (or top-level) package.
     FLATTEN;
 
+    public boolean isDefault() {
+      return this == DEFAULT;
+    }
+
     public boolean isNone() {
       return this == NONE;
     }
@@ -1641,7 +1666,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     }
 
     public boolean isRepackageClasses() {
-      return this == REPACKAGE;
+      return this == REPACKAGE || isDefault();
     }
 
     public boolean isMinification() {
@@ -2398,6 +2423,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
             "com.android.tools.r8.enableMapIdInSourceFile", true);
     public boolean enableMemberRebindingAnalysis = true;
     public boolean enableMultiANewArrayDesugaringForClassFiles = false;
+    public boolean enableRepackagingByDefault = false;
+    public boolean enableRepackagingByDefaultForCf = false;
     public boolean enableStrictFrameVerification = false;
     public boolean enableSyntheticSharing = true;
     public boolean enableSwitchToIfRewriting = true;

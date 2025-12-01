@@ -26,6 +26,8 @@ public class PackagePrivateMembersAccessedTest extends HorizontalClassMergingTes
         .addInnerClasses(getClass())
         .addProgramClasses(C.class)
         .addProgramClasses(D.class)
+        // This test explicitly tests what happens when E is in a different package from C and D.
+        .addDontRepackage()
         .addKeepMainRule(Main.class)
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()

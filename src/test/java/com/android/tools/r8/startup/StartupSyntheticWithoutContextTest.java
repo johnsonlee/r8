@@ -29,9 +29,11 @@ import com.android.tools.r8.startup.utils.StartupTestingUtils;
 import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
+import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.MethodReferenceUtils;
 import com.android.tools.r8.utils.TypeReferenceUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
+import com.android.tools.r8.utils.codeinspector.RepackagingInspector;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import java.util.Collection;
@@ -85,6 +87,7 @@ public class StartupSyntheticWithoutContextTest extends TestBase {
             .assertSuccessWithOutputLines(getExpectedOutput());
     assertEquals(getExpectedStartupList(d8RunResult.getSyntheticItems()), startupList);
 
+    Box<RepackagingInspector> repackagingBox = new Box<>();
     R8FullTestBuilder r8TestBuilder = testForR8(parameters.getBackend());
     r8TestBuilder
         .addInnerClasses(getClass())
@@ -99,8 +102,10 @@ public class StartupSyntheticWithoutContextTest extends TestBase {
               options
                   .getTestingOptions()
                   .setMixedSectionLayoutStrategyInspector(
-                      getMixedSectionLayoutInspector(r8TestBuilder.getState().getSyntheticItems()));
+                      getMixedSectionLayoutInspector(
+                          repackagingBox, r8TestBuilder.getState().getSyntheticItems()));
             })
+        .addRepackagingInspector(repackagingBox::set)
         .allowDiagnosticInfoMessages()
         .apply(testBuilder -> StartupTestingUtils.addStartupProfile(testBuilder, startupList))
         .collectSyntheticItems()
@@ -166,29 +171,31 @@ public class StartupSyntheticWithoutContextTest extends TestBase {
   }
 
   private List<ClassReference> getExpectedClassDataLayout(
-      int virtualFile, SyntheticItemsTestUtils syntheticItems) {
+      int virtualFile, RepackagingInspector repackaging, SyntheticItemsTestUtils syntheticItems) {
     ImmutableList.Builder<ClassReference> builder = ImmutableList.builder();
     if (virtualFile == 0) {
       builder.add(
           Reference.classFromClass(Main.class),
           Reference.classFromClass(A.class),
           Reference.classFromClass(C.class),
-          getSyntheticLambdaClassReference(B.class, syntheticItems));
+          getSyntheticLambdaClassReference(B.class, syntheticItems, repackaging));
     }
     if (!enableMinimalStartupDex || virtualFile == 1) {
-      builder.add(getSyntheticLambdaClassReference(Main.class, syntheticItems));
+      builder.add(getSyntheticLambdaClassReference(Main.class, syntheticItems, repackaging));
     }
     return builder.build();
   }
 
   private MixedSectionLayoutInspector getMixedSectionLayoutInspector(
-      SyntheticItemsTestUtils syntheticItems) {
+      Box<RepackagingInspector> repackagingBox, SyntheticItemsTestUtils syntheticItems) {
     return new MixedSectionLayoutInspector() {
       @Override
       public void inspectClassDataLayout(int virtualFile, Collection<DexProgramClass> layout) {
+        RepackagingInspector repackaging = repackagingBox.get();
         assertThat(
             layout,
-            isEqualToClassDataLayout(getExpectedClassDataLayout(virtualFile, syntheticItems)));
+            isEqualToClassDataLayout(
+                getExpectedClassDataLayout(virtualFile, repackaging, syntheticItems)));
       }
     };
   }
@@ -219,7 +226,16 @@ public class StartupSyntheticWithoutContextTest extends TestBase {
 
   private static ClassReference getSyntheticLambdaClassReference(
       Class<?> synthesizingContext, SyntheticItemsTestUtils syntheticItems) {
-    return syntheticItems.syntheticLambdaClass(synthesizingContext, 0);
+    return getSyntheticLambdaClassReference(synthesizingContext, syntheticItems, null);
+  }
+
+  private static ClassReference getSyntheticLambdaClassReference(
+      Class<?> synthesizingContext,
+      SyntheticItemsTestUtils syntheticItems,
+      RepackagingInspector repackaging) {
+    ClassReference syntheticLambdaClass =
+        syntheticItems.syntheticLambdaClass(synthesizingContext, 0);
+    return repackaging != null ? repackaging.getTarget(syntheticLambdaClass) : syntheticLambdaClass;
   }
 
   static class Main {

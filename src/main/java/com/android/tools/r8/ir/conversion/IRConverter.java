@@ -594,9 +594,6 @@ public class IRConverter {
     assertionsRewriter.run(method, code, deadCodeRemover, timing);
     previous = printMethod(code, "IR after assertions rewriter (SSA)", previous);
 
-    CheckNotNullConverter.runIfNecessary(appView, code);
-    previous = printMethod(code, "IR after check not null converter (SSA)", previous);
-
     timing.begin("Run proto shrinking tasks");
     appView.withGeneratedExtensionRegistryShrinker(shrinker -> shrinker.rewriteCode(method, code));
     previous = printMethod(code, "IR after generated extension registry shrinking (SSA)", previous);
@@ -639,6 +636,10 @@ public class IRConverter {
       assumeInserter.insertAssumeInstructions(code, timing);
       previous = printMethod(code, "IR after inserting assume instructions (SSA)", previous);
     }
+
+    // Must run after assume insertion.
+    CheckNotNullConverter.runIfNecessary(appView, code);
+    previous = printMethod(code, "IR after check not null converter (SSA)", previous);
 
     if (inliner != null && !isDebugMode) {
       timing.begin("Inlining");

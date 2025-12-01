@@ -44,6 +44,8 @@ public class MetadataRewriteDoNotEmitValuesIfEmptyTest extends KotlinMetadataTes
   public void testKotlinStdLib() throws Exception {
     testForR8(parameters.getBackend())
         .addProgramFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
+        // Repackaging is not supported with cf pass-through methods.
+        .addDontRepackage()
         .setMinApi(parameters)
         .addKeepAllClassesRuleWithAllowObfuscation()
         .addKeepKotlinMetadata()

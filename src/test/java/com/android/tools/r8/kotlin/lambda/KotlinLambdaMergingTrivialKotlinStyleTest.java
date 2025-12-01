@@ -4,8 +4,6 @@
 
 package com.android.tools.r8.kotlin.lambda;
 
-import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_5_0;
-import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_6_0;
 import static junit.framework.TestCase.assertEquals;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
@@ -118,23 +116,12 @@ public class KotlinLambdaMergingTrivialKotlinStyleTest extends KotlinTestBase {
       inspector
           .applyIf(
               kotlinParameters.getLambdaGeneration().isClass(),
-              i -> {
-                if (kotlinParameters.is(KOTLINC_1_5_0) || kotlinParameters.is(KOTLINC_1_6_0)) {
-                  i.assertIsCompleteMergeGroup(
-                      lambdasInInput.getKStyleLambdaReferenceFromTypeName(
-                          getTestName(), "MainKt$testStateless$6"),
-                      lambdasInInput.getKStyleLambdaReferenceFromTypeName(
-                          getTestName(), "MainKt$testStateless$11"),
-                      lambdasInInput.getKStyleLambdaReferenceFromTypeName(
-                          getTestName(), "MainKt$testStateless$12"));
-                } else {
+              i ->
                   i.assertIsCompleteMergeGroup(
                       lambdasInInput.getKStyleLambdaReferenceFromTypeName(
                           getTestName(), "MainKt$testStateless$11"),
                       lambdasInInput.getKStyleLambdaReferenceFromTypeName(
-                          getTestName(), "MainKt$testStateless$12"));
-                }
-              },
+                          getTestName(), "MainKt$testStateless$12")),
               i ->
                   i.assertIsCompleteMergeGroup(
                       syntheticItems.syntheticLambdaClass(mainKt, 0),

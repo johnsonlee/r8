@@ -78,7 +78,7 @@ public class SpliteratorConversionTest extends DesugaredLibraryTestBase {
   // This class will be put at compilation time as library and on the runtime class path.
   // This class is convenient for easy testing. Each method plays the role of methods in the
   // platform APIs for which argument/return values need conversion.
-  static class CustomLibClass {
+  public static class CustomLibClass {
 
     public static void printSpliterator(Spliterator<String> split) {
       System.out.println(split.getExactSizeIfKnown());

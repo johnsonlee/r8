@@ -130,7 +130,7 @@ public class ConversionIntroduceInterfaceMethodTest extends DesugaredLibraryTest
     }
   }
 
-  static class CustomLibClass {
+  public static class CustomLibClass {
 
     public static void callForEach(Iterable<?> iterable) {
       iterable.forEach(x -> System.out.println("action called from java consumer"));

@@ -31,6 +31,8 @@ public class InterfacesVisibilityTest extends HorizontalClassMergingTestBase {
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass(), InterfacesVisibilityTestClasses.class)
         .addKeepMainRule(Main.class)
+        // This is testing cross-package boundary accesses, so do not repackage to default package.
+        .addDontRepackage()
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
         .enableNoAccessModificationAnnotationsForClasses()

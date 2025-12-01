@@ -129,6 +129,10 @@ public abstract class TestShrinkerBuilder<
     return addKeepRules("-dontoptimize");
   }
 
+  public T addDontRepackage() {
+    return addKeepRules("-dontrepackage");
+  }
+
   public T addDontShrink() {
     return addKeepRules("-dontshrink");
   }

@@ -68,6 +68,8 @@ public class PolymorphicMethodWithNullReceiverBoundTest extends TestBase {
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
+        // The test configures cf pass-through, so don't repackage.
+        .addDontRepackage()
         .enableNoHorizontalClassMergingAnnotations()
         .enableNoVerticalClassMergingAnnotations()
         .setMinApi(parameters)
