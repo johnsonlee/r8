@@ -5,15 +5,12 @@
 package com.android.tools.r8.ir.optimize;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 
 import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.NeverPropagateValue;
-import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.StringUtils;
@@ -28,43 +25,9 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class DivisionToShiftTest extends TestBase {
+public class DivisionToShiftLongTest extends TestBase {
 
-  private static final String EXPECTED_OUTPUT_INT =
-      StringUtils.lines(
-          "61728394",
-          "30864197",
-          "15432098",
-          "7716049",
-          "3858024",
-          "1929012",
-          "964506",
-          "482253",
-          "241126",
-          "120563",
-          "60281",
-          "30140",
-          "15070",
-          "7535",
-          "3767",
-          "1883",
-          "941",
-          "470",
-          "235",
-          "117",
-          "58",
-          "29",
-          "14",
-          "7",
-          "3",
-          "1",
-          "0",
-          "0",
-          "0",
-          "0",
-          "0");
-
-  private static final String EXPECTED_OUTPUT_LONG =
+  private static final String EXPECTED_OUTPUT =
       StringUtils.lines(
           "6172839455055606",
           "3086419727527803",
@@ -130,52 +93,51 @@ public class DivisionToShiftTest extends TestBase {
           "0",
           "0");
 
+  private static int getExpectedDivisionCount(
+      boolean isDivideUnsignedSupported, boolean isBackportInlined) {
+    if (!isDivideUnsignedSupported && isBackportInlined) {
+      // Each backport has two divisions.
+      // The last inlined backport is folded into a constant.
+      return 63 * 2 - 2;
+    } else {
+      return 63;
+    }
+  }
+
   @Parameterized.Parameter(0)
   public TestParameters parameters;
 
   @Parameterized.Parameter(1)
   public CompilationMode mode;
 
-  @Parameterized.Parameter(2)
-  public Type type;
-
-  @Parameters(name = "{0}, {1}, {2}")
+  @Parameters(name = "{0}, {1}")
   public static List<Object[]> data() {
     return buildParameters(
-        getTestParameters().withAllRuntimesAndApiLevels().build(),
-        CompilationMode.values(),
-        new Type[] {Type.INT, Type.LONG});
-  }
-
-  public enum Type {
-    INT,
-    LONG
+        getTestParameters().withAllRuntimesAndApiLevels().build(), CompilationMode.values());
   }
 
   @Test
   public void testJvm() throws Exception {
     parameters.assumeJvmTestParameters();
-    Class<?> testClass = getPositiveTestClass();
     testForJvm(parameters)
-        .addProgramClasses(testClass)
-        .run(parameters.getRuntime(), testClass)
-        .assertSuccessWithOutput(getExpectedOutput());
+        .addProgramClasses(PositiveTest.class)
+        .run(parameters.getRuntime(), PositiveTest.class)
+        .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   @Test
   public void testR8Positive() throws Exception {
-    Class<?> testClass = getPositiveTestClass();
     testForR8(parameters)
-        .addProgramClasses(testClass)
+        .addProgramClasses(PositiveTest.class)
         .setMode(mode)
-        .applyIf(type == Type.LONG, R8TestBuilder::enableMemberValuePropagationAnnotations)
-        .applyIf(type == Type.LONG, R8TestBuilder::enableInliningAnnotations)
-        .addKeepMainRule(testClass)
+        .enableMemberValuePropagationAnnotations()
+        .enableInliningAnnotations()
+        .addKeepMainRule(PositiveTest.class)
         .collectSyntheticItems()
         .compile()
         .inspectWithSyntheticItems(
             (inspector, syntheticItemsTestUtils) -> {
-              MethodSubject mainMethod = inspector.clazz(testClass).mainMethod();
+              MethodSubject mainMethod = inspector.clazz(PositiveTest.class).mainMethod();
               boolean isBackportInlined = mode.isRelease();
               int expectedDivisionCount =
                   getExpectedDivisionCount(
@@ -190,7 +152,7 @@ public class DivisionToShiftTest extends TestBase {
                           .filter(InstructionSubject::isUnsignedShiftRight)
                           .count());
                 } else {
-                  assertEquals(expectedDivisionCount, divideUnsignedCallCount(mainMethod, type));
+                  assertEquals(expectedDivisionCount, divideUnsignedCallCount(mainMethod));
                 }
               } else {
                 if (isBackportInlined) {
@@ -201,28 +163,26 @@ public class DivisionToShiftTest extends TestBase {
                           .count();
                   assertEquals(expectedDivisionCount, divisionCount);
                 } else {
-                  long backportCallCount =
-                      backportCallCount(syntheticItemsTestUtils, mainMethod, testClass, type);
+                  long backportCallCount = backportCallCount(syntheticItemsTestUtils, mainMethod);
                   assertEquals(expectedDivisionCount, backportCallCount);
                 }
               }
             })
-        .run(parameters.getRuntime(), testClass)
-        .assertSuccessWithOutput(getExpectedOutput());
+        .run(parameters.getRuntime(), PositiveTest.class)
+        .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   @Test
   public void testD8Positive() throws Exception {
     parameters.assumeDexRuntime();
-    Class<?> testClass = getPositiveTestClass();
     testForD8(parameters)
-        .addProgramClasses(testClass)
+        .addProgramClasses(PositiveTest.class)
         .setMode(mode)
         .collectSyntheticItems()
         .compile()
         .inspectWithSyntheticItems(
             (inspector, syntheticItemsTestUtils) -> {
-              MethodSubject mainMethod = inspector.clazz(testClass).mainMethod();
+              MethodSubject mainMethod = inspector.clazz(PositiveTest.class).mainMethod();
               int expectedDivisionCount =
                   getExpectedDivisionCount(parameters.canUseJavaLangDivideUnsigned(), false);
               if (parameters.canUseJavaLangDivideUnsigned()) {
@@ -235,144 +195,37 @@ public class DivisionToShiftTest extends TestBase {
                           .count();
                   assertEquals(expectedDivisionCount, unsignedShiftCount);
                 } else {
-                  assertEquals(expectedDivisionCount, divideUnsignedCallCount(mainMethod, type));
+                  assertEquals(expectedDivisionCount, divideUnsignedCallCount(mainMethod));
                 }
               } else {
                 assertEquals(
-                    expectedDivisionCount,
-                    backportCallCount(syntheticItemsTestUtils, mainMethod, testClass, type));
+                    expectedDivisionCount, backportCallCount(syntheticItemsTestUtils, mainMethod));
               }
             })
-        .run(parameters.getRuntime(), testClass)
-        .assertSuccessWithOutput(getExpectedOutput());
+        .run(parameters.getRuntime(), PositiveTest.class)
+        .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
-  private Class<?> getPositiveTestClass() {
-    switch (type) {
-      case INT:
-        return IntPositiveTest.class;
-      case LONG:
-        return LongPositiveTest.class;
-      default:
-        throw new Unreachable();
-    }
-  }
-
-  private int getExpectedDivisionCount(
-      boolean isDivideUnsignedSupported, boolean isBackportInlined) {
-    switch (type) {
-      case INT:
-        return 31;
-      case LONG:
-        if (!isDivideUnsignedSupported && isBackportInlined) {
-          // Each backport has two divisions.
-          // The last inlined backport is folded into a constant.
-          return 63 * 2 - 2;
-        }
-        return 63;
-      default:
-        throw new Unreachable();
-    }
-  }
-
-  private String getExpectedOutput() {
-    switch (type) {
-      case INT:
-        return EXPECTED_OUTPUT_INT;
-      case LONG:
-        return EXPECTED_OUTPUT_LONG;
-      default:
-        throw new Unreachable();
-    }
-  }
-
-  /**
-   * @param type must be INT or LONG.
-   */
   private static long backportCallCount(
-      SyntheticItemsTestUtils syntheticItemsTestUtils,
-      MethodSubject mainMethod,
-      Class<?> testClass,
-      Type type)
+      SyntheticItemsTestUtils syntheticItemsTestUtils, MethodSubject mainMethod)
       throws NoSuchMethodException {
-    Method baseDivisionMethod;
-    switch (type) {
-      case INT:
-        baseDivisionMethod = Integer.class.getMethod("divideUnsigned", int.class, int.class);
-        break;
-      case LONG:
-        baseDivisionMethod = Long.class.getMethod("divideUnsigned", long.class, long.class);
-        break;
-      default:
-        throw new Unreachable();
-    }
+    Method baseDivisionMethod = Long.class.getMethod("divideUnsigned", long.class, long.class);
     MethodReference backportMethod =
-        syntheticItemsTestUtils.syntheticBackportMethod(testClass, 0, baseDivisionMethod);
+        syntheticItemsTestUtils.syntheticBackportMethod(PositiveTest.class, 0, baseDivisionMethod);
     return mainMethod
         .streamInstructions()
         .filter(CodeMatchers.isInvokeWithTarget(backportMethod))
         .count();
   }
 
-  /**
-   * @param type must be INT or LONG.
-   */
-  private static long divideUnsignedCallCount(MethodSubject method, Type type) {
-    String holder;
-    switch (type) {
-      case INT:
-        holder = "java.lang.Integer";
-        break;
-      case LONG:
-        holder = "java.lang.Long";
-        break;
-      default:
-        throw new Unreachable();
-    }
+  private static long divideUnsignedCallCount(MethodSubject method) {
     return method
         .streamInstructions()
-        .filter(CodeMatchers.isInvokeWithTarget(holder, "divideUnsigned"))
+        .filter(CodeMatchers.isInvokeWithTarget("java.lang.Long", "divideUnsigned"))
         .count();
   }
 
-  public static class IntPositiveTest {
-    public static void main(String[] args) {
-
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000000000000010));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000000000000100));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000000000001000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000000000010000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000000000100000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000000001000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000000010000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000000100000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000001000000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000010000000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000100000000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000001000000000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000010000000000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000100000000000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000001000000000000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000010000000000000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000100000000000000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000001000000000000000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000010000000000000000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000100000000000000000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000001000000000000000000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000010000000000000000000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000100000000000000000000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000001000000000000000000000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000010000000000000000000000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000100000000000000000000000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00001000000000000000000000000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00010000000000000000000000000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00100000000000000000000000000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b01000000000000000000000000000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b10000000000000000000000000000000));
-    }
-  }
-
-  public static class LongPositiveTest {
+  public static class PositiveTest {
     public static void main(String[] args) {
       System.out.println(
           Long.divideUnsigned(
@@ -632,77 +485,6 @@ public class DivisionToShiftTest extends TestBase {
     @NeverInline
     private static long hideConst(long p) {
       return p;
-    }
-  }
-
-  @Test
-  public void testR8Negative() throws Exception {
-    testForR8(parameters)
-        .addProgramClasses(NegativeTest.class)
-        .setMode(mode)
-        .addKeepMainRule(NegativeTest.class)
-        .compile()
-        .inspect(
-            inspector -> {
-              MethodSubject mainMethod = inspector.clazz(NegativeTest.class).mainMethod();
-              assertFalse(
-                  mainMethod
-                      .streamInstructions()
-                      .anyMatch(InstructionSubject::isUnsignedShiftRight));
-            });
-  }
-
-  @Test
-  public void testD8Negative() throws Exception {
-    parameters.assumeDexRuntime();
-    testForD8(parameters)
-        .addProgramClasses(NegativeTest.class)
-        .setMode(mode)
-        .compile()
-        .inspect(
-            inspector -> {
-              MethodSubject mainMethod = inspector.clazz(NegativeTest.class).mainMethod();
-              assertFalse(
-                  mainMethod
-                      .streamInstructions()
-                      .anyMatch(InstructionSubject::isUnsignedShiftRight));
-            });
-  }
-
-  public static class NegativeTest {
-    public static void main(String[] args) {
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000000000000001));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000000000000011));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000000000000101));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000000000001010));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000000000010100));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000000000100010));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000000001000001));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000000010001000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000000100100000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000001000000100));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000010000100000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000000100100000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000001000000000010));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000010000001000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000000100010000000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000001000000001000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000010000000000010000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000000100010000000000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000001000000000010000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000010000000100000000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000000100000000000001000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000001000000001000000000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000011111111111111111111111));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000000100000100000000000000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000001000000000100000000000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000010000000000000000100000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00000100000000000000100000000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00001000000011100000000100000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00010000000000000000000010000000));
-      System.out.println(Integer.divideUnsigned(123456789, 0b00100000000000000000000000000001));
-      System.out.println(Integer.divideUnsigned(123456789, 0b01000000000000000000000000001111));
-      System.out.println(Integer.divideUnsigned(123456789, 0b11111111111111111111111111111111));
     }
   }
 }
