@@ -113,9 +113,15 @@ class TestConfigurationHelper {
       if (project.hasProperty("no_internal")) {
         test.exclude("com/android/tools/r8/internal/**")
       }
+
+      // Include sanity checks on lib jars when running --only_internal.
       if (project.hasProperty("only_internal")) {
         test.include("com/android/tools/r8/internal/**")
+        test.include("com/android/tools/r8/processkeeprules/sanitychecks/**")
+      } else {
+        test.exclude("com/android/tools/r8/processkeeprules/sanitychecks/**")
       }
+
       if (project.hasProperty("no_arttests")) {
         test.exclude("com/android/tools/r8/art/**")
       }
