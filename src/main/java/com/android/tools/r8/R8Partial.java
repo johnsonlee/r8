@@ -342,6 +342,8 @@ class R8Partial {
         options.emitPermittedSubclassesAnnotationsInDex;
     subCompilationOptions.desugarState = options.desugarState;
     subCompilationOptions.forceNestDesugaring = options.forceNestDesugaring;
+    subCompilationOptions.emitLambdaMethodAnnotations = options.emitLambdaMethodAnnotations;
+    subCompilationOptions.disableLambdaMethodAnnotations = options.disableLambdaMethodAnnotations;
     subCompilationOptions.getTestingOptions().forceDexContainerFormat =
         options.getTestingOptions().forceDexContainerFormat;
   }
