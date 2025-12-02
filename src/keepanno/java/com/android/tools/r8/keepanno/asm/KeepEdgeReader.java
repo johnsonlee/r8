@@ -36,7 +36,6 @@ import com.android.tools.r8.keepanno.ast.KeepClassPattern;
 import com.android.tools.r8.keepanno.ast.KeepCondition;
 import com.android.tools.r8.keepanno.ast.KeepConsequences;
 import com.android.tools.r8.keepanno.ast.KeepConstraint;
-import com.android.tools.r8.keepanno.ast.KeepConstraint.Annotation;
 import com.android.tools.r8.keepanno.ast.KeepConstraints;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.keepanno.ast.KeepEdge;
@@ -71,7 +70,6 @@ import com.android.tools.r8.keepanno.ast.ParsingContext.MethodParsingContext;
 import com.android.tools.r8.keepanno.ast.ParsingContext.PropertyParsingContext;
 import com.android.tools.r8.keepanno.utils.DescriptorUtils;
 import com.google.common.collect.ImmutableList;
-import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -1727,8 +1725,6 @@ public class KeepEdgeReader implements Opcodes {
 
     @Override
     public void visitEnd() {
-      String kotlinMetadataDescriptor = "Lkotlin/Metadata;";
-
       KeepClassBindingReference classBinding =
           bindingsHelper.defineFreshClassBinding(getKeepClassItemPattern());
       KeepMemberBindingReference memberBinding =
@@ -1743,44 +1739,10 @@ public class KeepEdgeReader implements Opcodes {
                           .build())
                   .build());
 
-      KeepClassBindingReference kotlinMetadataBinding =
-          bindingsHelper.defineFreshClassBinding(
-              KeepClassItemPattern.builder()
-                  .setClassPattern(KeepClassPattern.exactFromDescriptor(kotlinMetadataDescriptor))
-                  .build());
-      KeepMemberBindingReference kotlinMetadataMembersBinding =
-          bindingsHelper.defineFreshMemberBinding(
-              KeepMemberItemPattern.builder()
-                  .setClassReference(kotlinMetadataBinding)
-                  .setMemberPattern(KeepMemberPattern.allMembers())
-                  .build());
-
-      Annotation keepConstraintKotlinMetadataAnnotation =
-          KeepConstraint.annotation(
-              KeepAnnotationPattern.builder()
-                  .setNamePattern(
-                      KeepQualifiedClassNamePattern.exactFromDescriptor(kotlinMetadataDescriptor))
-                  .addRetentionPolicy(RetentionPolicy.RUNTIME)
-                  .build());
-
       KeepConsequences.Builder consequencesBuilder =
           KeepConsequences.builder()
-              .addTarget(
-                  KeepTarget.builder()
-                      .setItemReference(classBinding)
-                      .setConstraints(
-                          KeepConstraints.defaultAdditions(
-                              KeepConstraints.builder()
-                                  .add(keepConstraintKotlinMetadataAnnotation)
-                                  .build()))
-                      .build())
-              .addTarget(
-                  KeepTarget.builder()
-                      .setItemReference(memberBinding)
-                      .build())
-              .addTarget(KeepTarget.builder().setItemReference(kotlinMetadataBinding).build())
-              .addTarget(
-                  KeepTarget.builder().setItemReference(kotlinMetadataMembersBinding).build());
+              .addTarget(KeepTarget.builder().setItemReference(classBinding).build())
+              .addTarget(KeepTarget.builder().setItemReference(memberBinding).build());
 
       parent.accept(
           builder
@@ -1947,8 +1909,6 @@ public class KeepEdgeReader implements Opcodes {
 
     @Override
     public void visitEnd() {
-      String kotlinMetadataDescriptor = "Lkotlin/Metadata;";
-
       KeepClassBindingReference classBinding =
           bindingsHelper.defineFreshClassBinding(getKeepClassItemPattern());
       KeepMemberBindingReference memberBinding =
@@ -1962,14 +1922,15 @@ public class KeepEdgeReader implements Opcodes {
                           .setReturnTypePattern(returnType)
                           .build())
                   .build());
+      // Use a fresh class binding for the Kotlin $default method as otherwise this
+      // method will be part of the required structure of the class matched. See test
+      // KeepConjunctiveBindingsTest.
+      KeepClassBindingReference classBindingForKotlinDefaultMethod =
+          bindingsHelper.defineFreshClassBinding(getKeepClassItemPattern());
       KeepMemberBindingReference memberBindingKotlinDefault =
           bindingsHelper.defineFreshMemberBinding(
               KeepMemberItemPattern.builder()
-                  // Use a fresh class binding for the Kotlin $default method as otherwise this
-                  // method will be part of the required structure of the class matched. See test
-                  // KeepConjunctiveBindingsTest.
-                  .setClassReference(
-                      bindingsHelper.defineFreshClassBinding(getKeepClassItemPattern()))
+                  .setClassReference(classBindingForKotlinDefaultMethod)
                   .setMemberPattern(
                       KeepMethodPattern.builder()
                           .setNamePattern(methodNameKotlinDefault)
@@ -1979,48 +1940,13 @@ public class KeepEdgeReader implements Opcodes {
                           .build())
                   .build());
 
-      KeepClassBindingReference kotlinMetadataBinding =
-          bindingsHelper.defineFreshClassBinding(
-              KeepClassItemPattern.builder()
-                  .setClassPattern(KeepClassPattern.exactFromDescriptor(kotlinMetadataDescriptor))
-                  .build());
-      KeepMemberBindingReference kotlinMetadataMembersBinding =
-          bindingsHelper.defineFreshMemberBinding(
-              KeepMemberItemPattern.builder()
-                  .setClassReference(kotlinMetadataBinding)
-                  .setMemberPattern(KeepMemberPattern.allMembers())
-                  .build());
-
-      Annotation keepConstraintKotlinMetadataAnnotation =
-          KeepConstraint.annotation(
-              KeepAnnotationPattern.builder()
-                  .setNamePattern(
-                      KeepQualifiedClassNamePattern.exactFromDescriptor(kotlinMetadataDescriptor))
-                  .addRetentionPolicy(RetentionPolicy.RUNTIME)
-                  .build());
-
       KeepConsequences.Builder consequencesBuilder =
           KeepConsequences.builder()
+              .addTarget(KeepTarget.builder().setItemReference(classBinding).build())
+              .addTarget(KeepTarget.builder().setItemReference(memberBinding).build())
               .addTarget(
-                  KeepTarget.builder()
-                      .setItemReference(classBinding)
-                      .setConstraints(
-                          KeepConstraints.defaultAdditions(
-                              KeepConstraints.builder()
-                                  .add(keepConstraintKotlinMetadataAnnotation)
-                                  .build()))
-                      .build())
-              .addTarget(
-                  KeepTarget.builder()
-                      .setItemReference(memberBinding)
-                      .build())
-              .addTarget(
-                  KeepTarget.builder()
-                      .setItemReference(memberBindingKotlinDefault)
-                      .build())
-              .addTarget(KeepTarget.builder().setItemReference(kotlinMetadataBinding).build())
-              .addTarget(
-                  KeepTarget.builder().setItemReference(kotlinMetadataMembersBinding).build());
+                  KeepTarget.builder().setItemReference(classBindingForKotlinDefaultMethod).build())
+              .addTarget(KeepTarget.builder().setItemReference(memberBindingKotlinDefault).build());
 
       parent.accept(
           builder
@@ -2165,8 +2091,6 @@ public class KeepEdgeReader implements Opcodes {
 
     @Override
     public void visitEnd() {
-      String kotlinMetadataDescriptor = "Lkotlin/Metadata;";
-
       KeepClassBindingReference classBinding =
           bindingsHelper.defineFreshClassBinding(getKeepClassItemPattern());
       KeepMemberBindingReference memberBinding =
@@ -2180,42 +2104,11 @@ public class KeepEdgeReader implements Opcodes {
                           .build())
                   .build());
 
-      KeepClassBindingReference kotlinMetadataBinding =
-          bindingsHelper.defineFreshClassBinding(
-              KeepClassItemPattern.builder()
-                  .setClassPattern(KeepClassPattern.exactFromDescriptor(kotlinMetadataDescriptor))
-                  .build());
-      KeepMemberBindingReference kotlinMetadataMembersBinding =
-          bindingsHelper.defineFreshMemberBinding(
-              KeepMemberItemPattern.builder()
-                  .setClassReference(kotlinMetadataBinding)
-                  .setMemberPattern(KeepMemberPattern.allMembers())
-                  .build());
-
-      Annotation keepConstraintKotlinMetadataAnnotation =
-          KeepConstraint.annotation(
-              KeepAnnotationPattern.builder()
-                  .setNamePattern(
-                      KeepQualifiedClassNamePattern.exactFromDescriptor(kotlinMetadataDescriptor))
-                  .addRetentionPolicy(RetentionPolicy.RUNTIME)
-                  .build());
-
       KeepConsequences.Builder consequencesBuilder =
           KeepConsequences.builder()
-              .addTarget(
-                  KeepTarget.builder()
-                      .setItemReference(classBinding)
-                      .setConstraints(
-                          KeepConstraints.defaultAdditions(
-                              KeepConstraints.builder()
-                                  .add(keepConstraintKotlinMetadataAnnotation)
-                                  .build()))
-                      .build())
+              .addTarget(KeepTarget.builder().setItemReference(classBinding).build())
               .addTarget(KeepTarget.builder().setItemReference(memberBinding).build())
-              .addTarget(KeepTarget.builder().setItemReference(memberBinding).build())
-              .addTarget(KeepTarget.builder().setItemReference(kotlinMetadataBinding).build())
-              .addTarget(
-                  KeepTarget.builder().setItemReference(kotlinMetadataMembersBinding).build());
+              .addTarget(KeepTarget.builder().setItemReference(memberBinding).build());
 
       parent.accept(
           builder

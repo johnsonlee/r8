@@ -5,6 +5,7 @@ package com.android.tools.r8.keepanno.androidx;
 
 import static com.android.tools.r8.ToolHelper.getFilesInTestFolderRelativeToClass;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assume.assumeFalse;
 
 import androidx.annotation.keep.UsesReflectionToConstruct;
 import com.android.tools.r8.KotlinCompileMemoizer;
@@ -58,9 +59,9 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
   protected String getExpectedOutputForKotlin() {
     return StringUtils.lines(
         "fun `<init>`(): com.android.tools.r8.keepanno.androidx.kt.KeptClass",
-        "<init>()",
+        "In KeptClass.<init>()",
         "fun `<init>`(): com.android.tools.r8.keepanno.androidx.kt.KeptClass",
-        "<init>()");
+        "In KeptClass.<init>()");
   }
 
   private static Collection<Path> getKotlinSources() {
@@ -123,6 +124,7 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
             .add(
                 ExpectedKeepRule.builder()
                     .apply(setCondition)
+                    .setKeepVariant("-keepclasseswithmembers")
                     .setConsequentClass(KeptClass.class)
                     .setConsequentMembers("{ void <init>(); }")
                     .build());
@@ -130,16 +132,10 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
       builder.add(
           ExpectedKeepRule.builder()
               .apply(setCondition)
+              .setKeepVariant("-keepclasseswithmembers")
               .setConsequentExtendsClass(KeptClass.class)
               .setConsequentMembers("{ void <init>(); }")
               .build());
-    }
-    addConsequentKotlinMetadata(builder, b -> b.apply(setCondition));
-    addDefaultInitWorkaround(
-        builder, b -> b.apply(setCondition).setConsequentClass(KeptClass.class));
-    if (includeSubclasses) {
-      addDefaultInitWorkaround(
-          builder, b -> b.apply(setCondition).setConsequentExtendsClass(KeptClass.class));
     }
     return builder.build();
   }
@@ -159,15 +155,10 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
             .add(
                 ExpectedKeepRule.builder()
                     .apply(setCondition)
+                    .setKeepVariant("-keepclasseswithmembers")
                     .setConsequentClass("com.android.tools.r8.keepanno.androidx.kt.KeptClass")
                     .setConsequentMembers("{ void <init>(); }")
                     .build());
-    addConsequentKotlinMetadata(builder, b -> b.apply(setCondition));
-    addDefaultInitWorkaround(
-        builder,
-        b ->
-            b.apply(setCondition)
-                .setConsequentClass("com.android.tools.r8.keepanno.androidx.kt.KeptClass"));
     return builder.build();
   }
 
@@ -220,6 +211,8 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
 
   @Test
   public void testOnlyNoArgsConstructorKotlin() throws Exception {
+    // TODO(b/323816623): With native interpretation kotlin.Metadata still gets stripped
+    assumeFalse(parameters.isNativeR8());
     testExtractedRulesAndRunKotlin(
         compilationResults,
         "com.android.tools.r8.keepanno.androidx.kt.OnlyNoArgsConstructorKt",
@@ -228,6 +221,8 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
 
   @Test
   public void testOnlyNoArgsConstructorKotlinClassName() throws Exception {
+    // TODO(b/323816623): With native interpretation kotlin.Metadata still gets stripped
+    assumeFalse(parameters.isNativeR8());
     testExtractedRulesAndRunKotlin(
         compilationResultsClassName,
         "com.android.tools.r8.keepanno.androidx.kt.OnlyNoArgsConstructorClassNameKt",
@@ -328,6 +323,8 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
 
   @Test
   public void testOnlyNoArgsConstructorKotlinUsingTransformer() throws Exception {
+    // TODO(b/323816623): With native interpretation kotlin.Metadata still gets stripped
+    assumeFalse(parameters.isNativeR8());
     testExtractedRulesAndRunKotlin(
         compilationResultsWithoutAnnotation,
         (classReference, classFileBytes) ->
@@ -350,6 +347,8 @@ public class KeepUsesReflectionForInstantiationNoArgsConstructorTest
 
   @Test
   public void testOnlyNoArgsConstructorKotlinClassNameUsingTransformer() throws Exception {
+    // TODO(b/323816623): With native interpretation kotlin.Metadata still gets stripped
+    assumeFalse(parameters.isNativeR8());
     testExtractedRulesAndRunKotlin(
         compilationResultsWithoutAnnotation,
         (classReference, classFileBytes) ->

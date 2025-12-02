@@ -5,18 +5,18 @@ package com.android.tools.r8.keepanno.androidx.kt
 
 class KeptClass() {
   init {
-    println("<init>()")
+    println("In KeptClass.<init>()")
   }
 
   constructor(i: Int) : this() {
-    println("<init>(Int)")
+    println("In KeptClass.<init>(Int)")
   }
 
   constructor(l: Long) : this() {
-    println("<init>(Long)")
+    println("In KeptClass.<init>(Long)")
   }
 
   constructor(s1: String, s2: String, s3: String) : this() {
-    println("<init>(String, String, String)")
+    println("In KeptClass.<init>(String, String, String)")
   }
 }

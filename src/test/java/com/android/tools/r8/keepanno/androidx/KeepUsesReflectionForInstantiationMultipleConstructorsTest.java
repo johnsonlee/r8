@@ -52,11 +52,11 @@ public class KeepUsesReflectionForInstantiationMultipleConstructorsTest
     // Kotlin secondary constructors has to delegate to the primary constructor.
     return StringUtils.lines(
         "fun `<init>`(kotlin.Int): com.android.tools.r8.keepanno.androidx.kt.KeptClass",
-        "<init>()",
-        "<init>(Int)",
+        "In KeptClass.<init>()",
+        "In KeptClass.<init>(Int)",
         "fun `<init>`(kotlin.Long): com.android.tools.r8.keepanno.androidx.kt.KeptClass",
-        "<init>()",
-        "<init>(Long)");
+        "In KeptClass.<init>()",
+        "In KeptClass.<init>(Long)");
   }
 
   private static Collection<Path> getKotlinSources() {
@@ -98,20 +98,17 @@ public class KeepUsesReflectionForInstantiationMultipleConstructorsTest
         .add(
             ExpectedKeepRule.builder()
                 .apply(setCondition)
+                .setKeepVariant("-keepclasseswithmembers")
                 .setConsequentClass(KeptClass.class)
                 .setConsequentMembers("{ void <init>(int); }")
                 .build())
         .add(
             ExpectedKeepRule.builder()
                 .apply(setCondition)
+                .setKeepVariant("-keepclasseswithmembers")
                 .setConsequentClass(KeptClass.class)
                 .setConsequentMembers("{ void <init>(long); }")
                 .build())
-        .apply(b -> addConsequentKotlinMetadata(b, bb -> bb.apply(setCondition)))
-        .apply(
-            b ->
-                addDefaultInitWorkaround(
-                    b, bb -> bb.apply(setCondition).setConsequentClass(KeptClass.class)))
         .build();
   }
 
@@ -122,6 +119,7 @@ public class KeepUsesReflectionForInstantiationMultipleConstructorsTest
             ExpectedKeepRule.builder()
                 .setConditionClass(conditionClass)
                 .setConditionMembers(conditionMember)
+                .setKeepVariant("-keepclasseswithmembers")
                 .setConsequentClass("com.android.tools.r8.keepanno.androidx.kt.KeptClass")
                 .setConsequentMembers("{ void <init>(int); }")
                 .build())
@@ -129,24 +127,10 @@ public class KeepUsesReflectionForInstantiationMultipleConstructorsTest
             ExpectedKeepRule.builder()
                 .setConditionClass(conditionClass)
                 .setConditionMembers(conditionMember)
+                .setKeepVariant("-keepclasseswithmembers")
                 .setConsequentClass("com.android.tools.r8.keepanno.androidx.kt.KeptClass")
                 .setConsequentMembers("{ void <init>(long); }")
                 .build())
-        .apply(
-            b ->
-                addConsequentKotlinMetadata(
-                    b,
-                    bb ->
-                        bb.setConditionClass(conditionClass).setConditionMembers(conditionMember)))
-        .apply(
-            b ->
-                addDefaultInitWorkaround(
-                    b,
-                    bb ->
-                        bb.setConditionClass(conditionClass)
-                            .setConditionMembers(conditionMember)
-                            .setConsequentClass(
-                                "com.android.tools.r8.keepanno.androidx.kt.KeptClass")))
         .build();
   }
 

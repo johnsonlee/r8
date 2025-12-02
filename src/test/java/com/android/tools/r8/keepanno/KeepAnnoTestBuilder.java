@@ -7,8 +7,10 @@ package com.android.tools.r8.keepanno;
 import static com.android.tools.r8.R8TestBuilder.KeepAnnotationLibrary.ANDROIDX;
 import static com.android.tools.r8.utils.FileUtils.isClassFile;
 import static com.android.tools.r8.utils.FileUtils.isJarFile;
+import static com.android.tools.r8.utils.FileUtils.isKotlinBuiltinsFile;
 import static com.android.tools.r8.utils.FileUtils.isZipFile;
 
+import com.android.tools.r8.DataEntryResource;
 import com.android.tools.r8.ExternalR8TestBuilder;
 import com.android.tools.r8.KotlinCompilerTool.KotlinCompiler;
 import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
@@ -349,8 +351,13 @@ public abstract class KeepAnnoTestBuilder {
           ZipUtils.iter(
               programFile,
               (entry, input) -> {
-                if (isClassFile(entry.getName())) {
+                if (isClassFile(entry.getName())
+                    && !entry.getName().startsWith("META-INF/versions/")) {
                   extractAndAdd(ByteStreams.toByteArray(input));
+                } else if (isKotlinBuiltinsFile(entry.getName())) {
+                  builder.addDataResources(
+                      DataEntryResource.fromBytes(
+                          ByteStreams.toByteArray(input), entry.getName(), Origin.unknown()));
                 }
               });
         } else {

@@ -53,8 +53,14 @@ public class FileUtils {
   public static boolean isClassFile(String path) {
     String name = StringUtils.toLowerCase(path);
     // Android does not support Java 9 module, thus skip module-info.
-    if (name.equals(MODULE_INFO_CLASS)) {
-      return false;
+    if (name.endsWith(MODULE_INFO_CLASS)) {
+      if (name.length() == MODULE_INFO_CLASS.length()) {
+        return false;
+      }
+      char possibleSeparator = name.charAt(name.length() - MODULE_INFO_CLASS.length() - 1);
+      if (possibleSeparator == '/' || possibleSeparator == '\\') {
+        return false;
+      }
     }
     return name.endsWith(CLASS_EXTENSION);
   }
