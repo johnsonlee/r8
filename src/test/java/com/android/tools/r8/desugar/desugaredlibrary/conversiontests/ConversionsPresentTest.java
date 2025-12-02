@@ -64,7 +64,7 @@ public class ConversionsPresentTest extends DesugaredLibraryTestBase {
       assertTrue(inspector.clazz("j$.util.LongSummaryStatisticsConversions").isPresent());
       assertTrue(inspector.clazz("j$.util.IntSummaryStatisticsConversions").isPresent());
       assertTrue(inspector.clazz("j$.util.DoubleSummaryStatisticsConversions").isPresent());
-    } else if (libraryDesugaringSpecification.hasTimeDesugaring(parameters)) {
+    } else if (libraryDesugaringSpecification.hasCompleteTimeDesugaring(parameters)) {
       assertEquals(1, conversionsClasses.size());
       assertTrue(inspector.clazz("j$.time.TimeConversions").isPresent());
     } else {

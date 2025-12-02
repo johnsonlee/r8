@@ -65,7 +65,7 @@ public class DayTest extends DesugaredLibraryTestBase {
       return UK_EXPECTED_RESULT_JDK8;
     }
     if (parameters.isDexRuntime()
-        && libraryDesugaringSpecification.hasTimeDesugaring(parameters)
+        && libraryDesugaringSpecification.hasCompleteTimeDesugaring(parameters)
         && libraryDesugaringSpecification == JDK8) {
       return MISSING_STANDALONE;
     }
@@ -77,7 +77,7 @@ public class DayTest extends DesugaredLibraryTestBase {
       return SIMPLIFIED_CHINESE_EXPECTED_RESULT_JDK8;
     }
     if (parameters.isDexRuntime()
-        && libraryDesugaringSpecification.hasTimeDesugaring(parameters)
+        && libraryDesugaringSpecification.hasCompleteTimeDesugaring(parameters)
         && libraryDesugaringSpecification == JDK8) {
       return MISSING_STANDALONE;
     }
@@ -89,7 +89,7 @@ public class DayTest extends DesugaredLibraryTestBase {
       return SIMPLIFIED_CHINESE_EXPECTED_RESULT_JDK8;
     }
     if (parameters.isDexRuntime()
-        && libraryDesugaringSpecification.hasTimeDesugaring(parameters)
+        && libraryDesugaringSpecification.hasCompleteTimeDesugaring(parameters)
         && libraryDesugaringSpecification == JDK8) {
       return SIMPLIFIED_CHINESE_NARROW_DAY_JDK8;
     }
