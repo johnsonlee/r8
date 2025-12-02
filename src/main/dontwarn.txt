@@ -2,3 +2,6 @@
 -dontwarn com.google.errorprone.annotations.**
 -dontwarn com.google.j2objc.annotations.*
 -dontwarn javax.annotation.CheckForNull
+
+# Referenced from com.android.tools.r8.jetbrains.kotlinx.coroutines.CoroutineId.
+-dontwarn org.codehaus.mojo.animal_sniffer.IgnoreJRERequirement

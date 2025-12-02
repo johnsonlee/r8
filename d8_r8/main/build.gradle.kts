@@ -644,6 +644,25 @@ val keepAnnoToolsWithRelocatedDeps by registering(Exec::class) {
              + relocateDepsExceptAsm(pkg)
       )
   }
+
+  val processKeepRulesLibWithRelocatedDeps by registering(Exec::class) {
+    dependsOn(r8WithRelocatedDeps)
+    val createR8LibFile = getRoot().resolveAll("tools", "create_r8lib.py")
+    val keepRulesFile = getRoot().resolveAll("src", "main", "keep_processkeeprules.txt")
+    val r8WithRelocatedDepsJar = r8WithRelocatedDeps.get().outputs.files.singleFile
+    inputs.files(listOf(createR8LibFile, keepRulesFile, r8WithRelocatedDepsJar))
+    val outputJar = getRoot().resolveAll("build", "libs", "processkeepruleslib.jar")
+    outputs.file(outputJar)
+    commandLine = createR8LibCommandLine(
+      r8WithRelocatedDepsJar,
+      r8WithRelocatedDepsJar,
+      outputJar,
+      listOf(keepRulesFile),
+      excludingDepsVariant = false,
+      debugVariant = false,
+      classpath = listOf(),
+      enableKeepAnnotations = false)
+  }
 }
 
 tasks.withType<KotlinCompile> {

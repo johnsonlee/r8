@@ -31,6 +31,3 @@
 # The protobuf library uses reflection for toString printing.
 # Note that this is keeping the relocated package location.
 -keep class com.android.tools.r8.relocated.keepanno.proto.** { *; }
-
-# Referenced from com.android.tools.r8.jetbrains.kotlinx.coroutines.CoroutineId.
--dontwarn org.codehaus.mojo.animal_sniffer.IgnoreJRERequirement

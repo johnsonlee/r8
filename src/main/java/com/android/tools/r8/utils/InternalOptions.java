@@ -2204,7 +2204,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   public static class TestingOptions {
 
     public boolean enableEmbeddedKeepAnnotations =
-        System.getProperty("com.android.tools.r8.enableKeepAnnotations") != null;
+        SystemPropertyUtils.parseSystemPropertyOrDefault(
+            "com.android.tools.r8.enableKeepAnnotations", false);
     public boolean reverseClassSortingForDeterminism = false;
     public Path exportFinalKeepInfoCollectionToDirectory =
         System.getProperty("com.android.tools.r8.exportInitialKeepInfoCollection") != null

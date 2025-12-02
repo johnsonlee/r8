@@ -7,6 +7,7 @@ import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.StringConsumer;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
+import com.android.tools.r8.processkeeprules.annotations.KeepForProcessKeepRulesApi;
 import com.android.tools.r8.shaking.ProguardConfigurationParser;
 import com.android.tools.r8.shaking.ProguardConfigurationParserConsumer;
 import com.android.tools.r8.shaking.ProguardConfigurationSource;
@@ -15,6 +16,7 @@ import com.android.tools.r8.utils.Reporter;
 import java.util.List;
 
 @KeepForApi
+@KeepForProcessKeepRulesApi
 public class ProcessKeepRules {
 
   private final DexItemFactory factory;

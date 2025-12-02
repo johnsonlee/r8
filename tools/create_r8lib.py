@@ -12,6 +12,7 @@ import zipfile
 
 import jdk
 import utils
+import zip_utils
 
 VERSION_EXTRACTOR = """
 import com.android.tools.r8.Version;
@@ -44,6 +45,15 @@ def parse_options():
                         action='store_true',
                         default=False,
                         help='Compile with debug flag')
+    parser.add_argument('--disable-keep-annotations',
+                        action='store_true',
+                        default=False,
+                        help='Disable keep annotations')
+    parser.add_argument(
+        '--exclude-api-database',
+        action='store_true',
+        default=False,
+        help='Exclude api database (resources/new_api_database.ser)')
     parser.add_argument(
         '--lib',
         action='append',
@@ -56,7 +66,9 @@ def parse_options():
                         default=None,
                         help='Input map for distribution and composition')
     parser.add_argument('--r8jar', required=True, help='The R8 jar to compile')
-    parser.add_argument('--r8-version-jar', default=None, help='The R8 jar to provide version')
+    parser.add_argument('--r8-version-jar',
+                        default=None,
+                        help='The R8 jar to provide version')
     parser.add_argument('--r8compiler',
                         default='build/libs/r8_with_deps.jar',
                         help='The R8 compiler to use')
@@ -84,6 +96,16 @@ def get_r8_version(r8jar):
         else:
             return output
 
+
+# Used to delete the API database when building processkeeprules.jar.
+def exclude_api_database(r8jar):
+    zip_utils.remove_files_from_zip(['resources/new_api_database.ser'], r8jar)
+
+
+# Used to move r8 assistant runtime files into r8.jar.
+#
+# These files need to be equivalent to the javac generated versions,
+# so we copy them in after r8lib has been built.
 def replace_in_jar(r8jar, replace_from):
     with utils.TempDir() as temp:
         result = os.path.join(temp, 'result.jar')
@@ -105,12 +127,14 @@ def replace_in_jar(r8jar, replace_from):
                         output_file.writestr(zipinfo, input_file.read(zipinfo))
         shutil.copyfile(result, r8jar)
 
+
 def main():
     args = parse_options()
     if not os.path.exists(args.r8jar):
         print("Could not find jar: " + args.r8jar)
         return 1
-    version = get_r8_version(args.r8_version_jar if args.r8_version_jar else args.r8jar)
+    version = get_r8_version(
+        args.r8_version_jar if args.r8_version_jar else args.r8jar)
     variant = '+excldeps' if args.excldeps_variant else ''
     map_id_template = version + variant
     source_file_template = 'R8_%MAP_ID_%MAP_HASH'
@@ -120,9 +144,12 @@ def main():
         cmd.extend([
             '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
         ])
-    cmd.append('-Dcom.android.tools.r8.enableKeepAnnotations=1')
+    cmd.append('-Dcom.android.tools.r8.enableKeepAnnotations=' +
+               str(not args.disable_keep_annotations).lower())
     # TODO(b/356344563): Remove when this is default.
-    cmd.append('-Dcom.android.tools.r8.enableEmptyMemberRulesToDefaultInitRuleConversion=0')
+    cmd.append(
+        '-Dcom.android.tools.r8.enableEmptyMemberRulesToDefaultInitRuleConversion=0'
+    )
     cmd.append('-Dcom.android.tools.r8.tracereferences.obfuscateAllEnums')
     cmd.extend(['-cp', args.r8compiler, 'com.android.tools.r8.R8'])
     cmd.append(args.r8jar)
@@ -149,8 +176,11 @@ def main():
         cmd.extend(['--pg-map', args.pg_map])
     print(' '.join(cmd))
     subprocess.check_call(cmd)
+    if args.exclude_api_database:
+        exclude_api_database(args.output)
     if args.replace_from_jar:
         replace_in_jar(args.output, args.replace_from_jar)
+
 
 if __name__ == '__main__':
     sys.exit(main())
