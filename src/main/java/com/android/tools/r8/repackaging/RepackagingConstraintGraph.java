@@ -20,8 +20,8 @@ import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.WorkList;
-import com.google.common.collect.Sets;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -284,7 +284,7 @@ public class RepackagingConstraintGraph {
       }
     }
     Set<Node> pinnedNodes = worklist.getSeenSet();
-    Set<DexProgramClass> classesToRepackage = Sets.newIdentityHashSet();
+    Set<DexProgramClass> classesToRepackage = new LinkedHashSet<>();
     for (DexProgramClass clazz : pkg) {
       if (!pinnedNodes.contains(getNode(clazz))) {
         classesToRepackage.add(clazz);
