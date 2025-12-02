@@ -55,32 +55,59 @@ public class DivisionOptimizer extends CodeRewriterPass<AppInfo> {
       InvokeStatic invokeStatic = next.asInvokeStatic();
       Value dest = invokeStatic.outValue();
       DexMethod method = invokeStatic.getInvokedMethod();
-      if (!dexItemFactory.integerMembers.divideUnsigned.isIdenticalTo(method)) {
-        continue;
-      }
-      assert invokeStatic.arguments().size() == 2;
-      Value dividend = invokeStatic.getFirstArgument();
-      Value divisor = invokeStatic.getSecondArgument();
-      if (!divisor.isConstInt()) {
-        continue;
-      }
 
-      int power = extractPowerOfTwo(divisor.getConstInt());
-      if (power == -1) {
-        continue;
-      }
+      if (dexItemFactory.integerMembers.divideUnsigned.isIdenticalTo(method)) {
+        // Int case.
+        assert invokeStatic.arguments().size() == 2;
+        Value dividend = invokeStatic.getFirstArgument();
+        Value divisor = invokeStatic.getSecondArgument();
+        if (!divisor.isConstInt()) {
+          continue;
+        }
 
-      Value shiftAmount = iterator.insertConstIntInstruction(code, appView.options(), power);
-      iterator.replaceCurrentInstruction(new Ushr(NumericType.INT, dest, dividend, shiftAmount));
-      hasChanged = true;
+        int power = extractPowerOfTwo(divisor.getConstInt());
+        if (power == -1) {
+          continue;
+        }
+
+        Value shiftAmount = iterator.insertConstIntInstruction(code, appView.options(), power);
+        iterator.replaceCurrentInstruction(new Ushr(NumericType.INT, dest, dividend, shiftAmount));
+        hasChanged = true;
+      } else if (dexItemFactory.longMembers.divideUnsigned.isIdenticalTo(method)) {
+        // Long case.
+        assert invokeStatic.arguments().size() == 2;
+        Value dividend = invokeStatic.getFirstArgument();
+        Value divisor = invokeStatic.getSecondArgument();
+        if (!divisor.isConstLong()) {
+          continue;
+        }
+
+        int power = extractPowerOfTwo(divisor.getConstLong());
+        if (power == -1) {
+          continue;
+        }
+
+        Value shiftAmount = iterator.insertConstIntInstruction(code, appView.options(), power);
+        iterator.replaceCurrentInstruction(new Ushr(NumericType.LONG, dest, dividend, shiftAmount));
+        hasChanged = true;
+      }
     }
     return CodeRewriterResult.hasChanged(hasChanged);
   }
 
-  /** Returns `k` where `2^k = i` or `-1` otherwise. */
+  // Returns `k` where `2^k = i` or `-1` otherwise.
   private int extractPowerOfTwo(int i) {
     if (Integer.bitCount(i) == 1 && i != 1) {
       return Integer.numberOfTrailingZeros(i);
+    } else {
+      return -1;
+    }
+  }
+
+  // Returns `k` where `2^k = i` or `-1` otherwise.
+  private int extractPowerOfTwo(long i) {
+    if (Long.bitCount(i) == 1 && i != 1) {
+      return Long.numberOfTrailingZeros(i);
     } else {
       return -1;
     }
