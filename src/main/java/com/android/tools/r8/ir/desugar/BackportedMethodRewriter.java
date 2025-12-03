@@ -2199,13 +2199,27 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
 
     private void initializeJava25MethodProviders(DexItemFactory factory) {
       // Math
-      DexType type = factory.mathType;
+      for (DexType mathType : new DexType[] {factory.mathType, factory.strictMathType}) {
 
-      // Math.powExact(int, int)
-      DexString name = factory.createString("powExact");
-      DexProto proto = factory.createProto(factory.intType, factory.intType, factory.intType);
-      DexMethod method = factory.createMethod(type, proto, name);
-      addProvider(new MethodGenerator(method, BackportedMethods::MathMethods_powExact));
+        // int Math.powExact(int, int)
+        DexString name = factory.createString("powExact");
+        DexProto proto = factory.createProto(factory.intType, factory.intType, factory.intType);
+        DexMethod method = factory.createMethod(mathType, proto, name);
+        addProvider(new MethodGenerator(method, BackportedMethods::MathMethods_powExact));
+
+        // int Math.unsignedMultiplyExact(int, int)
+        name = factory.createString("unsignedMultiplyExact");
+        proto = factory.createProto(factory.intType, factory.intType, factory.intType);
+        method = factory.createMethod(mathType, proto, name);
+        addProvider(
+            new MethodGenerator(method, BackportedMethods::MathMethods_unsignedMultiplyExact));
+
+        // int Math.unsignedPowExact(int, int)
+        name = factory.createString("unsignedPowExact");
+        proto = factory.createProto(factory.intType, factory.intType, factory.intType);
+        method = factory.createMethod(mathType, proto, name);
+        addProvider(new MethodGenerator(method, BackportedMethods::MathMethods_unsignedPowExact));
+      }
     }
 
     private void addProvider(MethodProvider<DexMethod> generator) {
