@@ -1,0 +1,16 @@
+# Copyright (c) 2025, the R8 project authors. Please see the AUTHORS file
+# for details. All rights reserved. Use of this source code is governed by a
+# BSD-style license that can be found in the LICENSE file.
+-keepattributes InnerClasses, EnclosingMethod, Exceptions, Signature
+-repackageclasses com.android.tools.r8.processkeeprules.internal
+
+-keep @com.android.tools.r8.processkeeprules.annotations.KeepForProcessKeepRulesApi class * {
+  public *;
+}
+
+-if @com.android.tools.r8.keepanno.annotations.KeepForApi class *
+-keep class <1> {
+  public *;
+}
+
+-include dontwarn.txt

@@ -4,9 +4,11 @@
 
 package com.android.tools.r8;
 
+import com.android.tools.r8.processkeeprules.annotations.KeepForProcessKeepRulesApi;
 import com.android.tools.r8.utils.VersionProperties;
 
 /** Version of the D8/R8 library. */
+@KeepForProcessKeepRulesApi
 public final class Version {
 
   private static final String MAIN_LABEL = "main";

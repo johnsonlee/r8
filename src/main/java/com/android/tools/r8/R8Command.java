@@ -71,6 +71,7 @@ import com.android.tools.r8.utils.SemanticVersionUtils;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.StringUtils;
+import com.android.tools.r8.utils.SystemPropertyUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.google.common.collect.ImmutableList;
 import java.nio.file.Path;
@@ -154,7 +155,8 @@ public final class R8Command extends BaseCompilerCommand {
         System.getProperty("com.android.tools.r8.synthesizedClassPrefix", "");
     private boolean enableMissingLibraryApiModeling = false;
     private boolean enableExperimentalKeepAnnotations =
-        System.getProperty("com.android.tools.r8.enableKeepAnnotations") != null;
+        SystemPropertyUtils.parseSystemPropertyOrDefault(
+            "com.android.tools.r8.enableKeepAnnotations", false);
     private boolean readEmbeddedRulesFromClasspathAndLibrary =
         System.getProperty("com.android.tools.r8.readEmbeddedRulesFromClasspathAndLibrary") != null;
     public boolean enableStartupLayoutOptimization = true;

@@ -1849,6 +1849,8 @@ public class DexItemFactory {
         createMethod(boxedLongType, createProto(boxedLongType, longType), "valueOf");
     public final DexMethod staticHashCode =
         createMethod(boxedLongType, createProto(intType, longType), "hashCode");
+    public final DexMethod divideUnsigned =
+        createMethod(boxedLongType, createProto(longType, longType, longType), "divideUnsigned");
 
     private LongMembers() {}
 

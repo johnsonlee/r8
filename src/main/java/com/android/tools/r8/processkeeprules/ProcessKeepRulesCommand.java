@@ -7,6 +7,7 @@ import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.StringConsumer;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
 import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.processkeeprules.annotations.KeepForProcessKeepRulesApi;
 import com.android.tools.r8.shaking.ProguardConfigurationSource;
 import com.android.tools.r8.shaking.ProguardConfigurationSourceFile;
 import com.android.tools.r8.shaking.ProguardConfigurationSourceStrings;
@@ -19,6 +20,7 @@ import java.util.Collection;
 import java.util.List;
 
 @KeepForApi
+@KeepForProcessKeepRulesApi
 public class ProcessKeepRulesCommand {
 
   private final Reporter reporter;
@@ -71,6 +73,7 @@ public class ProcessKeepRulesCommand {
   }
 
   @KeepForApi
+  @KeepForProcessKeepRulesApi
   public static class Builder {
 
     private final Reporter reporter;

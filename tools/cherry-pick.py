@@ -7,6 +7,8 @@ import argparse
 import os
 import subprocess
 import sys
+
+import git_utils
 import utils
 
 VERSION_FILE = 'src/main/java/com/android/tools/r8/Version.java'
@@ -131,12 +133,6 @@ def run(args, branch):
                 pass
 
 
-def reviewer_arg(reviewer):
-    if reviewer.find('@') == -1:
-        reviewer = reviewer + "@google.com"
-    return '--reviewer=' + reviewer
-
-
 def confirm_and_upload(local_branch_name, args, bugs):
     if not args.yes:
       question = ('Ready to continue (cwd %s, will not upload to Gerrit)' %
@@ -177,10 +173,7 @@ def confirm_and_upload(local_branch_name, args, bugs):
     cmd = ['git', 'cl', 'upload', '--bypass-hooks']
     if args.yes:
         cmd.append('-f')
-    if args.reviewer:
-        cmd.extend(map(reviewer_arg, args.reviewer))
-        if args.send_mail:
-            cmd.append('--send-mail')
+    git_utils.GitClAppendReviewers(cmd, args.reviewer, args.send_mail)
     if not args.no_upload:
         subprocess.run(cmd)
     else:

@@ -117,6 +117,8 @@ class R8Partial {
         D8Command.builder(options.reporter)
             .setEnableExperimentalMissingLibraryApiModeling(
                 options.apiModelingOptions().isApiModelingEnabled())
+            .setEnableVerboseSyntheticNames(
+                options.desugarSpecificOptions().enableVerboseSyntheticNames)
             .setMinApiLevel(options.getMinApiLevel().getLevel())
             .setMode(options.getCompilationMode())
             .setProgramConsumer(DexIndexedConsumer.emptyConsumer());
@@ -188,6 +190,8 @@ class R8Partial {
             .setBuildMetadataConsumer(options.r8BuildMetadataConsumer)
             .setEnableExperimentalMissingLibraryApiModeling(
                 options.apiModelingOptions().isApiModelingEnabled())
+            .setEnableVerboseSyntheticNames(
+                options.desugarSpecificOptions().enableVerboseSyntheticNames)
             .setMapIdProvider(options.mapIdProvider)
             .setMinApiLevel(options.getMinApiLevel().getLevel())
             .setMode(options.getCompilationMode())
@@ -338,6 +342,8 @@ class R8Partial {
         options.emitPermittedSubclassesAnnotationsInDex;
     subCompilationOptions.desugarState = options.desugarState;
     subCompilationOptions.forceNestDesugaring = options.forceNestDesugaring;
+    subCompilationOptions.emitLambdaMethodAnnotations = options.emitLambdaMethodAnnotations;
+    subCompilationOptions.disableLambdaMethodAnnotations = options.disableLambdaMethodAnnotations;
     subCompilationOptions.getTestingOptions().forceDexContainerFormat =
         options.getTestingOptions().forceDexContainerFormat;
   }

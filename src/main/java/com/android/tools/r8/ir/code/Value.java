@@ -835,9 +835,19 @@ public class Value implements Comparable<Value>, InstructionOrValue {
     return !hasLocalInfo() && isDefinedByInstructionSatisfying(Instruction::isConstNumber);
   }
 
+  public boolean isConstLong() {
+    assert type.isLong();
+    return !hasLocalInfo() && isDefinedByInstructionSatisfying(Instruction::isConstNumber);
+  }
+
   public int getConstInt() {
     assert isConstInt();
     return definition.asConstNumber().getIntValue();
+  }
+
+  public long getConstLong() {
+    assert isConstLong();
+    return definition.asConstNumber().getLongValue();
   }
 
   public DexString getConstStringOrNull() {

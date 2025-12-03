@@ -73,7 +73,7 @@ public class MonthTest extends DesugaredLibraryTestBase {
       return MISSING_STANDALONE;
     }
     if (parameters.isDexRuntime()
-        && libraryDesugaringSpecification.hasTimeDesugaring(parameters)
+        && libraryDesugaringSpecification.hasCompleteTimeDesugaring(parameters)
         && libraryDesugaringSpecification == JDK8) {
       return MISSING_STANDALONE;
     }
@@ -87,7 +87,7 @@ public class MonthTest extends DesugaredLibraryTestBase {
       }
       return RU_EXPECTED_RESULT_DOT;
     }
-    if (libraryDesugaringSpecification.hasTimeDesugaring(parameters)) {
+    if (libraryDesugaringSpecification.hasCompleteTimeDesugaring(parameters)) {
       if (libraryDesugaringSpecification == JDK8) {
         return RU_EXPECTED_RESULT_DOT_NARROW_LOWERCASE_JDK8;
       }
@@ -110,7 +110,7 @@ public class MonthTest extends DesugaredLibraryTestBase {
       }
       return RU_STANDALONE_EXPECTED_RESULT_NARROW_UPPERCASE;
     }
-    if (libraryDesugaringSpecification.hasTimeDesugaring(parameters)) {
+    if (libraryDesugaringSpecification.hasCompleteTimeDesugaring(parameters)) {
       if (libraryDesugaringSpecification == JDK8) {
         return MISSING_STANDALONE;
       }

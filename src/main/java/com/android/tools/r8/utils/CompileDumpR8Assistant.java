@@ -38,14 +38,14 @@ public class CompileDumpR8Assistant extends CompileDumpBase {
     List<Path> classpath = new ArrayList<>();
     int minApi = 1;
     int threads = -1;
-    BooleanBox reflectiveUsageAsJson = new BooleanBox(false);
+    boolean reflectiveUsageAsJson = false;
 
     for (int i = 0; i < args.length; i++) {
       String option = args[i];
       if (VALID_OPTIONS.contains(option)) {
         switch (option) {
           case "--reflective-usage-json-output":
-            reflectiveUsageAsJson.set(true);
+            reflectiveUsageAsJson = true;
             break;
           default:
             throw new IllegalArgumentException("Unimplemented option: " + option);
@@ -93,7 +93,7 @@ public class CompileDumpR8Assistant extends CompileDumpBase {
             .setOutput(outputPath, OutputMode.DexIndexed)
             .setMode(compilationMode)
             .setMinApiLevel(minApi);
-    if (reflectiveUsageAsJson.value) {
+    if (reflectiveUsageAsJson) {
       commandBuilder.setReflectiveReceiverClass(ReflectiveOperationJsonLogger.class);
     }
     R8AssistantCommand command = commandBuilder.build();

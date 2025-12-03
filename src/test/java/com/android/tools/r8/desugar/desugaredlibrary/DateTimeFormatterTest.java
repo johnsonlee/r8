@@ -67,7 +67,7 @@ public class DateTimeFormatterTest extends DesugaredLibraryTestBase {
             .addKeepMainRule(TestClass.class)
             .run(parameters.getRuntime(), TestClass.class)
             .assertSuccess();
-    if (libraryDesugaringSpecification.hasTimeDesugaring(parameters)) {
+    if (libraryDesugaringSpecification.hasCompleteTimeDesugaring(parameters)) {
       run.assertSuccessWithOutput(
           parameters.isDexRuntimeVersionNewerThanOrEqual(Version.V14_0_0)
                   && parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.U)

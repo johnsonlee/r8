@@ -55,7 +55,7 @@ public class DesugaredLocalDateReflectedTypePassedToStaticType extends Desugared
             .addKeepMainRule(Main.class)
             .run(parameters.getRuntime(), Main.class);
     if (compilationSpecification.isL8Shrink()
-        && libraryDesugaringSpecification.hasTimeDesugaring(parameters)) {
+        && libraryDesugaringSpecification.hasCompleteTimeDesugaring(parameters)) {
       run.assertFailureWithErrorThatMatches(containsString("java.lang.NoSuchMethodException"));
     } else {
       run.assertSuccessWithOutput(EXPECTED);

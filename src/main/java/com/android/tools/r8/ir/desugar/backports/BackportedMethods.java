@@ -9304,6 +9304,206 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
+  public static CfCode MathMethods_powExact(DexItemFactory factory, DexMethod method) {
+    CfLabel label0 = new CfLabel();
+    CfLabel label1 = new CfLabel();
+    CfLabel label2 = new CfLabel();
+    CfLabel label3 = new CfLabel();
+    CfLabel label4 = new CfLabel();
+    CfLabel label5 = new CfLabel();
+    CfLabel label6 = new CfLabel();
+    CfLabel label7 = new CfLabel();
+    CfLabel label8 = new CfLabel();
+    CfLabel label9 = new CfLabel();
+    CfLabel label10 = new CfLabel();
+    CfLabel label11 = new CfLabel();
+    CfLabel label12 = new CfLabel();
+    CfLabel label13 = new CfLabel();
+    CfLabel label14 = new CfLabel();
+    CfLabel label15 = new CfLabel();
+    CfLabel label16 = new CfLabel();
+    CfLabel label17 = new CfLabel();
+    CfLabel label18 = new CfLabel();
+    CfLabel label19 = new CfLabel();
+    return new CfCode(
+        method.holder,
+        4,
+        6,
+        ImmutableList.of(
+            label0,
+            new CfLoad(ValueType.INT, 0),
+            new CfStore(ValueType.INT, 2),
+            label1,
+            new CfLoad(ValueType.INT, 1),
+            new CfIf(IfType.GE, ValueType.INT, label3),
+            label2,
+            new CfNew(factory.createType("Ljava/lang/ArithmeticException;")),
+            new CfStackInstruction(CfStackInstruction.Opcode.Dup),
+            new CfConstString(factory.createString("negative exponent")),
+            new CfInvoke(
+                183,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/ArithmeticException;"),
+                    factory.createProto(factory.voidType, factory.stringType),
+                    factory.createString("<init>")),
+                false),
+            new CfThrow(),
+            label3,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2},
+                    new FrameType[] {
+                      FrameType.intType(), FrameType.intType(), FrameType.intType()
+                    })),
+            new CfLoad(ValueType.INT, 1),
+            new CfIf(IfType.NE, ValueType.INT, label5),
+            label4,
+            new CfConstNumber(1, ValueType.INT),
+            new CfReturn(ValueType.INT),
+            label5,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2},
+                    new FrameType[] {
+                      FrameType.intType(), FrameType.intType(), FrameType.intType()
+                    })),
+            new CfConstNumber(1, ValueType.INT),
+            new CfStore(ValueType.INT, 3),
+            label6,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3},
+                    new FrameType[] {
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType()
+                    })),
+            new CfLoad(ValueType.INT, 1),
+            new CfConstNumber(1, ValueType.INT),
+            new CfIfCmp(IfType.LE, ValueType.INT, label15),
+            label7,
+            new CfLoad(ValueType.INT, 1),
+            new CfConstNumber(1, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.INT),
+            new CfIf(IfType.EQ, ValueType.INT, label9),
+            label8,
+            new CfLoad(ValueType.INT, 3),
+            new CfLoad(ValueType.INT, 0),
+            new CfArithmeticBinop(CfArithmeticBinop.Opcode.Mul, NumericType.INT),
+            new CfStore(ValueType.INT, 3),
+            label9,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3},
+                    new FrameType[] {
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType()
+                    })),
+            new CfLoad(ValueType.INT, 2),
+            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfLoad(ValueType.INT, 2),
+            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfArithmeticBinop(CfArithmeticBinop.Opcode.Mul, NumericType.LONG),
+            new CfStore(ValueType.LONG, 4),
+            label10,
+            new CfLoad(ValueType.LONG, 4),
+            new CfNumberConversion(NumericType.LONG, NumericType.INT),
+            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfLoad(ValueType.LONG, 4),
+            new CfCmp(Cmp.Bias.NONE, NumericType.LONG),
+            new CfIf(IfType.EQ, ValueType.INT, label12),
+            label11,
+            new CfNew(factory.createType("Ljava/lang/ArithmeticException;")),
+            new CfStackInstruction(CfStackInstruction.Opcode.Dup),
+            new CfConstString(factory.createString("integer overflow")),
+            new CfInvoke(
+                183,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/ArithmeticException;"),
+                    factory.createProto(factory.voidType, factory.stringType),
+                    factory.createString("<init>")),
+                false),
+            new CfThrow(),
+            label12,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3, 4, 5},
+                    new FrameType[] {
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.longType(),
+                      FrameType.longHighType()
+                    })),
+            new CfLoad(ValueType.LONG, 4),
+            new CfNumberConversion(NumericType.LONG, NumericType.INT),
+            new CfStore(ValueType.INT, 2),
+            label13,
+            new CfLoad(ValueType.INT, 1),
+            new CfConstNumber(1, ValueType.INT),
+            new CfLogicalBinop(CfLogicalBinop.Opcode.Ushr, NumericType.INT),
+            new CfStore(ValueType.INT, 1),
+            label14,
+            new CfGoto(label6),
+            label15,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3},
+                    new FrameType[] {
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType()
+                    })),
+            new CfLoad(ValueType.INT, 3),
+            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfLoad(ValueType.INT, 2),
+            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfArithmeticBinop(CfArithmeticBinop.Opcode.Mul, NumericType.LONG),
+            new CfStore(ValueType.LONG, 4),
+            label16,
+            new CfLoad(ValueType.LONG, 4),
+            new CfNumberConversion(NumericType.LONG, NumericType.INT),
+            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfLoad(ValueType.LONG, 4),
+            new CfCmp(Cmp.Bias.NONE, NumericType.LONG),
+            new CfIf(IfType.EQ, ValueType.INT, label18),
+            label17,
+            new CfNew(factory.createType("Ljava/lang/ArithmeticException;")),
+            new CfStackInstruction(CfStackInstruction.Opcode.Dup),
+            new CfConstString(factory.createString("integer overflow")),
+            new CfInvoke(
+                183,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/ArithmeticException;"),
+                    factory.createProto(factory.voidType, factory.stringType),
+                    factory.createString("<init>")),
+                false),
+            new CfThrow(),
+            label18,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3, 4, 5},
+                    new FrameType[] {
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.intType(),
+                      FrameType.longType(),
+                      FrameType.longHighType()
+                    })),
+            new CfLoad(ValueType.LONG, 4),
+            new CfNumberConversion(NumericType.LONG, NumericType.INT),
+            new CfReturn(ValueType.INT),
+            label19),
+        ImmutableList.of(),
+        ImmutableList.of());
+  }
+
   public static CfCode MathMethods_subtractExactInt(DexItemFactory factory, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();

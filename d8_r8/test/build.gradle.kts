@@ -27,6 +27,7 @@ val keepAnnoSourcesTask = projectTask("keepanno", "sourcesJar")
 val assistantJarTask = projectTask("assistant", "jar")
 val mainDepsJarTask = projectTask("main", "depsJar")
 val swissArmyKnifeTask = projectTask("main", "swissArmyKnife")
+val processKeepRulesLibWithRelocatedDepsTask = projectTask("main", "processKeepRulesLibWithRelocatedDeps")
 val r8WithRelocatedDepsTask = projectTask("main", "r8WithRelocatedDeps")
 val mainSourcesTask = projectTask("main", "sourcesJar")
 val resourceShrinkerSourcesTask = projectTask("resourceshrinker", "sourcesJar")
@@ -499,6 +500,10 @@ tasks {
     if (!project.hasProperty("no_internal")) {
       dependsOn(gradle.includedBuild("shared").task(":downloadDepsInternal"))
       dependsOn(gradle.includedBuild("shared").task(":downloadTestDepsInternal"))
+    }
+    // Build processkeepruleslib.jar when running with --only_internal.
+    if (project.hasProperty("only_internal")) {
+      dependsOn(processKeepRulesLibWithRelocatedDepsTask)
     }
     if (project.hasProperty("r8lib")) {
       dependsOn(testR8LibWithRelocatedDeps)

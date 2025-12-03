@@ -385,6 +385,8 @@ fun Project.createR8LibCommandLine(
   pgInputMap: File? = null,
   replaceFromJar: File? = null,
   versionJar: File? = null,
+  enableKeepAnnotations: Boolean = true,
+  includeApiDatabase: Boolean = true,
 ): List<String> {
   return buildList {
     add("python3")
@@ -424,6 +426,12 @@ fun Project.createR8LibCommandLine(
     if (versionJar != null) {
       add("--r8-version-jar")
       add("$versionJar")
+    }
+    if (!enableKeepAnnotations) {
+      add("--disable-keep-annotations")
+    }
+    if (!enableKeepAnnotations) {
+      add("--exclude-api-database")
     }
   }
 }
