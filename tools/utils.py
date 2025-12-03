@@ -50,6 +50,7 @@ GRADLE_TASK_KEEP_ANNO_LEGACY_JAR = ':keepanno:keepAnnoLegacyAnnotationsJar'
 GRADLE_TASK_KEEP_ANNO_ANDROIDX_JAR = ':keepanno:keepAnnoAndroidXAnnotationsJar'
 GRADLE_TASK_KEEP_ANNO_DOC = ':keepanno:keepAnnoAnnotationsDoc'
 GRADLE_TASK_MAIN_COMPILE = ':main:compileJava'
+GRADLE_TASK_PROCESS_KEEP_RULES_LIB_JAR = ':main:processKeepRulesLibWithRelocatedDeps'
 GRADLE_TASK_R8 = ':main:r8WithRelocatedDeps'
 GRADLE_TASK_R8LIB = ':test:assembleR8LibWithRelocatedDeps'
 GRADLE_TASK_R8LIB_NO_DEPS = ':test:assembleR8LibNoDeps'
@@ -71,6 +72,7 @@ R8 = 'r8'
 R8LIB = 'r8lib'
 
 ALL_DEPS_JAR = os.path.join(LIBS, 'deps_all.jar')
+PROCESS_KEEP_RULES_LIB_JAR = os.path.join(LIBS, 'processkeepruleslib.jar')
 R8_JAR = os.path.join(LIBS, 'r8.jar')
 R8LIB_JAR = os.path.join(LIBS, 'r8lib.jar')
 R8LIB_MAP = '%s.map' % R8LIB_JAR
