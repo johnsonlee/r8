@@ -114,11 +114,13 @@ class TestConfigurationHelper {
         test.exclude("com/android/tools/r8/internal/**")
       }
 
-      // Include sanity checks on lib jars when running --only_internal.
       if (project.hasProperty("only_internal")) {
         test.include("com/android/tools/r8/internal/**")
-        test.include("com/android/tools/r8/processkeeprules/sanitychecks/**")
-      } else {
+      }
+
+      // Exclude sanity checks on lib jars when running without R8 lib,
+      // since we don't build processkeepruleslib.jar with test.py --no-r8lib.
+      if (!isR8Lib) {
         test.exclude("com/android/tools/r8/processkeeprules/sanitychecks/**")
       }
 

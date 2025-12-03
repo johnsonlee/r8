@@ -137,6 +137,10 @@ public class ToolHelper {
     return getBuildPropPaths("BUILD_PROP_R8_RUNTIME_PATH");
   }
 
+  public static List<Path> getBuildPropProcessKeepRulesRuntimePath() {
+    return getBuildPropPaths("BUILD_PROP_PROCESS_KEEP_RULES_RUNTIME_PATH");
+  }
+
   public static List<Path> getBuildPropKeepAnnoRuntimePath() {
     return getBuildPropPaths("BUILD_PROP_KEEPANNO_RUNTIME_PATH");
   }
