@@ -32,6 +32,7 @@ import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.Invoke;
 import com.android.tools.r8.ir.code.Move;
 import com.android.tools.r8.ir.code.MoveException;
+import com.android.tools.r8.ir.code.NumberConversionType;
 import com.android.tools.r8.ir.code.NumericType;
 import com.android.tools.r8.ir.code.Or;
 import com.android.tools.r8.ir.code.Phi;
@@ -1899,7 +1900,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
       return definition.inValues().get(0).outType().isWide();
     }
     return definition.isNumberConversion()
-        && definition.asNumberConversion().isLongToIntConversion();
+        && definition.asNumberConversion().getType() == NumberConversionType.LONG_TO_INT;
   }
 
   private boolean singleOverlappingLong(int register1, int register2) {

@@ -315,7 +315,7 @@ public class RuntimeWorkaroundCodeRewriter {
             // double-precision registers. See b/77496850 for examples.
             if (!value.isPhi()
                 && value.definition.isNumberConversion()
-                && value.definition.asNumberConversion().to == NumericType.DOUBLE) {
+                && value.definition.asNumberConversion().getType().getTo() == NumericType.DOUBLE) {
               InvokeStatic invokeIsNaN =
                   new InvokeStatic(
                       dexItemFactory.doubleMembers.isNaN, null, ImmutableList.of(value));

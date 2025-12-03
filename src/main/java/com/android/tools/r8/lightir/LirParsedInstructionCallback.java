@@ -17,6 +17,7 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.OriginalFieldWitness;
 import com.android.tools.r8.ir.code.IfType;
 import com.android.tools.r8.ir.code.MemberType;
+import com.android.tools.r8.ir.code.NumberConversionType;
 import com.android.tools.r8.ir.code.NumericType;
 import com.android.tools.r8.ir.optimize.outliner.bottomup.Outline;
 import com.android.tools.r8.lightir.LirBuilder.FillArrayPayload;
@@ -339,10 +340,10 @@ public abstract class LirParsedInstructionCallback<EV> implements LirInstruction
     assert LirOpcodes.I2L <= opcode;
     assert opcode <= LirOpcodes.I2S;
     CfNumberConversion insn = CfNumberConversion.fromAsm(opcode);
-    onNumberConversion(insn.getFromType(), insn.getToType(), value);
+    onNumberConversion(NumberConversionType.fromTypes(insn.getFromType(), insn.getToType()), value);
   }
 
-  public void onNumberConversion(NumericType from, NumericType to, EV value) {
+  public void onNumberConversion(NumberConversionType type, EV value) {
     onInstruction();
   }
 

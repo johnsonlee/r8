@@ -101,14 +101,11 @@ public class StringBuilderHelper {
     } else if (arg.definition.isNumberConversion()) {
       NumberConversion conversion = arg.definition.asNumberConversion();
       assert conversion.inValues().size() == 1;
-      if (!conversion.isValid()) {
-        return null;
-      }
       Number temp = extractConstantNumber(factory, conversion.inValues().get(0));
       if (temp == null) {
         return null;
       }
-      DexType conversionType = conversion.to.toDexType(factory);
+      DexType conversionType = conversion.getType().getTo().toDexType(factory);
       if (conversionType == factory.booleanType) {
         return temp.intValue() != 0 ? 1 : 0;
       } else if (conversionType == factory.byteType) {

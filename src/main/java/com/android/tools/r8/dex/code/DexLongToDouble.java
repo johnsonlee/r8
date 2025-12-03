@@ -3,7 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.dex.code;
 
-import com.android.tools.r8.ir.code.NumericType;
+import com.android.tools.r8.ir.code.NumberConversionType;
 import com.android.tools.r8.ir.conversion.IRBuilder;
 
 public class DexLongToDouble extends DexFormat12x {
@@ -37,6 +37,6 @@ public class DexLongToDouble extends DexFormat12x {
 
   @Override
   public void buildIR(IRBuilder builder) {
-    builder.addConversion(NumericType.DOUBLE, NumericType.LONG, A, B);
+    builder.addConversion(NumberConversionType.LONG_TO_DOUBLE, A, B);
   }
 }

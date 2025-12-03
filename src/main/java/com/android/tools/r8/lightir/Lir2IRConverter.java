@@ -78,6 +78,7 @@ import com.android.tools.r8.ir.code.NewInstance;
 import com.android.tools.r8.ir.code.NewUnboxedEnumInstance;
 import com.android.tools.r8.ir.code.Not;
 import com.android.tools.r8.ir.code.NumberConversion;
+import com.android.tools.r8.ir.code.NumberConversionType;
 import com.android.tools.r8.ir.code.NumberGenerator;
 import com.android.tools.r8.ir.code.NumericType;
 import com.android.tools.r8.ir.code.Or;
@@ -645,11 +646,11 @@ public class Lir2IRConverter {
     }
 
     @Override
-    public void onNumberConversion(NumericType from, NumericType to, EV value) {
+    public void onNumberConversion(NumberConversionType type, EV value) {
       Value dest =
           getOutValueForNextInstruction(
-              to.toDexType(appView.dexItemFactory()).toTypeElement(appView));
-      addInstruction(new NumberConversion(from, to, dest, getValue(value)));
+              type.getTo().toDexType(appView.dexItemFactory()).toTypeElement(appView));
+      addInstruction(new NumberConversion(type, dest, getValue(value)));
     }
 
     @Override

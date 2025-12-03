@@ -11,6 +11,7 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.graph.lens.InitClassLens;
+import com.android.tools.r8.ir.code.NumberConversionType;
 import com.android.tools.r8.ir.code.NumericType;
 import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.ir.conversion.CfSourceCode;
@@ -180,7 +181,10 @@ public class CfNumberConversion extends CfInstruction {
   @Override
   public void buildIR(IRBuilder builder, CfState state, CfSourceCode code) {
     int source = state.pop().register;
-    builder.addConversion(to, from, state.push(ValueType.fromNumericType(to)).register, source);
+    builder.addConversion(
+        NumberConversionType.fromTypes(from, to),
+        state.push(ValueType.fromNumericType(to)).register,
+        source);
   }
 
   @Override

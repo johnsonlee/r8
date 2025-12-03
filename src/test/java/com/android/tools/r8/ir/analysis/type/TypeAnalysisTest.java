@@ -248,18 +248,20 @@ public class TypeAnalysisTest extends SmaliTestBase {
             CheckCast.class, TypeElement.fromDexType(test, maybeNull(), appView),
             NewInstance.class, TypeElement.fromDexType(test, definitelyNotNull(), appView));
     IRCode irCode = methodSubject.buildIR();
-    forEachOutValue(irCode, (v, l) -> {
-      verifyTypeEnvironment(expectedLattices, v, l);
-      // There are double-to-int, long-to-int, and int-to-long conversions in this example.
-      if (v.definition != null && v.definition.isNumberConversion()) {
-        NumberConversion instr = v.definition.asNumberConversion();
-        if (instr.to.isWide()) {
-          assertEquals(LONG, l);
-        } else {
-          assertEquals(INT, l);
-        }
-      }
-    });
+    forEachOutValue(
+        irCode,
+        (v, l) -> {
+          verifyTypeEnvironment(expectedLattices, v, l);
+          // There are double-to-int, long-to-int, and int-to-long conversions in this example.
+          if (v.definition != null && v.definition.isNumberConversion()) {
+            NumberConversion instr = v.definition.asNumberConversion();
+            if (instr.getType().getTo().isWide()) {
+              assertEquals(LONG, l);
+            } else {
+              assertEquals(INT, l);
+            }
+          }
+        });
   }
 
   // One more complicated example.
