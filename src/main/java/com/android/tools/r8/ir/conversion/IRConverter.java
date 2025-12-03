@@ -30,6 +30,7 @@ import com.android.tools.r8.ir.code.InstructionIterator;
 import com.android.tools.r8.ir.code.NumberGenerator;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
+import com.android.tools.r8.ir.conversion.passes.AssumeRemover;
 import com.android.tools.r8.ir.conversion.passes.ClassGetNameOptimizer;
 import com.android.tools.r8.ir.conversion.passes.CodeRewriterPassCollection;
 import com.android.tools.r8.ir.conversion.passes.DexConstantOptimizer;
@@ -804,7 +805,7 @@ public class IRConverter {
 
     if (assumeInserter != null) {
       timing.begin("Remove assume instructions");
-      CodeRewriter.removeAssumeInstructions(appView, code);
+      new AssumeRemover(appView).run(code, methodProcessor, methodProcessingContext, timing);
       timing.end();
       previous = printMethod(code, "IR after removing assume instructions (SSA)", previous);
 

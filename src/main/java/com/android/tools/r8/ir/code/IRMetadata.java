@@ -95,6 +95,10 @@ public class IRMetadata implements StructuralItem<IRMetadata> {
     return get(Opcodes.ARRAY_LENGTH);
   }
 
+  public boolean mayHaveAssume() {
+    return get(Opcodes.ASSUME);
+  }
+
   public boolean mayHaveCheckCast() {
     return get(Opcodes.CHECK_CAST);
   }

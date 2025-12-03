@@ -64,9 +64,9 @@ import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
 import com.android.tools.r8.ir.conversion.MethodProcessorEventConsumer;
 import com.android.tools.r8.ir.conversion.SourceCode;
+import com.android.tools.r8.ir.conversion.passes.AssumeRemover;
 import com.android.tools.r8.ir.conversion.passes.MoveResultRewriter;
 import com.android.tools.r8.ir.optimize.AffectedValues;
-import com.android.tools.r8.ir.optimize.CodeRewriter;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.ir.optimize.InliningConstraints;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackDelayed;
@@ -1452,7 +1452,7 @@ public class OutlinerImpl extends Outliner {
           // unused out-values.
           new MoveResultRewriter(appView).run(code, Timing.empty());
           converter.deadCodeRemover.run(code, Timing.empty());
-          CodeRewriter.removeAssumeInstructions(appView, code);
+          new AssumeRemover(appView).run(code, Timing.empty());
           consumer.accept(code);
         },
         appView.options().getThreadingModule(),
