@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.lightir;
 
-import com.android.tools.r8.cf.code.CfNumberConversion;
 import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.DexCallSite;
@@ -337,10 +336,7 @@ public abstract class LirParsedInstructionCallback<EV> implements LirInstruction
   }
 
   public void onNumberConversion(int opcode, EV value) {
-    assert LirOpcodes.I2L <= opcode;
-    assert opcode <= LirOpcodes.I2S;
-    CfNumberConversion insn = CfNumberConversion.fromAsm(opcode);
-    onNumberConversion(NumberConversionType.fromTypes(insn.getFromType(), insn.getToType()), value);
+    onNumberConversion(NumberConversionType.fromLirOpcode(opcode), value);
   }
 
   public void onNumberConversion(NumberConversionType type, EV value) {

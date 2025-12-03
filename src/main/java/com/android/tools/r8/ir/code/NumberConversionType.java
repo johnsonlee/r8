@@ -4,6 +4,9 @@
 
 package com.android.tools.r8.ir.code;
 
+import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.lightir.LirOpcodes;
+
 public enum NumberConversionType {
   INT_TO_BYTE(NumericType.INT, NumericType.BYTE, org.objectweb.asm.Opcodes.I2B),
   INT_TO_CHAR(NumericType.INT, NumericType.CHAR, org.objectweb.asm.Opcodes.I2C),
@@ -43,68 +46,77 @@ public enum NumberConversionType {
     this.asmOpcode = asmOpcode;
   }
 
-  /**
-   * @throws IllegalArgumentException for invalid conversions.
-   */
-  public static NumberConversionType fromTypes(NumericType from, NumericType to) {
-    switch (from) {
-      case INT:
-        switch (to) {
-          case BYTE:
-            return INT_TO_BYTE;
-          case CHAR:
-            return INT_TO_CHAR;
-          case SHORT:
-            return INT_TO_SHORT;
-          case LONG:
-            return INT_TO_LONG;
-          case FLOAT:
-            return INT_TO_FLOAT;
-          case DOUBLE:
-            return INT_TO_DOUBLE;
-          default:
-            break;
-        }
-        break;
-      case LONG:
-        switch (to) {
-          case INT:
-            return LONG_TO_INT;
-          case FLOAT:
-            return LONG_TO_FLOAT;
-          case DOUBLE:
-            return LONG_TO_DOUBLE;
-          default:
-            break;
-        }
-        break;
-      case FLOAT:
-        switch (to) {
-          case INT:
-            return FLOAT_TO_INT;
-          case LONG:
-            return FLOAT_TO_LONG;
-          case DOUBLE:
-            return FLOAT_TO_DOUBLE;
-          default:
-            break;
-        }
-        break;
-      case DOUBLE:
-        switch (to) {
-          case INT:
-            return DOUBLE_TO_INT;
-          case LONG:
-            return DOUBLE_TO_LONG;
-          case FLOAT:
-            return DOUBLE_TO_FLOAT;
-          default:
-            break;
-        }
-        break;
+  public static NumberConversionType fromAsmOpcode(int asmOpcode) {
+    switch (asmOpcode) {
+      case org.objectweb.asm.Opcodes.I2L:
+        return INT_TO_LONG;
+      case org.objectweb.asm.Opcodes.I2F:
+        return INT_TO_FLOAT;
+      case org.objectweb.asm.Opcodes.I2D:
+        return INT_TO_DOUBLE;
+      case org.objectweb.asm.Opcodes.L2I:
+        return LONG_TO_INT;
+      case org.objectweb.asm.Opcodes.L2F:
+        return LONG_TO_FLOAT;
+      case org.objectweb.asm.Opcodes.L2D:
+        return LONG_TO_DOUBLE;
+      case org.objectweb.asm.Opcodes.F2I:
+        return FLOAT_TO_INT;
+      case org.objectweb.asm.Opcodes.F2L:
+        return FLOAT_TO_LONG;
+      case org.objectweb.asm.Opcodes.F2D:
+        return FLOAT_TO_DOUBLE;
+      case org.objectweb.asm.Opcodes.D2I:
+        return DOUBLE_TO_INT;
+      case org.objectweb.asm.Opcodes.D2L:
+        return DOUBLE_TO_LONG;
+      case org.objectweb.asm.Opcodes.D2F:
+        return DOUBLE_TO_FLOAT;
+      case org.objectweb.asm.Opcodes.I2B:
+        return INT_TO_BYTE;
+      case org.objectweb.asm.Opcodes.I2C:
+        return INT_TO_CHAR;
+      case org.objectweb.asm.Opcodes.I2S:
+        return INT_TO_SHORT;
       default:
-        break;
+        throw new Unreachable("Unexpected number conversion opcode " + asmOpcode);
     }
-    throw new IllegalArgumentException(from + " to " + to + " is not a valid number conversion.");
+  }
+
+  public static NumberConversionType fromLirOpcode(int lirOpcode) {
+    switch (lirOpcode) {
+      case LirOpcodes.I2L:
+        return INT_TO_LONG;
+      case LirOpcodes.I2F:
+        return INT_TO_FLOAT;
+      case LirOpcodes.I2D:
+        return INT_TO_DOUBLE;
+      case LirOpcodes.L2I:
+        return LONG_TO_INT;
+      case LirOpcodes.L2F:
+        return LONG_TO_FLOAT;
+      case LirOpcodes.L2D:
+        return LONG_TO_DOUBLE;
+      case LirOpcodes.F2I:
+        return FLOAT_TO_INT;
+      case LirOpcodes.F2L:
+        return FLOAT_TO_LONG;
+      case LirOpcodes.F2D:
+        return FLOAT_TO_DOUBLE;
+      case LirOpcodes.D2I:
+        return DOUBLE_TO_INT;
+      case LirOpcodes.D2L:
+        return DOUBLE_TO_LONG;
+      case LirOpcodes.D2F:
+        return DOUBLE_TO_FLOAT;
+      case LirOpcodes.I2B:
+        return INT_TO_BYTE;
+      case LirOpcodes.I2C:
+        return INT_TO_CHAR;
+      case LirOpcodes.I2S:
+        return INT_TO_SHORT;
+      default:
+        throw new Unreachable("Unexpected number conversion LIR opcode " + lirOpcode);
+    }
   }
 }
