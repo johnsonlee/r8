@@ -13,7 +13,7 @@ import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.JumpInstruction;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.android.tools.r8.shaking.AssumeInfoCollection;
+import com.android.tools.r8.shaking.assume.AssumeInfoCollection;
 import java.util.ArrayList;
 import java.util.List;
 
