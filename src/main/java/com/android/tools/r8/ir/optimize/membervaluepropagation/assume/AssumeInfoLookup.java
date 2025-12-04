@@ -8,7 +8,7 @@ import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
-import com.android.tools.r8.shaking.AssumeInfoCollection;
+import com.android.tools.r8.shaking.assume.AssumeInfoCollection;
 
 public class AssumeInfoLookup {
 

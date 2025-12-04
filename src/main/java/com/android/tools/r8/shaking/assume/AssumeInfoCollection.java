@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.shaking;
+package com.android.tools.r8.shaking.assume;
 
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 
@@ -15,6 +15,7 @@ import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.optimize.membervaluepropagation.assume.AssumeInfo;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.MapUtils;
 import com.android.tools.r8.utils.timing.Timing;
 import java.util.IdentityHashMap;
