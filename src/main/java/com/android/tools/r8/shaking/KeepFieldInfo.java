@@ -101,7 +101,7 @@ public final class KeepFieldInfo extends KeepMemberInfo<KeepFieldInfo.Builder, K
   }
 
   public static KeepFieldInfo parse(Iterator<String> iterator) {
-    Builder builder = new Builder();
+    Builder builder = new Builder().makeBottom();
     while (iterator.hasNext()) {
       String next = iterator.next();
       if (next.equals("")) {
@@ -127,9 +127,13 @@ public final class KeepFieldInfo extends KeepMemberInfo<KeepFieldInfo.Builder, K
 
   @Override
   public List<String> lines() {
-    List<String> lines = super.lines();
-    lines.add("allowFieldTypeStrengthening: " + allowFieldTypeStrengthening);
-    lines.add("allowRedundantFieldLoadElimination: " + allowRedundantFieldLoadElimination);
+    List<String> lines = linesDifferentFromBase(bottom());
+    if (bottom().allowFieldTypeStrengthening != allowFieldTypeStrengthening) {
+      lines.add("allowFieldTypeStrengthening: " + allowFieldTypeStrengthening);
+    }
+    if (bottom().allowRedundantFieldLoadElimination != allowRedundantFieldLoadElimination) {
+      lines.add("allowRedundantFieldLoadElimination: " + allowRedundantFieldLoadElimination);
+    }
     return lines;
   }
 

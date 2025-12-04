@@ -382,7 +382,7 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
   }
 
   public static KeepMethodInfo parse(Iterator<String> iterator) {
-    Builder builder = new Builder();
+    Builder builder = new Builder().makeBottom();
     while (iterator.hasNext()) {
       String next = iterator.next();
       if (next.equals("")) {
@@ -460,25 +460,61 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
 
   @Override
   public List<String> lines() {
-    List<String> lines = super.lines();
-    lines.add("allowThrowsRemoval: " + allowThrowsRemoval);
-    lines.add("allowClassInlining: " + allowClassInlining);
-    lines.add("allowClosedWorldReasoning: " + allowClosedWorldReasoning);
-    lines.add("allowCodeReplacement: " + allowCodeReplacement);
-    lines.add("allowConstantArgumentOptimization: " + allowConstantArgumentOptimization);
-    lines.add("allowInlining: " + allowInlining);
-    lines.add("allowMethodStaticizing: " + allowMethodStaticizing);
-    lines.add("allowParameterRemoval: " + allowParameterRemoval);
-    lines.add("allowParameterReordering: " + allowParameterReordering);
-    lines.add("allowParameterTypeStrengthening: " + allowParameterTypeStrengthening);
-    lines.add("allowReprocessing: " + allowReprocessing);
-    lines.add("allowReturnTypeStrengthening: " + allowReturnTypeStrengthening);
-    lines.add("allowSingleCallerInlining: " + allowSingleCallerInlining);
-    lines.add("allowUnusedArgumentOptimization: " + allowUnusedArgumentOptimization);
-    lines.add("allowUnusedReturnValueOptimization: " + allowUnusedReturnValueOptimization);
-    lines.add("allowParameterNamesRemoval: " + allowParameterNamesRemoval);
-    lines.add("whyAreYouNotInlining: " + whyAreYouNotInlining);
-    lines.add("parameterAnnotationsInfo: " + parameterAnnotationsInfo);
+    List<String> lines = linesDifferentFromBase(bottom());
+    if (bottom().allowThrowsRemoval != allowThrowsRemoval) {
+      lines.add("allowThrowsRemoval: " + allowThrowsRemoval);
+    }
+    if (bottom().allowClassInlining != allowClassInlining) {
+      lines.add("allowClassInlining: " + allowClassInlining);
+    }
+    if (bottom().allowClosedWorldReasoning != allowClosedWorldReasoning) {
+      lines.add("allowClosedWorldReasoning: " + allowClosedWorldReasoning);
+    }
+    if (bottom().allowCodeReplacement != allowCodeReplacement) {
+      lines.add("allowCodeReplacement: " + allowCodeReplacement);
+    }
+    if (bottom().allowConstantArgumentOptimization != allowConstantArgumentOptimization) {
+      lines.add("allowConstantArgumentOptimization: " + allowConstantArgumentOptimization);
+    }
+    if (bottom().allowInlining != allowInlining) {
+      lines.add("allowInlining: " + allowInlining);
+    }
+    if (bottom().allowMethodStaticizing != allowMethodStaticizing) {
+      lines.add("allowMethodStaticizing: " + allowMethodStaticizing);
+    }
+    if (bottom().allowParameterRemoval != allowParameterRemoval) {
+      lines.add("allowParameterRemoval: " + allowParameterRemoval);
+    }
+    if (bottom().allowParameterReordering != allowParameterReordering) {
+      lines.add("allowParameterReordering: " + allowParameterReordering);
+    }
+    if (bottom().allowParameterTypeStrengthening != allowParameterTypeStrengthening) {
+      lines.add("allowParameterTypeStrengthening: " + allowParameterTypeStrengthening);
+    }
+    if (bottom().allowReprocessing != allowReprocessing) {
+      lines.add("allowReprocessing: " + allowReprocessing);
+    }
+    if (bottom().allowReturnTypeStrengthening != allowReturnTypeStrengthening) {
+      lines.add("allowReturnTypeStrengthening: " + allowReturnTypeStrengthening);
+    }
+    if (bottom().allowSingleCallerInlining != allowSingleCallerInlining) {
+      lines.add("allowSingleCallerInlining: " + allowSingleCallerInlining);
+    }
+    if (bottom().allowUnusedArgumentOptimization != allowUnusedArgumentOptimization) {
+      lines.add("allowUnusedArgumentOptimization: " + allowUnusedArgumentOptimization);
+    }
+    if (bottom().allowUnusedReturnValueOptimization != allowUnusedReturnValueOptimization) {
+      lines.add("allowUnusedReturnValueOptimization: " + allowUnusedReturnValueOptimization);
+    }
+    if (bottom().allowParameterNamesRemoval != allowParameterNamesRemoval) {
+      lines.add("allowParameterNamesRemoval: " + allowParameterNamesRemoval);
+    }
+    if (bottom().whyAreYouNotInlining != whyAreYouNotInlining) {
+      lines.add("whyAreYouNotInlining: " + whyAreYouNotInlining);
+    }
+    if (bottom().parameterAnnotationsInfo != parameterAnnotationsInfo) {
+      lines.add("parameterAnnotationsInfo: " + parameterAnnotationsInfo);
+    }
     return lines;
   }
 

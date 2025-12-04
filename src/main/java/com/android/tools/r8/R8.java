@@ -614,6 +614,21 @@ public class R8 {
 
                 pruner.run(
                     executorService, timing, PrunedItems.builder().addRemovedClasses(prunedTypes));
+
+            if (options.testing.exportFinalKeepInfoCollectionToDirectory != null) {
+              try {
+                appView
+                    .getKeepInfo()
+                    .exportToDirectory(options.testing.exportFinalKeepInfoCollectionToDirectory);
+              } catch (IOException e) {
+                options.reporter.error(
+                    "Could not export final keep info collection: " + e.getMessage());
+              }
+            }
+            if (options.testing.finalKeepInfoCollectionConsumer != null) {
+              options.testing.finalKeepInfoCollectionConsumer.accept(
+                  appView.getKeepInfo().exportToCollection());
+            }
             appViewWithLiveness
                 .appInfo()
                 .notifyTreePrunerFinished(Enqueuer.Mode.FINAL_TREE_SHAKING);

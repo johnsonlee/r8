@@ -167,7 +167,6 @@ import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
-import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -4759,19 +4758,6 @@ public class Enqueuer {
     appInfo.markObsolete();
     if (options.testing.enqueuerInspector != null) {
       options.testing.enqueuerInspector.accept(appInfoWithLiveness, mode);
-    }
-    if (mode.isFinalTreeShaking()) {
-      if (options.testing.exportFinalKeepInfoCollectionToDirectory != null) {
-        try {
-          keepInfo.exportToDirectory(options.testing.exportFinalKeepInfoCollectionToDirectory);
-        } catch (IOException e) {
-          options.reporter.error(
-              "Could not export initial keep info collection: " + e.getMessage());
-        }
-      }
-      if (options.testing.finalKeepInfoCollectionConsumer != null) {
-        options.testing.finalKeepInfoCollectionConsumer.accept(keepInfo.exportToCollection());
-      }
     }
     return new EnqueuerResult(appInfoWithLiveness);
   }
