@@ -367,7 +367,6 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
       if (typeIsPresent(factory.durationType)) {
         initializeDurationMethodProviders(factory);
       }
-      initializeJava25MethodProviders(factory);
     }
 
     private Map<DexType, AndroidApiLevel> initializeTypeMinApi(DexItemFactory factory) {
@@ -2195,17 +2194,6 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
       DexProto proto = factory.createProto(type, factory.supplierType);
       DexMethod method = factory.createMethod(type, proto, name);
       addProvider(new ThreadLocalWithInitialWithSupplierGenerator(method));
-    }
-
-    private void initializeJava25MethodProviders(DexItemFactory factory) {
-      // Math
-      DexType type = factory.mathType;
-
-      // Math.powExact(int, int)
-      DexString name = factory.createString("powExact");
-      DexProto proto = factory.createProto(factory.intType, factory.intType, factory.intType);
-      DexMethod method = factory.createMethod(type, proto, name);
-      addProvider(new MethodGenerator(method, BackportedMethods::MathMethods_powExact));
     }
 
     private void addProvider(MethodProvider<DexMethod> generator) {

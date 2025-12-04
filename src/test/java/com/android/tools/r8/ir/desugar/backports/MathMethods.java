@@ -429,33 +429,4 @@ public final class MathMethods {
     }
     return result;
   }
-
-  public static int powExact(int x, int y) {
-    int result = x;
-    if (y < 0) {
-      throw new ArithmeticException("negative exponent");
-    }
-    if (y == 0) {
-      return 1;
-    }
-
-    int p = 1;
-    while (y > 1) {
-      if ((y & 1) != 0) {
-        p *= x;
-      }
-      long tmp = (long) result * (long) result;
-      if ((int) tmp != tmp) {
-        throw new ArithmeticException("integer overflow");
-      }
-      result = (int) tmp;
-      y >>>= 1;
-    }
-
-    long tmp = (long) p * (long) result;
-    if ((int) tmp != tmp) {
-      throw new ArithmeticException("integer overflow");
-    }
-    return (int) tmp;
-  }
 }
