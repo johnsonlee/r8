@@ -336,9 +336,9 @@ def Run(options):
         ]
         for_archiving = []
         for lib_jar in lib_jars:
-            for_archiving.append(artifact)
-            for_archiving.append(artifact + '.map')
-            for_archiving.append(artifact + '_map.zip')
+            for_archiving.append(lib_jar)
+            for_archiving.append(lib_jar + '.map')
+            for_archiving.append(lib_jar + '_map.zip')
         for_archiving.extend([
             utils.R8_JAR, utils.R8_FULL_EXCLUDE_DEPS_JAR,
             utils.MAVEN_ZIP_LIB,
