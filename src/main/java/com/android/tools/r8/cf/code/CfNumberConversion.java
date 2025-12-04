@@ -11,7 +11,6 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.graph.lens.InitClassLens;
 import com.android.tools.r8.ir.code.NumberConversionType;
-import com.android.tools.r8.ir.code.NumericType;
 import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.ir.conversion.CfSourceCode;
 import com.android.tools.r8.ir.conversion.CfState;
@@ -45,14 +44,6 @@ public class CfNumberConversion extends CfInstruction {
   @Override
   public void internalAcceptHashing(HashingVisitor visitor) {
     // Nothing to add.
-  }
-
-  public NumericType getFromType() {
-    return type.getFrom();
-  }
-
-  public NumericType getToType() {
-    return type.getTo();
   }
 
   @Override
