@@ -458,41 +458,4 @@ public final class MathMethods {
     }
     return (int) tmp;
   }
-
-  public static int unsignedPowExact(int x, int y) {
-    int result = x;
-    if (y < 0) {
-      throw new ArithmeticException("negative exponent");
-    }
-    if (y == 0) {
-      return 1;
-    }
-
-    int p = 1;
-    while (y > 1) {
-      if ((y & 1) != 0) {
-        p *= x;
-      }
-      long tmp = (x & 0xFFFF_FFFFL) * (x & 0xFFFF_FFFFL);
-      if (tmp >>> 32 != 0) {
-        throw new ArithmeticException("unsigned integer overflow");
-      }
-      result = (int) tmp;
-      y >>>= 1;
-    }
-
-    long tmp = (p & 0xFFFF_FFFFL) * (result & 0xFFFF_FFFFL);
-    if (tmp >>> 32 != 0) {
-      throw new ArithmeticException("unsigned integer overflow");
-    }
-    return (int) tmp;
-  }
-
-  public static int unsignedMultiplyExact(int x, int y) {
-    long r = (x & 0xFFFF_FFFFL) * (y & 0xFFFF_FFFFL);
-    if (r >>> 32 != 0) {
-      throw new ArithmeticException("unsigned integer overflow");
-    }
-    return (int) r;
-  }
 }

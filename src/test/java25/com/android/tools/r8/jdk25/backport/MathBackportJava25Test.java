@@ -31,78 +31,7 @@ public final class MathBackportJava25Test extends AbstractBackportTest {
   public static class MathBackportJava25Main {
 
     public static void main(String[] args) {
-      testUnsignedMultiplyExact();
       testPowExact();
-      testUnsignedPowExact();
-    }
-
-    static void testUnsignedMultiplyExact() {
-      assertEquals(0, Math.unsignedMultiplyExact(0, 0));
-      assertEquals(0, Math.unsignedMultiplyExact(0, 1));
-      assertEquals(1, Math.unsignedMultiplyExact(1, 1));
-
-      assertEquals(256, Math.unsignedMultiplyExact(16, 16));
-
-      assertEquals(-2, Math.unsignedMultiplyExact(Integer.MAX_VALUE, 2));
-      assertEquals(Integer.MIN_VALUE, Math.unsignedMultiplyExact(Integer.MIN_VALUE, 1));
-
-      try {
-        Math.unsignedMultiplyExact(Integer.MAX_VALUE, 16);
-        fail();
-      } catch (ArithmeticException ae) {
-      }
-      try {
-        assertEquals(256, Math.unsignedMultiplyExact(Integer.MIN_VALUE, 16));
-        fail();
-      } catch (ArithmeticException ae) {
-      }
-    }
-
-    static void testUnsignedPowExact() {
-      try {
-        Math.unsignedPowExact(42, -1);
-        fail();
-      } catch (ArithmeticException ae) {
-      }
-
-      assertEquals(1, Math.unsignedPowExact(0, 0));
-      assertEquals(0, Math.unsignedPowExact(0, 1));
-      assertEquals(0, Math.unsignedPowExact(0, 2));
-
-      assertEquals(1, Math.unsignedPowExact(-1, 0));
-      assertEquals(-1, Math.unsignedPowExact(-1, 1));
-      try {
-        Math.unsignedPowExact(-1, 2);
-        fail();
-      } catch (ArithmeticException ae) {
-      }
-
-      assertEquals(1, Math.unsignedPowExact(1, 0));
-      assertEquals(1, Math.unsignedPowExact(1, 1));
-      assertEquals(1, Math.unsignedPowExact(1, 2));
-
-      assertEquals(1, Math.unsignedPowExact(2, 0));
-      assertEquals(2, Math.unsignedPowExact(2, 1));
-      assertEquals(4, Math.unsignedPowExact(2, 2));
-
-      assertEquals(1, Math.unsignedPowExact(Integer.MIN_VALUE, 0));
-      assertEquals(-2147483648, Math.unsignedPowExact(Integer.MIN_VALUE, 1));
-      try {
-        Math.unsignedPowExact(Integer.MIN_VALUE, 2);
-        fail();
-      } catch (ArithmeticException ae) {
-      }
-
-      assertEquals(1, Math.unsignedPowExact(Integer.MAX_VALUE, 0));
-      assertEquals(2147483647, Math.unsignedPowExact(Integer.MAX_VALUE, 1));
-      try {
-        Math.unsignedPowExact(Integer.MAX_VALUE, 2);
-        fail();
-      } catch (ArithmeticException ae) {
-      }
-
-      assertEquals(4096, Math.unsignedPowExact(256 / 16, 3));
-      assertEquals(512, Math.unsignedPowExact(256 / 32, 3));
     }
 
     static void testPowExact() {
