@@ -168,7 +168,7 @@ tasks {
     val argList = mutableListOf("--keep-rules",
                     "--allowobfuscation",
                     "--lib",
-                    "${getJavaHome(Jdk.JDK_21)}",
+                    "${getJavaHome(Jdk.JDK_25)}",
                     "--lib",
                     "$mainDepsJar",
                     "--lib",
