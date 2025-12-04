@@ -5,9 +5,8 @@ package com.android.tools.r8.naming;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertEquals;
 
-import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -33,35 +32,24 @@ public class MinifyPackageByDefaultWhenNotRepackagingTest extends TestBase {
   public void test() throws Exception {
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
-        .addKeepMainRule(Main.class)
+        .addKeepClassRulesWithAllowObfuscation(Main.class)
+        .addKeepRules("-keepclassmembers class * { public static void main(java.lang.String[]); }")
         .addDontRepackage()
-        .enableInliningAnnotations()
         .setMinApi(parameters)
         .compile()
         .inspect(
             inspector -> {
               ClassSubject mainClass = inspector.clazz(Main.class);
               assertThat(mainClass, isPresent());
-              ClassSubject greeterClass = inspector.clazz(Greeter.class);
-              assertThat(greeterClass, isPresent());
-              assertFalse(
-                  mainClass.getDexProgramClass().isSamePackage(greeterClass.getDexProgramClass()));
+              assertEquals("a", mainClass.getDexProgramClass().getType().getPackageName());
             })
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("Hello, world!");
   }
 
-  static class Main {
+  public static class Main {
 
     public static void main(String[] args) {
-      Greeter.greet();
-    }
-  }
-
-  public static class Greeter {
-
-    @NeverInline
-    public static void greet() {
       System.out.println("Hello, world!");
     }
   }
