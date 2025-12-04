@@ -18,10 +18,8 @@ import com.android.tools.r8.shaking.RootSetUtils.RootSetBuilder;
 import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.Iterables;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -37,7 +35,6 @@ public class ProguardMemberRule {
     private ProguardTypeMatcher type;
     private ProguardNameMatcher name;
     private List<ProguardTypeMatcher> arguments;
-    private List<ProguardMemberRuleReturnValue> preconditions;
     private ProguardMemberRuleReturnValue returnValue;
 
     private Builder() {}
@@ -88,18 +85,6 @@ public class ProguardMemberRule {
       return this;
     }
 
-    public Builder setPrecondition(int i, ProguardMemberRuleReturnValue precondition) {
-      if (preconditions == null) {
-        preconditions = new ArrayList<>();
-      }
-      assert preconditions.size() <= i;
-      while (preconditions.size() < i) {
-        preconditions.add(null);
-      }
-      preconditions.add(precondition);
-      return this;
-    }
-
     public Builder setReturnValue(ProguardMemberRuleReturnValue value) {
       returnValue = value;
       return this;
@@ -119,7 +104,6 @@ public class ProguardMemberRule {
           type,
           name,
           arguments,
-          preconditions,
           returnValue);
     }
   }
@@ -131,7 +115,6 @@ public class ProguardMemberRule {
   private final ProguardTypeMatcher type;
   private final ProguardNameMatcher name;
   private final List<ProguardTypeMatcher> arguments;
-  private final List<ProguardMemberRuleReturnValue> preconditions;
   private final ProguardMemberRuleReturnValue returnValue;
 
   public ProguardMemberRule(
@@ -142,7 +125,6 @@ public class ProguardMemberRule {
       ProguardTypeMatcher type,
       ProguardNameMatcher name,
       List<ProguardTypeMatcher> arguments,
-      List<ProguardMemberRuleReturnValue> preconditions,
       ProguardMemberRuleReturnValue returnValue) {
     this.annotations = annotations;
     this.accessFlags = accessFlags;
@@ -151,7 +133,6 @@ public class ProguardMemberRule {
     this.type = type;
     this.name = name;
     this.arguments = arguments != null ? Collections.unmodifiableList(arguments) : null;
-    this.preconditions = preconditions;
     this.returnValue = returnValue;
   }
 
@@ -196,16 +177,6 @@ public class ProguardMemberRule {
 
   public boolean hasReturnValue() {
     return returnValue != null;
-  }
-
-  public boolean hasPreconditions() {
-    assert preconditions == null
-        || Iterables.any(preconditions, precondition -> precondition != null);
-    return preconditions != null;
-  }
-
-  public List<ProguardMemberRuleReturnValue> getPreconditions() {
-    return preconditions;
   }
 
   public ProguardMemberRuleReturnValue getReturnValue() {
@@ -387,7 +358,6 @@ public class ProguardMemberRule {
             : getArguments().stream()
                 .map(argument -> argument.materialize(dexItemFactory))
                 .collect(Collectors.toList()),
-        getPreconditions(),
         getReturnValue());
   }
 
@@ -417,8 +387,7 @@ public class ProguardMemberRule {
     if (type != null ? !type.equals(that.type) : that.type != null) {
       return false;
     }
-    return Objects.equals(arguments, that.arguments)
-        && Objects.equals(preconditions, that.preconditions);
+    return arguments != null ? arguments.equals(that.arguments) : that.arguments == null;
   }
 
   @Override
@@ -426,11 +395,10 @@ public class ProguardMemberRule {
     int result = annotations.hashCode();
     result = 31 * result + accessFlags.hashCode();
     result = 31 * result + negatedAccessFlags.hashCode();
-    result = 31 * result + Objects.hashCode(ruleType);
-    result = 31 * result + Objects.hashCode(type);
-    result = 31 * result + Objects.hashCode(name);
-    result = 31 * result + Objects.hashCode(arguments);
-    result = 31 * result + Objects.hashCode(preconditions);
+    result = 31 * result + (ruleType != null ? ruleType.hashCode() : 0);
+    result = 31 * result + (type != null ? type.hashCode() : 0);
+    result = 31 * result + (name != null ? name.hashCode() : 0);
+    result = 31 * result + (arguments != null ? arguments.hashCode() : 0);
     return result;
   }
 
@@ -459,24 +427,7 @@ public class ProguardMemberRule {
       case INIT: {
         result.append(getName());
         result.append('(');
-          if (hasPreconditions()) {
-            assert getPreconditions().size() <= getArguments().size();
-            int i = 0;
-            for (; i < getPreconditions().size(); i++) {
-              if (i > 0) {
-                result.append(',');
-              }
-              result.append(getArguments().get(i));
-              if (getPreconditions().get(i) != null) {
-                result.append(" = ").append(getPreconditions().get(i).getValueString());
-              }
-            }
-            for (; i < getArguments().size(); i++) {
-              result.append(',').append(getArguments().get(i));
-            }
-          } else {
           result.append(StringUtils.join(",", getArguments()));
-          }
         result.append(')');
         break;
       }

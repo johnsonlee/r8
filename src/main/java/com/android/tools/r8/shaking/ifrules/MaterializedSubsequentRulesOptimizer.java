@@ -161,7 +161,6 @@ public class MaterializedSubsequentRulesOptimizer {
         type,
         memberRule.getName(),
         memberRule.getArguments(),
-        memberRule.getPreconditions(),
         memberRule.getReturnValue());
   }
 
