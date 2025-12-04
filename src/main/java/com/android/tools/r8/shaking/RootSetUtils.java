@@ -1982,7 +1982,7 @@ public class RootSetUtils {
         markAsUsed.execute();
       }
 
-      if (appView.options().isRepackagingEnabled()
+      if (appView.options().getPackageObfuscationMode().isSome()
           && item.isProgramClass()
           && isRepackagingDisallowed(item, modifiers)) {
         itemJoiner.computeIfAbsent().asClassJoiner().disallowRepackaging();

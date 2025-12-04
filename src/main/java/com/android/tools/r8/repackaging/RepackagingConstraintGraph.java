@@ -17,6 +17,7 @@ import com.android.tools.r8.graph.ProgramPackage;
 import com.android.tools.r8.graph.ProgramPackageCollection;
 import com.android.tools.r8.repackaging.Repackaging.RepackagingConfiguration;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.InternalOptions.PackageObfuscationMode;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.WorkList;
@@ -41,6 +42,7 @@ import java.util.concurrent.ExecutorService;
 public class RepackagingConstraintGraph {
 
   private final AppView<AppInfoWithLiveness> appView;
+  private final PackageObfuscationMode packageObfuscationMode;
   private final ProgramPackage pkg;
   private final ProgramPackageCollection packages;
   private final Map<ProgramPackage, Set<DexProgramClass>> packagesWithClassesToRepackage;
@@ -53,12 +55,14 @@ public class RepackagingConstraintGraph {
 
   public RepackagingConstraintGraph(
       AppView<AppInfoWithLiveness> appView,
+      PackageObfuscationMode packageObfuscationMode,
       ProgramPackage pkg,
       ProgramPackageCollection packages,
       Map<ProgramPackage, Set<DexProgramClass>> packagesWithClassesToRepackage,
       RepackagingConfiguration repackagingConfiguration,
       CrossPackageRepackagingConstraints crossPackageRepackagingConstraints) {
     this.appView = appView;
+    this.packageObfuscationMode = packageObfuscationMode;
     this.pkg = pkg;
     this.packages = packages;
     this.packagesWithClassesToRepackage = packagesWithClassesToRepackage;
@@ -220,11 +224,7 @@ public class RepackagingConstraintGraph {
 
   private void preserveInvalidOverridesOfPackagePrivateMethod(
       ProgramMethod method, MethodResolutionResult resolutionResult) {
-    if (!appView
-        .options()
-        .getProguardConfiguration()
-        .getPackageObfuscationMode()
-        .isRepackageClasses()) {
+    if (!packageObfuscationMode.isRepackageClasses()) {
       // We are not merging packages.
       return;
     }

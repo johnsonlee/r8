@@ -142,7 +142,7 @@ public class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepClassInfo
    * value on a given item.
    */
   public boolean isRepackagingAllowed(GlobalKeepInfoConfiguration configuration) {
-    return configuration.isRepackagingEnabled() && internalIsRepackagingAllowed();
+    return configuration.getPackageObfuscationMode().isSome() && internalIsRepackagingAllowed();
   }
 
   boolean internalIsRepackagingAllowed() {

@@ -5,7 +5,7 @@ package com.android.tools.r8.naming;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertFalse;
 
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
@@ -44,7 +44,7 @@ public class MinifyPackageByDefaultWhenNotRepackagingTest extends TestBase {
               assertThat(mainClass, isPresent());
               ClassSubject greeterClass = inspector.clazz(Greeter.class);
               assertThat(greeterClass, isPresent());
-              assertTrue(
+              assertFalse(
                   mainClass.getDexProgramClass().isSamePackage(greeterClass.getDexProgramClass()));
             })
         .run(parameters.getRuntime(), Main.class)

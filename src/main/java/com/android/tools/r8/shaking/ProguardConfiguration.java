@@ -551,11 +551,6 @@ public class ProguardConfiguration {
     }
 
     public ProguardConfiguration build() {
-
-      if (packageObfuscationMode == PackageObfuscationMode.NONE && obfuscating) {
-        packageObfuscationMode = PackageObfuscationMode.MINIFICATION;
-      }
-
       return buildRaw();
     }
   }

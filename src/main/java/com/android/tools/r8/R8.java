@@ -768,7 +768,7 @@ public class R8 {
 
       // Perform repackaging.
       if (appView.hasLiveness()) {
-        if (options.isRepackagingEnabled()) {
+        if (options.getPackageObfuscationMode().isSome()) {
           new Repackaging(appView.withLiveness()).run(executorService, timing);
         }
         assert Repackaging.verifyIdentityRepackaging(appView.withLiveness(), executorService);
