@@ -99,7 +99,17 @@ def get_r8_version(r8jar):
 
 # Used to delete the API database when building processkeeprules.jar.
 def exclude_api_database(r8jar):
-    zip_utils.remove_files_from_zip(['resources/new_api_database.ser'], r8jar)
+    if utils.IsWindows():
+        try:
+            zip_utils.remove_files_from_zip(
+                [os.path.join('resources', 'new_api_database.ser')], r8jar)
+        except Exception:
+            # The removal of entries from ZIP files use the zip executable,
+            # which is not installed on our Windows bots.
+            pass
+    else:
+        zip_utils.remove_files_from_zip(
+            [os.path.join('resources', 'new_api_database.ser')], r8jar)
 
 
 # Used to move r8 assistant runtime files into r8.jar.

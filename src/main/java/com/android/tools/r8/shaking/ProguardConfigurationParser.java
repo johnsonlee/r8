@@ -347,6 +347,20 @@ public class ProguardConfigurationParser {
         configurationConsumer.disableRepackaging(this, getPosition(optionStart));
       } else if (acceptString("dontshrink")) {
         configurationConsumer.disableShrinking(this, getPosition(optionStart));
+      } else if (acceptString("printblastradius")) {
+        configurationConsumer.enablePrintBlastRadius(this, getPosition(optionStart), optionStart);
+      } else if (acceptString("printconfiguration")) {
+        skipWhitespace();
+        configurationConsumer.enablePrintConfiguration(
+            parseOptionalFileName(), this, getPosition(optionStart), optionStart);
+      } else if (acceptString("printmapping")) {
+        skipWhitespace();
+        configurationConsumer.enablePrintMapping(
+            parseOptionalFileName(), this, getPosition(optionStart), optionStart);
+      } else if (acceptString("printseeds")) {
+        skipWhitespace();
+        configurationConsumer.enablePrintSeeds(
+            parseOptionalFileName(), this, getPosition(optionStart), optionStart);
       } else if (acceptString("printusage")) {
         skipWhitespace();
         configurationConsumer.enablePrintUsage(
@@ -403,14 +417,6 @@ public class ProguardConfigurationParser {
       } else if (acceptString("allowaccessmodification")) {
         configurationConsumer.enableAllowAccessModification(
             this, getPosition(optionStart), optionStart);
-      } else if (acceptString("printconfiguration")) {
-        skipWhitespace();
-        configurationConsumer.enablePrintConfiguration(
-            parseOptionalFileName(), this, getPosition(optionStart), optionStart);
-      } else if (acceptString("printmapping")) {
-        skipWhitespace();
-        configurationConsumer.enablePrintMapping(
-            parseOptionalFileName(), this, getPosition(optionStart), optionStart);
       } else if (acceptString("applymapping")) {
         Path applyMappingFile =
             parseFileInputDependency(inputDependencyConsumer::acceptProguardApplyMapping);
@@ -441,10 +447,6 @@ public class ProguardConfigurationParser {
             this,
             getPosition(optionStart),
             optionStart);
-      } else if (acceptString("printseeds")) {
-        skipWhitespace();
-        configurationConsumer.enablePrintSeeds(
-            parseOptionalFileName(), this, getPosition(optionStart), optionStart);
       } else if (acceptString("obfuscationdictionary")) {
         Path obfuscationDictionary =
             parseFileInputDependency(inputDependencyConsumer::acceptProguardObfuscationDictionary);
@@ -1312,11 +1314,11 @@ public class ProguardConfigurationParser {
       } else if (acceptString("<init>")) {
         ruleBuilder.setRuleType(ProguardMemberType.INIT);
         ruleBuilder.setName(IdentifierPatternWithWildcards.withoutWildcards("<init>"));
-        ruleBuilder.setArguments(parseArgumentList());
+        ruleBuilder.setArguments(parseArgumentList(allowValueSpecification, ruleBuilder));
       } else if (acceptString("<clinit>")) {
         ruleBuilder.setRuleType(ProguardMemberType.CLINIT);
         ruleBuilder.setName(IdentifierPatternWithWildcards.withoutWildcards("<clinit>"));
-        ruleBuilder.setArguments(parseArgumentList());
+        ruleBuilder.setArguments(parseArgumentList(allowValueSpecification, ruleBuilder));
       } else {
         TextPosition firstStart = getPosition();
         IdentifierPatternWithWildcards first =
@@ -1332,7 +1334,7 @@ public class ProguardConfigurationParser {
               checkConstructorPattern(first, firstStart);
               ruleBuilder.setRuleType(ProguardMemberType.CONSTRUCTOR);
               ruleBuilder.setName(first);
-              ruleBuilder.setArguments(parseArgumentList());
+              ruleBuilder.setArguments(parseArgumentList(allowValueSpecification, ruleBuilder));
             } else {
               if (acceptString("<init>")) {
                 ProguardTypeMatcher typeMatcher =
@@ -1343,7 +1345,7 @@ public class ProguardConfigurationParser {
                 ruleBuilder.setRuleType(ProguardMemberType.INIT);
                 ruleBuilder.setName(IdentifierPatternWithWildcards.withoutWildcards("<init>"));
                 ruleBuilder.setTypeMatcher(typeMatcher);
-                ruleBuilder.setArguments(parseArgumentList());
+                ruleBuilder.setArguments(parseArgumentList(allowValueSpecification, ruleBuilder));
               } else if (acceptString("<clinit>")) {
                 ProguardTypeMatcher typeMatcher =
                     ProguardTypeMatcher.create(first, ClassOrType.TYPE, dexItemFactory);
@@ -1353,7 +1355,7 @@ public class ProguardConfigurationParser {
                 ruleBuilder.setRuleType(ProguardMemberType.CLINIT);
                 ruleBuilder.setName(IdentifierPatternWithWildcards.withoutWildcards("<clinit>"));
                 ruleBuilder.setTypeMatcher(typeMatcher);
-                ruleBuilder.setArguments(parseArgumentList());
+                ruleBuilder.setArguments(parseArgumentList(allowValueSpecification, ruleBuilder));
               } else {
                 TextPosition secondStart = getPosition();
                 IdentifierPatternWithWildcards second =
@@ -1371,7 +1373,8 @@ public class ProguardConfigurationParser {
                     ruleBuilder
                         .setTypeMatcher(
                             ProguardTypeMatcher.create(first, ClassOrType.TYPE, dexItemFactory));
-                    ruleBuilder.setArguments(parseArgumentList());
+                    ruleBuilder.setArguments(
+                        parseArgumentList(allowValueSpecification, ruleBuilder));
                   } else {
                     ruleBuilder.setRuleType(ProguardMemberType.FIELD);
                     ruleBuilder.setName(second);
@@ -1379,66 +1382,9 @@ public class ProguardConfigurationParser {
                         .setTypeMatcher(
                             ProguardTypeMatcher.create(first, ClassOrType.TYPE, dexItemFactory));
                   }
-                  skipWhitespace();
                   // Parse "return ..." if present.
-                  TextPosition returnStart = getPosition();
-                  if (acceptString("return")) {
-                    if (!allowValueSpecification) {
-                      throw parseError("Unexpected value specification", returnStart);
-                    }
-                    skipWhitespace();
-                    if (acceptString("true")) {
-                      ruleBuilder.setReturnValue(new ProguardMemberRuleReturnValue(true));
-                    } else if (acceptString("false")) {
-                      ruleBuilder.setReturnValue(new ProguardMemberRuleReturnValue(false));
-                    } else if (acceptString("null")) {
-                      ruleBuilder.setReturnValue(
-                          new ProguardMemberRuleReturnValue(Nullability.definitelyNull()));
-                    } else {
-                      Integer integer = acceptInteger();
-                      if (integer != null) {
-                        Integer min = integer;
-                        Integer max = min;
-                        skipWhitespace();
-                        if (acceptString("..")) {
-                          skipWhitespace();
-                          max = acceptInteger();
-                          if (max == null) {
-                            throw parseError("Expected integer value");
-                          }
-                        }
-                        ruleBuilder.setReturnValue(
-                            new ProguardMemberRuleReturnValue(new LongInterval(min, max)));
-                      } else {
-                        Nullability nullability = Nullability.maybeNull();
-                        if (acceptString("@NonNull") || acceptString("_NONNULL_")) {
-                          nullability = Nullability.definitelyNotNull();
-                          skipWhitespace();
-                          if (acceptChar(';')) {
-                            ruleBuilder.setReturnValue(
-                                new ProguardMemberRuleReturnValue(nullability));
-                            return;
-                          }
-                        }
-                        String qualifiedFieldName = acceptQualifiedFieldName();
-                        if (qualifiedFieldName != null) {
-                          int lastDotIndex = qualifiedFieldName.lastIndexOf(".");
-                          DexType fieldHolder =
-                              dexItemFactory.createType(
-                                  javaTypeToDescriptor(
-                                      qualifiedFieldName.substring(0, lastDotIndex)));
-                          DexString fieldName =
-                              dexItemFactory.createString(
-                                  qualifiedFieldName.substring(lastDotIndex + 1));
-                          ruleBuilder.setReturnValue(
-                              new ProguardMemberRuleReturnValue(
-                                  fieldHolder, fieldName, nullability));
-                        } else {
-                          throw parseError("Expected qualified field");
-                        }
-                      }
-                    }
-                  }
+                  ruleBuilder.setReturnValue(
+                      parseOptionalValueSpecification(allowValueSpecification, "return"));
                 } else {
                   throw parseError("Expected field or method name");
                 }
@@ -1452,6 +1398,59 @@ public class ProguardConfigurationParser {
         skipWhitespace();
         expectChar(';');
       }
+    }
+
+    private ProguardMemberRuleReturnValue parseOptionalValueSpecification(
+        boolean allowValueSpecification, String symbolStart) throws ProguardRuleParserException {
+      skipWhitespace();
+      TextPosition positionStart = getPosition();
+      if (!acceptString(symbolStart)) {
+        return null;
+      }
+      if (!allowValueSpecification) {
+        throw parseError("Unexpected value specification", positionStart);
+      }
+      skipWhitespace();
+      if (acceptString("true")) {
+        return new ProguardMemberRuleReturnValue(true);
+      } else if (acceptString("false")) {
+        return new ProguardMemberRuleReturnValue(false);
+      } else if (acceptString("null")) {
+        return new ProguardMemberRuleReturnValue(Nullability.definitelyNull());
+      }
+      Integer integer = acceptInteger();
+      if (integer != null) {
+        Integer min = integer;
+        Integer max = min;
+        skipWhitespace();
+        if (acceptString("..")) {
+          skipWhitespace();
+          max = acceptInteger();
+          if (max == null) {
+            throw parseError("Expected integer value");
+          }
+        }
+        return new ProguardMemberRuleReturnValue(new LongInterval(min, max));
+      }
+      Nullability nullability = Nullability.maybeNull();
+      if (acceptString("@NonNull") || acceptString("_NONNULL_")) {
+        nullability = Nullability.definitelyNotNull();
+        skipWhitespace();
+        if (!eof() && peekChar() == ';') {
+          return new ProguardMemberRuleReturnValue(nullability);
+        }
+      }
+      String qualifiedFieldName = acceptQualifiedFieldName();
+      if (qualifiedFieldName != null) {
+        int lastDotIndex = qualifiedFieldName.lastIndexOf(".");
+        DexType fieldHolder =
+            dexItemFactory.createType(
+                javaTypeToDescriptor(qualifiedFieldName.substring(0, lastDotIndex)));
+        DexString fieldName =
+            dexItemFactory.createString(qualifiedFieldName.substring(lastDotIndex + 1));
+        return new ProguardMemberRuleReturnValue(fieldHolder, fieldName, nullability);
+      }
+      throw parseError("Expected qualified field");
     }
 
     private void checkConstructorPattern(
@@ -1471,7 +1470,9 @@ public class ProguardConfigurationParser {
       }
     }
 
-    private List<ProguardTypeMatcher> parseArgumentList() throws ProguardRuleParserException {
+    private List<ProguardTypeMatcher> parseArgumentList(
+        boolean allowValueSpecification, ProguardMemberRule.Builder ruleBuilder)
+        throws ProguardRuleParserException {
       List<ProguardTypeMatcher> arguments = new ArrayList<>();
       skipWhitespace();
       expectChar('(');
@@ -1485,12 +1486,20 @@ public class ProguardConfigurationParser {
             ClassOrType.TYPE,
             dexItemFactory));
       } else {
+        int i = 0;
         for (IdentifierPatternWithWildcards identifierPatternWithWildcards = parseClassName();
             identifierPatternWithWildcards != null;
-            identifierPatternWithWildcards = acceptChar(',') ? parseClassName() : null) {
+            identifierPatternWithWildcards = acceptChar(',') ? parseClassName() : null, i++) {
+          ProguardMemberRuleReturnValue precondition =
+              parseOptionalValueSpecification(allowValueSpecification, "=");
+          if (precondition != null) {
+            ruleBuilder.setPrecondition(i, precondition);
+          }
           arguments.add(ProguardTypeMatcher.create(
               identifierPatternWithWildcards, ClassOrType.TYPE, dexItemFactory));
-          skipWhitespace();
+          if (precondition != null) {
+            skipWhitespace();
+          }
         }
       }
       skipWhitespace();

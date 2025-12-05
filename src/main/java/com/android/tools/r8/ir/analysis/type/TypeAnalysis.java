@@ -16,7 +16,7 @@ import com.android.tools.r8.ir.code.InvokeMethodWithReceiver;
 import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.optimize.AffectedValues;
-import com.android.tools.r8.ir.optimize.AssumeRemover;
+import com.android.tools.r8.ir.optimize.RedundantAssumeRemover;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.ConsumerUtils;
 import com.android.tools.r8.utils.WorkList;
@@ -41,7 +41,7 @@ public class TypeAnalysis {
   private Mode mode = Mode.UNSET;
 
   private final AppView<?> appView;
-  private final AssumeRemover assumeRemover;
+  private final RedundantAssumeRemover assumeRemover;
   private final IRCode code;
 
   private final WorkList<Value> worklist = WorkList.newIdentityWorkList();
@@ -52,7 +52,7 @@ public class TypeAnalysis {
 
   public TypeAnalysis(AppView<?> appView, IRCode code, boolean mayHaveImpreciseTypes) {
     this.appView = appView;
-    this.assumeRemover = new AssumeRemover(appView, code);
+    this.assumeRemover = new RedundantAssumeRemover(appView, code);
     this.code = code;
     this.mayHaveImpreciseTypes = mayHaveImpreciseTypes;
   }

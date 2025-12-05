@@ -143,16 +143,17 @@ tasks {
         keepAnnoCompileTask.outputs.files.asPath,
         keepAnnoCompileKotlinTask.outputs.files.asPath))
     // This path is set when compiling examples jar task in DependenciesPlugin.
-    systemProperty(
-      "BUILD_PROP_R8_RUNTIME_PATH",
-      mainCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0] +
-        File.pathSeparator + mainTurboCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0] +
-        File.pathSeparator + mainDepsJarTask.outputs.files.singleFile +
-        File.pathSeparator + getRoot().resolveAll("src", "main", "resources") +
-        File.pathSeparator + keepAnnoCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0] +
-        File.pathSeparator + assistantCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0] +
-        File.pathSeparator + resourceShrinkerJavaCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0] +
-        File.pathSeparator + resourceShrinkerKotlinCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[1])
+    val r8RuntimePath =
+        mainCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0] +
+            File.pathSeparator + mainTurboCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0] +
+            File.pathSeparator + mainDepsJarTask.outputs.files.singleFile +
+            File.pathSeparator + getRoot().resolveAll("src", "main", "resources") +
+            File.pathSeparator + keepAnnoCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0] +
+            File.pathSeparator + assistantCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0] +
+            File.pathSeparator + resourceShrinkerJavaCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0] +
+            File.pathSeparator + resourceShrinkerKotlinCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[1]
+    systemProperty("BUILD_PROP_PROCESS_KEEP_RULES_RUNTIME_PATH", r8RuntimePath)
+    systemProperty("BUILD_PROP_R8_RUNTIME_PATH", r8RuntimePath)
     systemProperty("R8_DEPS", mainDepsJarTask.outputs.files.singleFile)
     systemProperty("com.android.tools.r8.artprofilerewritingcompletenesscheck", "true")
   }

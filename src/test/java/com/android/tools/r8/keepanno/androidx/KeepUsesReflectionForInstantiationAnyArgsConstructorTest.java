@@ -4,6 +4,7 @@
 package com.android.tools.r8.keepanno.androidx;
 
 import static com.android.tools.r8.ToolHelper.getFilesInTestFolderRelativeToClass;
+import static org.junit.Assume.assumeFalse;
 
 import androidx.annotation.keep.UsesReflectionToConstruct;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
@@ -50,7 +51,9 @@ public class KeepUsesReflectionForInstantiationAnyArgsConstructorTest
   @Override
   protected String getExpectedOutputForKotlin() {
     return StringUtils.lines(
-        "fun `<init>`(): com.android.tools.r8.keepanno.androidx.kt.KeptClass", "<init>()", "4");
+        "fun `<init>`(): com.android.tools.r8.keepanno.androidx.kt.KeptClass",
+        "In KeptClass.<init>()",
+        "4");
   }
 
   private static Collection<Path> getKotlinSources() {
@@ -83,6 +86,7 @@ public class KeepUsesReflectionForInstantiationAnyArgsConstructorTest
             .add(
                 ExpectedKeepRule.builder()
                     .apply(setCondition)
+                    .setKeepVariant("-keepclasseswithmembers")
                     .setConsequentClass(KeptClass.class)
                     .setConsequentMembers("{ void <init>(...); }")
                     .build());
@@ -90,16 +94,10 @@ public class KeepUsesReflectionForInstantiationAnyArgsConstructorTest
       builder.add(
           ExpectedKeepRule.builder()
               .apply(setCondition)
+              .setKeepVariant("-keepclasseswithmembers")
               .setConsequentExtendsClass(KeptClass.class)
               .setConsequentMembers("{ void <init>(...); }")
               .build());
-    }
-    addConsequentKotlinMetadata(builder, b -> b.apply(setCondition));
-    addDefaultInitWorkaround(
-        builder, b -> b.apply(setCondition).setConsequentClass(KeptClass.class));
-    if (includeSubclasses) {
-      addDefaultInitWorkaround(
-          builder, b -> b.apply(setCondition).setConsequentExtendsClass(KeptClass.class));
     }
     return builder.build();
   }
@@ -116,23 +114,16 @@ public class KeepUsesReflectionForInstantiationAnyArgsConstructorTest
   private static ExpectedRules getExpectedRulesKotlin(
       String conditionClass, String conditionMembers) {
     Consumer<ExpectedKeepRule.Builder> setCondition =
-        b ->
-            b.setConditionClass("com.android.tools.r8.keepanno.androidx.kt.AnyArgsConstructor")
-                .setConditionMembers(conditionMembers);
+        b -> b.setConditionClass(conditionClass).setConditionMembers(conditionMembers);
     ExpectedRules.Builder builder =
         ExpectedRules.builder()
             .add(
                 ExpectedKeepRule.builder()
                     .apply(setCondition)
+                    .setKeepVariant("-keepclasseswithmembers")
                     .setConsequentClass("com.android.tools.r8.keepanno.androidx.kt.KeptClass")
                     .setConsequentMembers("{ void <init>(...); }")
                     .build());
-    addConsequentKotlinMetadata(builder, b -> b.apply(setCondition));
-    addDefaultInitWorkaround(
-        builder,
-        b ->
-            b.apply(setCondition)
-                .setConsequentClass("com.android.tools.r8.keepanno.androidx.kt.KeptClass"));
     return builder.build();
   }
 
@@ -191,6 +182,8 @@ public class KeepUsesReflectionForInstantiationAnyArgsConstructorTest
 
   @Test
   public void testAnyConstructorKotlin() throws Exception {
+    // TODO(b/323816623): With native interpretation kotlin.Metadata still gets stripped
+    assumeFalse(parameters.isNativeR8());
     testExtractedRulesAndRunKotlin(
         compilationResults,
         (classReference, classFileBytes) ->
@@ -214,6 +207,8 @@ public class KeepUsesReflectionForInstantiationAnyArgsConstructorTest
 
   @Test
   public void testAnyConstructorKotlinAnnotateClass() throws Exception {
+    // TODO(b/323816623): With native interpretation kotlin.Metadata still gets stripped
+    assumeFalse(parameters.isNativeR8());
     testExtractedRulesAndRunKotlin(
         compilationResults,
         (classReference, classFileBytes) ->

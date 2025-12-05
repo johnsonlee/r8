@@ -875,6 +875,12 @@ object ThirdPartyDeps {
       Paths.get("third_party", "opensource-apps", "android", "nowinandroid").toFile(),
       Paths.get("third_party", "opensource-apps", "android", "nowinandroid.tar.gz.sha1").toFile(),
     )
+  val processKeepRulesBinaryCompatibility =
+    ThirdPartyDependency(
+      "retrace-binary-compatibility",
+      Paths.get("third_party", "processkeeprules", "binary_compatibility").toFile(),
+      Paths.get("third_party", "processkeeprules", "binary_compatibility.tar.gz.sha1").toFile(),
+    )
   val proguards = getThirdPartyProguards()
   val proguardsettings =
     ThirdPartyDependency(

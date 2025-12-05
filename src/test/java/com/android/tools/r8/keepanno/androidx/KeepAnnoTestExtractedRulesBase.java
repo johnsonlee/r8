@@ -14,6 +14,7 @@ import com.android.tools.r8.ProgramResource;
 import com.android.tools.r8.ProgramResourceProvider;
 import com.android.tools.r8.ResourceException;
 import com.android.tools.r8.TestRunResult;
+import com.android.tools.r8.TestShrinkerBuilder;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.keepanno.KeepAnno;
 import com.android.tools.r8.keepanno.KeepAnnoParameters;
@@ -184,6 +185,9 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
 
     @Override
     public String getRule(boolean r8) {
+      assert keepVariant != null : "Builder missing keep variant.";
+      assert consequentClass != null : "Builder missing consequent class.";
+      assert consequentMembers != null : "Builder missing consequent members.";
       return (conditionClass != null
               ? "-if class "
                   + conditionClass
@@ -205,7 +209,7 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
 
     public static class Builder {
 
-      private String keepVariant = "-keepclassmembers";
+      private String keepVariant;
       private String conditionClass;
       private String conditionMembers;
       private String consequentClass;
@@ -596,37 +600,20 @@ public abstract class KeepAnnoTestExtractedRulesBase extends KeepAnnoTestBase {
             b ->
                 b.addProgramFiles(
                     ImmutableList.of(compilation.getForConfiguration(kotlinParameters))))
-        .applyIfPG(
-            b ->
-                b.addProgramFiles(
-                        ImmutableList.of(
-                            kotlinParameters.getCompiler().getKotlinStdlibJar(),
-                            kotlinParameters.getCompiler().getKotlinReflectJar(),
-                            kotlinParameters.getCompiler().getKotlinAnnotationJar()))
-                    .addKeepEnumsRule())
-        // addProgramResourceProviders is not implemented for ProGuard, so effectively exclusive
-        // from addProgramFiles above. If this changed ProGuard will report duplicate classes.
-        .addProgramResourceProviders(
-            // Only add class files from Kotlin libraries to ensure the keep annotations does not
-            // rely on rules like `-keepattributes RuntimeVisibleAnnotations` and
-            // `-keep class kotlin.Metadata { *; }` but are self-contained.
-            new ArchiveResourceProviderClassFilesOnly(
-                kotlinParameters.getCompiler().getKotlinStdlibJar()),
-            new ArchiveResourceProviderClassFilesOnly(
-                kotlinParameters.getCompiler().getKotlinReflectJar()),
-            new ArchiveResourceProviderClassFilesOnly(
+        .applyIfPG(TestShrinkerBuilder::addKeepEnumsRule)
+        .addProgramFiles(
+            ImmutableList.of(
+                kotlinParameters.getCompiler().getKotlinStdlibJar(),
+                kotlinParameters.getCompiler().getKotlinReflectJar(),
                 kotlinParameters.getCompiler().getKotlinAnnotationJar()))
         .addProgramClassFileData(classFileData)
-        // TODO(b/323816623): With native interpretation kotlin.Metadata still gets stripped
-        //  without -keepattributes RuntimeVisibleAnnotations`.
-        .applyIfR8(
-            b ->
-                b.applyIf(
-                    parameters.isNativeR8(),
-                    bb -> bb.addKeepRules("-keepattributes RuntimeVisibleAnnotations")))
         // Keep the main entry point for the test.
         .addKeepRules(
             "-keep class " + mainClass + " { public static void main(java.lang.String[]); }")
+        // The keep-anno testing addProgramFiles does not add the kotlin-reflect embedded rules.
+        .addKeepRules(
+            "-keep class kotlin.Metadata { *; }",
+            "-keepattributes InnerClasses,Signature,RuntimeVisible*Annotations,EnclosingMethod")
         .inspectExtractedRules(
             rules -> {
               if (parameters.isExtractRules()) {

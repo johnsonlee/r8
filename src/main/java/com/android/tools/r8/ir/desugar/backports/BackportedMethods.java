@@ -46,6 +46,7 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.ir.code.Cmp;
 import com.android.tools.r8.ir.code.IfType;
 import com.android.tools.r8.ir.code.MemberType;
+import com.android.tools.r8.ir.code.NumberConversionType;
 import com.android.tools.r8.ir.code.NumericType;
 import com.android.tools.r8.ir.code.ValueType;
 import com.google.common.collect.ImmutableList;
@@ -757,7 +758,7 @@ public final class BackportedMethods {
         ImmutableList.of(
             label0,
             new CfLoad(ValueType.INT, 0),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfConstNumber(255, ValueType.LONG),
             new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.LONG),
             new CfReturn(ValueType.LONG),
@@ -2359,7 +2360,7 @@ public final class BackportedMethods {
             new CfConstNumber(32, ValueType.INT),
             new CfLogicalBinop(CfLogicalBinop.Opcode.Ushr, NumericType.LONG),
             new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.LONG),
-            new CfNumberConversion(NumericType.LONG, NumericType.INT),
+            new CfNumberConversion(NumberConversionType.LONG_TO_INT),
             new CfReturn(ValueType.INT),
             label2),
         ImmutableList.of(),
@@ -3539,7 +3540,7 @@ public final class BackportedMethods {
             new CfLoad(ValueType.INT, 14),
             new CfArithmeticBinop(CfArithmeticBinop.Opcode.Add, NumericType.INT),
             new CfLogicalBinop(CfLogicalBinop.Opcode.Or, NumericType.INT),
-            new CfNumberConversion(NumericType.INT, NumericType.SHORT),
+            new CfNumberConversion(NumberConversionType.INT_TO_SHORT),
             new CfReturn(ValueType.INT),
             label37),
         ImmutableList.of(),
@@ -3826,13 +3827,13 @@ public final class BackportedMethods {
         ImmutableList.of(
             label0,
             new CfLoad(ValueType.INT, 0),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfConstNumber(4294967295L, ValueType.LONG),
             new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.LONG),
             new CfStore(ValueType.LONG, 2),
             label1,
             new CfLoad(ValueType.INT, 1),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfConstNumber(4294967295L, ValueType.LONG),
             new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.LONG),
             new CfStore(ValueType.LONG, 4),
@@ -3840,7 +3841,7 @@ public final class BackportedMethods {
             new CfLoad(ValueType.LONG, 2),
             new CfLoad(ValueType.LONG, 4),
             new CfArithmeticBinop(CfArithmeticBinop.Opcode.Div, NumericType.LONG),
-            new CfNumberConversion(NumericType.LONG, NumericType.INT),
+            new CfNumberConversion(NumberConversionType.LONG_TO_INT),
             new CfReturn(ValueType.INT),
             label3),
         ImmutableList.of(),
@@ -4411,7 +4412,7 @@ public final class BackportedMethods {
                       FrameType.longHighType()
                     })),
             new CfLoad(ValueType.LONG, 2),
-            new CfNumberConversion(NumericType.LONG, NumericType.INT),
+            new CfNumberConversion(NumberConversionType.LONG_TO_INT),
             new CfReturn(ValueType.INT),
             label6),
         ImmutableList.of(),
@@ -4430,13 +4431,13 @@ public final class BackportedMethods {
         ImmutableList.of(
             label0,
             new CfLoad(ValueType.INT, 0),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfConstNumber(4294967295L, ValueType.LONG),
             new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.LONG),
             new CfStore(ValueType.LONG, 2),
             label1,
             new CfLoad(ValueType.INT, 1),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfConstNumber(4294967295L, ValueType.LONG),
             new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.LONG),
             new CfStore(ValueType.LONG, 4),
@@ -4444,7 +4445,7 @@ public final class BackportedMethods {
             new CfLoad(ValueType.LONG, 2),
             new CfLoad(ValueType.LONG, 4),
             new CfArithmeticBinop(CfArithmeticBinop.Opcode.Rem, NumericType.LONG),
-            new CfNumberConversion(NumericType.LONG, NumericType.INT),
+            new CfNumberConversion(NumberConversionType.LONG_TO_INT),
             new CfReturn(ValueType.INT),
             label3),
         ImmutableList.of(),
@@ -4461,7 +4462,7 @@ public final class BackportedMethods {
         ImmutableList.of(
             label0,
             new CfLoad(ValueType.INT, 0),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfConstNumber(4294967295L, ValueType.LONG),
             new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.LONG),
             new CfReturn(ValueType.LONG),
@@ -4506,7 +4507,7 @@ public final class BackportedMethods {
         ImmutableList.of(
             label0,
             new CfLoad(ValueType.INT, 0),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfConstNumber(4294967295L, ValueType.LONG),
             new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.LONG),
             new CfStore(ValueType.LONG, 2),
@@ -4888,7 +4889,7 @@ public final class BackportedMethods {
                       FrameType.longHighType()
                     }),
                 new ArrayDeque<>(Arrays.asList(FrameType.longType(), FrameType.intType()))),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfArithmeticBinop(CfArithmeticBinop.Opcode.Add, NumericType.LONG),
             new CfReturn(ValueType.LONG),
             label15),
@@ -5160,7 +5161,7 @@ public final class BackportedMethods {
             new CfConstNumber(32, ValueType.INT),
             new CfLogicalBinop(CfLogicalBinop.Opcode.Ushr, NumericType.LONG),
             new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.LONG),
-            new CfNumberConversion(NumericType.LONG, NumericType.INT),
+            new CfNumberConversion(NumberConversionType.LONG_TO_INT),
             new CfReturn(ValueType.INT),
             label1),
         ImmutableList.of(),
@@ -5443,7 +5444,7 @@ public final class BackportedMethods {
                     })),
             new CfConstNumber(-1, ValueType.LONG),
             new CfLoad(ValueType.INT, 3),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfInvoke(
                 184,
                 factory.createMethod(
@@ -5601,7 +5602,7 @@ public final class BackportedMethods {
             new CfLoad(ValueType.INT, 11),
             new CfConstNumber(-1, ValueType.LONG),
             new CfLoad(ValueType.INT, 3),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             label16,
             new CfInvoke(
                 184,
@@ -5610,7 +5611,7 @@ public final class BackportedMethods {
                     factory.createProto(factory.longType, factory.longType, factory.longType),
                     factory.createString("remainderUnsigned")),
                 false),
-            new CfNumberConversion(NumericType.LONG, NumericType.INT),
+            new CfNumberConversion(NumberConversionType.LONG_TO_INT),
             new CfIfCmp(IfType.LE, ValueType.INT, label18),
             label17,
             new CfFrame(
@@ -5676,10 +5677,10 @@ public final class BackportedMethods {
                     })),
             new CfLoad(ValueType.LONG, 8),
             new CfLoad(ValueType.INT, 3),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfArithmeticBinop(CfArithmeticBinop.Opcode.Mul, NumericType.LONG),
             new CfLoad(ValueType.INT, 11),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfArithmeticBinop(CfArithmeticBinop.Opcode.Add, NumericType.LONG),
             new CfStore(ValueType.LONG, 8),
             label19,
@@ -6081,7 +6082,7 @@ public final class BackportedMethods {
             new CfIinc(4, -1),
             new CfLoad(ValueType.INT, 4),
             new CfLoad(ValueType.LONG, 0),
-            new CfNumberConversion(NumericType.LONG, NumericType.INT),
+            new CfNumberConversion(NumberConversionType.LONG_TO_INT),
             new CfLoad(ValueType.INT, 6),
             new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.INT),
             new CfLoad(ValueType.INT, 2),
@@ -6127,7 +6128,7 @@ public final class BackportedMethods {
             new CfLoad(ValueType.INT, 2),
             new CfConstNumber(1, ValueType.INT),
             new CfLogicalBinop(CfLogicalBinop.Opcode.Ushr, NumericType.INT),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfArithmeticBinop(CfArithmeticBinop.Opcode.Div, NumericType.LONG),
             new CfStore(ValueType.LONG, 5),
             label17,
@@ -6145,7 +6146,7 @@ public final class BackportedMethods {
                     })),
             new CfLoad(ValueType.LONG, 0),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfInvoke(
                 184,
                 factory.createMethod(
@@ -6170,7 +6171,7 @@ public final class BackportedMethods {
             new CfLoad(ValueType.LONG, 0),
             new CfLoad(ValueType.LONG, 5),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfArithmeticBinop(CfArithmeticBinop.Opcode.Mul, NumericType.LONG),
             new CfArithmeticBinop(CfArithmeticBinop.Opcode.Sub, NumericType.LONG),
             new CfStore(ValueType.LONG, 7),
@@ -6179,7 +6180,7 @@ public final class BackportedMethods {
             new CfIinc(4, -1),
             new CfLoad(ValueType.INT, 4),
             new CfLoad(ValueType.LONG, 7),
-            new CfNumberConversion(NumericType.LONG, NumericType.INT),
+            new CfNumberConversion(NumberConversionType.LONG_TO_INT),
             new CfLoad(ValueType.INT, 2),
             new CfInvoke(
                 184,
@@ -6217,9 +6218,9 @@ public final class BackportedMethods {
             new CfLoad(ValueType.INT, 4),
             new CfLoad(ValueType.LONG, 0),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfArithmeticBinop(CfArithmeticBinop.Opcode.Rem, NumericType.LONG),
-            new CfNumberConversion(NumericType.LONG, NumericType.INT),
+            new CfNumberConversion(NumberConversionType.LONG_TO_INT),
             new CfLoad(ValueType.INT, 2),
             new CfInvoke(
                 184,
@@ -6232,7 +6233,7 @@ public final class BackportedMethods {
             label24,
             new CfLoad(ValueType.LONG, 0),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfArithmeticBinop(CfArithmeticBinop.Opcode.Div, NumericType.LONG),
             new CfStore(ValueType.LONG, 0),
             new CfGoto(label22),
@@ -6370,19 +6371,19 @@ public final class BackportedMethods {
         ImmutableList.of(
             label0,
             new CfLoad(ValueType.INT, 0),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfLoad(ValueType.INT, 1),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfArithmeticBinop(CfArithmeticBinop.Opcode.Add, NumericType.LONG),
             new CfStore(ValueType.LONG, 2),
             label1,
             new CfLoad(ValueType.LONG, 2),
-            new CfNumberConversion(NumericType.LONG, NumericType.INT),
+            new CfNumberConversion(NumberConversionType.LONG_TO_INT),
             new CfStore(ValueType.INT, 4),
             label2,
             new CfLoad(ValueType.LONG, 2),
             new CfLoad(ValueType.INT, 4),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfCmp(Cmp.Bias.NONE, NumericType.LONG),
             new CfIf(IfType.NE, ValueType.INT, label4),
             label3,
@@ -6875,19 +6876,19 @@ public final class BackportedMethods {
             label0,
             new CfLoad(ValueType.LONG, 0),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfArithmeticBinop(CfArithmeticBinop.Opcode.Div, NumericType.LONG),
             new CfStore(ValueType.LONG, 3),
             label1,
             new CfLoad(ValueType.LONG, 0),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfArithmeticBinop(CfArithmeticBinop.Opcode.Rem, NumericType.LONG),
             new CfStore(ValueType.LONG, 5),
             label2,
             new CfLoad(ValueType.LONG, 0),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.LONG),
             new CfConstNumber(0, ValueType.LONG),
             new CfCmp(Cmp.Bias.NONE, NumericType.LONG),
@@ -7142,13 +7143,13 @@ public final class BackportedMethods {
             label0,
             new CfLoad(ValueType.LONG, 0),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfArithmeticBinop(CfArithmeticBinop.Opcode.Rem, NumericType.LONG),
             new CfStore(ValueType.LONG, 3),
             label1,
             new CfLoad(ValueType.LONG, 0),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfLogicalBinop(CfLogicalBinop.Opcode.Xor, NumericType.LONG),
             new CfConstNumber(0, ValueType.LONG),
             new CfCmp(Cmp.Bias.NONE, NumericType.LONG),
@@ -7189,7 +7190,7 @@ public final class BackportedMethods {
             new CfIf(IfType.EQ, ValueType.INT, label5),
             new CfLoad(ValueType.LONG, 3),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfArithmeticBinop(CfArithmeticBinop.Opcode.Sub, NumericType.LONG),
             new CfGoto(label6),
             label5,
@@ -7218,7 +7219,7 @@ public final class BackportedMethods {
                       FrameType.intType()
                     }),
                 new ArrayDeque<>(Arrays.asList(FrameType.longType()))),
-            new CfNumberConversion(NumericType.LONG, NumericType.INT),
+            new CfNumberConversion(NumberConversionType.LONG_TO_INT),
             new CfReturn(ValueType.INT),
             label7),
         ImmutableList.of(),
@@ -7727,10 +7728,10 @@ public final class BackportedMethods {
                       FrameType.intType()
                     })),
             new CfLoad(ValueType.INT, 3),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfLoad(ValueType.LONG, 0),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfInvoke(
                 184,
                 factory.createMethod(
@@ -7745,7 +7746,7 @@ public final class BackportedMethods {
                     factory.createProto(factory.longType, factory.longType, factory.longType),
                     factory.createString("min")),
                 false),
-            new CfNumberConversion(NumericType.LONG, NumericType.INT),
+            new CfNumberConversion(NumberConversionType.LONG_TO_INT),
             new CfReturn(ValueType.INT),
             label3),
         ImmutableList.of(),
@@ -8477,7 +8478,7 @@ public final class BackportedMethods {
             label0,
             new CfLoad(ValueType.LONG, 0),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfInvoke(
                 184,
                 factory.createMethod(
@@ -8669,7 +8670,7 @@ public final class BackportedMethods {
             label0,
             new CfLoad(ValueType.LONG, 0),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfInvoke(
                 184,
                 factory.createMethod(
@@ -8677,7 +8678,7 @@ public final class BackportedMethods {
                     factory.createProto(factory.longType, factory.longType, factory.longType),
                     factory.createString("floorMod")),
                 false),
-            new CfNumberConversion(NumericType.LONG, NumericType.INT),
+            new CfNumberConversion(NumberConversionType.LONG_TO_INT),
             new CfReturn(ValueType.INT),
             label1),
         ImmutableList.of(),
@@ -8775,19 +8776,19 @@ public final class BackportedMethods {
         ImmutableList.of(
             label0,
             new CfLoad(ValueType.INT, 0),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfLoad(ValueType.INT, 1),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfArithmeticBinop(CfArithmeticBinop.Opcode.Mul, NumericType.LONG),
             new CfStore(ValueType.LONG, 2),
             label1,
             new CfLoad(ValueType.LONG, 2),
-            new CfNumberConversion(NumericType.LONG, NumericType.INT),
+            new CfNumberConversion(NumberConversionType.LONG_TO_INT),
             new CfStore(ValueType.INT, 4),
             label2,
             new CfLoad(ValueType.LONG, 2),
             new CfLoad(ValueType.INT, 4),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfCmp(Cmp.Bias.NONE, NumericType.LONG),
             new CfIf(IfType.NE, ValueType.INT, label4),
             label3,
@@ -9041,7 +9042,7 @@ public final class BackportedMethods {
             label0,
             new CfLoad(ValueType.LONG, 0),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfInvoke(
                 184,
                 factory.createMethod(
@@ -9065,9 +9066,9 @@ public final class BackportedMethods {
         ImmutableList.of(
             label0,
             new CfLoad(ValueType.INT, 0),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfLoad(ValueType.INT, 1),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfArithmeticBinop(CfArithmeticBinop.Opcode.Mul, NumericType.LONG),
             new CfReturn(ValueType.LONG),
             label1),
@@ -9304,206 +9305,6 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
-  public static CfCode MathMethods_powExact(DexItemFactory factory, DexMethod method) {
-    CfLabel label0 = new CfLabel();
-    CfLabel label1 = new CfLabel();
-    CfLabel label2 = new CfLabel();
-    CfLabel label3 = new CfLabel();
-    CfLabel label4 = new CfLabel();
-    CfLabel label5 = new CfLabel();
-    CfLabel label6 = new CfLabel();
-    CfLabel label7 = new CfLabel();
-    CfLabel label8 = new CfLabel();
-    CfLabel label9 = new CfLabel();
-    CfLabel label10 = new CfLabel();
-    CfLabel label11 = new CfLabel();
-    CfLabel label12 = new CfLabel();
-    CfLabel label13 = new CfLabel();
-    CfLabel label14 = new CfLabel();
-    CfLabel label15 = new CfLabel();
-    CfLabel label16 = new CfLabel();
-    CfLabel label17 = new CfLabel();
-    CfLabel label18 = new CfLabel();
-    CfLabel label19 = new CfLabel();
-    return new CfCode(
-        method.holder,
-        4,
-        6,
-        ImmutableList.of(
-            label0,
-            new CfLoad(ValueType.INT, 0),
-            new CfStore(ValueType.INT, 2),
-            label1,
-            new CfLoad(ValueType.INT, 1),
-            new CfIf(IfType.GE, ValueType.INT, label3),
-            label2,
-            new CfNew(factory.createType("Ljava/lang/ArithmeticException;")),
-            new CfStackInstruction(CfStackInstruction.Opcode.Dup),
-            new CfConstString(factory.createString("negative exponent")),
-            new CfInvoke(
-                183,
-                factory.createMethod(
-                    factory.createType("Ljava/lang/ArithmeticException;"),
-                    factory.createProto(factory.voidType, factory.stringType),
-                    factory.createString("<init>")),
-                false),
-            new CfThrow(),
-            label3,
-            new CfFrame(
-                new Int2ObjectAVLTreeMap<>(
-                    new int[] {0, 1, 2},
-                    new FrameType[] {
-                      FrameType.intType(), FrameType.intType(), FrameType.intType()
-                    })),
-            new CfLoad(ValueType.INT, 1),
-            new CfIf(IfType.NE, ValueType.INT, label5),
-            label4,
-            new CfConstNumber(1, ValueType.INT),
-            new CfReturn(ValueType.INT),
-            label5,
-            new CfFrame(
-                new Int2ObjectAVLTreeMap<>(
-                    new int[] {0, 1, 2},
-                    new FrameType[] {
-                      FrameType.intType(), FrameType.intType(), FrameType.intType()
-                    })),
-            new CfConstNumber(1, ValueType.INT),
-            new CfStore(ValueType.INT, 3),
-            label6,
-            new CfFrame(
-                new Int2ObjectAVLTreeMap<>(
-                    new int[] {0, 1, 2, 3},
-                    new FrameType[] {
-                      FrameType.intType(),
-                      FrameType.intType(),
-                      FrameType.intType(),
-                      FrameType.intType()
-                    })),
-            new CfLoad(ValueType.INT, 1),
-            new CfConstNumber(1, ValueType.INT),
-            new CfIfCmp(IfType.LE, ValueType.INT, label15),
-            label7,
-            new CfLoad(ValueType.INT, 1),
-            new CfConstNumber(1, ValueType.INT),
-            new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.INT),
-            new CfIf(IfType.EQ, ValueType.INT, label9),
-            label8,
-            new CfLoad(ValueType.INT, 3),
-            new CfLoad(ValueType.INT, 0),
-            new CfArithmeticBinop(CfArithmeticBinop.Opcode.Mul, NumericType.INT),
-            new CfStore(ValueType.INT, 3),
-            label9,
-            new CfFrame(
-                new Int2ObjectAVLTreeMap<>(
-                    new int[] {0, 1, 2, 3},
-                    new FrameType[] {
-                      FrameType.intType(),
-                      FrameType.intType(),
-                      FrameType.intType(),
-                      FrameType.intType()
-                    })),
-            new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
-            new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
-            new CfArithmeticBinop(CfArithmeticBinop.Opcode.Mul, NumericType.LONG),
-            new CfStore(ValueType.LONG, 4),
-            label10,
-            new CfLoad(ValueType.LONG, 4),
-            new CfNumberConversion(NumericType.LONG, NumericType.INT),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
-            new CfLoad(ValueType.LONG, 4),
-            new CfCmp(Cmp.Bias.NONE, NumericType.LONG),
-            new CfIf(IfType.EQ, ValueType.INT, label12),
-            label11,
-            new CfNew(factory.createType("Ljava/lang/ArithmeticException;")),
-            new CfStackInstruction(CfStackInstruction.Opcode.Dup),
-            new CfConstString(factory.createString("integer overflow")),
-            new CfInvoke(
-                183,
-                factory.createMethod(
-                    factory.createType("Ljava/lang/ArithmeticException;"),
-                    factory.createProto(factory.voidType, factory.stringType),
-                    factory.createString("<init>")),
-                false),
-            new CfThrow(),
-            label12,
-            new CfFrame(
-                new Int2ObjectAVLTreeMap<>(
-                    new int[] {0, 1, 2, 3, 4, 5},
-                    new FrameType[] {
-                      FrameType.intType(),
-                      FrameType.intType(),
-                      FrameType.intType(),
-                      FrameType.intType(),
-                      FrameType.longType(),
-                      FrameType.longHighType()
-                    })),
-            new CfLoad(ValueType.LONG, 4),
-            new CfNumberConversion(NumericType.LONG, NumericType.INT),
-            new CfStore(ValueType.INT, 2),
-            label13,
-            new CfLoad(ValueType.INT, 1),
-            new CfConstNumber(1, ValueType.INT),
-            new CfLogicalBinop(CfLogicalBinop.Opcode.Ushr, NumericType.INT),
-            new CfStore(ValueType.INT, 1),
-            label14,
-            new CfGoto(label6),
-            label15,
-            new CfFrame(
-                new Int2ObjectAVLTreeMap<>(
-                    new int[] {0, 1, 2, 3},
-                    new FrameType[] {
-                      FrameType.intType(),
-                      FrameType.intType(),
-                      FrameType.intType(),
-                      FrameType.intType()
-                    })),
-            new CfLoad(ValueType.INT, 3),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
-            new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
-            new CfArithmeticBinop(CfArithmeticBinop.Opcode.Mul, NumericType.LONG),
-            new CfStore(ValueType.LONG, 4),
-            label16,
-            new CfLoad(ValueType.LONG, 4),
-            new CfNumberConversion(NumericType.LONG, NumericType.INT),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
-            new CfLoad(ValueType.LONG, 4),
-            new CfCmp(Cmp.Bias.NONE, NumericType.LONG),
-            new CfIf(IfType.EQ, ValueType.INT, label18),
-            label17,
-            new CfNew(factory.createType("Ljava/lang/ArithmeticException;")),
-            new CfStackInstruction(CfStackInstruction.Opcode.Dup),
-            new CfConstString(factory.createString("integer overflow")),
-            new CfInvoke(
-                183,
-                factory.createMethod(
-                    factory.createType("Ljava/lang/ArithmeticException;"),
-                    factory.createProto(factory.voidType, factory.stringType),
-                    factory.createString("<init>")),
-                false),
-            new CfThrow(),
-            label18,
-            new CfFrame(
-                new Int2ObjectAVLTreeMap<>(
-                    new int[] {0, 1, 2, 3, 4, 5},
-                    new FrameType[] {
-                      FrameType.intType(),
-                      FrameType.intType(),
-                      FrameType.intType(),
-                      FrameType.intType(),
-                      FrameType.longType(),
-                      FrameType.longHighType()
-                    })),
-            new CfLoad(ValueType.LONG, 4),
-            new CfNumberConversion(NumericType.LONG, NumericType.INT),
-            new CfReturn(ValueType.INT),
-            label19),
-        ImmutableList.of(),
-        ImmutableList.of());
-  }
-
   public static CfCode MathMethods_subtractExactInt(DexItemFactory factory, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
@@ -9518,19 +9319,19 @@ public final class BackportedMethods {
         ImmutableList.of(
             label0,
             new CfLoad(ValueType.INT, 0),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfLoad(ValueType.INT, 1),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfArithmeticBinop(CfArithmeticBinop.Opcode.Sub, NumericType.LONG),
             new CfStore(ValueType.LONG, 2),
             label1,
             new CfLoad(ValueType.LONG, 2),
-            new CfNumberConversion(NumericType.LONG, NumericType.INT),
+            new CfNumberConversion(NumberConversionType.LONG_TO_INT),
             new CfStore(ValueType.INT, 4),
             label2,
             new CfLoad(ValueType.LONG, 2),
             new CfLoad(ValueType.INT, 4),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfCmp(Cmp.Bias.NONE, NumericType.LONG),
             new CfIf(IfType.NE, ValueType.INT, label4),
             label3,
@@ -9697,12 +9498,12 @@ public final class BackportedMethods {
         ImmutableList.of(
             label0,
             new CfLoad(ValueType.LONG, 0),
-            new CfNumberConversion(NumericType.LONG, NumericType.INT),
+            new CfNumberConversion(NumberConversionType.LONG_TO_INT),
             new CfStore(ValueType.INT, 2),
             label1,
             new CfLoad(ValueType.LONG, 0),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfCmp(Cmp.Bias.NONE, NumericType.LONG),
             new CfIf(IfType.EQ, ValueType.INT, label3),
             label2,
@@ -12678,7 +12479,7 @@ public final class BackportedMethods {
         ImmutableList.of(
             label0,
             new CfLoad(ValueType.INT, 0),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfConstNumber(65535, ValueType.LONG),
             new CfLogicalBinop(CfLogicalBinop.Opcode.And, NumericType.LONG),
             new CfReturn(ValueType.LONG),

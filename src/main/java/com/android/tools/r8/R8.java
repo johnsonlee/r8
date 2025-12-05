@@ -85,7 +85,6 @@ import com.android.tools.r8.repackaging.Repackaging;
 import com.android.tools.r8.shaking.AbstractMethodRemover;
 import com.android.tools.r8.shaking.AnnotationRemover;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.android.tools.r8.shaking.AssumeInfoCollection;
 import com.android.tools.r8.shaking.ClassInitFieldSynthesizer;
 import com.android.tools.r8.shaking.DefaultTreePrunerConfiguration;
 import com.android.tools.r8.shaking.DiscardedChecker;
@@ -105,6 +104,7 @@ import com.android.tools.r8.shaking.RuntimeTypeCheckInfo;
 import com.android.tools.r8.shaking.TreePruner;
 import com.android.tools.r8.shaking.TreePrunerConfiguration;
 import com.android.tools.r8.shaking.WhyAreYouKeepingConsumer;
+import com.android.tools.r8.shaking.assume.AssumeInfoCollection;
 import com.android.tools.r8.startup.NonStartupInStartupOutliner;
 import com.android.tools.r8.synthesis.SyntheticFinalization;
 import com.android.tools.r8.synthesis.SyntheticItems;
@@ -614,6 +614,21 @@ public class R8 {
 
                 pruner.run(
                     executorService, timing, PrunedItems.builder().addRemovedClasses(prunedTypes));
+
+            if (options.testing.exportFinalKeepInfoCollectionToDirectory != null) {
+              try {
+                appView
+                    .getKeepInfo()
+                    .exportToDirectory(options.testing.exportFinalKeepInfoCollectionToDirectory);
+              } catch (IOException e) {
+                options.reporter.error(
+                    "Could not export final keep info collection: " + e.getMessage());
+              }
+            }
+            if (options.testing.finalKeepInfoCollectionConsumer != null) {
+              options.testing.finalKeepInfoCollectionConsumer.accept(
+                  appView.getKeepInfo().exportToCollection());
+            }
             appViewWithLiveness
                 .appInfo()
                 .notifyTreePrunerFinished(Enqueuer.Mode.FINAL_TREE_SHAKING);
@@ -753,7 +768,7 @@ public class R8 {
 
       // Perform repackaging.
       if (appView.hasLiveness()) {
-        if (options.isRepackagingEnabled()) {
+        if (options.getPackageObfuscationMode().isSome()) {
           new Repackaging(appView.withLiveness()).run(executorService, timing);
         }
         assert Repackaging.verifyIdentityRepackaging(appView.withLiveness(), executorService);

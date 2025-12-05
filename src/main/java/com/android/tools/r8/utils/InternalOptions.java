@@ -881,28 +881,39 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     return isOptimizing();
   }
 
+  /**
+   * Returns the selected package obfuscation mode. This never returns {@link
+   * PackageObfuscationMode#DEFAULT}.
+   */
   @Override
-  public boolean isRepackagingEnabled() {
+  public PackageObfuscationMode getPackageObfuscationMode() {
     if (debug || proguardConfiguration == null || getLibraryDesugaringOptions().isL8()) {
-      return false;
+      return PackageObfuscationMode.NONE;
     }
     if (isForceProguardCompatibilityEnabled() && !isMinifying()) {
-      return false;
+      return PackageObfuscationMode.NONE;
     }
     PackageObfuscationMode packageObfuscationMode =
         proguardConfiguration.getPackageObfuscationMode();
     if (packageObfuscationMode.isNone()) {
-      return false;
+      return getPackageObfuscationModeForNone();
     }
     if (packageObfuscationMode.isDefault()) {
       if (!getTestingOptions().enableRepackagingByDefault) {
-        return false;
+        return getPackageObfuscationModeForNone();
       }
       if (isGeneratingClassFiles() && !getTestingOptions().enableRepackagingByDefaultForCf) {
-        return false;
+        return getPackageObfuscationModeForNone();
       }
+      return PackageObfuscationMode.REPACKAGE;
     }
-    return true;
+    assert packageObfuscationMode.isFlattenPackageHierarchy()
+        || packageObfuscationMode.isRepackageClasses();
+    return packageObfuscationMode;
+  }
+
+  private PackageObfuscationMode getPackageObfuscationModeForNone() {
+    return isMinifying() ? PackageObfuscationMode.MINIFICATION : PackageObfuscationMode.NONE;
   }
 
   @Override

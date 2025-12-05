@@ -1,7 +1,6 @@
 // Copyright (c) 2019, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-
 package com.android.tools.r8.ir.optimize;
 
 import com.android.tools.r8.graph.AppView;
@@ -24,17 +23,17 @@ import java.util.function.Consumer;
  * it.
  *
  * <p>This class is a helper class to remove these instructions. Unlike {@link
- * CodeRewriter#removeAssumeInstructions} this class does not unconditionally remove all Assume
- * instructions.
+ * com.android.tools.r8.ir.conversion.passes.AssumeRemover} this class does not unconditionally
+ * remove all Assume instructions.
  */
-public class AssumeRemover {
+public class RedundantAssumeRemover {
 
   private final AppView<?> appView;
   private final IRCode code;
 
   private final Set<Assume> affectedAssumeInstructions = Sets.newIdentityHashSet();
 
-  public AssumeRemover(AppView<?> appView, IRCode code) {
+  public RedundantAssumeRemover(AppView<?> appView, IRCode code) {
     this.appView = appView;
     this.code = code;
   }

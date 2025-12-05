@@ -27,7 +27,7 @@ import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.conversion.MethodProcessorEventConsumer;
 import com.android.tools.r8.ir.conversion.OneTimeMethodProcessor;
 import com.android.tools.r8.ir.conversion.callgraph.CallSiteInformation;
-import com.android.tools.r8.ir.optimize.CodeRewriter;
+import com.android.tools.r8.ir.conversion.passes.AssumeRemover;
 import com.android.tools.r8.ir.optimize.DefaultInliningOracle;
 import com.android.tools.r8.ir.optimize.Inliner;
 import com.android.tools.r8.ir.optimize.inliner.InliningIRProvider;
@@ -147,7 +147,8 @@ public class SingleCallerInliner {
             IRCode code = method.buildIR(appView, MethodConversionOptions.forLirPhase(appView));
             inliner.performInlining(
                 method, code, getSimpleFeedback(), methodProcessor, Timing.empty());
-            CodeRewriter.removeAssumeInstructions(appView, code);
+            new AssumeRemover(appView)
+                .run(code, methodProcessor, methodProcessingContext, Timing.empty());
             LirCode<Integer> lirCode =
                 new IRToLirFinalizer(appView)
                     .finalizeCode(code, BytecodeMetadataProvider.empty(), Timing.empty());

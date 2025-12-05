@@ -17,6 +17,7 @@ import com.android.tools.r8.ir.code.InstancePut;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionIterator;
 import com.android.tools.r8.ir.code.InvokeMethodWithReceiver;
+import com.android.tools.r8.ir.conversion.passes.AssumeRemover;
 import com.android.tools.r8.ir.optimize.nonnull.FieldAccessTest;
 import com.android.tools.r8.ir.optimize.nonnull.NonNullAfterArrayAccess;
 import com.android.tools.r8.ir.optimize.nonnull.NonNullAfterFieldAccess;
@@ -72,7 +73,7 @@ public class NonNullTrackerTest extends TestBase {
       testAugmentedIRCode.accept(code);
     }
 
-    CodeRewriter.removeAssumeInstructions(appView, code);
+    new AssumeRemover(appView).run(code, Timing.empty());
     code.removeRedundantBlocks();
     assertTrue(code.isConsistentSSA(appView));
     checkCountOfNonNull(code, 0);

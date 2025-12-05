@@ -6,7 +6,6 @@ package com.android.tools.r8.lightir;
 import com.android.tools.r8.cf.code.CfArithmeticBinop;
 import com.android.tools.r8.cf.code.CfArithmeticBinop.Opcode;
 import com.android.tools.r8.cf.code.CfLogicalBinop;
-import com.android.tools.r8.cf.code.CfNumberConversion;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.DebugLocalInfo;
 import com.android.tools.r8.graph.DexCallSite;
@@ -29,6 +28,7 @@ import com.android.tools.r8.ir.code.Cmp.Bias;
 import com.android.tools.r8.ir.code.IfType;
 import com.android.tools.r8.ir.code.MemberType;
 import com.android.tools.r8.ir.code.MonitorType;
+import com.android.tools.r8.ir.code.NumberConversionType;
 import com.android.tools.r8.ir.code.NumericType;
 import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.code.Position.SyntheticPosition;
@@ -1022,8 +1022,8 @@ public class LirBuilder<V, EV> {
         Collections.singletonList(src));
   }
 
-  public LirBuilder<V, EV> addNumberConversion(NumericType from, NumericType to, V value) {
-    int opcode = new CfNumberConversion(from, to).getAsmOpcode();
+  public LirBuilder<V, EV> addNumberConversion(NumberConversionType type, V value) {
+    int opcode = type.getAsmOpcode();
     assert LirOpcodes.I2L <= opcode;
     assert opcode <= LirOpcodes.I2S;
     return addOneValueInstruction(opcode, value);

@@ -100,6 +100,7 @@ import com.android.tools.r8.ir.code.NewInstance;
 import com.android.tools.r8.ir.code.NewUnboxedEnumInstance;
 import com.android.tools.r8.ir.code.Not;
 import com.android.tools.r8.ir.code.NumberConversion;
+import com.android.tools.r8.ir.code.NumberConversionType;
 import com.android.tools.r8.ir.code.NumberGenerator;
 import com.android.tools.r8.ir.code.NumericType;
 import com.android.tools.r8.ir.code.Or;
@@ -2117,10 +2118,10 @@ public class IRBuilder {
     addInstruction(instruction);
   }
 
-  public void addConversion(NumericType to, NumericType from, int dest, int source) {
-    Value in = readNumericRegister(source, from);
-    Value out = writeNumericRegister(dest, to, ThrowingInfo.NO_THROW);
-    NumberConversion instruction = new NumberConversion(from, to, out, in);
+  public void addConversion(NumberConversionType type, int dest, int source) {
+    Value in = readNumericRegister(source, type.getFrom());
+    Value out = writeNumericRegister(dest, type.getTo(), ThrowingInfo.NO_THROW);
+    NumberConversion instruction = new NumberConversion(type, out, in);
     assert !instruction.instructionTypeCanThrow();
     addInstruction(instruction);
   }

@@ -124,10 +124,11 @@ public abstract class KeepMemberInfo<B extends Builder<B, K>, K extends KeepMemb
     return false;
   }
 
-  @Override
-  public List<String> lines() {
-    List<String> lines = super.lines();
-    lines.add("allowValuePropagation: " + allowValuePropagation);
+  protected List<String> linesDifferentFromBase(KeepMemberInfo<?, ?> base) {
+    List<String> lines = super.linesDifferentFromBase(base);
+    if (base.allowValuePropagation != allowValuePropagation) {
+      lines.add("allowValuePropagation: " + allowValuePropagation);
+    }
     return lines;
   }
 

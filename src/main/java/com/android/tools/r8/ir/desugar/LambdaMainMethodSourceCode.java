@@ -26,6 +26,7 @@ import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexTypeList;
 import com.android.tools.r8.ir.code.InvokeType;
+import com.android.tools.r8.ir.code.NumberConversionType;
 import com.android.tools.r8.ir.code.NumericType;
 import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.code.Position.SyntheticPosition;
@@ -510,13 +511,12 @@ final class LambdaMainMethodSourceCode {
       assert from != to;
 
       switch (to) {
-        case SHORT: {
+        case SHORT:
           if (from != NumericType.BYTE) {
             break; // Only BYTE can be converted to SHORT via widening conversion.
           }
-            instructions.add(new CfNumberConversion(NumericType.INT, to));
-            return;
-        }
+          instructions.add(new CfNumberConversion(NumberConversionType.INT_TO_SHORT));
+          return;
 
         case INT:
           if (from == NumericType.BYTE || from == NumericType.CHAR || from == NumericType.SHORT) {
@@ -524,37 +524,47 @@ final class LambdaMainMethodSourceCode {
           }
           break;
 
-        case LONG: {
+        case LONG:
           if (from == NumericType.FLOAT || from == NumericType.DOUBLE) {
             break; // Not a widening conversion.
           }
-            instructions.add(new CfNumberConversion(NumericType.INT, to));
-            return;
-        }
+          instructions.add(new CfNumberConversion(NumberConversionType.INT_TO_LONG));
+          return;
 
-        case FLOAT: {
+        case FLOAT:
           if (from == NumericType.DOUBLE) {
             break; // Not a widening conversion.
           }
-          NumericType type = (from == NumericType.LONG) ? NumericType.LONG : NumericType.INT;
-            instructions.add(new CfNumberConversion(type, to));
-            return;
-        }
+          if (from == NumericType.LONG) {
+            instructions.add(new CfNumberConversion(NumberConversionType.LONG_TO_FLOAT));
+          } else {
+            instructions.add(new CfNumberConversion(NumberConversionType.INT_TO_FLOAT));
+          }
+          return;
 
-        case DOUBLE: {
-          NumericType type = (from == NumericType.FLOAT || from == NumericType.LONG)
-              ? from : NumericType.INT;
-            instructions.add(new CfNumberConversion(type, to));
-            return;
-        }
+        case DOUBLE:
+          if (from == NumericType.FLOAT) {
+            instructions.add(new CfNumberConversion(NumberConversionType.FLOAT_TO_DOUBLE));
+          } else if (from == NumericType.LONG) {
+            instructions.add(new CfNumberConversion(NumberConversionType.LONG_TO_DOUBLE));
+          } else {
+            instructions.add(new CfNumberConversion(NumberConversionType.INT_TO_DOUBLE));
+          }
+          return;
+
         default:
           // exception is thrown below
           break;
       }
     }
 
-    throw new Unreachable("Type " + fromType.toSourceString() + " cannot be " +
-        "converted to " + toType.toSourceString() + " via primitive widening conversion.");
+    throw new Unreachable(
+        "Type "
+            + fromType.toSourceString()
+            + " cannot be "
+            + "converted to "
+            + toType.toSourceString()
+            + " via primitive widening conversion.");
   }
 
   private static void addPrimitiveUnboxing(

@@ -95,14 +95,12 @@ public class R8OptionsMetadataImpl
             : null;
     this.isAccessModificationEnabled = options.isAccessModificationEnabled();
     this.isFlattenPackageHierarchyEnabled =
-        hasConfiguration && configuration.getPackageObfuscationMode().isFlattenPackageHierarchy();
+        hasConfiguration && options.getPackageObfuscationMode().isFlattenPackageHierarchy();
     this.isObfuscationEnabled = options.isMinifying();
     this.isOptimizationsEnabled = options.isOptimizing();
     this.isProGuardCompatibilityModeEnabled = options.forceProguardCompatibility;
     this.isProtoLiteOptimizationEnabled = options.protoShrinking().isProtoShrinkingEnabled();
-    this.isRepackageClassesEnabled =
-        options.isRepackagingEnabled()
-            && configuration.getPackageObfuscationMode().isRepackageClasses();
+    this.isRepackageClassesEnabled = options.getPackageObfuscationMode().isRepackageClasses();
     this.isShrinkingEnabled = options.isShrinking();
   }
 

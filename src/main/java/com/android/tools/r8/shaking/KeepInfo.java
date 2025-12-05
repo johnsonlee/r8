@@ -398,18 +398,40 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
     }
   }
 
-  public List<String> lines() {
+  public abstract List<String> lines();
+
+  protected List<String> linesDifferentFromBase(KeepInfo<?, ?> base) {
     List<String> lines = new ArrayList<>();
-    lines.add("allowAccessModification: " + allowAccessModification);
-    lines.add("allowAccessModificationForTesting: " + allowAccessModificationForTesting);
-    lines.add("allowMinification: " + allowMinification);
-    lines.add("allowOptimization: " + allowOptimization);
-    lines.add("allowShrinking: " + allowShrinking);
-    lines.add("allowSignatureRemoval: " + allowSignatureRemoval);
-    lines.add("checkDiscarded: " + checkDiscarded);
-    lines.add("whyAreYouNotObfuscating: " + whyAreYouNotObfuscating);
-    lines.add("annotationsInfo: " + annotationsInfo);
-    lines.add("typeAnnotationsInfo: " + typeAnnotationsInfo);
+    if (base.allowAccessModification != allowAccessModification) {
+      lines.add("allowAccessModification: " + allowAccessModification);
+    }
+    if (base.allowAccessModificationForTesting != allowAccessModificationForTesting) {
+      lines.add("allowAccessModificationForTesting: " + allowAccessModificationForTesting);
+    }
+    if (base.allowMinification != allowMinification) {
+      lines.add("allowMinification: " + allowMinification);
+    }
+    if (base.allowOptimization != allowOptimization) {
+      lines.add("allowOptimization: " + allowOptimization);
+    }
+    if (base.allowShrinking != allowShrinking) {
+      lines.add("allowShrinking: " + allowShrinking);
+    }
+    if (base.allowSignatureRemoval != allowSignatureRemoval) {
+      lines.add("allowSignatureRemoval: " + allowSignatureRemoval);
+    }
+    if (base.checkDiscarded != checkDiscarded) {
+      lines.add("checkDiscarded: " + checkDiscarded);
+    }
+    if (base.whyAreYouNotObfuscating != whyAreYouNotObfuscating) {
+      lines.add("whyAreYouNotObfuscating: " + whyAreYouNotObfuscating);
+    }
+    if (base.annotationsInfo != annotationsInfo) {
+      lines.add("annotationsInfo: " + annotationsInfo);
+    }
+    if (base.typeAnnotationsInfo != typeAnnotationsInfo) {
+      lines.add("typeAnnotationsInfo: " + typeAnnotationsInfo);
+    }
     return lines;
   }
 

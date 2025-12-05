@@ -49,7 +49,6 @@ import com.android.tools.r8.optimize.interfaces.collection.OpenClosedInterfacesC
 import com.android.tools.r8.profile.art.ArtProfileCollection;
 import com.android.tools.r8.profile.startup.profile.StartupProfile;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.android.tools.r8.shaking.AssumeInfoCollection;
 import com.android.tools.r8.shaking.KeepClassInfo;
 import com.android.tools.r8.shaking.KeepFieldInfo;
 import com.android.tools.r8.shaking.KeepInfo;
@@ -61,6 +60,7 @@ import com.android.tools.r8.shaking.MainDexInfo;
 import com.android.tools.r8.shaking.ProguardCompatibilityActions;
 import com.android.tools.r8.shaking.RootSetUtils.MainDexRootSet;
 import com.android.tools.r8.shaking.RootSetUtils.RootSet;
+import com.android.tools.r8.shaking.assume.AssumeInfoCollection;
 import com.android.tools.r8.synthesis.SyntheticItems;
 import com.android.tools.r8.synthesis.SyntheticItems.GlobalSyntheticsStrategy;
 import com.android.tools.r8.utils.InternalOptions;

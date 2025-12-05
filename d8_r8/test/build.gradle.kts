@@ -168,7 +168,7 @@ tasks {
     val argList = mutableListOf("--keep-rules",
                     "--allowobfuscation",
                     "--lib",
-                    "${getJavaHome(Jdk.JDK_21)}",
+                    "${getJavaHome(Jdk.JDK_25)}",
                     "--lib",
                     "$mainDepsJar",
                     "--lib",
@@ -433,6 +433,7 @@ tasks {
     println("NOTE: Max parallel forks " + maxParallelForks)
     dependsOn(
             packageTestDeps,
+            processKeepRulesLibWithRelocatedDepsTask,
             r8Lib,
             r8WithRelocatedDepsTask,
             assembleR8LibNoDeps,
@@ -441,6 +442,7 @@ tasks {
             unzipRewrittenTests,
             unzipTests,
             unzipTestBase)
+    val processKeepRulesLibJar = processKeepRulesLibWithRelocatedDepsTask.getSingleOutputFile()
     val r8LibJar = r8Lib.getSingleOutputFile()
     val r8LibMappingFile = file(r8LibJar.toString() + ".map")
     val r8WithRelocatedDepsJar = r8WithRelocatedDepsTask.getSingleOutputFile()
@@ -463,6 +465,7 @@ tasks {
         "keepanno" + File.separator,
         keepAnnoCompileTask.outputs.files.asPath,
         keepAnnoCompileKotlinTask.outputs.files.asPath))
+    systemProperty("BUILD_PROP_PROCESS_KEEP_RULES_RUNTIME_PATH", processKeepRulesLibJar)
     systemProperty("BUILD_PROP_R8_RUNTIME_PATH", r8LibJar)
     systemProperty("R8_DEPS", mainDepsJarTask.getSingleOutputFile())
     systemProperty("com.android.tools.r8.artprofilerewritingcompletenesscheck", "true")

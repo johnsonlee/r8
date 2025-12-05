@@ -31,14 +31,15 @@ import java.util.Set;
 
 public class NumberConversion extends Unop {
 
-  public final NumericType from;
-  public final NumericType to;
+  private final NumberConversionType type;
 
-  public NumberConversion(NumericType from, NumericType to, Value dest, Value source) {
+  public NumberConversionType getType() {
+    return this.type;
+  }
+
+  public NumberConversion(NumberConversionType type, Value dest, Value source) {
     super(dest, source);
-    this.from = from;
-    this.to = to;
-    assert isValid();
+    this.type = type;
   }
 
   @Override
@@ -51,87 +52,59 @@ public class NumberConversion extends Unop {
     return visitor.visit(this);
   }
 
-  public boolean isLongToIntConversion() {
-    return from == NumericType.LONG && to == NumericType.INT;
-  }
-
   @Override
   public void buildDex(DexBuilder builder) {
     DexInstruction instruction;
     int dest = builder.allocatedRegister(dest(), getNumber());
     int src = builder.allocatedRegister(source(), getNumber());
-    switch (from) {
-      case INT:
-        switch (to) {
-          case BYTE:
-            instruction = new DexIntToByte(dest, src);
-            break;
-          case CHAR:
-            instruction = new DexIntToChar(dest, src);
-            break;
-          case SHORT:
-            instruction = new DexIntToShort(dest, src);
-            break;
-          case LONG:
-            instruction = new DexIntToLong(dest, src);
-            break;
-          case FLOAT:
-            instruction = new DexIntToFloat(dest, src);
-            break;
-          case DOUBLE:
-            instruction = new DexIntToDouble(dest, src);
-            break;
-          default:
-            throw new Unreachable("Unexpected types " + from + ", " + to);
-        }
+    switch (type) {
+      case INT_TO_BYTE:
+        instruction = new DexIntToByte(dest, src);
         break;
-      case LONG:
-        switch (to) {
-          case INT:
-            instruction = new DexLongToInt(dest, src);
-            break;
-          case FLOAT:
-            instruction = new DexLongToFloat(dest, src);
-            break;
-          case DOUBLE:
-            instruction = new DexLongToDouble(dest, src);
-            break;
-          default:
-            throw new Unreachable("Unexpected types " + from + ", " + to);
-        }
+      case INT_TO_CHAR:
+        instruction = new DexIntToChar(dest, src);
         break;
-      case FLOAT:
-        switch (to) {
-          case INT:
-            instruction = new DexFloatToInt(dest, src);
-            break;
-          case LONG:
-            instruction = new DexFloatToLong(dest, src);
-            break;
-          case DOUBLE:
-            instruction = new DexFloatToDouble(dest, src);
-            break;
-          default:
-            throw new Unreachable("Unexpected types " + from + ", " + to);
-        }
+      case INT_TO_SHORT:
+        instruction = new DexIntToShort(dest, src);
         break;
-      case DOUBLE:
-        switch (to) {
-          case INT:
-            instruction = new DexDoubleToInt(dest, src);
-            break;
-          case LONG:
-            instruction = new DexDoubleToLong(dest, src);
-            break;
-          case FLOAT:
-            instruction = new DexDoubleToFloat(dest, src);
-            break;
-          default:
-            throw new Unreachable("Unexpected types " + from + ", " + to);
-        }
+      case INT_TO_LONG:
+        instruction = new DexIntToLong(dest, src);
+        break;
+      case INT_TO_FLOAT:
+        instruction = new DexIntToFloat(dest, src);
+        break;
+      case INT_TO_DOUBLE:
+        instruction = new DexIntToDouble(dest, src);
+        break;
+      case LONG_TO_INT:
+        instruction = new DexLongToInt(dest, src);
+        break;
+      case LONG_TO_FLOAT:
+        instruction = new DexLongToFloat(dest, src);
+        break;
+      case LONG_TO_DOUBLE:
+        instruction = new DexLongToDouble(dest, src);
+        break;
+      case FLOAT_TO_INT:
+        instruction = new DexFloatToInt(dest, src);
+        break;
+      case FLOAT_TO_LONG:
+        instruction = new DexFloatToLong(dest, src);
+        break;
+      case FLOAT_TO_DOUBLE:
+        instruction = new DexFloatToDouble(dest, src);
+        break;
+      case DOUBLE_TO_INT:
+        instruction = new DexDoubleToInt(dest, src);
+        break;
+      case DOUBLE_TO_LONG:
+        instruction = new DexDoubleToLong(dest, src);
+        break;
+      case DOUBLE_TO_FLOAT:
+        instruction = new DexDoubleToFloat(dest, src);
         break;
       default:
-        throw new Unreachable("Unexpected types " + from + ", " + to);
+        throw new Unreachable(type + " is not caught by exhaustive switch");
     }
     builder.add(this, instruction);
   }
@@ -142,7 +115,7 @@ public class NumberConversion extends Unop {
       return false;
     }
     NumberConversion o = other.asNumberConversion();
-    return o.from == from && o.to == to;
+    return o.type == type;
   }
 
   @Override
@@ -157,67 +130,21 @@ public class NumberConversion extends Unop {
 
   @Override
   public TypeElement evaluate(AppView<?> appView) {
-    return PrimitiveTypeElement.fromNumericType(to);
+    return PrimitiveTypeElement.fromNumericType(type.getTo());
   }
 
   @Override
   public void buildCf(CfBuilder builder) {
-    builder.add(new CfNumberConversion(from, to), this);
+    builder.add(new CfNumberConversion(type), this);
   }
 
   @Override
   public void buildLir(LirBuilder<Value, ?> builder) {
-    builder.addNumberConversion(from, to, source());
+    builder.addNumberConversion(type, source());
   }
 
   @Override
   public boolean outTypeKnownToBeBoolean(Set<Phi> seen) {
-    return to == NumericType.BYTE && source().knownToBeBoolean(seen);
-  }
-
-  public boolean isValid() {
-    switch (from) {
-      case INT:
-        switch (to) {
-          case BYTE:
-          case CHAR:
-          case SHORT:
-          case LONG:
-          case FLOAT:
-          case DOUBLE:
-            return true;
-          default:
-            return false;
-        }
-      case LONG:
-        switch (to) {
-          case INT:
-          case FLOAT:
-          case DOUBLE:
-            return true;
-          default:
-            return false;
-        }
-      case FLOAT:
-        switch (to) {
-          case INT:
-          case LONG:
-          case DOUBLE:
-            return true;
-          default:
-            return false;
-        }
-      case DOUBLE:
-        switch (to) {
-          case INT:
-          case LONG:
-          case FLOAT:
-            return true;
-          default:
-            return false;
-        }
-      default:
-        return false;
-    }
+    return type.getTo() == NumericType.BYTE && source().knownToBeBoolean(seen);
   }
 }

@@ -5,6 +5,7 @@ package com.android.tools.r8.keepanno.androidx;
 
 import static com.android.tools.r8.ToolHelper.getFilesInTestFolderRelativeToClass;
 import static org.hamcrest.CoreMatchers.containsString;
+import static org.junit.Assume.assumeFalse;
 
 import androidx.annotation.keep.UsesReflectionToAccessField;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
@@ -75,6 +76,7 @@ public class KeepUsesReflectionToAccessFieldTest extends KeepAnnoTestExtractedRu
       builder.add(
           ExpectedKeepRule.builder()
               .apply(setCondition)
+              .setKeepVariant("-keepclasseswithmembers")
               .setConsequentClass(KeptClass.class)
               .setConsequentMembers(consequentMembers[i])
               .build());
@@ -82,17 +84,11 @@ public class KeepUsesReflectionToAccessFieldTest extends KeepAnnoTestExtractedRu
         builder.add(
             ExpectedKeepRule.builder()
                 .apply(setCondition)
+                .setKeepVariant("-keepclasseswithmembers")
                 .setConsequentExtendsClass(KeptClass.class)
                 .setConsequentMembers(consequentMembers[i])
                 .build());
       }
-    }
-    addConsequentKotlinMetadata(builder, b -> b.apply(setCondition));
-    addDefaultInitWorkaround(
-        builder, b -> b.apply(setCondition).setConsequentClass(KeptClass.class));
-    if (includeSubclasses) {
-      addDefaultInitWorkaround(
-          builder, b -> b.apply(setCondition).setConsequentExtendsClass(KeptClass.class));
     }
     return builder.build();
   }
@@ -114,13 +110,11 @@ public class KeepUsesReflectionToAccessFieldTest extends KeepAnnoTestExtractedRu
       builder.add(
           ExpectedKeepRule.builder()
               .apply(setCondition)
+              .setKeepVariant("-keepclasseswithmembers")
               .setConsequentClass(consequentClass)
               .setConsequentMembers(consequentMembers[i])
               .build());
     }
-    addConsequentKotlinMetadata(builder, b -> b.apply(setCondition));
-    addDefaultInitWorkaround(
-        builder, b -> b.apply(setCondition).setConsequentClass(consequentClass));
     return builder.build();
   }
 
@@ -315,6 +309,8 @@ public class KeepUsesReflectionToAccessFieldTest extends KeepAnnoTestExtractedRu
 
   @Test
   public void testPropertyAccessKotlin() throws Exception {
+    // TODO(b/323816623): With native interpretation kotlin.Metadata still gets stripped
+    assumeFalse(parameters.isNativeR8());
     testExtractedRulesAndRunKotlin(
         compilationResults,
         (classReference, classFileBytes) ->

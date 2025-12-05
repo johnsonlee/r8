@@ -149,6 +149,12 @@ def RunGradleBuild(options, timing):
         '-Pno_internal',
     ])
     timing.end()
+    timing.begin("Build process keep rules")
+    gradle.RunGradle([
+        utils.GRADLE_TASK_PROCESS_KEEP_RULES_LIB_JAR,
+        '-Pno_internal',
+    ])
+    timing.end()
     timing.begin("Build R8")
     gradle.RunGradle([
         utils.GRADLE_TASK_R8,
@@ -322,15 +328,23 @@ def Run(options):
 
         # Upload files.
         timing.begin("Upload files")
-        for_archiving = [
-            utils.R8_JAR, utils.R8LIB_JAR, utils.R8LIB_JAR + '.map',
-            utils.R8LIB_JAR + '_map.zip', utils.R8_FULL_EXCLUDE_DEPS_JAR,
-            utils.R8LIB_EXCLUDE_DEPS_JAR, utils.R8LIB_EXCLUDE_DEPS_JAR + '.map',
-            utils.R8LIB_EXCLUDE_DEPS_JAR + '_map.zip', utils.MAVEN_ZIP_LIB,
+        lib_jars = [
+            utils.KEEPANNOTOOLSLIB_JAR,
+            utils.PROCESS_KEEP_RULES_LIB_JAR,
+            utils.R8LIB_JAR,
+            utils.R8LIB_EXCLUDE_DEPS_JAR,
+        ]
+        for_archiving = []
+        for lib_jar in lib_jars:
+            for_archiving.append(lib_jar)
+            for_archiving.append(lib_jar + '.map')
+            for_archiving.append(lib_jar + '_map.zip')
+        for_archiving.extend([
+            utils.R8_JAR, utils.R8_FULL_EXCLUDE_DEPS_JAR,
+            utils.MAVEN_ZIP_LIB,
             utils.THREADING_MODULE_BLOCKING_JAR,
             utils.THREADING_MODULE_SINGLE_THREADED_JAR,
-            utils.KEEPANNOTOOLS_JAR, utils.KEEPANNOTOOLSLIB_JAR,
-            utils.KEEPANNOTOOLSLIB_JAR + '.map', utils.KEEPANNOTOOLSLIB_JAR + '_map.zip',
+            utils.KEEPANNOTOOLS_JAR,
             utils.DESUGAR_CONFIGURATION, utils.DESUGAR_CONFIGURATION_MAVEN_ZIP,
             utils.DESUGAR_CONFIGURATION_JDK11_LEGACY,
             utils.DESUGAR_CONFIGURATION_JDK11_LEGACY_MAVEN_ZIP,
@@ -342,7 +356,7 @@ def Run(options):
             utils.KEEPANNO_ANDROIDX_ANNOTATIONS_JAR,
             utils.GENERATED_LICENSE,
             'd8_r8/main/build/spdx/r8.spdx.json'
-        ]
+        ])
         for file in for_archiving:
             file_name = os.path.basename(file)
             tagged_jar = os.path.join(temp, file_name)

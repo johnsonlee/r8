@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.shaking;
 
+import com.android.tools.r8.utils.InternalOptions.PackageObfuscationMode;
+
 /** Globally controlled settings that affect the default values for kept items. */
 public interface GlobalKeepInfoConfiguration {
 
@@ -18,7 +20,7 @@ public interface GlobalKeepInfoConfiguration {
 
   boolean isMethodStaticizingEnabled();
 
-  boolean isRepackagingEnabled();
+  PackageObfuscationMode getPackageObfuscationMode();
 
   boolean isForceProguardCompatibilityEnabled();
 

@@ -19,24 +19,12 @@ public class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepClassInfo
   private static final KeepClassInfo TOP =
       new Builder()
           .makeTop()
-          .disallowClassInlining()
-          .disallowHorizontalClassMerging()
-          .disallowPermittedSubclassesRemoval()
-          .disallowRepackaging()
-          .disallowUnusedInterfaceRemoval()
-          .disallowVerticalClassMerging()
           .build();
 
   // Requires no aspects of a class to be kept.
   private static final KeepClassInfo BOTTOM =
       new Builder()
           .makeBottom()
-          .allowClassInlining()
-          .allowHorizontalClassMerging()
-          .allowPermittedSubclassesRemoval()
-          .allowRepackaging()
-          .allowUnusedInterfaceRemoval()
-          .allowVerticalClassMerging()
           .build();
 
   public static KeepClassInfo top() {
@@ -154,7 +142,7 @@ public class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepClassInfo
    * value on a given item.
    */
   public boolean isRepackagingAllowed(GlobalKeepInfoConfiguration configuration) {
-    return configuration.isRepackagingEnabled() && internalIsRepackagingAllowed();
+    return configuration.getPackageObfuscationMode().isSome() && internalIsRepackagingAllowed();
   }
 
   boolean internalIsRepackagingAllowed() {
@@ -237,10 +225,10 @@ public class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepClassInfo
   }
 
   public static KeepClassInfo parse(Iterator<String> iterator) {
-    Builder builder = new Builder();
+    Builder builder = new Builder().makeBottom();
     while (iterator.hasNext()) {
       String next = iterator.next();
-      if (next.equals("")) {
+      if (next.isEmpty()) {
         return new KeepClassInfo(builder);
       }
       List<String> split = Splitter.on(": ").splitToList(next);
@@ -288,16 +276,34 @@ public class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepClassInfo
 
   @Override
   public List<String> lines() {
-    List<String> lines = super.lines();
-    lines.add("adaptClassStrings: " + adaptClassStrings);
-    lines.add("allowClassInlining: " + allowClassInlining);
-    lines.add("allowHorizontalClassMerging: " + allowHorizontalClassMerging);
-    lines.add("allowPermittedSubclassesRemoval: " + allowPermittedSubclassesRemoval);
-    lines.add("allowRepackaging: " + allowRepackaging);
-    lines.add("allowSyntheticSharing: " + allowSyntheticSharing);
-    lines.add("allowUnusedInterfaceRemoval: " + allowUnusedInterfaceRemoval);
-    lines.add("allowVerticalClassMerging: " + allowVerticalClassMerging);
-    lines.add("checkEnumUnboxed: " + checkEnumUnboxed);
+    List<String> lines = linesDifferentFromBase(bottom());
+    if (bottom().adaptClassStrings != adaptClassStrings) {
+      lines.add("adaptClassStrings: " + adaptClassStrings);
+    }
+    if (bottom().allowClassInlining != allowClassInlining) {
+      lines.add("allowClassInlining: " + allowClassInlining);
+    }
+    if (bottom().allowHorizontalClassMerging != allowHorizontalClassMerging) {
+      lines.add("allowHorizontalClassMerging: " + allowHorizontalClassMerging);
+    }
+    if (bottom().allowPermittedSubclassesRemoval != allowPermittedSubclassesRemoval) {
+      lines.add("allowPermittedSubclassesRemoval: " + allowPermittedSubclassesRemoval);
+    }
+    if (bottom().allowRepackaging != allowRepackaging) {
+      lines.add("allowRepackaging: " + allowRepackaging);
+    }
+    if (bottom().allowSyntheticSharing != allowSyntheticSharing) {
+      lines.add("allowSyntheticSharing: " + allowSyntheticSharing);
+    }
+    if (bottom().allowUnusedInterfaceRemoval != allowUnusedInterfaceRemoval) {
+      lines.add("allowUnusedInterfaceRemoval: " + allowUnusedInterfaceRemoval);
+    }
+    if (bottom().allowVerticalClassMerging != allowVerticalClassMerging) {
+      lines.add("allowVerticalClassMerging: " + allowVerticalClassMerging);
+    }
+    if (bottom().checkEnumUnboxed != checkEnumUnboxed) {
+      lines.add("checkEnumUnboxed: " + checkEnumUnboxed);
+    }
     return lines;
   }
 

@@ -63,6 +63,7 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.code.IfType;
 import com.android.tools.r8.ir.code.MemberType;
 import com.android.tools.r8.ir.code.MonitorType;
+import com.android.tools.r8.ir.code.NumberConversionType;
 import com.android.tools.r8.ir.code.NumericType;
 import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.utils.StringUtils;
@@ -255,6 +256,14 @@ public class CfCodePrinter extends CfPrinter {
     return irType("NumericType") + "." + type.name();
   }
 
+  private String numberConversionType(NumberConversionType type) {
+    return irType("NumberConversionType")
+        + "."
+        + type.getFrom().name()
+        + "_TO_"
+        + type.getTo().name();
+  }
+
   private String memberType(MemberType type) {
     return irType("MemberType") + "." + type.name();
   }
@@ -443,10 +452,7 @@ public class CfCodePrinter extends CfPrinter {
 
   @Override
   public void print(CfNumberConversion numberConversion) {
-    printNewInstruction(
-        "CfNumberConversion",
-        numericType(numberConversion.getFromType()),
-        numericType(numberConversion.getToType()));
+    printNewInstruction("CfNumberConversion", numberConversionType(numberConversion.getType()));
   }
 
   @Override

@@ -60,7 +60,7 @@ import java.util.concurrent.ExecutorService;
 public class Repackaging {
 
   private final AppView<AppInfoWithLiveness> appView;
-  private final ProguardConfiguration proguardConfiguration;
+  private final PackageObfuscationMode packageObfuscationMode;
   private final RepackagingConfiguration repackagingConfiguration;
 
   private final CrossPackageRepackagingConstraints crossPackageRepackagingConstraints =
@@ -68,7 +68,7 @@ public class Repackaging {
 
   public Repackaging(AppView<AppInfoWithLiveness> appView) {
     this.appView = appView;
-    this.proguardConfiguration = appView.options().getProguardConfiguration();
+    this.packageObfuscationMode = appView.options().getPackageObfuscationMode();
     this.repackagingConfiguration =
         appView.options().testing.repackagingConfigurationFactory.apply(appView);
   }
@@ -132,7 +132,7 @@ public class Repackaging {
   private RepackagingLens repackageClasses(
       DirectMappedDexApplication.Builder appBuilder, ExecutorService executorService)
       throws ExecutionException {
-    if (proguardConfiguration.getPackageObfuscationMode().isNone()) {
+    if (packageObfuscationMode.isNone()) {
       return null;
     }
     BiMap<DexType, DexType> mappings = HashBiMap.create();
@@ -317,6 +317,7 @@ public class Repackaging {
     RepackagingConstraintGraph constraintGraph =
         new RepackagingConstraintGraph(
             appView,
+            packageObfuscationMode,
             pkg,
             packages,
             packagesWithClassesToRepackage,
@@ -345,6 +346,7 @@ public class Repackaging {
     private final AppView<AppInfoWithLiveness> appView;
     private final DexItemFactory dexItemFactory;
     private final InternalOptions options;
+    private final PackageObfuscationMode packageObfuscationMode;
     private final ProguardConfiguration proguardConfiguration;
     private final MinificationPackageNamingStrategy packageMinificationStrategy;
 
@@ -352,7 +354,8 @@ public class Repackaging {
       this.appView = appView;
       this.dexItemFactory = appView.dexItemFactory();
       this.options = appView.options();
-      this.proguardConfiguration = appView.options().getProguardConfiguration();
+      this.packageObfuscationMode = options.getPackageObfuscationMode();
+      this.proguardConfiguration = options.getProguardConfiguration();
       this.packageMinificationStrategy = new MinificationPackageNamingStrategy(appView);
     }
 
@@ -360,8 +363,6 @@ public class Repackaging {
     public String getNewPackageDescriptor(ProgramPackage pkg, Set<String> seenPackageDescriptors) {
       String newPackageDescriptor =
           DescriptorUtils.getBinaryNameFromJavaType(proguardConfiguration.getPackagePrefix());
-      PackageObfuscationMode packageObfuscationMode =
-          proguardConfiguration.getPackageObfuscationMode();
       if (!appView.options().isMinifying()) {
         // Preserve full package name under destination package when not minifying
         // (no matter which package obfuscation mode is used).
@@ -394,8 +395,6 @@ public class Repackaging {
     public boolean isPackageInTargetLocation(ProgramPackage pkg) {
       String newPackageDescriptor =
           DescriptorUtils.getBinaryNameFromJavaType(proguardConfiguration.getPackagePrefix());
-      PackageObfuscationMode packageObfuscationMode =
-          proguardConfiguration.getPackageObfuscationMode();
       if (packageObfuscationMode.isRepackageClasses()) {
         return pkg.getPackageDescriptor().equals(newPackageDescriptor);
       } else if (packageObfuscationMode.isMinification()) {

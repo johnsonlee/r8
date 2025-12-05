@@ -61,6 +61,7 @@ public class ProguardConfiguration {
     private boolean optimizing = true;
     private boolean obfuscating = true;
     private boolean shrinking = true;
+    private boolean printBlastRadius;
     private boolean printConfiguration;
     private Path printConfigurationFile;
     private boolean printUsage;
@@ -225,6 +226,12 @@ public class ProguardConfiguration {
     public Builder disableShrinking() {
       shrinking = false;
       return this;
+    }
+
+    @Override
+    public void enablePrintBlastRadius(
+        ProguardConfigurationSourceParser parser, Position position, TextPosition positionStart) {
+      this.printBlastRadius = true;
     }
 
     @Override
@@ -510,6 +517,7 @@ public class ProguardConfiguration {
               optimizing,
               obfuscating,
               shrinking,
+              printBlastRadius,
               printConfiguration,
               printConfigurationFile,
               printUsage,
@@ -543,11 +551,6 @@ public class ProguardConfiguration {
     }
 
     public ProguardConfiguration build() {
-
-      if (packageObfuscationMode == PackageObfuscationMode.NONE && obfuscating) {
-        packageObfuscationMode = PackageObfuscationMode.MINIFICATION;
-      }
-
       return buildRaw();
     }
   }
@@ -563,6 +566,7 @@ public class ProguardConfiguration {
   private final boolean optimizing;
   private final boolean obfuscating;
   private final boolean shrinking;
+  private final boolean printBlastRadius;
   private final boolean printConfiguration;
   private final Path printConfigurationFile;
   private final boolean printUsage;
@@ -604,6 +608,7 @@ public class ProguardConfiguration {
       boolean optimizing,
       boolean obfuscating,
       boolean shrinking,
+      boolean printBlastRadius,
       boolean printConfiguration,
       Path printConfigurationFile,
       boolean printUsage,
@@ -641,6 +646,7 @@ public class ProguardConfiguration {
     this.optimizing = optimizing;
     this.obfuscating = obfuscating;
     this.shrinking = shrinking;
+    this.printBlastRadius = printBlastRadius;
     this.printConfiguration = printConfiguration;
     this.printConfigurationFile = printConfigurationFile;
     this.printUsage = printUsage;
@@ -739,6 +745,10 @@ public class ProguardConfiguration {
 
   public boolean isShrinking() {
     return shrinking;
+  }
+
+  public boolean isPrintBlastRadius() {
+    return printBlastRadius;
   }
 
   public boolean isPrintConfiguration() {

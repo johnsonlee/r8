@@ -100,6 +100,14 @@ public abstract class ReflectiveEvent {
     return null;
   }
 
+  public boolean isClassForName() {
+    return false;
+  }
+
+  public ClassForName asClassForName() {
+    return null;
+  }
+
   public abstract String getContentsString();
 
   public abstract boolean isKeptBy(KeepInfoCollectionExported keepInfoCollectionExported);
@@ -131,7 +139,7 @@ public abstract class ReflectiveEvent {
       case CLASS_GET_NAME:
         return new ClassGetName(eventType, stack, args, factory);
       case CLASS_FOR_NAME:
-        break;
+        return new ClassForName(eventType, stack, args);
       case CLASS_GET_COMPONENT_TYPE:
         break;
       case CLASS_GET_PACKAGE:

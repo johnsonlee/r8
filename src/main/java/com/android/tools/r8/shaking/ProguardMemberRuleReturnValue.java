@@ -174,25 +174,29 @@ public class ProguardMemberRuleReturnValue {
 
   @Override
   public String toString() {
-    StringBuilder result = new StringBuilder();
-    result.append(" return ");
+    return " return " + getValueString();
+  }
+
+  public String getValueString() {
     if (isBoolean()) {
-      result.append(booleanValue);
+      return Boolean.toString(booleanValue);
     } else if (isField()) {
+      StringBuilder result = new StringBuilder();
       if (nullability.isDefinitelyNotNull()) {
-        result.append("_NONNULL_ ");
+        result.append("@NonNull ");
       }
       result.append(fieldHolder.getTypeName()).append('.').append(fieldName);
+      return result.toString();
     } else if (isNullability()) {
-      result.append(nullability.isDefinitelyNull() ? "null" : "_NONNULL_");
+      return nullability.isDefinitelyNull() ? "null" : "@NonNull";
     } else {
       assert isValueRange();
-      result.append(longInterval.getMin());
-      if (!longInterval.isSingleValue()) {
-        result.append("..");
-        result.append(longInterval.getMax());
+      if (longInterval.isSingleValue()) {
+        return Long.toString(longInterval.getMin());
+      } else {
+        return longInterval.getMin() + ".." + longInterval.getMax();
       }
     }
-    return result.toString();
+
   }
 }

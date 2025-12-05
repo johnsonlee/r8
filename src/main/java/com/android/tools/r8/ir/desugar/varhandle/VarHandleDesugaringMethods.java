@@ -48,6 +48,7 @@ import com.android.tools.r8.graph.FieldAccessFlags;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.ir.code.IfType;
 import com.android.tools.r8.ir.code.MemberType;
+import com.android.tools.r8.ir.code.NumberConversionType;
 import com.android.tools.r8.ir.code.NumericType;
 import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.synthesis.SyntheticProgramClassBuilder;
@@ -1453,7 +1454,7 @@ public final class VarHandleDesugaringMethods {
                     factory.createProto(factory.intType, factory.classType),
                     factory.createString("arrayBaseOffset")),
                 false),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfInstanceFieldWrite(
                 factory.createField(
                     factory.createType("Ljava/lang/invoke/VarHandle;"),
@@ -1479,7 +1480,7 @@ public final class VarHandleDesugaringMethods {
                     factory.createProto(factory.intType, factory.classType),
                     factory.createString("arrayIndexScale")),
                 false),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfInstanceFieldWrite(
                 factory.createField(
                     factory.createType("Ljava/lang/invoke/VarHandle;"),
@@ -1738,7 +1739,7 @@ public final class VarHandleDesugaringMethods {
             new CfIfCmp(IfType.NE, ValueType.OBJECT, label2),
             label1,
             new CfLoad(ValueType.INT, 1),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfInvoke(
                 184,
                 factory.createMethod(
@@ -1762,7 +1763,7 @@ public final class VarHandleDesugaringMethods {
             new CfIfCmp(IfType.NE, ValueType.OBJECT, label4),
             label3,
             new CfLoad(ValueType.INT, 1),
-            new CfNumberConversion(NumericType.INT, NumericType.FLOAT),
+            new CfNumberConversion(NumberConversionType.INT_TO_FLOAT),
             new CfInvoke(
                 184,
                 factory.createMethod(
@@ -1786,7 +1787,7 @@ public final class VarHandleDesugaringMethods {
             new CfIfCmp(IfType.NE, ValueType.OBJECT, label6),
             label5,
             new CfLoad(ValueType.INT, 1),
-            new CfNumberConversion(NumericType.INT, NumericType.DOUBLE),
+            new CfNumberConversion(NumberConversionType.INT_TO_DOUBLE),
             new CfInvoke(
                 184,
                 factory.createMethod(
@@ -1839,7 +1840,7 @@ public final class VarHandleDesugaringMethods {
             new CfIfCmp(IfType.NE, ValueType.OBJECT, label2),
             label1,
             new CfLoad(ValueType.LONG, 1),
-            new CfNumberConversion(NumericType.LONG, NumericType.FLOAT),
+            new CfNumberConversion(NumberConversionType.LONG_TO_FLOAT),
             new CfInvoke(
                 184,
                 factory.createMethod(
@@ -1864,7 +1865,7 @@ public final class VarHandleDesugaringMethods {
             new CfIfCmp(IfType.NE, ValueType.OBJECT, label4),
             label3,
             new CfLoad(ValueType.LONG, 1),
-            new CfNumberConversion(NumericType.LONG, NumericType.DOUBLE),
+            new CfNumberConversion(NumberConversionType.LONG_TO_DOUBLE),
             new CfInvoke(
                 184,
                 factory.createMethod(
@@ -2183,7 +2184,7 @@ public final class VarHandleDesugaringMethods {
                     factory.longType,
                     factory.createString("offset"))),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfLoad(ValueType.OBJECT, 0),
             new CfInstanceFieldRead(
                 factory.createField(
@@ -2404,7 +2405,7 @@ public final class VarHandleDesugaringMethods {
                     factory.longType,
                     factory.createString("offset"))),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfLoad(ValueType.OBJECT, 0),
             new CfInstanceFieldRead(
                 factory.createField(
@@ -2495,7 +2496,7 @@ public final class VarHandleDesugaringMethods {
                     factory.longType,
                     factory.createString("offset"))),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfLoad(ValueType.OBJECT, 0),
             new CfInstanceFieldRead(
                 factory.createField(
@@ -2623,9 +2624,9 @@ public final class VarHandleDesugaringMethods {
                     factory.longType,
                     factory.createString("offset"))),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfLoad(ValueType.INT, 3),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfInvoke(
                 182,
                 factory.createMethod(
@@ -3029,7 +3030,7 @@ public final class VarHandleDesugaringMethods {
                     factory.longType,
                     factory.createString("offset"))),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfLoad(ValueType.OBJECT, 0),
             new CfInstanceFieldRead(
                 factory.createField(
@@ -3114,7 +3115,7 @@ public final class VarHandleDesugaringMethods {
                     factory.createProto(factory.longType, factory.objectType, factory.longType),
                     factory.createString("getLong")),
                 false),
-            new CfNumberConversion(NumericType.LONG, NumericType.INT),
+            new CfNumberConversion(NumberConversionType.LONG_TO_INT),
             new CfInvoke(
                 184,
                 factory.createMethod(
@@ -3244,7 +3245,7 @@ public final class VarHandleDesugaringMethods {
                     factory.longType,
                     factory.createString("offset"))),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfLoad(ValueType.OBJECT, 0),
             new CfInstanceFieldRead(
                 factory.createField(
@@ -3506,7 +3507,7 @@ public final class VarHandleDesugaringMethods {
                     factory.longType,
                     factory.createString("offset"))),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfLoad(ValueType.OBJECT, 0),
             new CfInstanceFieldRead(
                 factory.createField(
@@ -3585,7 +3586,7 @@ public final class VarHandleDesugaringMethods {
                     factory.longType,
                     factory.createString("offset"))),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfLoad(ValueType.OBJECT, 0),
             new CfInstanceFieldRead(
                 factory.createField(
@@ -3965,7 +3966,7 @@ public final class VarHandleDesugaringMethods {
                     factory.createProto(factory.intType, factory.objectType, factory.longType),
                     factory.createString("getInt")),
                 false),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfReturn(ValueType.LONG),
             label4,
             new CfFrame(
@@ -4451,7 +4452,7 @@ public final class VarHandleDesugaringMethods {
                     factory.longType,
                     factory.createString("offset"))),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfLoad(ValueType.OBJECT, 0),
             new CfInstanceFieldRead(
                 factory.createField(
@@ -4536,7 +4537,7 @@ public final class VarHandleDesugaringMethods {
                     factory.createProto(factory.longType, factory.objectType, factory.longType),
                     factory.createString("getLongVolatile")),
                 false),
-            new CfNumberConversion(NumericType.LONG, NumericType.INT),
+            new CfNumberConversion(NumberConversionType.LONG_TO_INT),
             new CfInvoke(
                 184,
                 factory.createMethod(
@@ -4667,7 +4668,7 @@ public final class VarHandleDesugaringMethods {
                     factory.longType,
                     factory.createString("offset"))),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfLoad(ValueType.OBJECT, 0),
             new CfInstanceFieldRead(
                 factory.createField(
@@ -4930,7 +4931,7 @@ public final class VarHandleDesugaringMethods {
                     factory.longType,
                     factory.createString("offset"))),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfLoad(ValueType.OBJECT, 0),
             new CfInstanceFieldRead(
                 factory.createField(
@@ -5010,7 +5011,7 @@ public final class VarHandleDesugaringMethods {
                     factory.longType,
                     factory.createString("offset"))),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfLoad(ValueType.OBJECT, 0),
             new CfInstanceFieldRead(
                 factory.createField(
@@ -5390,7 +5391,7 @@ public final class VarHandleDesugaringMethods {
                     factory.createProto(factory.intType, factory.objectType, factory.longType),
                     factory.createString("getIntVolatile")),
                 false),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfReturn(ValueType.LONG),
             label4,
             new CfFrame(
@@ -5684,7 +5685,7 @@ public final class VarHandleDesugaringMethods {
                     factory.longType,
                     factory.createString("offset"))),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfLoad(ValueType.OBJECT, 0),
             new CfInstanceFieldRead(
                 factory.createField(
@@ -5876,7 +5877,7 @@ public final class VarHandleDesugaringMethods {
                     factory.longType,
                     factory.createString("offset"))),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfLoad(ValueType.OBJECT, 0),
             new CfInstanceFieldRead(
                 factory.createField(
@@ -5961,7 +5962,7 @@ public final class VarHandleDesugaringMethods {
                     factory.longType,
                     factory.createString("offset"))),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfLoad(ValueType.OBJECT, 0),
             new CfInstanceFieldRead(
                 factory.createField(
@@ -6080,7 +6081,7 @@ public final class VarHandleDesugaringMethods {
                     factory.longType,
                     factory.createString("offset"))),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfInvoke(
                 182,
                 factory.createMethod(
@@ -6493,7 +6494,7 @@ public final class VarHandleDesugaringMethods {
                     factory.longType,
                     factory.createString("offset"))),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfLoad(ValueType.OBJECT, 0),
             new CfInstanceFieldRead(
                 factory.createField(
@@ -6686,7 +6687,7 @@ public final class VarHandleDesugaringMethods {
                     factory.longType,
                     factory.createString("offset"))),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfLoad(ValueType.OBJECT, 0),
             new CfInstanceFieldRead(
                 factory.createField(
@@ -6772,7 +6773,7 @@ public final class VarHandleDesugaringMethods {
                     factory.longType,
                     factory.createString("offset"))),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfLoad(ValueType.OBJECT, 0),
             new CfInstanceFieldRead(
                 factory.createField(
@@ -6891,7 +6892,7 @@ public final class VarHandleDesugaringMethods {
                     factory.longType,
                     factory.createString("offset"))),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfInvoke(
                 182,
                 factory.createMethod(
@@ -7304,7 +7305,7 @@ public final class VarHandleDesugaringMethods {
                     factory.longType,
                     factory.createString("offset"))),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfLoad(ValueType.OBJECT, 0),
             new CfInstanceFieldRead(
                 factory.createField(
@@ -7497,7 +7498,7 @@ public final class VarHandleDesugaringMethods {
                     factory.longType,
                     factory.createString("offset"))),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfLoad(ValueType.OBJECT, 0),
             new CfInstanceFieldRead(
                 factory.createField(
@@ -7583,7 +7584,7 @@ public final class VarHandleDesugaringMethods {
                     factory.longType,
                     factory.createString("offset"))),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfLoad(ValueType.OBJECT, 0),
             new CfInstanceFieldRead(
                 factory.createField(
@@ -7702,7 +7703,7 @@ public final class VarHandleDesugaringMethods {
                     factory.longType,
                     factory.createString("offset"))),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfInvoke(
                 182,
                 factory.createMethod(
@@ -8090,7 +8091,7 @@ public final class VarHandleDesugaringMethods {
                     factory.createProto(factory.intType, factory.objectType, factory.booleanType),
                     factory.createString("toIntIfPossible")),
                 false),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfReturn(ValueType.LONG),
             label3),
         ImmutableList.of(),
@@ -8382,7 +8383,7 @@ public final class VarHandleDesugaringMethods {
                     factory.longType,
                     factory.createString("offset"))),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfLoad(ValueType.OBJECT, 0),
             new CfInstanceFieldRead(
                 factory.createField(
@@ -8603,7 +8604,7 @@ public final class VarHandleDesugaringMethods {
                     factory.longType,
                     factory.createString("offset"))),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfLoad(ValueType.OBJECT, 0),
             new CfInstanceFieldRead(
                 factory.createField(
@@ -8694,7 +8695,7 @@ public final class VarHandleDesugaringMethods {
                     factory.longType,
                     factory.createString("offset"))),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfLoad(ValueType.OBJECT, 0),
             new CfInstanceFieldRead(
                 factory.createField(
@@ -8823,9 +8824,9 @@ public final class VarHandleDesugaringMethods {
                     factory.longType,
                     factory.createString("offset"))),
             new CfLoad(ValueType.INT, 2),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfLoad(ValueType.INT, 3),
-            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfNumberConversion(NumberConversionType.INT_TO_LONG),
             new CfInvoke(
                 182,
                 factory.createMethod(
