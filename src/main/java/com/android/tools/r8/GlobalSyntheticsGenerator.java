@@ -194,24 +194,26 @@ public class GlobalSyntheticsGenerator {
     VarHandleDesugaring.ensureMethodHandlesLookupClass(
         appView, varHandleEventConsumer, synthesizingContext);
 
-    // Add global synthetic class for annotating lambda classes.
-    LambdaDesugaringEventConsumer emptyLambdaDesugaringEventConsumer =
-        new LambdaDesugaringEventConsumer() {
-          @Override
-          public void acceptLambdaClass(LambdaClass lambdaClass, ProgramMethod context) {
-            assert false;
-          }
+    if (!appView.options().disableLambdaMethodAnnotations) {
+      // Add global synthetic class for annotating lambda classes.
+      LambdaDesugaringEventConsumer emptyLambdaDesugaringEventConsumer =
+          new LambdaDesugaringEventConsumer() {
+            @Override
+            public void acceptLambdaClass(LambdaClass lambdaClass, ProgramMethod context) {
+              assert false;
+            }
 
-          @Override
-          public void acceptLambdaMethodAnnotationDesugaringClass(DexProgramClass clazz) {}
+            @Override
+            public void acceptLambdaMethodAnnotationDesugaringClass(DexProgramClass clazz) {}
 
-          @Override
-          public void acceptLambdaMethodAnnotationDesugaringClassContext(
-              DexProgramClass clazz, ProgramDefinition context) {}
-        };
+            @Override
+            public void acceptLambdaMethodAnnotationDesugaringClassContext(
+                DexProgramClass clazz, ProgramDefinition context) {}
+          };
 
-    LambdaClass.ensureLambdaMethodAnnotationClass(
-        appView, emptyLambdaDesugaringEventConsumer, synthesizingContext);
+      LambdaClass.ensureLambdaMethodAnnotationClass(
+          appView, emptyLambdaDesugaringEventConsumer, synthesizingContext);
+    }
 
     // Commit all the synthetics to the program and then convert as per D8.
     // We must run proper D8 conversion as the global synthetics may give rise to additional
