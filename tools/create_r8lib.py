@@ -104,8 +104,8 @@ def exclude_api_database(r8jar):
             zip_utils.remove_files_from_zip(
                 [os.path.join('resources', 'new_api_database.ser')], r8jar)
         except Exception:
-            # The removal of entries from ZIP files use the zip executable,
-            # which is not installed on our Windows bots.
+            # TODO(b/466252770): The removal of entries from ZIP files use
+            # the zip executable, which is not installed on our Windows bots.
             pass
     else:
         zip_utils.remove_files_from_zip(
