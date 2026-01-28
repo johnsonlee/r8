@@ -163,7 +163,7 @@ public class Retrace<T, ST extends StackTraceElementProxy<T, ST>> extends Retrac
     }
   }
 
-  private static ProguardMappingSupplier getMappingSupplier(
+  public static ProguardMappingSupplier getMappingSupplier(
       String mappingPath, DiagnosticsHandler diagnosticsHandler) {
     Path path = Paths.get(mappingPath);
     if (!Files.exists(path)) {
@@ -180,7 +180,7 @@ public class Retrace<T, ST extends StackTraceElementProxy<T, ST>> extends Retrac
         .build();
   }
 
-  private static List<String> getStackTraceFromFile(
+  public static List<String> getStackTraceFromFile(
       String stackTracePath, DiagnosticsHandler diagnostics) {
     try {
       return Files.readAllLines(Paths.get(stackTracePath), Charsets.UTF_8);
